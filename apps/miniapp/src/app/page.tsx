@@ -17,6 +17,8 @@ import type {
   CombatantState,
   HeroAction,
   HeroActionKind,
+  FightingMove,
+  FightingMoveKind,
   StatusEffectState
 } from "@/lib/game-loop";
 import { createBattleState, resolveTurn, updateBattleContext } from "@/lib/game-loop";
@@ -43,7 +45,10 @@ const HERO_TEMPLATE: CombatantState = {
     critDamage: 0.5
   },
   currentHealth: 120,
-  statusEffects: []
+  statusEffects: [],
+  specialMeter: 0,
+  comboCount: 0,
+  isBlocking: false
 };
 
 const ENEMY_TEMPLATE: CombatantState = {
@@ -60,24 +65,40 @@ const ENEMY_TEMPLATE: CombatantState = {
     critDamage: 0.35
   },
   currentHealth: 90,
-  statusEffects: []
+  statusEffects: [],
+  specialMeter: 0,
+  comboCount: 0,
+  isBlocking: false
 };
 
-const ACTIONS: Array<{ readonly kind: HeroActionKind; readonly title: string; readonly hint: string }> = [
+const FIGHTING_ACTIONS: Array<{ readonly kind: FightingMoveKind; readonly title: string; readonly hint: string; readonly icon: string; readonly meterCost: number }> = [
   {
-    kind: "basicAttack",
-    title: "Rapid Strike",
-    hint: "Reliable assault with balanced damage."
+    kind: "lightAttack",
+    title: "Light Attack",
+    hint: "Quick strike with low damage",
+    icon: "👊",
+    meterCost: 0
   },
   {
-    kind: "chargedStrike",
-    title: "Resonant Burst",
-    hint: "Amplified attack with critical potential."
+    kind: "heavyAttack",
+    title: "Heavy Attack",
+    hint: "Powerful strike with high damage",
+    icon: "💥",
+    meterCost: 0
   },
   {
-    kind: "fortify",
-    title: "Phase Guard",
-    hint: "Restore vitality and brace for impact."
+    kind: "specialMove",
+    title: "SPECIAL MOVE",
+    hint: "Ultimate technique (Costs 50 meter)",
+    icon: "⚡",
+    meterCost: 50
+  },
+  {
+    kind: "block",
+    title: "Block",
+    hint: "Reduce damage from next attack",
+    icon: "🛡️",
+    meterCost: 0
   }
 ];
 
@@ -86,7 +107,10 @@ const createCombatantClone = (base: CombatantState): CombatantState => {
     ...base,
     attributes: { ...base.attributes },
     statusEffects: base.statusEffects.map((effect: StatusEffectState) => ({ ...effect })),
-    currentHealth: base.attributes.maxHealth
+    currentHealth: base.attributes.maxHealth,
+    specialMeter: 0,
+    comboCount: 0,
+    isBlocking: false
   };
 };
 
@@ -131,14 +155,20 @@ const StatusBadge = ({ title, subtitle, health, maxHealth, tone }: StatusBadgePr
 
 const ActionBar = ({
   disabled,
+  specialMeter,
   onAction
 }: {
   readonly disabled: boolean;
-  readonly onAction: (action: HeroActionKind) => void;
+  readonly specialMeter: number;
+  readonly onAction: (action: FightingMoveKind) => void;
 }) => {
-  const handleSelect = (actionKind: HeroActionKind) => {
+  const handleSelect = (actionKind: FightingMoveKind, meterCost: number) => {
     if (disabled) {
       return;
+    }
+    // Check if player has enough meter for special move
+    if (actionKind === "specialMove" && specialMeter < meterCost) {
+      return; // Can't use special move
     }
     onAction(actionKind);
   };
@@ -148,35 +178,74 @@ const ActionBar = ({
       return;
     }
     event.preventDefault();
-    const kind = event.currentTarget.dataset.kind as HeroActionKind;
-    handleSelect(kind);
+    const kind = event.currentTarget.dataset.kind as FightingMoveKind;
+    const meterCost = Number(event.currentTarget.dataset.meterCost);
+    handleSelect(kind, meterCost);
   };
 
   return (
     <div className="flex flex-col gap-3">
-      {ACTIONS.map((action) => (
-        <button
-          key={action.kind}
-          data-kind={action.kind}
-          type="button"
-          className={clsx(
-            "w-full rounded-2xl px-4 py-3 text-left",
-            disabled
-              ? "cursor-not-allowed border border-white/10 bg-white/5 text-white/40"
-              : "border border-white/20 bg-white/10 text-white hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          )}
-          aria-label={`${action.title}: ${action.hint}`}
-          onClick={() => {
-            handleSelect(action.kind);
-          }}
-          onKeyDown={handleKeyDown}
-          tabIndex={0}
-          disabled={disabled}
-        >
-          <span className="block text-sm font-semibold">{action.title}</span>
-          <span className="block text-xs opacity-70">{action.hint}</span>
-        </button>
-      ))}
+      {/* Special Meter Display */}
+      <div className="rounded-2xl border border-purple-500/40 bg-purple-500/10 p-4">
+        <p className="mb-2 text-xs uppercase tracking-[0.2em] text-purple-100">Special Meter</p>
+        <div className="h-3 overflow-hidden rounded-full border border-purple-400/30 bg-black/30">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+            style={{ width: `${specialMeter}%` }}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={specialMeter}
+            aria-label="Special meter"
+          />
+        </div>
+        <p className="mt-1 text-right text-xs text-purple-100/70">{specialMeter}/100</p>
+      </div>
+
+      {/* Fighting Actions */}
+      <div className="grid grid-cols-2 gap-3">
+        {FIGHTING_ACTIONS.map((action) => {
+          const canUse = action.kind !== "specialMove" || specialMeter >= action.meterCost;
+          const isDisabled = disabled || !canUse;
+
+          return (
+            <button
+              key={action.kind}
+              data-kind={action.kind}
+              data-meter-cost={action.meterCost}
+              type="button"
+              className={clsx(
+                "rounded-2xl px-4 py-3 text-center transition-all",
+                action.kind === "specialMove"
+                  ? "col-span-2"
+                  : "",
+                isDisabled
+                  ? "cursor-not-allowed border border-white/10 bg-white/5 text-white/40"
+                  : action.kind === "specialMove"
+                  ? "border-2 border-purple-500 bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/50 hover:shadow-purple-500/70"
+                  : action.kind === "block"
+                  ? "border border-blue-500/40 bg-blue-500/20 text-blue-100 hover:bg-blue-500/30"
+                  : action.kind === "heavyAttack"
+                  ? "border border-red-500/40 bg-red-500/20 text-red-100 hover:bg-red-500/30"
+                  : "border border-yellow-500/40 bg-yellow-500/20 text-yellow-100 hover:bg-yellow-500/30"
+              )}
+              aria-label={`${action.title}: ${action.hint}`}
+              onClick={() => {
+                handleSelect(action.kind, action.meterCost);
+              }}
+              onKeyDown={handleKeyDown}
+              tabIndex={0}
+              disabled={isDisabled}
+            >
+              <span className="block text-2xl">{action.icon}</span>
+              <span className={clsx("block font-semibold", action.kind === "specialMove" ? "text-base" : "text-sm")}>
+                {action.title}
+              </span>
+              <span className="block text-xs opacity-70">{action.hint}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -198,7 +267,7 @@ const HomePage = () => {
   const { player, isLoading: isPlayerLoading } = usePlayerProfile();
 
   const handleResolveTurn = useCallback(
-    (actionKind: HeroActionKind) => {
+    (actionKind: FightingMoveKind) => {
       if (isResolving || battleState.outcome !== "inProgress" || !battleContextRef.current) {
         if (battleState.outcome !== "inProgress") {
           setIsRewardVisible(true);
@@ -206,7 +275,7 @@ const HomePage = () => {
         return;
       }
       setIsResolving(true);
-      const result = resolveTurn(battleContextRef.current, { kind: actionKind } satisfies HeroAction);
+      const result = resolveTurn(battleContextRef.current, { kind: actionKind } satisfies FightingMove);
       battleContextRef.current = updateBattleContext(battleContextRef.current, result.state);
       setBattleState(result.state);
       setIsResolving(false);
@@ -305,6 +374,7 @@ const HomePage = () => {
         actionBarSlot={
           <ActionBar
             disabled={isResolving || battleState.outcome !== "inProgress"}
+            specialMeter={battleState.hero.specialMeter}
             onAction={handleResolveTurn}
           />
         }

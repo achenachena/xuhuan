@@ -87,24 +87,73 @@ const CombatantPanel = ({
     }
   );
   const containerAlignment = alignment === "end" ? "items-end text-right" : "items-start text-left";
+
   return (
     <article
       className={clsx(panelClassName, containerAlignment)}
       aria-label={`${combatant.name} status`}
       tabIndex={0}
     >
-      <header>
+      <header className="relative">
         <p className="text-xs uppercase tracking-[0.18em] opacity-70">
           Level {combatant.level}
         </p>
         <h2 className="text-xl font-semibold tracking-tight">{combatant.name}</h2>
+
+        {/* Combo Counter */}
+        {combatant.comboCount > 0 && (
+          <div
+            className={clsx(
+              "mt-2 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider",
+              {
+                "animate-pulse border-yellow-500 bg-yellow-500/20 text-yellow-300": combatant.comboCount >= 3,
+                "border-orange-500 bg-orange-500/20 text-orange-300": combatant.comboCount < 3
+              }
+            )}
+          >
+            <span className="text-base">🔥</span>
+            <span>{combatant.comboCount} COMBO</span>
+          </div>
+        )}
+
+        {/* Blocking Status */}
+        {combatant.isBlocking && (
+          <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-blue-500 bg-blue-500/30 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-200">
+            <span className="text-base">🛡️</span>
+            <span>BLOCKING</span>
+          </div>
+        )}
       </header>
+
       <div className="flex flex-col gap-2 text-xs uppercase tracking-[0.2em] opacity-80">
         <span>ATK {combatant.attributes.attack}</span>
         <span>DEF {combatant.attributes.defense}</span>
         <span>SPD {combatant.attributes.speed}</span>
       </div>
+
       <StatBar label="Health" current={combatant.currentHealth} max={combatant.attributes.maxHealth} tone={tone} />
+
+      {/* Special Meter Mini Display */}
+      {combatant.kind === "hero" && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] opacity-70">
+            <span>Special Meter</span>
+            <span>{combatant.specialMeter}/100</span>
+          </div>
+          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-black/30">
+            <div
+              className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+              style={{ width: `${combatant.specialMeter}%` }}
+              role="progressbar"
+              aria-valuenow={combatant.specialMeter}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Special meter"
+            />
+          </div>
+        </div>
+      )}
+
       {combatant.statusEffects.length > 0 && (
         <ul className="flex flex-wrap justify-end gap-2 text-xs">
           {combatant.statusEffects.map((effect: StatusEffectState) => (
