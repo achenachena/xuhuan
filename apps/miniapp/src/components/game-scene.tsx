@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import clsx from "clsx";
 
-import type { BattleOutcome, CombatantState } from "@/lib/game-loop";
+import type { BattleOutcome, CombatantState, StatusEffectState } from "@/lib/game-loop";
 
 type GameSceneProps = {
   readonly hero: CombatantState;
@@ -107,7 +107,7 @@ const CombatantPanel = ({
       <StatBar label="Health" current={combatant.currentHealth} max={combatant.attributes.maxHealth} tone={tone} />
       {combatant.statusEffects.length > 0 && (
         <ul className="flex flex-wrap justify-end gap-2 text-xs">
-          {combatant.statusEffects.map((effect) => (
+          {combatant.statusEffects.map((effect: StatusEffectState) => (
             <li
               key={effect.id}
               className="rounded-full border border-white/20 px-3 py-1 text-[10px] uppercase tracking-[0.2em]"
