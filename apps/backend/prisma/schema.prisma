@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BattleOutcome {
+  VICTORY
+  DEFEAT
+}
+
+enum RunStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model Player {
+  id          String   @id
+  username    String
+  level       Int      @default(1)
+  experience  Int      @default(0)
+  credits     Int      @default(0)
+  energy      Int      @default(120)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  runs        Run[]
+}
+
+model Encounter {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  level         Int
+  maxHealth     Int
+  attack        Int
+  defense       Int
+  speed         Int
+  critRate      Float    @default(0.1)
+  critDamage    Float    @default(0.5)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  runs          Run[]
+}
+
+model Run {
+  id              String        @id @default(cuid())
+  playerId        String
+  encounterId     String
+  seed            String
+  status          RunStatus     @default(ACTIVE)
+  outcome         BattleOutcome?
+  rewardExperience Int          @default(0)
+  rewardCredits   Int           @default(0)
+  log             Json?
+  createdAt       DateTime      @default(now())
+  completedAt     DateTime?
+  player          Player        @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  encounter       Encounter     @relation(fields: [encounterId], references: [id], onDelete: Restrict)
+
+  @@index([playerId, createdAt])
+  @@index([encounterId, createdAt])
+}
+

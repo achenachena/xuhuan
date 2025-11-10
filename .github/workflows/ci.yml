@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build shared game types
+        run: npm run build --workspace packages/game-types
+
+      - name: Lint frontend
+        run: npm run lint --workspace apps/miniapp
+
+      - name: Typecheck frontend
+        run: npm run typecheck --workspace apps/miniapp
+
+      - name: Build frontend
+        run: npm run build --workspace apps/miniapp
+
+      - name: Lint backend
+        run: npm run lint --workspace apps/backend
+
+      - name: Typecheck backend
+        run: npm run typecheck --workspace apps/backend
+
+      - name: Generate Prisma client
+        run: npm run db:generate --workspace apps/backend
+
+      - name: Build backend
+        run: npm run build --workspace apps/backend
+
