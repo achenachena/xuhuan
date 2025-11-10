@@ -16,7 +16,8 @@ import type {
   BattleState,
   CombatantState,
   HeroAction,
-  HeroActionKind
+  HeroActionKind,
+  StatusEffectState
 } from "@/lib/game-loop";
 import { createBattleState, resolveTurn, updateBattleContext } from "@/lib/game-loop";
 
@@ -84,7 +85,7 @@ const createCombatantClone = (base: CombatantState): CombatantState => {
   return {
     ...base,
     attributes: { ...base.attributes },
-    statusEffects: base.statusEffects.map((effect) => ({ ...effect })),
+    statusEffects: base.statusEffects.map((effect: StatusEffectState) => ({ ...effect })),
     currentHealth: base.attributes.maxHealth
   };
 };
