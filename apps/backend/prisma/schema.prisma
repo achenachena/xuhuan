@@ -30,6 +30,37 @@ model Player {
   runs        Run[]
 }
 
+model Character {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  vtuberArchetype String   // "idol", "gamer", "artist", "chaotic", "seiso", "apex-predator"
+  bio             String
+
+  // Visual assets
+  portraitUrl     String   // Square portrait for selection
+  spriteUrl       String   // Animated GIF/video sprite
+
+  // Base stats (at level 1)
+  baseHealth      Int
+  baseAttack      Int
+  baseDefense     Int
+  baseSpeed       Int
+  baseCritRate    Float    @default(0.1)
+  baseCritDamage  Float    @default(0.5)
+
+  // Special move
+  specialMoveName String
+  specialMoveDesc String
+  specialMoveType String   // "fire", "water", "lightning", "shadow", "star", "sound"
+
+  // Metadata
+  rarity          String   @default("common") // common, rare, epic, legendary
+  colorTheme      String   // Primary color (hex)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 model Encounter {
   id                      String   @id @default(cuid())
   slug                    String   @unique

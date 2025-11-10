@@ -16,6 +16,7 @@ import { env } from "./env.js";
 import { telegramAuthPlugin } from "./plugins/telegram-auth.js";
 import battleRoutes from "./routes/battle.js";
 import playerRoutes from "./routes/player.js";
+import characterRoutes from "./routes/character.js";
 
 const TELEGRAM_ORIGIN_FALLBACKS = Object.freeze([
   "https://web.telegram.org",
@@ -79,6 +80,7 @@ export const buildServer = (): AppServer => {
   });
   app.register(playerRoutes);
   app.register(battleRoutes);
+  app.register(characterRoutes);
 
   app.get(
     "/health",

@@ -87,7 +87,39 @@ export type SeededRandomSnapshot = {
   readonly cursor: number;
 };
 
-// VTuber Character Information
+// Character Model (from database)
+export type Character = {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly vtuberArchetype: string;
+  readonly bio: string;
+  readonly portraitUrl: string;
+  readonly spriteUrl: string;
+  readonly baseHealth: number;
+  readonly baseAttack: number;
+  readonly baseDefense: number;
+  readonly baseSpeed: number;
+  readonly baseCritRate: number;
+  readonly baseCritDamage: number;
+  readonly specialMoveName: string;
+  readonly specialMoveDesc: string;
+  readonly specialMoveType: string;
+  readonly rarity: string;
+  readonly colorTheme: string;
+  readonly createdAt?: string;
+  readonly updatedAt?: string;
+};
+
+// Character with scaled stats for a specific level
+export type CharacterWithStats = Character & {
+  readonly scaledAttributes: CombatantAttributes;
+};
+
+// Game phases
+export type GamePhase = "select" | "battle" | "reward";
+
+// VTuber Character Information (legacy, for backwards compatibility)
 export type VTuberCharacter = {
   readonly id: string;
   readonly vtuberName: string;
