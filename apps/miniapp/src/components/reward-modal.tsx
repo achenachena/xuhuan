@@ -5,7 +5,7 @@ import type { MouseEventHandler } from "react";
 
 import clsx from "clsx";
 
-import type { BattleOutcome, RewardBundle } from "@/lib/game-loop";
+import type { BattleOutcome, RewardBundle, RewardDrop } from "@/lib/game-loop";
 import { summarizeBattleTheme } from "@/lib/game-loop";
 import type { TelegramThemeParams } from "@/lib/telegram-theme";
 
@@ -103,7 +103,7 @@ const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProp
               <p className="mt-3 text-sm opacity-70">No drops acquired this run.</p>
             ) : (
               <ul className="mt-3 flex flex-col gap-2">
-                {dropItems.map((drop) => (
+                {dropItems.map((drop: RewardDrop) => (
                   <li
                     key={drop.id}
                     className={clsx(
