@@ -31,19 +31,23 @@ model Player {
 }
 
 model Encounter {
-  id            String   @id @default(cuid())
-  slug          String   @unique
-  name          String
-  level         Int
-  maxHealth     Int
-  attack        Int
-  defense       Int
-  speed         Int
-  critRate      Float    @default(0.1)
-  critDamage    Float    @default(0.5)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  runs          Run[]
+  id                      String   @id @default(cuid())
+  slug                    String   @unique
+  name                    String
+  level                   Int
+  maxHealth               Int
+  attack                  Int
+  defense                 Int
+  speed                   Int
+  critRate                Float    @default(0.1)
+  critDamage              Float    @default(0.5)
+  vtuberName              String?  // VTuber character name (e.g., "七海")
+  imageUrl                String?  // Character portrait URL
+  specialMoveName         String?  // Name of signature special move
+  specialMoveDescription  String?  // Description of special move
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  runs                    Run[]
 }
 
 model Run {
