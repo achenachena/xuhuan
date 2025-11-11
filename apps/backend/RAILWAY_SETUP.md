@@ -39,7 +39,8 @@ npm run sync:characters
 ```
 
 **Output:**
-```
+
+```text
 🌟 Loading characters from: ./config/character-roster.json
 📋 Found 7 characters to upload
 🎯 Target API: https://your-app.railway.app
@@ -61,6 +62,7 @@ To update character data in production:
 
 1. Update `apps/backend/config/character-roster.json` locally
 2. Run the sync script again:
+
    ```bash
    API_URL="https://your-app.railway.app" ADMIN_TOKEN="your_token" npm run sync:characters
    ```
@@ -68,12 +70,15 @@ To update character data in production:
 ## Troubleshooting
 
 ### "Admin endpoints are not configured"
+
 Make sure `CHARACTER_ADMIN_TOKEN` is set in Railway environment variables.
 
 ### "Unauthorized: Invalid admin token"
+
 Double-check your `ADMIN_TOKEN` matches the `CHARACTER_ADMIN_TOKEN` in Railway.
 
 ### "Failed to fetch characters"
+
 Verify your `API_URL` is correct and the Railway deployment is running.
 
 ## Security Notes
