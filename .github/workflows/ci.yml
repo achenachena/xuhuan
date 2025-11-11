@@ -35,14 +35,14 @@ jobs:
       - name: Build frontend
         run: npm run build --workspace apps/miniapp
 
+      - name: Generate Prisma client
+        run: npm run db:generate --workspace apps/backend
+
       - name: Lint backend
         run: npm run lint --workspace apps/backend
 
       - name: Typecheck backend
         run: npm run typecheck --workspace apps/backend
-
-      - name: Generate Prisma client
-        run: npm run db:generate --workspace apps/backend
 
       - name: Build backend
         run: npm run build --workspace apps/backend
