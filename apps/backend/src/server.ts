@@ -77,7 +77,14 @@ export const buildServer = (): AppServer => {
     credentials: true
   });
   app.register(telegramAuthPlugin, {
-    publicRoutes: ["/health", "/characters", "/characters/:slug", "/characters/:slug/stats"]
+    publicRoutes: [
+      "/health",
+      "/characters",
+      "/characters/:slug",
+      "/characters/:slug/stats",
+      "/admin/characters",
+      "/admin/characters/:slug"
+    ]
   });
   app.register(playerRoutes);
   app.register(battleRoutes);
