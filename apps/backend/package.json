@@ -12,7 +12,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "db:migrate": "prisma migrate deploy"
+    "db:migrate": "prisma migrate deploy",
+    "sync:characters": "tsx scripts/sync-characters-to-api.ts"
   },
   "dependencies": {
     "@fastify/cors": "^8.3.0",
