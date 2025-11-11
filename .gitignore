@@ -46,5 +46,28 @@ Thumbs.db
 .yarn/install-state.gz
 
 # AI Tools
-CLAUDE.md
 .cursorrules
+CLAUDE.md
+
+# Private configuration
+apps/backend/config/character-roster.json
+
+# Character assets (should be uploaded to Vercel Blob, not committed)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+!**/public/**/*.png
+!**/public/**/*.jpg
+!**/public/**/*.jpeg
+!**/public/**/*.gif
+!**/public/**/*.webp
+
+# Old/backup files
+**/*-old.*
+**/*.backup.*
+
+# Scripts output and temporary files
+apps/backend/scripts/*.sql
+apps/backend/scripts/*.log

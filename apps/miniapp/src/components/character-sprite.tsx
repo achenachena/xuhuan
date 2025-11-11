@@ -19,13 +19,19 @@ const CharacterSprite = ({
   scale = 1,
   flip = false
 }: CharacterSpriteProps) => {
-  const [svgDataUrl, setSvgDataUrl] = useState<string>("");
+  const [spriteUrl, setSpriteUrl] = useState<string>("");
+  const [useFallback, setUseFallback] = useState<boolean>(false);
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
 
   useEffect(() => {
-    const svgString = generateCharacterAvatar(character, animationState, 280 * scale);
-    const dataUrl = avatarToDataUrl(svgString);
-    setSvgDataUrl(dataUrl);
+    // Use real sprite/model URL if available, otherwise fallback to generator
+    if (character.spriteUrl && !useFallback) {
+      setSpriteUrl(character.spriteUrl);
+    } else {
+      const svgString = generateCharacterAvatar(character, animationState, 280 * scale);
+      const dataUrl = avatarToDataUrl(svgString);
+      setSpriteUrl(dataUrl);
+    }
 
     // Trigger animation class when state changes
     if (animationState !== "idle") {
@@ -37,7 +43,11 @@ const CharacterSprite = ({
         clearTimeout(timeout);
       };
     }
-  }, [character, animationState, scale]);
+  }, [character, animationState, scale, useFallback]);
+
+  const handleImageError = () => {
+    setUseFallback(true);
+  };
 
   const getAnimationClasses = (): string => {
     if (!isAnimating) {
@@ -70,15 +80,16 @@ const CharacterSprite = ({
         transformOrigin: "center"
       }}
     >
-      {svgDataUrl && (
+      {spriteUrl && (
         <img
-          src={svgDataUrl}
+          src={spriteUrl}
           alt={`${character.name} sprite`}
           className="w-full h-auto"
           style={{
             filter: animationState === "damage" ? "brightness(1.5) saturate(0.5)" : "none",
             imageRendering: "crisp-edges"
           }}
+          onError={handleImageError}
         />
       )}
 

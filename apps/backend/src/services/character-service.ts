@@ -1,4 +1,7 @@
-import type { PrismaClient, Character } from "@prisma/client";
+import type { Character as PrismaCharacter } from "@prisma/client";
+
+import { prisma } from "../lib/prisma.js";
+import { getAssetUrl } from "./asset-service.js";
 
 type CharacterAttributes = {
   readonly maxHealth: number;
@@ -7,6 +10,12 @@ type CharacterAttributes = {
   readonly speed: number;
   readonly critRate: number;
   readonly critDamage: number;
+};
+
+// Character DTO with signed URLs for frontend consumption
+type Character = Omit<PrismaCharacter, "portraitBlobPath" | "modelBlobPath"> & {
+  readonly portraitUrl: string;
+  readonly spriteUrl: string;
 };
 
 type CharacterWithScaledStats = Character & {
@@ -19,23 +28,45 @@ const calculateScaledStat = (baseStat: number, level: number): number => {
   return Math.round(baseStat * scalingFactor);
 };
 
-export const listCharacters = async (prisma: PrismaClient): Promise<readonly Character[]> => {
-  const characters = await prisma.character.findMany({
+/**
+ * Maps a Prisma character to a Character DTO with asset URLs
+ * Note: portraitBlobPath and modelBlobPath should contain full Vercel Blob URLs
+ */
+const mapCharacterToDto = (prismaCharacter: PrismaCharacter): Character => {
+  const portraitUrl = getAssetUrl(prismaCharacter.portraitBlobPath);
+  const spriteUrl = getAssetUrl(prismaCharacter.modelBlobPath);
+
+  const { portraitBlobPath, modelBlobPath, ...rest } = prismaCharacter;
+
+  return {
+    ...rest,
+    portraitUrl,
+    spriteUrl
+  };
+};
+
+export const listCharacters = async (): Promise<readonly Character[]> => {
+  const prismaCharacters = await prisma.character.findMany({
     orderBy: {
       name: "asc"
     }
   });
+  
+  const characters = prismaCharacters.map((char) => mapCharacterToDto(char));
+  
   return characters;
 };
 
-export const getCharacterBySlug = async (
-  prisma: PrismaClient,
-  slug: string
-): Promise<Character | null> => {
-  const character = await prisma.character.findUnique({
+export const getCharacterBySlug = async (slug: string): Promise<Character | null> => {
+  const prismaCharacter = await prisma.character.findUnique({
     where: { slug }
   });
-  return character;
+  
+  if (!prismaCharacter) {
+    return null;
+  }
+  
+  return mapCharacterToDto(prismaCharacter);
 };
 
 export const generateCharacterStats = (character: Character, level: number): CharacterAttributes => {
@@ -50,11 +81,10 @@ export const generateCharacterStats = (character: Character, level: number): Cha
 };
 
 export const getCharacterWithScaledStats = async (
-  prisma: PrismaClient,
   slug: string,
   level: number
 ): Promise<CharacterWithScaledStats | null> => {
-  const character = await getCharacterBySlug(prisma, slug);
+  const character = await getCharacterBySlug(slug);
   if (!character) {
     return null;
   }
@@ -66,3 +96,6 @@ export const getCharacterWithScaledStats = async (
     scaledAttributes
   };
 };
+
+// Export Character type for use in routes
+export type { Character };

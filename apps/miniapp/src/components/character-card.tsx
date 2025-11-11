@@ -15,12 +15,22 @@ const CHARACTER_CARD_HEIGHT = "320px";
 
 const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) => {
   const [portraitUrl, setPortraitUrl] = useState<string>("");
+  const [useFallback, setUseFallback] = useState<boolean>(false);
 
   useEffect(() => {
-    const svgString = generateCharacterPortrait(character, 160);
-    const dataUrl = avatarToDataUrl(svgString);
-    setPortraitUrl(dataUrl);
-  }, [character]);
+    // Use real portrait URL if available, otherwise fallback to generator
+    if (character.portraitUrl && !useFallback) {
+      setPortraitUrl(character.portraitUrl);
+    } else {
+      const svgString = generateCharacterPortrait(character, 160);
+      const dataUrl = avatarToDataUrl(svgString);
+      setPortraitUrl(dataUrl);
+    }
+  }, [character, useFallback]);
+
+  const handleImageError = () => {
+    setUseFallback(true);
+  };
 
   const rarityColors = {
     common: "from-gray-500 to-gray-700",
@@ -72,6 +82,7 @@ const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) 
               src={portraitUrl}
               alt={`${character.name} portrait`}
               className="w-full h-full object-cover"
+              onError={handleImageError}
             />
           )}
         </div>

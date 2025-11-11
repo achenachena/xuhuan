@@ -95,6 +95,8 @@ const mapTelegramUser = (raw: unknown): TelegramUser => {
 
 const buildTelegramAuthPlugin = (): FastifyPluginAsync<TelegramAuthPluginOptions> => {
   const secretKey = buildSecretKey();
+  const isDevelopment = env.NODE_ENV === "development";
+
   return async (fastify, options) => {
     const publicRoutes = new Set(options.publicRoutes ?? []);
 
@@ -108,7 +110,27 @@ const buildTelegramAuthPlugin = (): FastifyPluginAsync<TelegramAuthPluginOptions
       if (publicRoutes.has(request.routerPath ?? "")) {
         return;
       }
+
       const rawHeader = request.headers[TELEGRAM_HEADER];
+
+      // Development mode: inject mock user for local testing
+      if (isDevelopment && !rawHeader) {
+        // No Telegram header in dev mode - inject mock user
+        request.telegramUser = {
+          id: 123456789,
+          username: "dev_user",
+          firstName: "Dev",
+          lastName: "User",
+          languageCode: "en"
+        };
+        request.telegramInitData = {
+          user: JSON.stringify({ id: 123456789, username: "dev_user" }),
+          auth_date: Date.now().toString()
+        };
+        request.log.debug("Using mock Telegram user for development");
+        return;
+      }
+
       if (typeof rawHeader !== "string") {
         reply.unauthorized("Missing Telegram init data");
         return;

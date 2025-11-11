@@ -9,7 +9,9 @@ const envSchema = z.object({
   TELEGRAM_ALLOWED_ORIGINS: z
     .string()
     .optional()
-    .transform((value) => value?.split(",").map((origin) => origin.trim()).filter(Boolean) ?? [])
+    .transform((value) => value?.split(",").map((origin) => origin.trim()).filter(Boolean) ?? []),
+  BLOB_READ_WRITE_TOKEN: z.string().optional(), // Optional: only needed for uploading new assets
+  CHARACTER_ADMIN_TOKEN: z.string().min(1, "CHARACTER_ADMIN_TOKEN is required")
 });
 
 type LoadedEnv = z.infer<typeof envSchema> & { readonly VERSION: string };

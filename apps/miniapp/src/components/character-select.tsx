@@ -86,7 +86,7 @@ const CharacterSelect = ({ onCharacterSelected }: CharacterSelectProps) => {
         </div>
 
         {/* Confirm Button */}
-        <div className="flex justify-center">
+        <div className={`flex justify-center ${selectedSlug ? "mb-48" : ""}`}>
           <button
             type="button"
             onClick={handleConfirm}

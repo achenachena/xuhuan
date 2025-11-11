@@ -15,7 +15,7 @@ const characterRoutes: FastifyPluginAsync = async (app): Promise<void> => {
   // List all characters
   app.get("/characters", async (request, reply) => {
     try {
-      const characters = await listCharacters(app.prisma);
+      const characters = await listCharacters();
       return reply.status(200).send({
         success: true,
         characters
@@ -33,7 +33,7 @@ const characterRoutes: FastifyPluginAsync = async (app): Promise<void> => {
   app.get("/characters/:slug", async (request, reply) => {
     try {
       const params = getCharacterSchema.parse(request.params);
-      const character = await getCharacterBySlug(app.prisma, params.slug);
+      const character = await getCharacterBySlug(params.slug);
 
       if (!character) {
         return reply.status(404).send({
@@ -81,7 +81,6 @@ const characterRoutes: FastifyPluginAsync = async (app): Promise<void> => {
       }
 
       const character = await getCharacterWithScaledStats(
-        app.prisma,
         validation.data.slug,
         validation.data.level
       );

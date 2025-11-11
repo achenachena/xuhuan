@@ -15,13 +15,14 @@
     "db:migrate": "prisma migrate deploy"
   },
   "dependencies": {
-    "@prisma/client": "^5.19.0",
     "@fastify/cors": "^8.3.0",
     "@fastify/sensible": "^5.0.1",
+    "@prisma/client": "^5.19.0",
+    "@vercel/blob": "^2.0.0",
     "@xuhuan/game-types": "file:../../packages/game-types",
-    "fastify-plugin": "^4.5.0",
     "dotenv": "^16.3.1",
     "fastify": "^4.28.1",
+    "fastify-plugin": "^4.5.0",
     "fastify-type-provider-zod": "^2.1.0",
     "zod": "^3.23.8"
   },
@@ -29,8 +30,8 @@
     "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
-    "prisma": "^5.19.0",
     "eslint": "^8.57.0",
+    "prisma": "^5.19.0",
     "tsup": "^8.1.0",
     "tsx": "^4.15.4",
     "typescript": "^5.4.5"
@@ -39,4 +40,3 @@
     "seed": "tsx prisma/seed.ts"
   }
 }
-

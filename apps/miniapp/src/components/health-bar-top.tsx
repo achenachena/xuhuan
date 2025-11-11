@@ -25,12 +25,22 @@ const HealthBarTop = ({
   alignment
 }: HealthBarTopProps) => {
   const [portraitUrl, setPortraitUrl] = useState<string>("");
+  const [useFallback, setUseFallback] = useState<boolean>(false);
 
   useEffect(() => {
-    const svgString = generateCharacterPortrait(character, 80);
-    const dataUrl = avatarToDataUrl(svgString);
-    setPortraitUrl(dataUrl);
-  }, [character]);
+    // Use real portrait URL if available, otherwise fallback to generator
+    if (character.portraitUrl && !useFallback) {
+      setPortraitUrl(character.portraitUrl);
+    } else {
+      const svgString = generateCharacterPortrait(character, 80);
+      const dataUrl = avatarToDataUrl(svgString);
+      setPortraitUrl(dataUrl);
+    }
+  }, [character, useFallback]);
+
+  const handleImageError = () => {
+    setUseFallback(true);
+  };
 
   const healthPercentage = Math.max(0, Math.min(100, (currentHealth / maxHealth) * 100));
   const isLowHealth = healthPercentage < 30;
@@ -63,6 +73,7 @@ const HealthBarTop = ({
               src={portraitUrl}
               alt={`${character.name} portrait`}
               className="w-full h-full object-cover"
+              onError={handleImageError}
             />
           )}
         </div>
