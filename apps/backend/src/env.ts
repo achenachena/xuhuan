@@ -11,7 +11,7 @@ const envSchema = z.object({
     .optional()
     .transform((value) => value?.split(",").map((origin) => origin.trim()).filter(Boolean) ?? []),
   BLOB_READ_WRITE_TOKEN: z.string().optional(), // Optional: only needed for uploading new assets
-  CHARACTER_ADMIN_TOKEN: z.string().min(1, "CHARACTER_ADMIN_TOKEN is required")
+  CHARACTER_ADMIN_TOKEN: z.string().optional() // Optional: only needed for admin character management endpoints
 });
 
 type LoadedEnv = z.infer<typeof envSchema> & { readonly VERSION: string };

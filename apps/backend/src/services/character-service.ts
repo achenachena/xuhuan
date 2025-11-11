@@ -36,6 +36,7 @@ const mapCharacterToDto = (prismaCharacter: PrismaCharacter): Character => {
   const portraitUrl = getAssetUrl(prismaCharacter.portraitBlobPath);
   const spriteUrl = getAssetUrl(prismaCharacter.modelBlobPath);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { portraitBlobPath, modelBlobPath, ...rest } = prismaCharacter;
 
   return {

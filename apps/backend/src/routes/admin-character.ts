@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { env } from "../env.js";
@@ -27,9 +27,16 @@ const characterUpdateSchema = characterUpsertSchema.partial().omit({ slug: true 
 
 const adminCharacterRoutes: FastifyPluginAsync = async (app): Promise<void> => {
   // Admin authentication middleware
-  const verifyAdminToken = async (request: any, reply: any): Promise<void> => {
+  const verifyAdminToken = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    if (!env.CHARACTER_ADMIN_TOKEN) {
+      return reply.status(503).send({
+        success: false,
+        error: "Admin endpoints are not configured"
+      });
+    }
+
     const token = request.headers["x-admin-token"];
-    
+
     if (!token || token !== env.CHARACTER_ADMIN_TOKEN) {
       return reply.status(401).send({
         success: false,
