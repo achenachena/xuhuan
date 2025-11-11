@@ -3,14 +3,23 @@
  * Sync characters from local config to production database via Admin API
  *
  * Usage:
- *   ADMIN_TOKEN=xxx API_URL=https://your-api.railway.app tsx scripts/sync-characters-to-api.ts
+ *   1. Create .env.admin file with API_URL and ADMIN_TOKEN (see .env.admin.example)
+ *   2. Run: npm run sync:characters
  *
- * Or with npm script:
+ * Or override with environment variables:
  *   ADMIN_TOKEN=xxx API_URL=https://your-api.railway.app npm run sync:characters
  */
 
-import { readFileSync } from "node:fs";
+import { config } from "dotenv";
+import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+
+// Load .env.admin if it exists
+const adminEnvPath = resolve(".env.admin");
+if (existsSync(adminEnvPath)) {
+  config({ path: adminEnvPath });
+  console.log("📄 Loaded configuration from .env.admin");
+}
 
 type CharacterConfig = {
   readonly slug: string;

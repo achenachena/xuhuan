@@ -30,11 +30,15 @@ After Railway deployment is live, sync your characters using the admin API:
 ```bash
 cd apps/backend
 
-# Set your Railway API URL and admin token
-export API_URL="https://your-app.railway.app"
-export ADMIN_TOKEN="your_admin_token_from_railway_env"
+# Create .env.admin file from template
+cp .env.admin.example .env.admin
 
-# Run the sync script
+# Edit .env.admin with your actual values:
+# - API_URL: Your Railway deployment URL
+# - ADMIN_TOKEN: Same value as CHARACTER_ADMIN_TOKEN in Railway
+nano .env.admin
+
+# Run the sync script (automatically loads from .env.admin)
 npm run sync:characters
 ```
 
@@ -61,10 +65,10 @@ npm run sync:characters
 To update character data in production:
 
 1. Update `apps/backend/config/character-roster.json` locally
-2. Run the sync script again:
+2. Run the sync script (uses your `.env.admin` file):
 
    ```bash
-   API_URL="https://your-app.railway.app" ADMIN_TOKEN="your_token" npm run sync:characters
+   npm run sync:characters
    ```
 
 ## Troubleshooting
