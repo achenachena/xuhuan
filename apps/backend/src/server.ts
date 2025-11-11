@@ -73,7 +73,7 @@ export const buildServer = (): AppServer => {
 
   app.register(sensible);
   app.register(cors, {
-    origin: createOriginValidator(originWhitelist),
+    origin: true, // Allow all origins for now - character endpoints are public
     credentials: true
   });
   app.register(telegramAuthPlugin, {
