@@ -39,6 +39,9 @@ Thumbs.db
 *.swo
 *~
 
+# Cursor IDE
+.cursor/
+
 # Yarn 2+
 .pnp.*
 .yarn/cache
@@ -64,6 +67,19 @@ apps/backend/config/character-roster.json
 !**/public/**/*.jpeg
 !**/public/**/*.gif
 !**/public/**/*.webp
+
+# Audio files (should be hosted externally, not committed)
+*.mp3
+*.ogg
+*.wav
+*.m4a
+*.flac
+*.aac
+
+# Audio directory and documentation
+apps/miniapp/public/sounds/
+**/sounds/AUDIO_SETUP.md
+**/sounds/README.md
 
 # Old/backup files
 **/*-old.*

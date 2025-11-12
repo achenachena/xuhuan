@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEventHandler } from "react";
 import clsx from "clsx";
 
 import CharacterSelect from "@/components/character-select";
 import BattleArena from "@/components/battle-arena";
 import RewardModal from "@/components/reward-modal";
+import AudioControls from "@/components/audio-controls";
 import useTelegramTheme from "@/hooks/use-telegram-theme";
 import useLocale from "@/components/providers/use-locale";
+import { useAudio } from "@/components/providers/audio-provider";
 import { useCharacters } from "@/hooks/use-characters";
 import type {
   BattleContext,
@@ -185,6 +187,7 @@ const HomePage = () => {
   const { themeParams } = useTelegramTheme();
   const { translate, isReady } = useLocale();
   const { characters } = useCharacters();
+  const { playSound, playBGM, stopBGM } = useAudio();
 
   const handleCharacterSelected = useCallback((character: Character) => {
     if (!isReady) {
@@ -221,7 +224,9 @@ const HomePage = () => {
       }
     ]);
     setGamePhase("battle");
-  }, [characters, isReady, translate]);
+    // Play battle BGM
+    playBGM("battle", true);
+  }, [characters, isReady, translate, playBGM]);
 
   const handleResolveTurn = useCallback(
     (actionKind: FightingMoveKind) => {
@@ -247,13 +252,19 @@ const HomePage = () => {
         timestamp: Date.now()
       }]);
 
-      // Set hero animation based on action
+      // Set hero animation based on action and play sound
       if (actionKind === "specialMove") {
         setHeroAnimationState("special");
+        playSound("specialMove");
       } else if (actionKind === "block") {
         setHeroAnimationState("block");
+        playSound("block");
+      } else if (actionKind === "heavyAttack") {
+        setHeroAnimationState("attack");
+        playSound("heavyAttack");
       } else {
         setHeroAnimationState("attack");
+        playSound("lightAttack");
       }
 
       // Execute full turn resolution to get the complete result
@@ -267,9 +278,10 @@ const HomePage = () => {
         const enemyTookDamage = result.state.enemy.currentHealth < currentBattleState.enemy.currentHealth;
 
         if (enemyTookDamage) {
-          // Show enemy taking damage animation
+          // Show enemy taking damage animation and play sound
           setTimeout(() => {
             setEnemyAnimationState("damage");
+            playSound("damage");
           }, 200);
         }
 
@@ -299,6 +311,8 @@ const HomePage = () => {
           if (result.state.enemy.currentHealth <= 0) {
             setHeroAnimationState("victory");
             setEnemyAnimationState("defeat");
+            stopBGM();
+            playSound("victory");
             setBattleLog(prev => [
               ...prev,
               {
@@ -339,6 +353,7 @@ const HomePage = () => {
 
               if (heroTookDamage) {
                 setHeroAnimationState("damage");
+                playSound("damage");
               }
 
               // Update to final state with both hero and enemy health
@@ -350,6 +365,8 @@ const HomePage = () => {
                 if (result.state.hero.currentHealth <= 0) {
                   setHeroAnimationState("defeat");
                   setEnemyAnimationState("victory");
+                  stopBGM();
+                  playSound("defeat");
                   setBattleLog(prev => [
                     ...prev,
                     {
@@ -362,6 +379,10 @@ const HomePage = () => {
                 } else {
                   setHeroAnimationState("idle");
                   setEnemyAnimationState("idle");
+                  // Play combo sound if combo count is high
+                  if (result.state.hero.comboCount >= 3 || result.state.enemy.comboCount >= 3) {
+                    playSound("combo");
+                  }
                 }
 
                 setIsResolving(false);
@@ -375,10 +396,11 @@ const HomePage = () => {
         }, 600);
       }, 100);
     },
-    [battleState, isReady, isResolving, translate]
+    [battleState, isReady, isResolving, translate, playSound, stopBGM]
   );
 
   const handleRestartBattle = useCallback(() => {
+    stopBGM();
     setGamePhase("select");
     setSelectedCharacter(null);
     setOpponentCharacter(null);
@@ -388,10 +410,18 @@ const HomePage = () => {
     setHeroAnimationState("idle");
     setEnemyAnimationState("idle");
     setBattleLog([]);
-  }, []);
+  }, [stopBGM]);
 
   // Character Selection Phase
   if (gamePhase === "select") {
+    // Play BGM when entering character select (uses unified BGM)
+    useEffect(() => {
+      playBGM("select", true);
+      return () => {
+        // Don't stop BGM here, let it continue to battle phase
+      };
+    }, [playBGM]);
+
     return <CharacterSelect onCharacterSelected={handleCharacterSelected} />;
   }
 
@@ -399,7 +429,12 @@ const HomePage = () => {
   if (gamePhase === "battle" && battleState && selectedCharacter && opponentCharacter) {
     return (
       <>
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex flex-col">
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex flex-col relative">
+          {/* Audio Controls */}
+          <div className="absolute top-4 right-4 z-50">
+            <AudioControls />
+          </div>
+
           {/* Battle Arena */}
           <div className="flex-1 p-2">
             <BattleArena
@@ -446,6 +481,13 @@ const HomePage = () => {
           theme={themeParams}
           onClose={handleRestartBattle}
         />
+        
+        {/* Keep BGM playing during reward phase */}
+        {isRewardVisible && (
+          <div style={{ display: "none" }} aria-hidden="true">
+            {/* BGM continues playing from battle phase */}
+          </div>
+        )}
       </>
     );
   }

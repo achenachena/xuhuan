@@ -4,6 +4,7 @@ import { Roboto } from "next/font/google";
 import "./globals.css";
 import TelegramWebAppProvider from "@/components/providers/telegram-webapp-provider";
 import LocaleProvider from "@/components/providers/locale-provider";
+import { AudioProvider } from "@/components/providers/audio-provider";
 
 const roboto = Roboto({
   subsets: ["latin"],
@@ -34,7 +35,9 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
       </head>
       <body className="min-h-screen bg-telegram-bg text-telegram-text transition-colors">
         <LocaleProvider language={defaultLanguage}>
-          <TelegramWebAppProvider>{children}</TelegramWebAppProvider>
+          <TelegramWebAppProvider>
+            <AudioProvider>{children}</AudioProvider>
+          </TelegramWebAppProvider>
         </LocaleProvider>
       </body>
     </html>
