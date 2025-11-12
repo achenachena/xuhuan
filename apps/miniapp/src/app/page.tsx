@@ -104,8 +104,8 @@ const ActionBar = ({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4">
-      <div className="grid grid-cols-4 gap-3">
+    <div className="w-full max-w-4xl mx-auto px-4 py-2">
+      <div className="grid grid-cols-4 gap-2">
         {FIGHTING_ACTIONS.map((action) => {
           const canUse = action.kind !== "specialMove" || specialMeter >= action.meterCost;
           const isDisabled = disabled || !canUse;
@@ -117,7 +117,7 @@ const ActionBar = ({
               data-meter-cost={action.meterCost}
               type="button"
               className={clsx(
-                "rounded-xl px-3 py-4 text-center transition-all flex flex-col items-center gap-1",
+                "rounded-xl px-3 py-3 text-center transition-all flex flex-col items-center gap-1",
                 isDisabled
                   ? "cursor-not-allowed border border-white/10 bg-white/5 text-white/40"
                   : action.kind === "specialMove"
@@ -360,7 +360,7 @@ const HomePage = () => {
       <>
         <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex flex-col">
           {/* Battle Arena */}
-          <div className="flex-1 p-4">
+          <div className="flex-1 p-2">
             <BattleArena
               player={{
                 character: selectedCharacter,
@@ -387,7 +387,7 @@ const HomePage = () => {
           </div>
 
           {/* Action Bar */}
-          <div className="pb-4">
+          <div className="pb-2">
             <ActionBar
               disabled={isResolving || battleState.outcome !== "inProgress"}
               specialMeter={battleState.hero.specialMeter}

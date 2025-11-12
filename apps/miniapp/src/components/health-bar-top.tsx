@@ -109,8 +109,8 @@ const HealthBarTop = ({
           "justify-end flex-row-reverse": alignment === "right"
         })}>
           <h3
-            className="text-sm font-bold tracking-tight truncate max-w-[120px]"
-            style={{ color: character.colorTheme }}
+            className="text-sm font-bold tracking-tight truncate"
+            style={{ color: character.colorTheme, maxWidth: "calc(100% - 40px)" }}
             title={character.name}
           >
             {character.name}

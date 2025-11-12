@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import type { Character } from "@xuhuan/game-types";
 import type { BattleOutcome } from "@/lib/game-loop";
 import CharacterSprite from "./character-sprite";
@@ -34,8 +34,16 @@ type BattleArenaProps = {
 };
 
 const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArenaProps) => {
+  const battleLogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (battleLogRef.current) {
+      battleLogRef.current.scrollTop = battleLogRef.current.scrollHeight;
+    }
+  }, [battleLog]);
+
   return (
-    <div className="relative w-full h-full min-h-[600px] overflow-hidden rounded-3xl bg-gradient-to-b from-gray-900 via-purple-900/20 to-black">
+    <div className="relative w-full h-full overflow-hidden rounded-3xl bg-gradient-to-b from-gray-900 via-purple-900/20 to-black">
       {/* Background Arena Effect */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(139,92,246,0.15),_transparent_70%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,_transparent_0%,_rgba(0,0,0,0.4)_100%)]" />
@@ -92,7 +100,7 @@ const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArena
         </div>
 
         {/* Battle Stage */}
-        <div className="flex-1 flex items-end justify-between px-4 pb-2 relative min-h-0">
+        <div className="flex-1 flex items-end justify-between px-4 pb-4 relative min-h-0">
           {/* Player Character (Left) */}
           <div className="flex-1 max-w-[35%]">
             <CharacterSprite
@@ -157,10 +165,10 @@ const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArena
         </div>
 
         {/* Battle Log Section */}
-        <div className="h-24 bg-black/60 backdrop-blur-sm overflow-y-auto px-4 py-2 scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-transparent">
+        <div ref={battleLogRef} className="flex-1 bg-black/60 backdrop-blur-sm overflow-y-auto px-4 py-2 scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-transparent">
           <div className="space-y-1">
             {battleLog.map((entry) => (
-              <div key={entry.id} className="text-xs text-white/80 font-mono">
+              <div key={entry.id} className="text-xs text-white/80 font-mono leading-relaxed">
                 {entry.message}
               </div>
             ))}

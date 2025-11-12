@@ -74,13 +74,12 @@ const CharacterSprite = ({
 
   return (
     <div
-      className={`relative transition-all duration-300 ${getAnimationClasses()}`}
+      className={`relative transition-all duration-300 ${getAnimationClasses()} flex items-end justify-center`}
       style={{
         transform: flip ? "scaleX(-1)" : "scaleX(1)",
         transformOrigin: "center",
-        height: "240px",
-        width: "100%",
-        maxWidth: "180px",
+        height: "300px",
+        width: "180px",
         margin: "0 auto"
       }}
     >
@@ -93,10 +92,8 @@ const CharacterSprite = ({
             imageRendering: "crisp-edges",
             objectFit: "contain",
             objectPosition: "center bottom",
-            width: "100%",
-            height: "100%",
-            maxWidth: "180px",
-            maxHeight: "240px"
+            width: "180px",
+            height: "300px"
           }}
           onError={handleImageError}
         />
