@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { KeyboardEventHandler } from "react";
 import clsx from "clsx";
 
@@ -8,15 +8,13 @@ import CharacterSelect from "@/components/character-select";
 import BattleArena from "@/components/battle-arena";
 import RewardModal from "@/components/reward-modal";
 import useTelegramTheme from "@/hooks/use-telegram-theme";
-import { usePlayerProfile } from "@/hooks/use-player";
 import { useCharacters } from "@/hooks/use-characters";
 import type {
   BattleContext,
   BattleState,
   CombatantState,
   FightingMove,
-  FightingMoveKind,
-  StatusEffectState
+  FightingMoveKind
 } from "@/lib/game-loop";
 import { createBattleState, resolveTurn, updateBattleContext } from "@/lib/game-loop";
 import type { Character, GamePhase } from "@xuhuan/game-types";
@@ -171,7 +169,6 @@ const HomePage = () => {
   const [battleLog, setBattleLog] = useState<BattleLogEntry[]>([]);
 
   const { themeParams } = useTelegramTheme();
-  const { player, isLoading: isPlayerLoading } = usePlayerProfile();
   const { characters } = useCharacters();
 
   const handleCharacterSelected = useCallback((character: Character) => {
