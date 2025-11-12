@@ -19,34 +19,11 @@ import playerRoutes from "./routes/player.js";
 import characterRoutes from "./routes/character.js";
 import adminCharacterRoutes from "./routes/admin-character.js";
 
-const TELEGRAM_ORIGIN_FALLBACKS = Object.freeze([
-  "https://web.telegram.org",
-  "https://web.telegram.org/a/",
-  "https://telegram.org"
-]);
-
 const healthResponseSchema = z.object({
   status: z.literal("ok"),
   uptime: z.number(),
   version: z.string()
 });
-
-type OriginCallback = (err: Error | null, allow: boolean) => void;
-type OriginValidator = (origin: string | undefined, callback: OriginCallback) => void;
-
-const createOriginValidator = (allowedOrigins: ReadonlySet<string>): OriginValidator => {
-  return (origin, callback) => {
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-    if (allowedOrigins.has(origin)) {
-      callback(null, true);
-      return;
-    }
-    callback(new Error(`Origin ${origin} not allowed`), false);
-  };
-};
 
 export type AppServer = FastifyInstance<
   RawServerDefault,
@@ -65,11 +42,6 @@ export const buildServer = (): AppServer => {
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
-
-  const originWhitelist = new Set<string>([
-    ...TELEGRAM_ORIGIN_FALLBACKS,
-    ...env.TELEGRAM_ALLOWED_ORIGINS
-  ]);
 
   app.register(sensible);
   app.register(cors, {
