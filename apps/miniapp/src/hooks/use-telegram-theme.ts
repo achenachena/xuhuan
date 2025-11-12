@@ -25,6 +25,12 @@ const useTelegramTheme = (): TelegramThemeState => {
       if (!isMounted) {
         return;
       }
+
+      // Make app full-screen
+      WebApp.ready();
+      WebApp.expand();
+      WebApp.setHeaderColor("secondary_bg_color");
+
       const evaluateTheme = (): TelegramThemeState => {
         const themeParams = normalizeThemeParams(WebApp.themeParams);
         const colorScheme: "light" | "dark" = WebApp.colorScheme ?? "light";

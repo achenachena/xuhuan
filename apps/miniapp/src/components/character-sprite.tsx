@@ -77,17 +77,21 @@ const CharacterSprite = ({
       className={`relative transition-all duration-300 ${getAnimationClasses()}`}
       style={{
         transform: flip ? "scaleX(-1)" : "scaleX(1)",
-        transformOrigin: "center"
+        transformOrigin: "center",
+        height: "280px",
+        width: "100%"
       }}
     >
       {spriteUrl && (
         <img
           src={spriteUrl}
           alt={`${character.name} sprite`}
-          className="w-full h-auto"
+          className="w-full h-full"
           style={{
             filter: animationState === "damage" ? "brightness(1.5) saturate(0.5)" : "none",
-            imageRendering: "crisp-edges"
+            imageRendering: "crisp-edges",
+            objectFit: "contain",
+            objectPosition: "center bottom"
           }}
           onError={handleImageError}
         />

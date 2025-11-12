@@ -49,8 +49,8 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
       {/* Main Content */}
       <div className="relative z-10 h-full flex flex-col">
         {/* Top Health Bars */}
-        <div className="p-4 flex items-start justify-between gap-4">
-          <div className="flex-1 max-w-md">
+        <div className="p-3 flex items-start justify-between gap-2">
+          <div className="w-[42%]">
             <HealthBarTop
               character={player.character}
               currentHealth={player.currentHealth}
@@ -63,16 +63,16 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
           </div>
 
           {/* VS Badge and Turn Counter */}
-          <div className="flex flex-col items-center gap-2 pt-2">
-            <div className="px-4 py-2 rounded-full bg-gradient-to-r from-red-600 to-orange-500 border-2 border-white/30 shadow-lg">
-              <span className="text-sm font-bold text-white tracking-wider">VS</span>
+          <div className="flex flex-col items-center gap-1 pt-2 flex-shrink-0">
+            <div className="px-3 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-orange-500 border-2 border-white/30 shadow-lg">
+              <span className="text-xs font-bold text-white tracking-wider">VS</span>
             </div>
-            <div className="px-3 py-1 rounded-full bg-black/60 border border-white/20">
-              <span className="text-xs font-semibold text-white/80">Turn {turn}</span>
+            <div className="px-2 py-0.5 rounded-full bg-black/60 border border-white/20">
+              <span className="text-[10px] font-semibold text-white/80">T{turn}</span>
             </div>
           </div>
 
-          <div className="flex-1 max-w-md">
+          <div className="w-[42%]">
             <HealthBarTop
               character={opponent.character}
               currentHealth={opponent.currentHealth}

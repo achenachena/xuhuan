@@ -162,6 +162,9 @@ const HomePage = () => {
   const [heroAnimationState, setHeroAnimationState] = useState<"idle" | "attack" | "damage" | "block" | "special" | "victory" | "defeat">("idle");
   const [enemyAnimationState, setEnemyAnimationState] = useState<"idle" | "attack" | "damage" | "block" | "special" | "victory" | "defeat">("idle");
 
+  // Battle log message
+  const [battleMessage, setBattleMessage] = useState<string>("");
+
   const { themeParams } = useTelegramTheme();
   const { player, isLoading: isPlayerLoading } = usePlayerProfile();
   const { characters } = useCharacters();
@@ -187,6 +190,7 @@ const HomePage = () => {
 
     battleContextRef.current = context;
     setBattleState(context.state);
+    setBattleMessage("Your Turn!");
     setGamePhase("battle");
   }, [characters]);
 
@@ -202,6 +206,9 @@ const HomePage = () => {
       setIsResolving(true);
 
       // PHASE 1: Hero attacks
+      const actionName = actionKind === "specialMove" ? "SPECIAL MOVE" : actionKind === "heavyAttack" ? "Heavy Attack" : actionKind === "lightAttack" ? "Light Attack" : "Block";
+      setBattleMessage(`Your Turn! You used ${actionName}!`);
+
       // Set hero animation based on action
       if (actionKind === "specialMove") {
         setHeroAnimationState("special");
@@ -254,6 +261,7 @@ const HomePage = () => {
           if (result.state.enemy.currentHealth <= 0) {
             setHeroAnimationState("victory");
             setEnemyAnimationState("defeat");
+            setBattleMessage("Victory!");
             battleContextRef.current = updateBattleContext(battleContextRef.current!, result.state);
             setBattleState(result.state);
             setIsResolving(false);
@@ -263,6 +271,8 @@ const HomePage = () => {
 
           // PHASE 2: Enemy retaliates
           setTimeout(() => {
+            setBattleMessage(`${currentBattleState.enemy.name}'s Turn!`);
+
             // Show enemy attack animation
             const enemyActionType = Math.random() > 0.6 ? "attack" : "attack"; // Could vary this
             setEnemyAnimationState(enemyActionType);
@@ -284,10 +294,12 @@ const HomePage = () => {
                 if (result.state.hero.currentHealth <= 0) {
                   setHeroAnimationState("defeat");
                   setEnemyAnimationState("victory");
+                  setBattleMessage("Defeat...");
                   setIsRewardVisible(true);
                 } else {
                   setHeroAnimationState("idle");
                   setEnemyAnimationState("idle");
+                  setBattleMessage("Your Turn!");
                 }
 
                 setIsResolving(false);
@@ -313,6 +325,7 @@ const HomePage = () => {
     setIsResolving(false);
     setHeroAnimationState("idle");
     setEnemyAnimationState("idle");
+    setBattleMessage("");
   }, []);
 
   // Character Selection Phase
@@ -348,6 +361,15 @@ const HomePage = () => {
               }}
               turn={battleState.turn}
               outcome={battleState.outcome}
+              centerSlot={
+                battleMessage && (
+                  <div className="px-6 py-3 rounded-2xl bg-black/80 border-2 border-white/30 backdrop-blur-sm animate-pulse">
+                    <p className="text-lg font-bold text-white text-center tracking-wide">
+                      {battleMessage}
+                    </p>
+                  </div>
+                )
+              }
             />
           </div>
 
