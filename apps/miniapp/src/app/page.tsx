@@ -9,6 +9,7 @@ import BattleArena from "@/components/battle-arena";
 import RewardModal from "@/components/reward-modal";
 import useTelegramTheme from "@/hooks/use-telegram-theme";
 import { usePlayerProfile } from "@/hooks/use-player";
+import { useCharacters } from "@/hooks/use-characters";
 import type {
   BattleContext,
   BattleState,
@@ -163,39 +164,20 @@ const HomePage = () => {
 
   const { themeParams } = useTelegramTheme();
   const { player, isLoading: isPlayerLoading } = usePlayerProfile();
+  const { characters } = useCharacters();
 
   const handleCharacterSelected = useCallback((character: Character) => {
     setSelectedCharacter(character);
 
-    // TODO: In a real implementation, select opponent from API
-    // For now, pick a random different character as opponent
-    // This is a placeholder - you would fetch encounters from backend
-    const mockOpponent: Character = {
-      id: "opponent-1",
-      slug: "training-dummy",
-      name: "Training Dummy",
-      vtuberArchetype: "enemy",
-      bio: "A practice opponent",
-      portraitUrl: "/avatars/dummy-portrait.svg",
-      spriteUrl: "/avatars/dummy-sprite.svg",
-      baseHealth: 90,
-      baseAttack: 25,
-      baseDefense: 20,
-      baseSpeed: 15,
-      baseCritRate: 0.1,
-      baseCritDamage: 0.4,
-      specialMoveName: "Basic Strike",
-      specialMoveDesc: "A simple attack",
-      specialMoveType: "normal",
-      rarity: "common",
-      colorTheme: "#808080"
-    };
+    // Select a random opponent from the other characters
+    const availableOpponents = characters.filter((c) => c.slug !== character.slug);
+    const randomOpponent = availableOpponents[Math.floor(Math.random() * availableOpponents.length)];
 
-    setOpponentCharacter(mockOpponent);
+    setOpponentCharacter(randomOpponent);
 
     // Create battle state
     const heroCombatant = createCombatantFromCharacter(character, "hero");
-    const enemyCombatant = createCombatantFromCharacter(mockOpponent, "enemy", 2);
+    const enemyCombatant = createCombatantFromCharacter(randomOpponent, "enemy", 2);
 
     const context = createBattleState({
       hero: heroCombatant,
@@ -206,7 +188,7 @@ const HomePage = () => {
     battleContextRef.current = context;
     setBattleState(context.state);
     setGamePhase("battle");
-  }, []);
+  }, [characters]);
 
   const handleResolveTurn = useCallback(
     (actionKind: FightingMoveKind) => {

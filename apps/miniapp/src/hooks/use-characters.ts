@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
 import type { Character } from "@xuhuan/game-types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+// Use production URL directly for now since env vars aren't loading properly
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "http://localhost:3001"
+    : "https://xuhuanbackend-production.up.railway.app");
 
-// Debug: Log the API URL in development
-if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+// Debug: Log the API URL
+if (typeof window !== "undefined") {
   console.log("API_BASE_URL:", API_BASE_URL);
 }
 

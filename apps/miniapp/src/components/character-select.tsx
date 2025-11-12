@@ -59,9 +59,9 @@ const CharacterSelect = ({ onCharacterSelected }: CharacterSelectProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/30 to-black p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/30 to-black">
       {/* Header */}
-      <div className="mx-auto max-w-7xl mb-8 text-center">
+      <div className="mx-auto max-w-7xl pt-4 pb-6 px-4 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold text-white mb-2 tracking-tight">
           Choose Your Fighter
         </h1>
@@ -71,8 +71,8 @@ const CharacterSelect = ({ onCharacterSelected }: CharacterSelectProps) => {
       </div>
 
       {/* Character Grid */}
-      <div className="mx-auto max-w-7xl">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className={`mx-auto max-w-7xl px-4 ${selectedSlug ? "pb-48" : "pb-24"}`}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {characters.map((character) => (
             <CharacterCard
               key={character.id}
@@ -84,52 +84,24 @@ const CharacterSelect = ({ onCharacterSelected }: CharacterSelectProps) => {
             />
           ))}
         </div>
-
-        {/* Confirm Button */}
-        <div className={`flex justify-center ${selectedSlug ? "mb-48" : ""}`}>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={!selectedSlug}
-            className={`
-              px-8 py-4 rounded-2xl text-lg font-bold uppercase tracking-wider
-              transition-all duration-300 transform
-              ${
-                selectedSlug
-                  ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:scale-105 hover:shadow-2xl shadow-green-500/50"
-                  : "bg-gray-700 text-gray-400 cursor-not-allowed opacity-50"
-              }
-            `}
-            aria-label="Confirm character selection"
-          >
-            {selectedSlug ? "Ready to Fight! ⚔️" : "Select a Character"}
-          </button>
-        </div>
       </div>
 
-      {/* Character Bio Overlay (for selected character) */}
+      {/* Fixed Button at Bottom */}
       {selectedSlug && (
-        <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md border-t border-white/10 p-4 sm:p-6 z-50">
-          {(() => {
-            const selectedCharacter = characters.find((char) => char.slug === selectedSlug);
-            if (!selectedCharacter) return null;
-
-            return (
-              <div className="mx-auto max-w-4xl">
-                <h3 className="text-2xl font-bold text-white mb-2" style={{ color: selectedCharacter.colorTheme }}>
-                  {selectedCharacter.name}
-                </h3>
-                <p className="text-sm text-white/80 mb-3">{selectedCharacter.bio}</p>
-                <div className="flex items-center gap-2 text-xs text-white/60">
-                  <span className="px-2 py-1 rounded bg-white/10">
-                    {selectedCharacter.vtuberArchetype.replace("-", " ").toUpperCase()}
-                  </span>
-                  <span>•</span>
-                  <span>⚡ {selectedCharacter.specialMoveName}</span>
-                </div>
-              </div>
-            );
-          })()}
+        <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent p-6 z-40">
+          <div className="mx-auto max-w-md">
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="w-full px-8 py-4 rounded-2xl text-lg font-bold uppercase tracking-wider
+                bg-gradient-to-r from-green-500 to-emerald-600 text-white
+                hover:scale-105 hover:shadow-2xl shadow-green-500/50
+                transition-all duration-300 transform"
+              aria-label="Confirm character selection"
+            >
+              Ready to Fight! ⚔️
+            </button>
+          </div>
         </div>
       )}
     </div>
