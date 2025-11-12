@@ -1,3 +1,5 @@
+"use client";
+
 import { useContext } from "react";
 
 import LocaleContext from "@/components/providers/locale-context";
