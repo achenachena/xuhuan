@@ -201,6 +201,7 @@ const HomePage = () => {
 
       setIsResolving(true);
 
+      // PHASE 1: Hero attacks
       // Set hero animation based on action
       if (actionKind === "specialMove") {
         setHeroAnimationState("special");
@@ -210,33 +211,93 @@ const HomePage = () => {
         setHeroAnimationState("attack");
       }
 
-      // Resolve turn after animation starts
+      // Execute full turn resolution to get the complete result
       setTimeout(() => {
         if (!battleContextRef.current) return;
 
+        const currentBattleState = battleState;
         const result = resolveTurn(battleContextRef.current, { kind: actionKind } satisfies FightingMove);
-        battleContextRef.current = updateBattleContext(battleContextRef.current, result.state);
-        setBattleState(result.state);
 
-        // Set enemy animation if they took damage
-        if (result.state.enemy.currentHealth < battleState.enemy.currentHealth) {
-          setEnemyAnimationState("damage");
+        // First, show only hero's action effect on enemy
+        const enemyTookDamage = result.state.enemy.currentHealth < currentBattleState.enemy.currentHealth;
+
+        if (enemyTookDamage) {
+          // Show enemy taking damage animation
+          setTimeout(() => {
+            setEnemyAnimationState("damage");
+          }, 200);
         }
 
-        // Set hero animation if they took damage
-        if (result.state.hero.currentHealth < battleState.hero.currentHealth) {
-          setHeroAnimationState("damage");
-        }
+        // Update state after hero action to show enemy health decrease
+        const stateAfterHeroAction: BattleState = {
+          ...currentBattleState,
+          hero: {
+            ...result.state.hero,
+            // Keep hero health unchanged until enemy attacks
+            currentHealth: currentBattleState.hero.currentHealth
+          },
+          enemy: result.state.enemy, // Update enemy health
+          turn: currentBattleState.turn,
+          log: result.state.log
+        };
 
-        // Reset animations after delay
+        setBattleState(stateAfterHeroAction);
+
+        // Reset hero animation after attack
         setTimeout(() => {
-          setHeroAnimationState(result.state.outcome === "victory" ? "victory" : result.state.outcome === "defeat" ? "defeat" : "idle");
-          setEnemyAnimationState(result.state.enemy.currentHealth <= 0 ? "defeat" : "idle");
-          setIsResolving(false);
-
-          if (result.state.outcome !== "inProgress") {
-            setIsRewardVisible(true);
+          setHeroAnimationState("idle");
+          if (enemyTookDamage) {
+            setEnemyAnimationState("idle");
           }
+
+          // Check if battle ended after hero action
+          if (result.state.enemy.currentHealth <= 0) {
+            setHeroAnimationState("victory");
+            setEnemyAnimationState("defeat");
+            battleContextRef.current = updateBattleContext(battleContextRef.current!, result.state);
+            setBattleState(result.state);
+            setIsResolving(false);
+            setIsRewardVisible(true);
+            return;
+          }
+
+          // PHASE 2: Enemy retaliates
+          setTimeout(() => {
+            // Show enemy attack animation
+            const enemyActionType = Math.random() > 0.6 ? "attack" : "attack"; // Could vary this
+            setEnemyAnimationState(enemyActionType);
+
+            setTimeout(() => {
+              // Hero takes damage
+              const heroTookDamage = result.state.hero.currentHealth < currentBattleState.hero.currentHealth;
+
+              if (heroTookDamage) {
+                setHeroAnimationState("damage");
+              }
+
+              // Update to final state with both hero and enemy health
+              battleContextRef.current = updateBattleContext(battleContextRef.current!, result.state);
+              setBattleState(result.state);
+
+              // Reset animations
+              setTimeout(() => {
+                if (result.state.hero.currentHealth <= 0) {
+                  setHeroAnimationState("defeat");
+                  setEnemyAnimationState("victory");
+                  setIsRewardVisible(true);
+                } else {
+                  setHeroAnimationState("idle");
+                  setEnemyAnimationState("idle");
+                }
+
+                setIsResolving(false);
+
+                if (result.state.outcome !== "inProgress") {
+                  setIsRewardVisible(true);
+                }
+              }, 600);
+            }, 300);
+          }, 400);
         }, 600);
       }, 100);
     },

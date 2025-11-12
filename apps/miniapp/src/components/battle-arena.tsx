@@ -86,13 +86,13 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
         </div>
 
         {/* Battle Stage */}
-        <div className="flex-1 flex items-end justify-between px-8 pb-12 relative">
+        <div className="flex-1 flex items-end justify-between px-4 pb-12 relative">
           {/* Stage floor indicator */}
           <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-purple-500/30" />
           <div className="absolute bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
           {/* Player Character (Left) */}
-          <div className="w-1/3 max-w-xs">
+          <div className="flex-1 max-w-[35%]">
             <CharacterSprite
               character={player.character}
               animationState={player.animationState}
@@ -102,7 +102,7 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
           </div>
 
           {/* Center Area (Combo Counter, Status Messages) */}
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-2">
             {centerSlot}
 
             {/* Outcome Display */}
@@ -140,7 +140,7 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
           </div>
 
           {/* Opponent Character (Right) */}
-          <div className="w-1/3 max-w-xs">
+          <div className="flex-1 max-w-[35%]">
             <CharacterSprite
               character={opponent.character}
               animationState={opponent.animationState}
