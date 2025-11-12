@@ -21,9 +21,9 @@ type SoundEffectType =
   | "combo";
 
 type AudioConfig = {
-  readonly bgmVolume: number;
-  readonly sfxVolume: number;
-  readonly enabled: boolean;
+  bgmVolume: number;
+  sfxVolume: number;
+  enabled: boolean;
 };
 
 // Audio file mapping configuration
@@ -43,16 +43,18 @@ type AudioFileMap = {
 class AudioManager {
   private bgmAudio: HTMLAudioElement | null = null;
   private soundPool: Map<SoundEffectType, HTMLAudioElement[]> = new Map();
-  private config: AudioConfig = {
-    bgmVolume: 0.5,
-    sfxVolume: 0.7,
-    enabled: true
-  };
+  private config: AudioConfig;
   private isInitialized = false;
   private userInteracted = false;
   private audioFiles: AudioFileMap;
 
   constructor() {
+    // Initialize config as mutable object
+    this.config = {
+      bgmVolume: 0.5,
+      sfxVolume: 0.7,
+      enabled: true
+    };
     // Build audio file URL map
     // Priority: Individual URL > Base URL + filename > null (graceful degradation)
     const baseUrl = env.NEXT_PUBLIC_AUDIO_BASE_URL; // Can be undefined if not configured
