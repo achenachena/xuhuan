@@ -3,6 +3,11 @@ import type { Character } from "@xuhuan/game-types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+// Debug: Log the API URL in development
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  console.log("API_BASE_URL:", API_BASE_URL);
+}
+
 type UseCharactersResult = {
   readonly characters: readonly Character[];
   readonly isLoading: boolean;
