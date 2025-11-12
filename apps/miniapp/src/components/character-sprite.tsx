@@ -78,20 +78,25 @@ const CharacterSprite = ({
       style={{
         transform: flip ? "scaleX(-1)" : "scaleX(1)",
         transformOrigin: "center",
-        height: "280px",
-        width: "100%"
+        height: "240px",
+        width: "100%",
+        maxWidth: "180px",
+        margin: "0 auto"
       }}
     >
       {spriteUrl && (
         <img
           src={spriteUrl}
           alt={`${character.name} sprite`}
-          className="w-full h-full"
           style={{
             filter: animationState === "damage" ? "brightness(1.5) saturate(0.5)" : "none",
             imageRendering: "crisp-edges",
             objectFit: "contain",
-            objectPosition: "center bottom"
+            objectPosition: "center bottom",
+            width: "100%",
+            height: "100%",
+            maxWidth: "180px",
+            maxHeight: "240px"
           }}
           onError={handleImageError}
         />

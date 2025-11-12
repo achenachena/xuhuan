@@ -104,17 +104,18 @@ const HealthBarTop = ({
       {/* Stats Container */}
       <div className="flex-1 min-w-0">
         {/* Name */}
-        <div className={clsx("flex items-baseline gap-2 mb-1", {
+        <div className={clsx("flex items-baseline gap-1 mb-1", {
           "justify-start": alignment === "left",
           "justify-end flex-row-reverse": alignment === "right"
         })}>
           <h3
-            className="text-lg font-bold tracking-tight truncate"
+            className="text-sm font-bold tracking-tight truncate max-w-[120px]"
             style={{ color: character.colorTheme }}
+            title={character.name}
           >
             {character.name}
           </h3>
-          <span className="text-xs text-white/60 uppercase tracking-wide">
+          <span className="text-[10px] text-white/60 uppercase tracking-wide flex-shrink-0">
             Lv.{character.baseHealth > 100 ? 3 : 2}
           </span>
         </div>
@@ -146,15 +147,15 @@ const HealthBarTop = ({
 
         {/* Special Meter */}
         <div>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-purple-300/80 font-semibold uppercase tracking-wide">
-              Special
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-[9px] text-purple-300/80 font-semibold uppercase tracking-tight">
+              SPECIAL
             </span>
-            <span className="text-[10px] text-purple-300/90 font-bold">
+            <span className="text-[9px] text-purple-300/90 font-bold">
               {specialMeter}/100
             </span>
           </div>
-          <div className="h-2 bg-black/50 rounded-full overflow-hidden border border-purple-500/30">
+          <div className="h-1.5 bg-black/50 rounded-full overflow-hidden border border-purple-500/30">
             <div
               className={clsx(
                 "h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-300",

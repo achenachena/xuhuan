@@ -19,15 +19,21 @@ type CombatantData = {
   readonly animationState: AnimationState;
 };
 
+type BattleLogEntry = {
+  readonly id: string;
+  readonly message: string;
+  readonly timestamp: number;
+};
+
 type BattleArenaProps = {
   readonly player: CombatantData;
   readonly opponent: CombatantData;
   readonly turn: number;
   readonly outcome: BattleOutcome;
-  readonly centerSlot?: ReactNode;
+  readonly battleLog: readonly BattleLogEntry[];
 };
 
-const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleArenaProps) => {
+const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArenaProps) => {
   return (
     <div className="relative w-full h-full min-h-[600px] overflow-hidden rounded-3xl bg-gradient-to-b from-gray-900 via-purple-900/20 to-black">
       {/* Background Arena Effect */}
@@ -86,11 +92,7 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
         </div>
 
         {/* Battle Stage */}
-        <div className="flex-1 flex items-end justify-between px-4 pb-12 relative">
-          {/* Stage floor indicator */}
-          <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-purple-500/30" />
-          <div className="absolute bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-
+        <div className="flex-1 flex items-end justify-between px-4 pb-2 relative min-h-0">
           {/* Player Character (Left) */}
           <div className="flex-1 max-w-[35%]">
             <CharacterSprite
@@ -101,15 +103,13 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
             />
           </div>
 
-          {/* Center Area (Combo Counter, Status Messages) */}
+          {/* Center Area (Combo Counter, Outcome) */}
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-2">
-            {centerSlot}
-
             {/* Outcome Display */}
             {outcome !== "inProgress" && (
               <div
                 className={clsx(
-                  "rounded-2xl px-8 py-4 text-3xl font-bold uppercase tracking-wider animate-bounce",
+                  "rounded-2xl px-6 py-3 text-2xl font-bold uppercase tracking-wider animate-bounce",
                   "border-4 shadow-2xl",
                   {
                     "bg-gradient-to-r from-green-600 to-emerald-500 border-green-300 text-white": outcome === "victory",
@@ -124,7 +124,7 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
             {/* Combo Display */}
             {player.comboCount >= 3 && (
               <div className="animate-pulse">
-                <div className="text-6xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(255,215,0,0.8)]">
+                <div className="text-4xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(255,215,0,0.8)]">
                   {player.comboCount} COMBO!
                 </div>
               </div>
@@ -132,7 +132,7 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
 
             {opponent.comboCount >= 3 && (
               <div className="animate-pulse">
-                <div className="text-6xl font-black text-red-400 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]">
+                <div className="text-4xl font-black text-red-400 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]">
                   {opponent.comboCount} COMBO!
                 </div>
               </div>
@@ -147,6 +147,26 @@ const BattleArena = ({ player, opponent, turn, outcome, centerSlot }: BattleAren
               scale={1}
               flip={true}
             />
+          </div>
+        </div>
+
+        {/* Stage floor separator */}
+        <div className="relative">
+          <div className="h-2 bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-purple-500/30" />
+          <div className="h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        </div>
+
+        {/* Battle Log Section */}
+        <div className="h-24 bg-black/60 backdrop-blur-sm overflow-y-auto px-4 py-2 scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-transparent">
+          <div className="space-y-1">
+            {battleLog.map((entry) => (
+              <div key={entry.id} className="text-xs text-white/80 font-mono">
+                {entry.message}
+              </div>
+            ))}
+            {battleLog.length === 0 && (
+              <div className="text-xs text-white/40 italic">Battle log will appear here...</div>
+            )}
           </div>
         </div>
       </div>
