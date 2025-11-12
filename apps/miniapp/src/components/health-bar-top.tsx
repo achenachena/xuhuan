@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Character } from "@xuhuan/game-types";
 import { generateCharacterPortrait, avatarToDataUrl } from "@/lib/avatar-generator";
 import clsx from "clsx";
+import useLocale from "@/components/providers/use-locale";
 
 type HealthBarTopProps = {
   readonly character: Character;
@@ -24,6 +25,7 @@ const HealthBarTop = ({
   isBlocking,
   alignment
 }: HealthBarTopProps) => {
+  const { translate } = useLocale();
   const [portraitUrl, setPortraitUrl] = useState<string>("");
   const [useFallback, setUseFallback] = useState<boolean>(false);
 
@@ -46,6 +48,7 @@ const HealthBarTop = ({
   const isLowHealth = healthPercentage < 30;
   const isCriticalHealth = healthPercentage < 15;
 
+  const displayLevel = character.baseHealth > 100 ? 3 : 2;
   return (
     <div
       className={clsx(
@@ -71,7 +74,7 @@ const HealthBarTop = ({
           {portraitUrl && (
             <img
               src={portraitUrl}
-              alt={`${character.name} portrait`}
+              alt={translate("healthBarTop.portraitAlt", { name: character.name })}
               className="w-full h-full object-cover"
               onError={handleImageError}
             />
@@ -116,14 +119,16 @@ const HealthBarTop = ({
             {character.name}
           </h3>
           <span className="text-[10px] text-white/60 uppercase tracking-wide flex-shrink-0">
-            Lv.{character.baseHealth > 100 ? 3 : 2}
+            {translate("healthBarTop.levelLabel", { level: displayLevel.toString() })}
           </span>
         </div>
 
         {/* Health Bar */}
         <div className="mb-1.5">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-white/80 font-semibold">HP</span>
+            <span className="text-xs text-white/80 font-semibold">
+              {translate("healthBarTop.healthLabel")}
+            </span>
             <span className="text-xs text-white/90 font-bold">
               {currentHealth}/{maxHealth}
             </span>
@@ -149,10 +154,10 @@ const HealthBarTop = ({
         <div>
           <div className="flex items-center justify-between mb-0.5">
             <span className="text-[9px] text-purple-300/80 font-semibold uppercase tracking-tight">
-              SPECIAL
+              {translate("healthBarTop.specialLabel")}
             </span>
             <span className="text-[9px] text-purple-300/90 font-bold">
-              {specialMeter}/100
+              {translate("healthBarTop.specialValue", { value: specialMeter.toString() })}
             </span>
           </div>
           <div className="h-1.5 bg-black/50 rounded-full overflow-hidden border border-purple-500/30">

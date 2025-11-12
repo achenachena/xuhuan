@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import clsx from "clsx";
 
 import type { BattleOutcome, CombatantState, StatusEffectState } from "@/lib/game-loop";
+import useLocale from "@/components/providers/use-locale";
 
 type GameSceneProps = {
   readonly hero: CombatantState;
@@ -78,6 +79,7 @@ const CombatantPanel = ({
   readonly combatant: CombatantState;
   readonly alignment: "start" | "end";
 }) => {
+  const { translate } = useLocale();
   const tone: "hero" | "enemy" = combatant.kind;
   const panelClassName = clsx(
     "flex w-full flex-col gap-3 rounded-2xl border px-4 py-4 transition-colors sm:max-w-sm",
@@ -91,12 +93,12 @@ const CombatantPanel = ({
   return (
     <article
       className={clsx(panelClassName, containerAlignment)}
-      aria-label={`${combatant.name} status`}
+      aria-label={translate("gameScene.panel.ariaLabel", { name: combatant.name })}
       tabIndex={0}
     >
       <header className="relative">
         <p className="text-xs uppercase tracking-[0.18em] opacity-70">
-          Level {combatant.level}
+          {translate("gameScene.panel.level", { level: combatant.level.toString() })}
         </p>
         <h2 className="text-xl font-semibold tracking-tight">{combatant.name}</h2>
 
@@ -112,7 +114,7 @@ const CombatantPanel = ({
             )}
           >
             <span className="text-base">🔥</span>
-            <span>{combatant.comboCount} COMBO</span>
+            <span>{translate("gameScene.panel.combo", { combo: combatant.comboCount.toString() })}</span>
           </div>
         )}
 
@@ -120,25 +122,36 @@ const CombatantPanel = ({
         {combatant.isBlocking && (
           <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-blue-500 bg-blue-500/30 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-200">
             <span className="text-base">🛡️</span>
-            <span>BLOCKING</span>
+            <span>{translate("gameScene.panel.blocking")}</span>
           </div>
         )}
       </header>
 
       <div className="flex flex-col gap-2 text-xs uppercase tracking-[0.2em] opacity-80">
-        <span>ATK {combatant.attributes.attack}</span>
-        <span>DEF {combatant.attributes.defense}</span>
-        <span>SPD {combatant.attributes.speed}</span>
+        <span>
+          {translate("gameScene.stats.attack", { value: combatant.attributes.attack.toString() })}
+        </span>
+        <span>
+          {translate("gameScene.stats.defense", { value: combatant.attributes.defense.toString() })}
+        </span>
+        <span>
+          {translate("gameScene.stats.speed", { value: combatant.attributes.speed.toString() })}
+        </span>
       </div>
 
-      <StatBar label="Health" current={combatant.currentHealth} max={combatant.attributes.maxHealth} tone={tone} />
+      <StatBar
+        label={translate("gameScene.stats.health")}
+        current={combatant.currentHealth}
+        max={combatant.attributes.maxHealth}
+        tone={tone}
+      />
 
       {/* Special Meter Mini Display */}
       {combatant.kind === "hero" && (
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] opacity-70">
-            <span>Special Meter</span>
-            <span>{combatant.specialMeter}/100</span>
+            <span>{translate("gameScene.stats.specialMeter.title")}</span>
+            <span>{translate("gameScene.stats.specialMeter.value", { value: combatant.specialMeter.toString() })}</span>
           </div>
           <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-black/30">
             <div
@@ -148,7 +161,7 @@ const CombatantPanel = ({
               aria-valuenow={combatant.specialMeter}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label="Special meter"
+              aria-label={translate("gameScene.stats.specialMeter.ariaLabel")}
             />
           </div>
         </div>
@@ -171,17 +184,18 @@ const CombatantPanel = ({
 };
 
 const GameScene = ({ hero, enemy, turn, outcome, overlaySlot }: GameSceneProps) => {
+  const { translate } = useLocale();
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-3xl">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,_rgba(59,130,246,0.2),_transparent_60%)]" />
       <div className="flex w-full flex-col gap-6 px-4 py-6 md:flex-row md:items-center md:justify-between md:gap-4">
         <CombatantPanel combatant={hero} alignment="start" />
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="text-xs uppercase tracking-[0.3em] opacity-70">Turn {turn}</span>
-          <h3 className="text-3xl font-semibold tracking-tight">Battlefield</h3>
-          <p className="max-w-xs text-sm opacity-80">
-            Time your choices to destabilize your foe. Each turn resolves instantly with mirrored logic from the backend.
-          </p>
+          <span className="text-xs uppercase tracking-[0.3em] opacity-70">
+            {translate("gameScene.turnLabel", { turn: turn.toString() })}
+          </span>
+          <h3 className="text-3xl font-semibold tracking-tight">{translate("gameScene.title")}</h3>
+          <p className="max-w-xs text-sm opacity-80">{translate("gameScene.subtitle")}</p>
           {overlaySlot}
           {outcome !== "inProgress" && (
             <p
@@ -191,7 +205,9 @@ const GameScene = ({ hero, enemy, turn, outcome, overlaySlot }: GameSceneProps) 
               })}
               role="status"
             >
-              {outcome === "victory" ? "Victory Secured" : "Fallen in Combat"}
+              {translate(
+                outcome === "victory" ? "gameScene.outcome.victory" : "gameScene.outcome.defeat"
+              )}
             </p>
           )}
         </div>

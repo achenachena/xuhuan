@@ -5,6 +5,7 @@ import type { KeyboardEventHandler, ReactNode } from "react";
 import clsx from "clsx";
 
 import useTelegramTheme from "@/hooks/use-telegram-theme";
+import useLocale from "@/components/providers/use-locale";
 
 type GameShellProps = {
   readonly headerSlot?: ReactNode;
@@ -24,6 +25,7 @@ const GameShell = ({
   children
 }: GameShellProps) => {
   const { colorScheme } = useTelegramTheme();
+  const { translate } = useLocale();
   const isDark: boolean = colorScheme === "dark";
 
   const containerClassName: string = clsx(
@@ -107,34 +109,45 @@ const GameShell = ({
         {headerSlot ?? (
           <div className="flex w-full items-center justify-between">
             <div>
-              <p className={subtleTextClassName}>Telegram Mini App</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">虚环 Mini</h1>
+              <p className={subtleTextClassName}>{translate("gameShell.header.subtitle")}</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">{translate("gameShell.header.title")}</h1>
             </div>
-            <span className={accentBadgeClassName} aria-label="Beta badge" role="status">
-              Beta
+            <span className={accentBadgeClassName} aria-label={translate("gameShell.header.badgeAria")} role="status">
+              {translate("gameShell.header.badge")}
             </span>
           </div>
         )}
       </header>
 
       <div className="flex flex-1 flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_340px]">
-        <section className={clsx(battlefieldContainerClassName, battlefieldBorderClassName)} aria-label="Battlefield">
+        <section
+          className={clsx(battlefieldContainerClassName, battlefieldBorderClassName)}
+          aria-label={translate("gameShell.battlefield.ariaLabel")}
+        >
           <div className={clsx("grid grid-cols-1 gap-3 border-b px-5 py-4 sm:grid-cols-2", battlefieldBorderClassName)}>
-            <div className={hudSurfaceClassName} role="group" aria-label="Hero status">
+            <div
+              className={hudSurfaceClassName}
+              role="group"
+              aria-label={translate("gameShell.hero.ariaLabel")}
+            >
               {heroHudSlot ?? (
                 <div className="w-full">
-                  <p className={clsx(subtleTextClassName, "tracking-[0.15em]")}>Hero</p>
-                  <p className="mt-1 text-lg font-semibold">Wanderer</p>
-                  <p className="mt-2 text-xs opacity-80">HP 120 / 120</p>
+                  <p className={clsx(subtleTextClassName, "tracking-[0.15em]")}>{translate("gameShell.hero.label")}</p>
+                  <p className="mt-1 text-lg font-semibold">{translate("gameShell.hero.name")}</p>
+                  <p className="mt-2 text-xs opacity-80">{translate("gameShell.hero.health")}</p>
                 </div>
               )}
             </div>
-            <div className={clsx(hudSurfaceClassName, "sm:justify-end")} role="group" aria-label="Enemy status">
+            <div
+              className={clsx(hudSurfaceClassName, "sm:justify-end")}
+              role="group"
+              aria-label={translate("gameShell.enemy.ariaLabel")}
+            >
               {enemyHudSlot ?? (
                 <div className="w-full text-right sm:w-auto">
-                  <p className={clsx(subtleTextClassName, "tracking-[0.15em]")}>Encounter</p>
-                  <p className="mt-1 text-lg font-semibold">Training Drone</p>
-                  <p className="mt-2 text-xs opacity-80">HP 80 / 80</p>
+                  <p className={clsx(subtleTextClassName, "tracking-[0.15em]")}>{translate("gameShell.enemy.label")}</p>
+                  <p className="mt-1 text-lg font-semibold">{translate("gameShell.enemy.name")}</p>
+                  <p className="mt-2 text-xs opacity-80">{translate("gameShell.enemy.health")}</p>
                 </div>
               )}
             </div>
@@ -149,34 +162,34 @@ const GameShell = ({
         <aside className="flex flex-col gap-4">
           <section
             className={clsx(surfaceClassName, "min-h-[220px] overflow-hidden")}
-            aria-label="Combat log"
+            aria-label={translate("gameShell.log.ariaLabel")}
           >
             {combatLogSlot ?? (
               <div className="flex h-full flex-col justify-between gap-3 text-sm">
-                <p className={subtleTextClassName}>Combat Log</p>
+                <p className={subtleTextClassName}>{translate("gameShell.log.title")}</p>
                 <ol className={combatLogClassName}>
-                  <li>• You enter the arena and steady your focus.</li>
-                  <li>• Training Drone rattles loudly.</li>
-                  <li>• Tutorial objectives will appear here.</li>
+                  <li>{translate("gameShell.log.entryOne")}</li>
+                  <li>{translate("gameShell.log.entryTwo")}</li>
+                  <li>{translate("gameShell.log.entryThree")}</li>
                 </ol>
               </div>
             )}
           </section>
           <section
             className={clsx(surfaceClassName, "flex flex-col gap-3")}
-            aria-label="Action bar"
+            aria-label={translate("gameShell.actions.ariaLabel")}
           >
             {actionBarSlot ?? (
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
                   className="w-full rounded-2xl bg-telegram-button px-4 py-3 text-sm font-semibold text-telegram-text"
-                  aria-label="Primary action"
+                  aria-label={translate("gameShell.actions.primary.ariaLabel")}
                   tabIndex={0}
                   onClick={handlePlaceholderAction}
                   onKeyDown={handlePlaceholderKeyDown}
                 >
-                  Strike
+                  {translate("gameShell.actions.primary.label")}
                 </button>
                 <button
                   type="button"
@@ -187,12 +200,12 @@ const GameShell = ({
                       "border-slate-300 text-slate-700": !isDark
                     }
                   )}
-                  aria-label="Secondary action"
+                  aria-label={translate("gameShell.actions.secondary.ariaLabel")}
                   tabIndex={0}
                   onClick={handlePlaceholderAction}
                   onKeyDown={handlePlaceholderKeyDown}
                 >
-                  Guard
+                  {translate("gameShell.actions.secondary.label")}
                 </button>
               </div>
             )}

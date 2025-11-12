@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Character } from "@xuhuan/game-types";
 import { generateCharacterPortrait, avatarToDataUrl } from "@/lib/avatar-generator";
 import clsx from "clsx";
+import useLocale from "@/components/providers/use-locale";
 
 type CharacterCardProps = {
   readonly character: Character;
@@ -14,6 +15,7 @@ type CharacterCardProps = {
 const CHARACTER_CARD_HEIGHT = "320px";
 
 const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) => {
+  const { translate } = useLocale();
   const [portraitUrl, setPortraitUrl] = useState<string>("");
   const [useFallback, setUseFallback] = useState<boolean>(false);
 
@@ -41,6 +43,16 @@ const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) 
 
   const rarityGradient = rarityColors[character.rarity as keyof typeof rarityColors] || rarityColors.common;
 
+  const statDefinitions = [
+    { labelKey: "characterCard.stats.hp", value: character.baseHealth, max: 120 },
+    { labelKey: "characterCard.stats.atk", value: character.baseAttack, max: 50 },
+    { labelKey: "characterCard.stats.def", value: character.baseDefense, max: 40 },
+    { labelKey: "characterCard.stats.spd", value: character.baseSpeed, max: 25 }
+  ] as const;
+  const archetypeKey = `characterCard.archetype.${character.vtuberArchetype}`;
+  const rarityKey = `characterCard.rarity.${character.rarity}`;
+  const selectionLabel = translate("characterCard.ariaLabel", { name: character.name });
+  const portraitAlt = translate("characterCard.portraitAlt", { name: character.name });
   return (
     <button
       type="button"
@@ -56,7 +68,7 @@ const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) 
         borderColor: isSelected ? character.colorTheme : undefined,
         minHeight: CHARACTER_CARD_HEIGHT
       }}
-      aria-label={`Select ${character.name}`}
+      aria-label={selectionLabel}
     >
       {/* Background gradient */}
       <div
@@ -80,7 +92,7 @@ const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) 
           {portraitUrl && (
             <img
               src={portraitUrl}
-              alt={`${character.name} portrait`}
+              alt={portraitAlt}
               className="w-full h-full object-cover"
               onError={handleImageError}
             />
@@ -92,26 +104,21 @@ const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) 
           {character.name}
         </h3>
         <p className="text-xs uppercase tracking-wider text-white/70 mb-2">
-          {character.vtuberArchetype.replace("-", " ")}
+          {translate(archetypeKey)}
         </p>
 
         {/* Rarity Badge */}
         <div className={`mb-3 rounded-full bg-gradient-to-r ${rarityGradient} px-3 py-1`}>
           <span className="text-xs font-bold uppercase tracking-wide text-white">
-            {character.rarity}
+            {translate(rarityKey)}
           </span>
         </div>
 
         {/* Stats Preview */}
         <div className="w-full mb-3 space-y-1.5">
-          {[
-            { label: "HP", value: character.baseHealth, max: 120 },
-            { label: "ATK", value: character.baseAttack, max: 50 },
-            { label: "DEF", value: character.baseDefense, max: 40 },
-            { label: "SPD", value: character.baseSpeed, max: 25 }
-          ].map((stat) => (
-            <div key={stat.label} className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-white/80 w-8">{stat.label}</span>
+          {statDefinitions.map((stat) => (
+            <div key={stat.labelKey} className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-white/80 w-8">{translate(stat.labelKey)}</span>
               <div className="flex-1 h-1.5 bg-black/30 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"

@@ -8,6 +8,7 @@ import CharacterSelect from "@/components/character-select";
 import BattleArena from "@/components/battle-arena";
 import RewardModal from "@/components/reward-modal";
 import useTelegramTheme from "@/hooks/use-telegram-theme";
+import useLocale from "@/components/providers/use-locale";
 import { useCharacters } from "@/hooks/use-characters";
 import type {
   BattleContext,
@@ -19,34 +20,45 @@ import type {
 import { createBattleState, resolveTurn, updateBattleContext } from "@/lib/game-loop";
 import type { Character, GamePhase } from "@xuhuan/game-types";
 
-const FIGHTING_ACTIONS: Array<{ readonly kind: FightingMoveKind; readonly title: string; readonly hint: string; readonly icon: string; readonly meterCost: number }> = [
+const FIGHTING_ACTION_DEFINITIONS: Array<{
+  readonly kind: FightingMoveKind;
+  readonly titleKey: string;
+  readonly hintKey: string;
+  readonly icon: string;
+  readonly meterCost: number;
+  readonly announcementKey: string;
+}> = [
   {
     kind: "lightAttack",
-    title: "Light Attack",
-    hint: "Quick strike",
+    titleKey: "actions.lightAttack.title",
+    hintKey: "actions.lightAttack.hint",
     icon: "👊",
-    meterCost: 0
+    meterCost: 0,
+    announcementKey: "battle.log.heroAction.lightAttack"
   },
   {
     kind: "heavyAttack",
-    title: "Heavy Attack",
-    hint: "Power strike",
+    titleKey: "actions.heavyAttack.title",
+    hintKey: "actions.heavyAttack.hint",
     icon: "💥",
-    meterCost: 0
+    meterCost: 0,
+    announcementKey: "battle.log.heroAction.heavyAttack"
   },
   {
     kind: "specialMove",
-    title: "SPECIAL",
-    hint: "Ultimate (50 meter)",
+    titleKey: "actions.specialMove.title",
+    hintKey: "actions.specialMove.hint",
     icon: "⚡",
-    meterCost: 50
+    meterCost: 50,
+    announcementKey: "battle.log.heroAction.specialMove"
   },
   {
     kind: "block",
-    title: "Block",
-    hint: "Reduce damage",
+    titleKey: "actions.block.title",
+    hintKey: "actions.block.hint",
     icon: "🛡️",
-    meterCost: 0
+    meterCost: 0,
+    announcementKey: "battle.log.heroAction.block"
   }
 ];
 
@@ -77,11 +89,13 @@ const createCombatantFromCharacter = (character: Character, kind: "hero" | "enem
 const ActionBar = ({
   disabled,
   specialMeter,
-  onAction
+  onAction,
+  translate
 }: {
   readonly disabled: boolean;
   readonly specialMeter: number;
   readonly onAction: (action: FightingMoveKind) => void;
+  readonly translate: (key: string, params?: Record<string, string>) => string;
 }) => {
   const handleSelect = (actionKind: FightingMoveKind, meterCost: number): void => {
     if (disabled) {
@@ -106,7 +120,7 @@ const ActionBar = ({
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-2">
       <div className="grid grid-cols-4 gap-2">
-        {FIGHTING_ACTIONS.map((action) => {
+        {FIGHTING_ACTION_DEFINITIONS.map((action) => {
           const canUse = action.kind !== "specialMove" || specialMeter >= action.meterCost;
           const isDisabled = disabled || !canUse;
 
@@ -136,8 +150,8 @@ const ActionBar = ({
               disabled={isDisabled}
             >
               <span className="text-3xl">{action.icon}</span>
-              <span className="text-xs font-semibold">{action.title}</span>
-              <span className="text-[10px] opacity-70">{action.hint}</span>
+              <span className="text-xs font-semibold">{translate(action.titleKey)}</span>
+              <span className="text-[10px] opacity-70">{translate(action.hintKey)}</span>
             </button>
           );
         })}
@@ -169,9 +183,13 @@ const HomePage = () => {
   const [battleLog, setBattleLog] = useState<BattleLogEntry[]>([]);
 
   const { themeParams } = useTelegramTheme();
+  const { translate, isReady } = useLocale();
   const { characters } = useCharacters();
 
   const handleCharacterSelected = useCallback((character: Character) => {
+    if (!isReady) {
+      return;
+    }
     setSelectedCharacter(character);
 
     // Select a random opponent from the other characters
@@ -192,17 +210,22 @@ const HomePage = () => {
 
     battleContextRef.current = context;
     setBattleState(context.state);
-    setBattleLog([{
-      id: `log-0`,
-      message: `Battle started! ${character.name} vs ${randomOpponent.name}`,
-      timestamp: Date.now()
-    }]);
+    setBattleLog([
+      {
+        id: "log-0",
+        message: translate("battle.log.start", {
+          heroName: character.name,
+          enemyName: randomOpponent.name
+        }),
+        timestamp: Date.now()
+      }
+    ]);
     setGamePhase("battle");
-  }, [characters]);
+  }, [characters, isReady, translate]);
 
   const handleResolveTurn = useCallback(
     (actionKind: FightingMoveKind) => {
-      if (isResolving || !battleState || battleState.outcome !== "inProgress" || !battleContextRef.current) {
+      if (!isReady || isResolving || !battleState || battleState.outcome !== "inProgress" || !battleContextRef.current) {
         if (battleState && battleState.outcome !== "inProgress") {
           setIsRewardVisible(true);
         }
@@ -212,10 +235,15 @@ const HomePage = () => {
       setIsResolving(true);
 
       // PHASE 1: Hero attacks
-      const actionName = actionKind === "specialMove" ? "SPECIAL MOVE" : actionKind === "heavyAttack" ? "Heavy Attack" : actionKind === "lightAttack" ? "Light Attack" : "Block";
+      const actionDefinition = FIGHTING_ACTION_DEFINITIONS.find((definition) => definition.kind === actionKind);
+      const actionAnnouncementKey = actionDefinition ? actionDefinition.announcementKey : "battle.log.heroAction.fallback";
+      const actionName = actionDefinition ? translate(actionDefinition.titleKey) : translate("actions.fallback.title");
       setBattleLog(prev => [...prev, {
         id: `log-${Date.now()}-hero-action`,
-        message: `[Turn ${battleState.turn}] You used ${actionName}!`,
+        message: translate(actionAnnouncementKey, {
+          turn: battleState.turn.toString(),
+          actionName
+        }),
         timestamp: Date.now()
       }]);
 
@@ -271,11 +299,16 @@ const HomePage = () => {
           if (result.state.enemy.currentHealth <= 0) {
             setHeroAnimationState("victory");
             setEnemyAnimationState("defeat");
-            setBattleLog(prev => [...prev, {
-              id: `log-${Date.now()}-victory`,
-              message: `🎉 Victory! ${currentBattleState.enemy.name} defeated!`,
-              timestamp: Date.now()
-            }]);
+            setBattleLog(prev => [
+              ...prev,
+              {
+                id: `log-${Date.now()}-victory`,
+                message: translate("battle.log.victory", {
+                  enemyName: currentBattleState.enemy.name
+                }),
+                timestamp: Date.now()
+              }
+            ]);
             battleContextRef.current = updateBattleContext(battleContextRef.current!, result.state);
             setBattleState(result.state);
             setIsResolving(false);
@@ -285,11 +318,16 @@ const HomePage = () => {
 
           // PHASE 2: Enemy retaliates
           setTimeout(() => {
-            setBattleLog(prev => [...prev, {
-              id: `log-${Date.now()}-enemy-turn`,
-              message: `${currentBattleState.enemy.name} retaliates!`,
-              timestamp: Date.now()
-            }]);
+            setBattleLog(prev => [
+              ...prev,
+              {
+                id: `log-${Date.now()}-enemy-turn`,
+                message: translate("battle.log.enemyRetaliates", {
+                  enemyName: currentBattleState.enemy.name
+                }),
+                timestamp: Date.now()
+              }
+            ]);
 
             // Show enemy attack animation
             const enemyActionType = Math.random() > 0.6 ? "attack" : "attack"; // Could vary this
@@ -312,11 +350,14 @@ const HomePage = () => {
                 if (result.state.hero.currentHealth <= 0) {
                   setHeroAnimationState("defeat");
                   setEnemyAnimationState("victory");
-                  setBattleLog(prev => [...prev, {
-                    id: `log-${Date.now()}-defeat`,
-                    message: `💀 Defeat... You have been defeated.`,
-                    timestamp: Date.now()
-                  }]);
+                  setBattleLog(prev => [
+                    ...prev,
+                    {
+                      id: `log-${Date.now()}-defeat`,
+                      message: translate("battle.log.defeat"),
+                      timestamp: Date.now()
+                    }
+                  ]);
                   setIsRewardVisible(true);
                 } else {
                   setHeroAnimationState("idle");
@@ -334,7 +375,7 @@ const HomePage = () => {
         }, 600);
       }, 100);
     },
-    [battleState, isResolving]
+    [battleState, isReady, isResolving, translate]
   );
 
   const handleRestartBattle = useCallback(() => {
@@ -389,9 +430,10 @@ const HomePage = () => {
           {/* Action Bar */}
           <div className="pb-2">
             <ActionBar
-              disabled={isResolving || battleState.outcome !== "inProgress"}
+              disabled={isResolving || battleState.outcome !== "inProgress" || !isReady}
               specialMeter={battleState.hero.specialMeter}
               onAction={handleResolveTurn}
+              translate={translate}
             />
           </div>
         </div>

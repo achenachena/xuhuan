@@ -6,6 +6,7 @@ import type { BattleOutcome } from "@/lib/game-loop";
 import CharacterSprite from "./character-sprite";
 import HealthBarTop from "./health-bar-top";
 import clsx from "clsx";
+import useLocale from "@/components/providers/use-locale";
 
 type AnimationState = "idle" | "attack" | "damage" | "block" | "special" | "victory" | "defeat";
 
@@ -34,6 +35,7 @@ type BattleArenaProps = {
 };
 
 const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArenaProps) => {
+  const { translate } = useLocale();
   const battleLogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,10 +81,12 @@ const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArena
           {/* VS Badge and Turn Counter */}
           <div className="flex flex-col items-center gap-1 pt-2 flex-shrink-0">
             <div className="px-3 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-orange-500 border-2 border-white/30 shadow-lg">
-              <span className="text-xs font-bold text-white tracking-wider">VS</span>
+              <span className="text-xs font-bold text-white tracking-wider">{translate("battleArena.vsBadge")}</span>
             </div>
             <div className="px-2 py-0.5 rounded-full bg-black/60 border border-white/20">
-              <span className="text-[10px] font-semibold text-white/80">T{turn}</span>
+              <span className="text-[10px] font-semibold text-white/80">
+                {translate("battleArena.turnBadge", { turn: turn.toString() })}
+              </span>
             </div>
           </div>
 
@@ -125,7 +129,9 @@ const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArena
                   }
                 )}
               >
-                {outcome === "victory" ? "🎉 Victory!" : "💀 Defeat"}
+                {translate(
+                  outcome === "victory" ? "battleArena.outcome.victory" : "battleArena.outcome.defeat"
+                )}
               </div>
             )}
 
@@ -133,7 +139,7 @@ const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArena
             {player.comboCount >= 3 && (
               <div className="animate-pulse">
                 <div className="text-4xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(255,215,0,0.8)]">
-                  {player.comboCount} COMBO!
+                  {translate("battleArena.comboLabel", { combo: player.comboCount.toString() })}
                 </div>
               </div>
             )}
@@ -141,7 +147,7 @@ const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArena
             {opponent.comboCount >= 3 && (
               <div className="animate-pulse">
                 <div className="text-4xl font-black text-red-400 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]">
-                  {opponent.comboCount} COMBO!
+                  {translate("battleArena.comboLabel", { combo: opponent.comboCount.toString() })}
                 </div>
               </div>
             )}
@@ -173,7 +179,7 @@ const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArena
               </div>
             ))}
             {battleLog.length === 0 && (
-              <div className="text-xs text-white/40 italic">Battle log will appear here...</div>
+              <div className="text-xs text-white/40 italic">{translate("battleArena.logPlaceholder")}</div>
             )}
           </div>
         </div>

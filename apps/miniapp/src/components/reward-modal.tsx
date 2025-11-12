@@ -8,6 +8,7 @@ import clsx from "clsx";
 import type { BattleOutcome, RewardBundle, RewardDrop } from "@/lib/game-loop";
 import { summarizeBattleTheme } from "@/lib/game-loop";
 import type { TelegramThemeParams } from "@/lib/telegram-theme";
+import useLocale from "@/components/providers/use-locale";
 
 type RewardModalProps = {
   readonly open: boolean;
@@ -18,6 +19,7 @@ type RewardModalProps = {
 };
 
 const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProps) => {
+  const { translate } = useLocale();
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (!open) {
@@ -63,7 +65,7 @@ const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProp
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Battle rewards"
+        aria-label={translate("rewardModal.ariaLabel")}
         className="w-full max-w-md rounded-3xl border border-white/10 bg-telegram-bg px-6 py-8 text-telegram-text shadow-2xl"
         onClick={handleDialogClick}
       >
@@ -72,7 +74,7 @@ const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProp
           style={{ borderColor: `${accentColor}33` }}
         >
           <h4 className="text-xl font-semibold tracking-tight">
-            {outcome === "victory" ? "Victory Rewards" : "Defeat Summary"}
+            {translate(outcome === "victory" ? "rewardModal.title.victory" : "rewardModal.title.defeat")}
           </h4>
           <button
             type="button"
@@ -85,22 +87,28 @@ const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProp
               }
             }}
           >
-            Close
+            {translate("rewardModal.action.close")}
           </button>
         </div>
         <div className="mt-4 flex flex-col gap-4 text-sm">
           <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3">
-            <span className="text-xs uppercase tracking-[0.2em] opacity-70">Experience</span>
+            <span className="text-xs uppercase tracking-[0.2em] opacity-70">
+              {translate("rewardModal.label.experience")}
+            </span>
             <span className="text-lg font-semibold">{rewards?.experience ?? 0}</span>
           </div>
           <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3">
-            <span className="text-xs uppercase tracking-[0.2em] opacity-70">Credits</span>
+            <span className="text-xs uppercase tracking-[0.2em] opacity-70">
+              {translate("rewardModal.label.credits")}
+            </span>
             <span className="text-lg font-semibold">{rewards?.credits ?? 0}</span>
           </div>
           <div className="rounded-2xl border border-white/10 px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.2em] opacity-70">Drops</p>
+            <p className="text-xs uppercase tracking-[0.2em] opacity-70">
+              {translate("rewardModal.label.drops")}
+            </p>
             {dropItems.length === 0 ? (
-              <p className="mt-3 text-sm opacity-70">No drops acquired this run.</p>
+              <p className="mt-3 text-sm opacity-70">{translate("rewardModal.drops.empty")}</p>
             ) : (
               <ul className="mt-3 flex flex-col gap-2">
                 {dropItems.map((drop: RewardDrop) => (
@@ -119,7 +127,7 @@ const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProp
                       {drop.name} × {drop.quantity}
                     </span>
                     <span className="text-xs uppercase tracking-[0.2em] opacity-80">
-                      {drop.rarity}
+                      {translate(`rewardModal.rarity.${drop.rarity}`)}
                     </span>
                   </li>
                 ))}

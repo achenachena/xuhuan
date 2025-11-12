@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Character } from "@xuhuan/game-types";
 import { generateCharacterAvatar, avatarToDataUrl } from "@/lib/avatar-generator";
+import useLocale from "@/components/providers/use-locale";
 
 type AnimationState = "idle" | "attack" | "damage" | "block" | "special" | "victory" | "defeat";
 
@@ -19,6 +20,7 @@ const CharacterSprite = ({
   scale = 1,
   flip = false
 }: CharacterSpriteProps) => {
+  const { translate } = useLocale();
   const [spriteUrl, setSpriteUrl] = useState<string>("");
   const [useFallback, setUseFallback] = useState<boolean>(false);
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
@@ -86,7 +88,7 @@ const CharacterSprite = ({
       {spriteUrl && (
         <img
           src={spriteUrl}
-          alt={`${character.name} sprite`}
+          alt={translate("characterSprite.alt", { name: character.name })}
           style={{
             filter: animationState === "damage" ? "brightness(1.5) saturate(0.5)" : "none",
             imageRendering: "crisp-edges",

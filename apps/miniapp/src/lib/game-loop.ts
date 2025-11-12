@@ -15,6 +15,7 @@ import type {
   FightingMove
 } from "@xuhuan/game-types";
 import type { TelegramThemeParams } from "@/lib/telegram-theme";
+import localeRegistry from "@/lib/localization/locale-registry";
 
 export type {
   BattleLogEntry,
@@ -57,6 +58,10 @@ export type BattleContext = {
 export type TurnResolutionResult = {
   readonly state: BattleState;
   readonly events: readonly BattleLogEntry[];
+};
+
+const translateText = (key: string, params?: Record<string, string>): string => {
+  return localeRegistry.getText(key, params);
 };
 
 export const updateBattleContext = (
@@ -275,7 +280,10 @@ const createLogEntry = (params: {
   };
 };
 
-const createRewardDrop = (enemy: CombatantState, rng: SeededRandom): readonly { readonly id: string; readonly name: string; readonly rarity: "common" | "rare" | "epic"; readonly quantity: number }[] => {
+const createRewardDrop = (
+  enemy: CombatantState,
+  rng: SeededRandom
+): readonly { readonly id: string; readonly name: string; readonly rarity: "common" | "rare" | "epic"; readonly quantity: number }[] => {
   const chance = DROP_BASE_CHANCE + enemy.level * DROP_LEVEL_SCALING;
   if (rng.getFloat() > chance) {
     return [];
@@ -286,7 +294,7 @@ const createRewardDrop = (enemy: CombatantState, rng: SeededRandom): readonly { 
   return [
     {
       id: `${enemy.id}-core`,
-      name: `${enemy.name} Core`,
+      name: translateText("battle.rewards.enemyCore", { enemyName: enemy.name }),
       rarity,
       quantity
     }
@@ -406,13 +414,27 @@ const resolveEnemyRetaliation = (
   let nextEnemy = updateCombatantMeter(state.enemy, METER_GAIN_ON_HIT);
   nextEnemy = incrementCombo(nextEnemy);
 
-  const blockMessage = damage.wasBlocked ? " (BLOCKED!)" : "";
-  const critMessage = damage.isCritical ? " CRITICAL HIT!" : "";
+  const moveName = translateText(
+    enemyMove === "heavyAttack" ? "battle.enemyMove.heavyAttack" : "battle.enemyMove.lightAttack"
+  );
+  const modifiers: string[] = [];
+  if (damage.wasBlocked) {
+    modifiers.push(translateText("battle.enemyAttack.blocked"));
+  }
+  if (damage.isCritical) {
+    modifiers.push(translateText("battle.enemyAttack.critical"));
+  }
+  const modifierText = modifiers.length > 0 ? modifiers.join(" ") : "";
 
   const entry = createLogEntry({
     turn: state.turn,
     actor: "enemy",
-    description: `${state.enemy.name} ${enemyMove === "heavyAttack" ? "delivers a heavy strike" : "attacks swiftly"} for ${damage.amount} damage${blockMessage}${critMessage}`,
+    description: translateText("battle.enemyAttack.description", {
+      enemyName: state.enemy.name,
+      moveName,
+      damage: damage.amount.toString(),
+      modifiers: modifierText
+    }),
     damage
   });
 
@@ -462,31 +484,28 @@ const determineOutcome = (
 };
 
 const describeHeroAction = (action: HeroActionKind | FightingMoveKind, enemyName: string): string => {
-  // Fighting game moves
   if (action === "lightAttack") {
-    return `You strike ${enemyName} with a quick jab!`;
+    return translateText("battle.heroAction.lightAttack", { enemyName });
   }
   if (action === "heavyAttack") {
-    return `You unleash a powerful strike against ${enemyName}!`;
+    return translateText("battle.heroAction.heavyAttack", { enemyName });
   }
   if (action === "specialMove") {
-    return `You execute your SPECIAL MOVE on ${enemyName}!`;
+    return translateText("battle.heroAction.specialMove", { enemyName });
   }
   if (action === "block") {
-    return `You brace yourself and prepare to block the next attack!`;
+    return translateText("battle.heroAction.block");
   }
   if (action === "counter") {
-    return `You attempt to counter ${enemyName}'s attack!`;
+    return translateText("battle.heroAction.counter", { enemyName });
   }
-
-  // Legacy actions
   if (action === "chargedStrike") {
-    return `You channel resonance and strike ${enemyName} with amplified force.`;
+    return translateText("battle.heroAction.chargedStrike", { enemyName });
   }
   if (action === "fortify") {
-    return `You brace for impact, restoring a portion of your guard.`;
+    return translateText("battle.heroAction.fortify");
   }
-  return `You attack ${enemyName} with a swift strike.`;
+  return translateText("battle.heroAction.fallback", { enemyName });
 };
 
 const applyFortify = (state: BattleState): BattleState => {
