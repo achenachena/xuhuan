@@ -189,6 +189,21 @@ const HomePage = () => {
   const { characters } = useCharacters();
   const { playSound, playBGM, stopBGM } = useAudio();
 
+  // Handle BGM playback based on game phase
+  useEffect(() => {
+    if (gamePhase === "select") {
+      // Play BGM when entering character select (uses unified BGM)
+      playBGM("select", true);
+    } else if (gamePhase === "battle") {
+      // Continue playing BGM in battle phase (already started in select)
+      // No need to restart, BGM continues seamlessly
+    }
+    // Cleanup: stop BGM when component unmounts or phase changes away from select/battle
+    return () => {
+      // Don't stop BGM here, let it continue between phases
+    };
+  }, [gamePhase, playBGM]);
+
   const handleCharacterSelected = useCallback((character: Character) => {
     if (!isReady) {
       return;
@@ -414,14 +429,6 @@ const HomePage = () => {
 
   // Character Selection Phase
   if (gamePhase === "select") {
-    // Play BGM when entering character select (uses unified BGM)
-    useEffect(() => {
-      playBGM("select", true);
-      return () => {
-        // Don't stop BGM here, let it continue to battle phase
-      };
-    }, [playBGM]);
-
     return <CharacterSelect onCharacterSelected={handleCharacterSelected} />;
   }
 
