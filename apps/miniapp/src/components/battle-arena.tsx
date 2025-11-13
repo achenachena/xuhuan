@@ -171,7 +171,7 @@ const BattleArena = ({ player, opponent, turn, outcome, battleLog }: BattleArena
         </div>
 
         {/* Battle Log Section */}
-        <div ref={battleLogRef} className="flex-1 bg-black/60 backdrop-blur-sm overflow-y-auto px-4 py-2 scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-transparent">
+        <div ref={battleLogRef} className="h-24 bg-black/60 backdrop-blur-sm overflow-y-auto px-4 py-2 scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-transparent flex-shrink-0">
           <div className="space-y-1">
             {battleLog.map((entry) => (
               <div key={entry.id} className="text-xs text-white/80 font-mono leading-relaxed">
