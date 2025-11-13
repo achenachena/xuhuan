@@ -7,7 +7,6 @@ import clsx from "clsx";
 import CharacterSelect from "@/components/character-select";
 import BattleArena from "@/components/battle-arena";
 import RewardModal from "@/components/reward-modal";
-import AudioControls from "@/components/audio-controls";
 import useTelegramTheme from "@/hooks/use-telegram-theme";
 import useLocale from "@/components/providers/use-locale";
 import { useAudio } from "@/components/providers/audio-provider";
@@ -192,11 +191,11 @@ const HomePage = () => {
   // Handle BGM playback based on game phase
   useEffect(() => {
     if (gamePhase === "select") {
-      // Play BGM when entering character select (uses unified BGM)
+      // Play BGM when entering character select
       playBGM("select", true);
     } else if (gamePhase === "battle") {
-      // Continue playing BGM in battle phase (already started in select)
-      // No need to restart, BGM continues seamlessly
+      // Continue or start battle BGM (won't restart if same BGM is already playing)
+      playBGM("battle", true);
     }
     // Cleanup: stop BGM when component unmounts or phase changes away from select/battle
     return () => {
@@ -218,7 +217,7 @@ const HomePage = () => {
 
     // Create battle state
     const heroCombatant = createCombatantFromCharacter(character, "hero");
-    const enemyCombatant = createCombatantFromCharacter(randomOpponent, "enemy", 2);
+    const enemyCombatant = createCombatantFromCharacter(randomOpponent, "enemy", 3);
 
     const context = createBattleState({
       hero: heroCombatant,
@@ -239,9 +238,7 @@ const HomePage = () => {
       }
     ]);
     setGamePhase("battle");
-    // Play battle BGM
-    playBGM("battle", true);
-  }, [characters, isReady, translate, playBGM]);
+  }, [characters, isReady, translate]);
 
   const handleResolveTurn = useCallback(
     (actionKind: FightingMoveKind) => {
@@ -347,20 +344,23 @@ const HomePage = () => {
 
           // PHASE 2: Enemy retaliates
           setTimeout(() => {
+            // Extract enemy move details from result.events[1] if available
+            const enemyLogEntry = result.events[1];
+            const enemyMoveMessage = enemyLogEntry?.description || translate("battle.log.enemyRetaliates", {
+              enemyName: currentBattleState.enemy.name
+            });
+
             setBattleLog(prev => [
               ...prev,
               {
                 id: `log-${Date.now()}-enemy-turn`,
-                message: translate("battle.log.enemyRetaliates", {
-                  enemyName: currentBattleState.enemy.name
-                }),
+                message: enemyMoveMessage,
                 timestamp: Date.now()
               }
             ]);
 
             // Show enemy attack animation
-            const enemyActionType = Math.random() > 0.6 ? "attack" : "attack"; // Could vary this
-            setEnemyAnimationState(enemyActionType);
+            setEnemyAnimationState("attack");
 
             setTimeout(() => {
               // Hero takes damage
@@ -437,11 +437,6 @@ const HomePage = () => {
     return (
       <>
         <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex flex-col relative">
-          {/* Audio Controls */}
-          <div className="absolute top-4 right-4 z-50">
-            <AudioControls />
-          </div>
-
           {/* Battle Arena */}
           <div className="flex-1 p-2">
             <BattleArena
@@ -470,7 +465,7 @@ const HomePage = () => {
           </div>
 
           {/* Action Bar */}
-          <div className="pb-2">
+          <div className="pb-2 flex-shrink-0">
             <ActionBar
               disabled={isResolving || battleState.outcome !== "inProgress" || !isReady}
               specialMeter={battleState.hero.specialMeter}
