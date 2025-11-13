@@ -42,6 +42,7 @@ type AudioFileMap = {
 
 class AudioManager {
   private bgmAudio: HTMLAudioElement | null = null;
+  private currentBgmUrl: string | null = null;
   private soundPool: Map<SoundEffectType, HTMLAudioElement[]> = new Map();
   private config: AudioConfig;
   private isInitialized = false;
@@ -208,9 +209,6 @@ class AudioManager {
       return;
     }
 
-    // Stop current BGM if playing
-    this.stopBGM();
-
     // Get the appropriate BGM URL
     const bgmUrl = bgmType === "select" ? this.audioFiles.selectBgm : this.audioFiles.battleBgm;
 
@@ -219,12 +217,21 @@ class AudioManager {
       return;
     }
 
+    // If already playing the same BGM, don't restart it
+    if (this.currentBgmUrl === bgmUrl && this.bgmAudio && !this.bgmAudio.paused) {
+      return;
+    }
+
+    // Stop current BGM if playing a different one
+    this.stopBGM();
+
     const audioElement = this.createAudioElement(bgmUrl);
     if (!audioElement) {
       return;
     }
 
     this.bgmAudio = audioElement;
+    this.currentBgmUrl = bgmUrl;
     this.bgmAudio.volume = this.config.bgmVolume;
     this.bgmAudio.loop = loop;
 
@@ -235,6 +242,7 @@ class AudioManager {
         // Silent failure - audio file missing is acceptable
         console.debug(`BGM playback failed (${bgmType}):`, error);
         this.bgmAudio = null;
+        this.currentBgmUrl = null;
       });
     }
   }
@@ -247,6 +255,7 @@ class AudioManager {
       this.bgmAudio.pause();
       this.bgmAudio.currentTime = 0;
       this.bgmAudio = null;
+      this.currentBgmUrl = null;
     }
   }
 
