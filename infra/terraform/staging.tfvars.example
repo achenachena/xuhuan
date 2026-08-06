@@ -1,0 +1,25 @@
+environment              = "staging"
+aws_region               = "us-east-1"
+github_repository        = "achenachena/xuhuan"
+github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+
+api_domain_name       = "api-staging.example.com"
+route53_zone_id       = "Z0000000000000000000"
+acm_certificate_arn   = "arn:aws:acm:us-east-1:123456789012:certificate/replace-me"
+cors_allowed_origins  = "https://game-staging.example.com"
+
+# Bootstrap safely in two steps: first apply with false, populate the API
+# secret and push an immutable image, then set the real SHA tag and true.
+bootstrap_image_tag = "replace-with-git-sha"
+secrets_ready        = false
+
+desired_count                   = 1
+autoscaling_min_capacity        = 1
+autoscaling_max_capacity        = 2
+database_instance_class         = "db.t4g.micro"
+database_multi_az               = false
+database_deletion_protection    = true
+database_skip_final_snapshot    = false
+redis_node_type                 = "cache.t4g.micro"
+redis_replica_count             = 1
+log_retention_days              = 14

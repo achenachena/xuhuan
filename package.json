@@ -8,9 +8,12 @@
     "packages/*"
   ],
   "scripts": {
-    "lint": "npm run lint --workspaces",
-    "build": "npm run build --workspaces",
-    "dev": "npm run dev --workspace apps/miniapp"
+    "dev": "npm run dev --workspace @xuhuan/miniapp",
+    "lint": "npm run lint --workspace @xuhuan/miniapp",
+    "typecheck": "npm run typecheck --workspace @xuhuan/game-types && npm run typecheck --workspace @xuhuan/miniapp",
+    "build": "npm run build --workspace @xuhuan/game-types && npm run build --workspace @xuhuan/miniapp",
+    "test": "npm run test --workspace @xuhuan/miniapp",
+    "test:e2e": "npm run test:e2e --workspace @xuhuan/miniapp",
+    "api:types:check": "npm run check:api-types --workspace @xuhuan/miniapp"
   }
 }
-

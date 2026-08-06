@@ -7,10 +7,22 @@ import CharacterCard from "./character-card";
 import useLocale from "@/components/providers/use-locale";
 
 type CharacterSelectProps = {
-  readonly onCharacterSelected: (character: Character) => void;
+  readonly onCharacterSelected: (character: Character) => void | Promise<void>;
+  readonly isConfirming?: boolean;
+  readonly actionError?: string | null;
+  readonly playerSummary?: {
+    readonly level: number;
+    readonly credits: number;
+    readonly energy: number;
+  };
 };
 
-const CharacterSelect = ({ onCharacterSelected }: CharacterSelectProps) => {
+const CharacterSelect = ({
+  onCharacterSelected,
+  isConfirming = false,
+  actionError,
+  playerSummary
+}: CharacterSelectProps) => {
   const { translate, isReady } = useLocale();
   const { characters, isLoading, error } = useCharacters();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -21,8 +33,8 @@ const CharacterSelect = ({ onCharacterSelected }: CharacterSelectProps) => {
 
   const handleConfirm = (): void => {
     const selectedCharacter = characters.find((char) => char.slug === selectedSlug);
-    if (selectedCharacter) {
-      onCharacterSelected(selectedCharacter);
+    if (selectedCharacter && !isConfirming) {
+      void onCharacterSelected(selectedCharacter);
     }
   };
 
@@ -75,6 +87,21 @@ const CharacterSelect = ({ onCharacterSelected }: CharacterSelectProps) => {
         <p className="text-base sm:text-lg text-white/70">
           {translate("characterSelect.subtitle")}
         </p>
+        {playerSummary ? (
+          <div
+            className="mt-3 inline-flex items-center gap-3 rounded-full border border-white/15 bg-black/30 px-4 py-2 text-xs text-white/80"
+            data-testid="player-progression"
+          >
+            <span>Lv. {playerSummary.level}</span>
+            <span>💳 {playerSummary.credits}</span>
+            <span>⚡ {playerSummary.energy}</span>
+          </div>
+        ) : null}
+        {actionError ? (
+          <p className="mx-auto mt-3 max-w-md rounded-xl border border-red-400/40 bg-red-500/15 px-4 py-2 text-sm text-red-100" role="alert">
+            {actionError}
+          </p>
+        ) : null}
       </div>
 
       {/* Character Grid */}
@@ -100,13 +127,14 @@ const CharacterSelect = ({ onCharacterSelected }: CharacterSelectProps) => {
             <button
               type="button"
               onClick={handleConfirm}
+              disabled={isConfirming}
               className="w-full px-8 py-4 rounded-2xl text-lg font-bold uppercase tracking-wider
                 bg-gradient-to-r from-green-500 to-emerald-600 text-white
                 hover:scale-105 hover:shadow-2xl shadow-green-500/50
-                transition-all duration-300 transform"
+                transition-all duration-300 transform disabled:cursor-wait disabled:opacity-60 disabled:hover:scale-100"
               aria-label={translate("characterSelect.confirm.ariaLabel")}
             >
-              {translate("characterSelect.confirm.label")}
+              {isConfirming ? "…" : translate("characterSelect.confirm.label")}
             </button>
           </div>
         </div>
