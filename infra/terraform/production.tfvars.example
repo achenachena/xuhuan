@@ -1,0 +1,26 @@
+environment              = "production"
+aws_region               = "us-east-1"
+github_repository        = "achenachena/xuhuan"
+github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+
+api_domain_name       = "api.example.com"
+route53_zone_id       = "Z0000000000000000000"
+acm_certificate_arn   = "arn:aws:acm:us-east-1:123456789012:certificate/replace-me"
+cors_allowed_origins  = "https://game.example.com"
+
+bootstrap_image_tag = "replace-with-git-sha"
+secrets_ready        = false
+
+desired_count                   = 2
+autoscaling_min_capacity        = 2
+autoscaling_max_capacity        = 6
+database_instance_class         = "db.t4g.small"
+database_allocated_storage      = 50
+database_max_allocated_storage  = 250
+database_multi_az               = true
+database_deletion_protection    = true
+database_skip_final_snapshot    = false
+redis_node_type                 = "cache.t4g.small"
+redis_replica_count             = 2
+log_retention_days              = 90
+alarm_email                     = "owner@example.com"

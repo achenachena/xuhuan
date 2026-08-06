@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 
 import clsx from "clsx";
 
-import type { BattleLogEntry } from "@/lib/game-loop";
+import type { BattleLogEntry } from "@xuhuan/game-types";
 import useLocale from "@/components/providers/use-locale";
 
 type CombatLogProps = {
@@ -77,4 +77,3 @@ const CombatLog = ({ entries, ariaLabel }: CombatLogProps) => {
 };
 
 export default CombatLog;
-

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Character } from "@xuhuan/game-types";
-import type { BattleOutcome } from "@/lib/game-loop";
+import type { BattleOutcomeState, Character } from "@xuhuan/game-types";
 import CharacterSprite from "./character-sprite";
 import HealthBarTop from "./health-bar-top";
 import clsx from "clsx";
@@ -30,7 +29,7 @@ type BattleArenaProps = {
   readonly player: CombatantData;
   readonly opponent: CombatantData;
   readonly turn: number;
-  readonly outcome: BattleOutcome;
+  readonly outcome: BattleOutcomeState;
   readonly battleLog: readonly BattleLogEntry[];
 };
 

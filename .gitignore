@@ -6,6 +6,8 @@ node_modules
 out
 dist
 coverage
+test-results
+playwright-report
 *.tsbuildinfo
 .turbo
 
@@ -19,6 +21,12 @@ coverage
 
 # Deployment
 .vercel
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
 
 # Logs
 *.log

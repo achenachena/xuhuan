@@ -5,8 +5,8 @@ import type { MouseEventHandler } from "react";
 
 import clsx from "clsx";
 
-import type { BattleOutcome, RewardBundle, RewardDrop } from "@/lib/game-loop";
-import { summarizeBattleTheme } from "@/lib/game-loop";
+import type { RewardBundle, RewardDrop } from "@xuhuan/game-types";
+import { summarizeBattleTheme, type BattleOutcome } from "@/lib/battle-presentation";
 import type { TelegramThemeParams } from "@/lib/telegram-theme";
 import useLocale from "@/components/providers/use-locale";
 
@@ -141,4 +141,3 @@ const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProp
 };
 
 export default RewardModal;
-

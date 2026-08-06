@@ -2,48 +2,236 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build-and-test:
+  infrastructure:
+    name: Terraform format and schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.15.8
+      - name: Verify Terraform formatting
+        run: terraform fmt -check -recursive
+      - name: Initialize providers without a state backend
+        run: terraform init -backend=false
+      - name: Validate provider schema
+        run: terraform validate
+
+  go-quality:
+    name: Go format, vet, unit, and contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Vet
+        run: go vet ./...
+      - name: Unit and OpenAPI contract tests
+        run: go test -race ./...
+      - name: Build API commands
+        run: go build ./cmd/api ./cmd/migrate ./cmd/seed
+
+  integration:
+    name: PostgreSQL and Redis integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: xuhuan_test
+          POSTGRES_USER: xuhuan
+          POSTGRES_PASSWORD: xuhuan_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U xuhuan -d xuhuan_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: apps/api
+    env:
+      TEST_DATABASE_URL: postgres://xuhuan:xuhuan_test_password@127.0.0.1:5432/xuhuan_test?sslmode=disable
+      TEST_REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - name: Race-enabled integration suite
+        run: go test -race ./...
+
+  frontend:
+    name: Frontend contract, test, lint, type, and build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+      - name: Build shared presentation types
+        run: npm run build --workspace @xuhuan/game-types
+      - name: Verify generated OpenAPI types
+        run: npm run check:api-types --workspace @xuhuan/miniapp
+      - name: Frontend tests
+        run: npm run test --workspace @xuhuan/miniapp
+      - name: Frontend lint
+        run: npm run lint --workspace @xuhuan/miniapp
+      - name: Frontend production build
+        run: npm run build --workspace @xuhuan/miniapp
+      - name: Frontend standalone typecheck
+        run: npm run typecheck --workspace @xuhuan/miniapp
 
-      - name: Build shared game types
-        run: npm run build --workspace packages/game-types
+  e2e:
+    name: Browser to PostgreSQL smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: xuhuan_e2e
+          POSTGRES_USER: xuhuan
+          POSTGRES_PASSWORD: xuhuan_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U xuhuan -d xuhuan_e2e"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      APP_ENV: development
+      APP_VERSION: ci
+      HTTP_ADDR: :8080
+      DATABASE_URL: postgres://xuhuan:xuhuan_test_password@127.0.0.1:5432/xuhuan_e2e?sslmode=disable
+      REDIS_URL: redis://127.0.0.1:6379/0
+      CORS_ALLOWED_ORIGINS: http://127.0.0.1:3000
+      DEV_AUTH_ENABLED: "true"
+      DEV_AUTH_TOKEN: local-development-token
+      DEV_TELEGRAM_USER_ID: "42424242"
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8080
+      NEXT_PUBLIC_DEV_AUTH_TOKEN: local-development-token
+      NEXT_PUBLIC_DEFAULT_LANGUAGE: zh-CN
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Migrate and seed
+        working-directory: apps/api
+        run: |
+          go run ./cmd/migrate
+          go run ./cmd/seed
+      - name: Start API
+        working-directory: apps/api
+        run: |
+          go run ./cmd/api > "$RUNNER_TEMP/api.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/readyz > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/api.log"
+          exit 1
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run persisted battle journey
+        run: npm run test:e2e --workspace @xuhuan/miniapp
+      - name: Upload browser traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-results
+          path: apps/miniapp/test-results
+          if-no-files-found: ignore
 
-      - name: Lint frontend
-        run: npm run lint --workspace apps/miniapp
-
-      - name: Typecheck frontend
-        run: npm run typecheck --workspace apps/miniapp
-
-      - name: Build frontend
-        run: npm run build --workspace apps/miniapp
-
-      - name: Generate Prisma client
-        run: npm run db:generate --workspace apps/backend
-
-      - name: Lint backend
-        run: npm run lint --workspace apps/backend
-
-      - name: Typecheck backend
-        run: npm run typecheck --workspace apps/backend
-
-      - name: Build backend
-        run: npm run build --workspace apps/backend
-
+  security-and-container:
+    name: Dependency and container security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - name: Install dependencies
+        run: npm ci
+      - name: Audit runtime dependencies for critical advisories
+        run: npm audit --omit=dev --audit-level=critical
+      - name: Scan Go call graph for known vulnerabilities
+        working-directory: apps/api
+        env:
+          GOTOOLCHAIN: go1.26.5
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+      - name: Build API container
+        run: docker build --tag xuhuan-api:ci .
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: xuhuan-api:ci
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

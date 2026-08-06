@@ -1,101 +1,65 @@
-import { useState, useEffect } from "react";
+"use client";
+
+import useSWR from "swr";
 import type { Character } from "@xuhuan/game-types";
 
-// Use production URL directly for now since env vars aren't loading properly
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== "undefined" && window.location.hostname === "localhost"
-    ? "http://localhost:3001"
-    : "https://xuhuanbackend-production.up.railway.app");
-
-// Debug: Log the API URL
-if (typeof window !== "undefined") {
-  console.log("API_BASE_URL:", API_BASE_URL);
-}
+import {
+  getCharacter,
+  getCharacters,
+  getEncounters,
+  type APIEncounter
+} from "@/lib/api/client";
+import { toPresentationCharacter } from "@/lib/api/presentation";
 
 type UseCharactersResult = {
   readonly characters: readonly Character[];
   readonly isLoading: boolean;
-  readonly error: Error | null;
+  readonly error: Error | undefined;
+  readonly refresh: () => Promise<readonly Character[] | undefined>;
 };
 
 export const useCharacters = (): UseCharactersResult => {
-  const [characters, setCharacters] = useState<readonly Character[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    const fetchCharacters = async (): Promise<void> => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${API_BASE_URL}/characters`);
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch characters: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success && Array.isArray(data.characters)) {
-          setCharacters(data.characters);
-        } else {
-          throw new Error("Invalid response format from characters API");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error occurred"));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void fetchCharacters();
-  }, []);
-
-  return { characters, isLoading, error };
+  const swr = useSWR("/v1/characters", getCharacters, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30_000
+  });
+  return {
+    characters: swr.data?.map(toPresentationCharacter) ?? [],
+    isLoading: swr.isLoading,
+    error: swr.error,
+    refresh: async () => {
+      const refreshed = await swr.mutate();
+      return refreshed?.map(toPresentationCharacter);
+    }
+  };
 };
 
 type UseCharacterResult = {
   readonly character: Character | null;
   readonly isLoading: boolean;
-  readonly error: Error | null;
+  readonly error: Error | undefined;
 };
 
 export const useCharacter = (slug: string | null): UseCharacterResult => {
-  const [character, setCharacter] = useState<Character | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<Error | null>(null);
+  const swr = useSWR(slug ? ["/v1/characters", slug] : null, () => getCharacter(slug ?? ""), {
+    revalidateOnFocus: false
+  });
+  return {
+    character: swr.data ? toPresentationCharacter(swr.data) : null,
+    isLoading: swr.isLoading,
+    error: swr.error
+  };
+};
 
-  useEffect(() => {
-    if (!slug) {
-      setCharacter(null);
-      setIsLoading(false);
-      return;
-    }
-
-    const fetchCharacter = async (): Promise<void> => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${API_BASE_URL}/characters/${slug}`);
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch character: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success && data.character) {
-          setCharacter(data.character);
-        } else {
-          throw new Error("Invalid response format from character API");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error occurred"));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void fetchCharacter();
-  }, [slug]);
-
-  return { character, isLoading, error };
+export const useEncounters = () => {
+  const swr = useSWR<readonly APIEncounter[]>("/v1/encounters", getEncounters, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30_000
+  });
+  return {
+    encounters: swr.data ?? [],
+    isLoading: swr.isLoading,
+    error: swr.error,
+    refresh: swr.mutate
+  };
 };

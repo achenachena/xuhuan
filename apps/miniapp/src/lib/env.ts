@@ -18,6 +18,7 @@ const urlOrPathValidator = z
 
 const envSchema = z.object({
   NEXT_PUBLIC_API_URL: z.string().url().optional(),
+  NEXT_PUBLIC_DEV_AUTH_TOKEN: z.string().min(16).optional(),
   // Base URL for all audio files (if all files are in the same location)
   NEXT_PUBLIC_AUDIO_BASE_URL: urlOrPathValidator,
   // BGM URL - single BGM for all pages (select, battle, reward)
@@ -38,6 +39,7 @@ const envSchema = z.object({
 
 export const env = envSchema.parse({
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  NEXT_PUBLIC_DEV_AUTH_TOKEN: process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN,
   NEXT_PUBLIC_AUDIO_BASE_URL: process.env.NEXT_PUBLIC_AUDIO_BASE_URL,
   NEXT_PUBLIC_AUDIO_BGM: process.env.NEXT_PUBLIC_AUDIO_BGM,
   NEXT_PUBLIC_AUDIO_SELECT_BGM: process.env.NEXT_PUBLIC_AUDIO_SELECT_BGM,

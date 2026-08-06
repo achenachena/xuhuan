@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import clsx from "clsx";
 
-import type { BattleOutcome, CombatantState, StatusEffectState } from "@/lib/game-loop";
+import type { BattleOutcome, CombatantState, StatusEffectState } from "@/lib/battle-presentation";
 import useLocale from "@/components/providers/use-locale";
 
 type GameSceneProps = {
@@ -218,4 +218,3 @@ const GameScene = ({ hero, enemy, turn, outcome, overlaySlot }: GameSceneProps) 
 };
 
 export default GameScene;
-
