@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Character } from "@xuhuan/game-types";
 import { generateCharacterAvatar, avatarToDataUrl } from "@/lib/avatar-generator";
 import useLocale from "@/components/providers/use-locale";
@@ -21,41 +21,23 @@ const CharacterSprite = ({
   flip = false
 }: CharacterSpriteProps) => {
   const { translate } = useLocale();
-  const [spriteUrl, setSpriteUrl] = useState<string>("");
-  const [useFallback, setUseFallback] = useState<boolean>(false);
-  const [isAnimating, setIsAnimating] = useState<boolean>(false);
-
-  useEffect(() => {
-    // Use real sprite/model URL if available, otherwise fallback to generator
-    if (character.spriteUrl && !useFallback) {
-      setSpriteUrl(character.spriteUrl);
-    } else {
-      const svgString = generateCharacterAvatar(character, animationState, 280 * scale);
-      const dataUrl = avatarToDataUrl(svgString);
-      setSpriteUrl(dataUrl);
-    }
-
-    // Trigger animation class when state changes
-    if (animationState !== "idle") {
-      setIsAnimating(true);
-      const timeout = setTimeout(() => {
-        setIsAnimating(false);
-      }, 500);
-      return () => {
-        clearTimeout(timeout);
-      };
-    }
-  }, [character, animationState, scale, useFallback]);
+  const [failedSpriteUrl, setFailedSpriteUrl] = useState<string | null>(null);
+  const fallbackSpriteUrl = useMemo(
+    () => avatarToDataUrl(generateCharacterAvatar(character, animationState, 280 * scale)),
+    [animationState, character, scale]
+  );
+  const spriteUrl =
+    character.spriteUrl && character.spriteUrl !== failedSpriteUrl
+      ? character.spriteUrl
+      : fallbackSpriteUrl;
 
   const handleImageError = () => {
-    setUseFallback(true);
+    if (character.spriteUrl && spriteUrl === character.spriteUrl) {
+      setFailedSpriteUrl(character.spriteUrl);
+    }
   };
 
   const getAnimationClasses = (): string => {
-    if (!isAnimating) {
-      return "";
-    }
-
     switch (animationState) {
       case "attack":
         return "animate-attack-pulse";
