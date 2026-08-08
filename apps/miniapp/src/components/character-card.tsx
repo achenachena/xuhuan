@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Character } from "@xuhuan/game-types";
 import { generateCharacterPortrait, avatarToDataUrl } from "@/lib/avatar-generator";
 import clsx from "clsx";
@@ -16,22 +16,20 @@ const CHARACTER_CARD_HEIGHT = "320px";
 
 const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) => {
   const { translate } = useLocale();
-  const [portraitUrl, setPortraitUrl] = useState<string>("");
-  const [useFallback, setUseFallback] = useState<boolean>(false);
-
-  useEffect(() => {
-    // Use real portrait URL if available, otherwise fallback to generator
-    if (character.portraitUrl && !useFallback) {
-      setPortraitUrl(character.portraitUrl);
-    } else {
-      const svgString = generateCharacterPortrait(character, 160);
-      const dataUrl = avatarToDataUrl(svgString);
-      setPortraitUrl(dataUrl);
-    }
-  }, [character, useFallback]);
+  const [failedPortraitUrl, setFailedPortraitUrl] = useState<string | null>(null);
+  const fallbackPortraitUrl = useMemo(
+    () => avatarToDataUrl(generateCharacterPortrait(character, 160)),
+    [character]
+  );
+  const portraitUrl =
+    character.portraitUrl && character.portraitUrl !== failedPortraitUrl
+      ? character.portraitUrl
+      : fallbackPortraitUrl;
 
   const handleImageError = () => {
-    setUseFallback(true);
+    if (character.portraitUrl && portraitUrl === character.portraitUrl) {
+      setFailedPortraitUrl(character.portraitUrl);
+    }
   };
 
   const rarityColors = {
