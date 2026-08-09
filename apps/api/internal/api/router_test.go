@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -57,6 +58,38 @@ func TestHealthAndReadiness(t *testing.T) {
 				t.Fatalf("body = %s", response.Body.String())
 			}
 		})
+	}
+}
+
+func TestAccessLogUsesBoundedRoutePattern(t *testing.T) {
+	t.Parallel()
+
+	var logs bytes.Buffer
+	router := NewRouter(Dependencies{
+		Logger:       slog.New(slog.NewJSONHandler(&logs, nil)),
+		Version:      "test",
+		MaxBodyBytes: 1024,
+		Readiness:    ReadinessFunc(func(context.Context) error { return nil }),
+		RegisterRoutes: func(router chi.Router, _ func(http.Handler) http.Handler) {
+			router.Get("/v1/characters/{slug}", func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			})
+		},
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/v1/characters/user%0Acontrolled", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	var entry map[string]any
+	if err := json.Unmarshal(logs.Bytes(), &entry); err != nil {
+		t.Fatalf("decode access log: %v", err)
+	}
+	if entry["route"] != "/v1/characters/{slug}" {
+		t.Fatalf("route = %#v", entry["route"])
+	}
+	if _, exists := entry["path"]; exists {
+		t.Fatalf("access log includes user-controlled path: %#v", entry["path"])
 	}
 }
 
