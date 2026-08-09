@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: help install db-up migrate seed api miniapp up down logs test test-go test-frontend test-integration e2e-install e2e
+.PHONY: help install db-up migrate seed api miniapp up down logs lambda-package test test-go test-frontend test-integration e2e-install e2e
 
 help:
 	@echo "install           Install Node dependencies"
@@ -10,6 +10,7 @@ help:
 	@echo "api               Run the Go API on the host"
 	@echo "miniapp           Run the Next.js Mini App on the host"
 	@echo "up                 Build and start PostgreSQL plus the Go API"
+	@echo "lambda-package     Build the arm64 provided.al2023 bootstrap archive"
 	@echo "test               Run unit, contract, race, and frontend tests"
 	@echo "test-integration   Run Go tests against local PostgreSQL"
 	@echo "e2e                Start the API stack and run the Playwright journey"
@@ -42,12 +43,18 @@ down:
 logs:
 	docker compose logs -f api
 
+lambda-package:
+	mkdir -p apps/api/build
+	cd apps/api && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -ldflags="-s -w" -o build/bootstrap ./cmd/lambda
+	cd apps/api/build && zip -q -j lambda.zip bootstrap
+
 test: test-go test-frontend
 
 test-go:
 	cd apps/api && gofmt -l . | tee /tmp/xuhuan-gofmt-files && test ! -s /tmp/xuhuan-gofmt-files
 	cd apps/api && go vet ./...
 	cd apps/api && go test -race ./...
+	cd apps/api && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/xuhuan-lambda-bootstrap ./cmd/lambda
 
 test-frontend:
 	npm run check:api-types --workspace @xuhuan/miniapp

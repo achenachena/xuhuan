@@ -1,5 +1,5 @@
 variable "aws_region" {
-  description = "AWS region for this isolated environment."
+  description = "AWS region for the single Free Plan environment."
   type        = string
   default     = "us-east-1"
 }
@@ -16,8 +16,9 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Deployment environment. Use a separate state file for each value."
+  description = "Protected GitHub environment used for this single deployment."
   type        = string
+  default     = "production"
 
   validation {
     condition     = contains(["staging", "production"], var.environment)
@@ -30,42 +31,37 @@ variable "github_repository" {
   type        = string
 }
 
+variable "github_environment" {
+  description = "Case-sensitive protected GitHub environment used in the OIDC subject claim."
+  type        = string
+  default     = "Production"
+
+  validation {
+    condition     = contains(["staging", "Production"], var.github_environment)
+    error_message = "github_environment must be staging or Production."
+  }
+}
+
 variable "github_oidc_provider_arn" {
   description = "ARN of the account-level token.actions.githubusercontent.com OIDC provider."
   type        = string
 }
 
 variable "vpc_cidr" {
-  description = "CIDR for the environment VPC."
+  description = "CIDR for the isolated database VPC."
   type        = string
   default     = "10.20.0.0/16"
 }
 
 variable "availability_zone_count" {
-  description = "Number of availability zones; two is the supported minimum."
+  description = "Two isolated AZs are required by the RDS and ElastiCache subnet groups."
   type        = number
   default     = 2
 
   validation {
-    condition     = var.availability_zone_count >= 2 && var.availability_zone_count <= 3
-    error_message = "availability_zone_count must be two or three."
+    condition     = var.availability_zone_count == 2
+    error_message = "The Free Plan topology uses exactly two isolated availability zones."
   }
-}
-
-variable "api_domain_name" {
-  description = "Public API hostname, for example api.example.com."
-  type        = string
-}
-
-variable "route53_zone_id" {
-  description = "Optional Route 53 hosted-zone ID. Leave empty when DNS is managed elsewhere."
-  type        = string
-  default     = ""
-}
-
-variable "acm_certificate_arn" {
-  description = "Validated ACM certificate ARN for api_domain_name in this region."
-  type        = string
 }
 
 variable "cors_allowed_origins" {
@@ -78,44 +74,28 @@ variable "cors_allowed_origins" {
   }
 }
 
-variable "bootstrap_image_tag" {
-  description = "Existing immutable ECR image tag used by Terraform's initial task definition."
+variable "lambda_package_path" {
+  description = "Bootstrap zip built before the first apply; later releases use the deploy workflow."
   type        = string
-  default     = "bootstrap-required"
+  default     = "../../apps/api/build/lambda.zip"
 }
 
-variable "secrets_ready" {
-  description = "Set true only after the API secret has a telegram_bot_token JSON key and a bootstrap image exists."
-  type        = bool
-  default     = false
-}
-
-variable "desired_count" {
-  description = "Steady-state ECS task count once secrets_ready is true."
-  type        = number
-  default     = 1
-}
-
-variable "autoscaling_min_capacity" {
-  type    = number
-  default = 1
-}
-
-variable "autoscaling_max_capacity" {
-  type    = number
-  default = 4
-}
-
-variable "task_cpu" {
-  description = "Fargate task CPU units, shared by the API and ADOT sidecar."
+variable "lambda_memory_size" {
+  description = "Memory allocated to the arm64 Go Lambda."
   type        = number
   default     = 512
 }
 
-variable "task_memory" {
-  description = "Fargate task memory in MiB."
+variable "lambda_timeout" {
+  description = "Maximum HTTP or maintenance invocation duration in seconds."
   type        = number
-  default     = 1024
+  default     = 30
+}
+
+variable "lambda_reserved_concurrency" {
+  description = "Concurrency enabled by the deploy workflow after secrets and migrations are ready."
+  type        = number
+  default     = 2
 }
 
 variable "database_name" {
@@ -140,12 +120,7 @@ variable "database_allocated_storage" {
 
 variable "database_max_allocated_storage" {
   type    = number
-  default = 100
-}
-
-variable "database_multi_az" {
-  type    = bool
-  default = false
+  default = 0
 }
 
 variable "database_deletion_protection" {
@@ -163,19 +138,18 @@ variable "redis_node_type" {
   default = "cache.t4g.micro"
 }
 
-variable "redis_replica_count" {
-  description = "Total cache nodes. Use at least two for automatic failover."
-  type        = number
-  default     = 1
-}
-
 variable "log_retention_days" {
   type    = number
-  default = 30
+  default = 3
+
+  validation {
+    condition     = contains([1, 3, 5, 7], var.log_retention_days)
+    error_message = "Free Plan log retention must be 1, 3, 5, or 7 days."
+  }
 }
 
 variable "alarm_email" {
-  description = "Optional email subscription for the alarm SNS topic. Confirmation is required."
+  description = "Optional email subscription for alarms; confirmation is required."
   type        = string
   default     = ""
 }

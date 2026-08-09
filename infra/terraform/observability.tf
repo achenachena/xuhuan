@@ -10,59 +10,39 @@ resource "aws_sns_topic_subscription" "alarm_email" {
   endpoint  = var.alarm_email
 }
 
-resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_targets" {
-  alarm_name          = "${local.name}-unhealthy-targets"
+resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
+  alarm_name          = "${local.name}-lambda-errors"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "UnHealthyHostCount"
-  namespace           = "AWS/ApplicationELB"
-  period              = 60
-  statistic           = "Maximum"
+  evaluation_periods  = 1
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = 300
+  statistic           = "Sum"
   threshold           = 0
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alarms.arn]
-  ok_actions          = [aws_sns_topic.alarms.arn]
 
   dimensions = {
-    LoadBalancer = aws_lb.api.arn_suffix
-    TargetGroup  = aws_lb_target_group.api.arn_suffix
+    FunctionName = aws_lambda_function.api.function_name
+    Resource     = "${aws_lambda_function.api.function_name}:${aws_lambda_alias.live.name}"
   }
 }
 
-resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
-  alarm_name          = "${local.name}-alb-5xx"
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods  = 2
-  metric_name         = "HTTPCode_Target_5XX_Count"
-  namespace           = "AWS/ApplicationELB"
-  period              = 60
-  statistic           = "Sum"
-  threshold           = 5
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = [aws_sns_topic.alarms.arn]
-  ok_actions          = [aws_sns_topic.alarms.arn]
-
-  dimensions = {
-    LoadBalancer = aws_lb.api.arn_suffix
-    TargetGroup  = aws_lb_target_group.api.arn_suffix
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "ecs_cpu" {
-  alarm_name          = "${local.name}-ecs-cpu"
+resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
+  alarm_name          = "${local.name}-lambda-throttles"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 5
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/ECS"
-  period              = 60
-  statistic           = "Average"
-  threshold           = 85
+  evaluation_periods  = 1
+  metric_name         = "Throttles"
+  namespace           = "AWS/Lambda"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 0
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alarms.arn]
 
   dimensions = {
-    ClusterName = aws_ecs_cluster.main.name
-    ServiceName = aws_ecs_service.api.name
+    FunctionName = aws_lambda_function.api.function_name
+    Resource     = "${aws_lambda_function.api.function_name}:${aws_lambda_alias.live.name}"
   }
 }
 
@@ -84,7 +64,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_free_storage" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "redis_memory" {
-  alarm_name          = "${local.name}-redis-memory"
+  alarm_name          = "${local.name}-valkey-memory"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 3
   metric_name         = "DatabaseMemoryUsagePercentage"
