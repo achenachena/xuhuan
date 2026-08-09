@@ -140,15 +140,29 @@ Use separate saved plans and review each one. The expected order is:
    errors, and retain the old data tier until these checks pass.
 7. **Disable RDS deletion protection.** Keep managed services enabled, set
    `database_deletion_protection=false`, and apply that change by itself.
-8. **Remove fixed-cost resources.** Set
-   `managed_data_services_enabled=false`, keep `lambda_vpc_enabled=false`, and
-   set `database_skip_final_snapshot=true` only after authoritative data is
-   verified elsewhere. Review a saved plan listing the exact RDS, ElastiCache,
-   VPC, subnet, security-group, and obsolete alarm deletions, then apply.
+8. **Persist the no-snapshot decision separately.** Keep
+   `managed_data_services_enabled=true` and `lambda_vpc_enabled=false`, set
+   `database_skip_final_snapshot=true` only after authoritative data is
+   verified elsewhere, and apply a plan with zero destroys. Confirm Terraform
+   state records `skip_final_snapshot=true` and no final snapshot identifier.
+   Do not combine this state change with removing the counted RDS resource: a
+   destroy plan can otherwise retain the old `skip_final_snapshot=false` state.
+9. **Release Lambda VPC interfaces.** List every alias and published version,
+   then delete only unaliased historical versions that still reference the old
+   VPC. Keep the execution role's EC2 interface permissions in place and allow
+   up to 20 minutes for Lambda to delete its Hyperplane ENIs. Verify that no ENI
+   uses the legacy Lambda security group before continuing.
+10. **Remove fixed-cost resources.** Set
+    `managed_data_services_enabled=false` and keep
+    `lambda_vpc_enabled=false`. Review a new saved plan listing the exact RDS,
+    ElastiCache, VPC, subnet, security-group, and obsolete alarm deletions.
+    Confirm the Lambda function, `live` alias, Function URL, and SSM parameters
+    are no-ops, then apply. The final IAM update should remove the now-unused
+    EC2 interface and RDS bootstrap-secret permissions.
 
 Do not destroy the source tier if any count is unexplained or the new API is not
-ready. The existing `live` alias and old data resources are the rollback path
-through step 6.
+ready. The existing VPC-backed Lambda versions are the direct rollback path
+through step 8; the old data resources remain intact until step 10.
 
 ## Cost and operational guardrails
 
