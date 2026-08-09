@@ -23,18 +23,24 @@ data "aws_iam_policy_document" "lambda_execution" {
     resources = ["${aws_cloudwatch_log_group.api.arn}:*"]
   }
 
-  # Lambda requires these EC2 actions to manage Hyperplane ENIs for VPC access.
-  statement {
-    sid = "ManageVpcInterfaces"
-    actions = [
-      "ec2:CreateNetworkInterface",
-      "ec2:DescribeNetworkInterfaces",
-      "ec2:DescribeSubnets",
-      "ec2:DeleteNetworkInterface",
-      "ec2:AssignPrivateIpAddresses",
-      "ec2:UnassignPrivateIpAddresses",
-    ]
-    resources = ["*"]
+  # Lambda requires these EC2 actions only during the reversible VPC-backed
+  # migration phase. Keep them until the legacy VPC is retired so detachment
+  # cannot race an execution-role policy update.
+  dynamic "statement" {
+    for_each = var.managed_data_services_enabled ? [true] : []
+
+    content {
+      sid = "ManageVpcInterfaces"
+      actions = [
+        "ec2:CreateNetworkInterface",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeSubnets",
+        "ec2:DeleteNetworkInterface",
+        "ec2:AssignPrivateIpAddresses",
+        "ec2:UnassignPrivateIpAddresses",
+      ]
+      resources = ["*"]
+    }
   }
 }
 
@@ -97,16 +103,25 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["*"]
   }
 
-  statement {
-    sid       = "ReadDatabaseBootstrapSecret"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_db_instance.postgres.master_user_secret[0].secret_arn]
+  dynamic "statement" {
+    for_each = var.managed_data_services_enabled ? [true] : []
+
+    content {
+      sid       = "ReadDatabaseBootstrapSecret"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = [aws_db_instance.postgres[0].master_user_secret[0].secret_arn]
+    }
   }
 
   statement {
-    sid       = "ReadTelegramBootstrapToken"
-    actions   = ["ssm:GetParameter"]
-    resources = [aws_ssm_parameter.telegram_bot_token.arn]
+    sid     = "ReadDeploymentParameters"
+    actions = ["ssm:GetParameter"]
+    resources = [
+      aws_ssm_parameter.telegram_bot_token.arn,
+      aws_ssm_parameter.database_url.arn,
+      aws_ssm_parameter.database_migration_url.arn,
+      aws_ssm_parameter.redis_url.arn,
+    ]
   }
 }
 

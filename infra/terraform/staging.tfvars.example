@@ -11,6 +11,9 @@ lambda_memory_size          = 512
 lambda_timeout              = 30
 lambda_reserved_concurrency = 2
 
+managed_data_services_enabled = false
+lambda_vpc_enabled             = false
+
 database_instance_class        = "db.t4g.micro"
 database_allocated_storage     = 20
 database_max_allocated_storage = 0

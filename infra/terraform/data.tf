@@ -1,9 +1,13 @@
 resource "aws_db_subnet_group" "main" {
+  count = var.managed_data_services_enabled ? 1 : 0
+
   name       = "${local.name}-database"
   subnet_ids = [for subnet in aws_subnet.data : subnet.id]
 }
 
 resource "aws_db_parameter_group" "postgres" {
+  count = var.managed_data_services_enabled ? 1 : 0
+
   name   = "${local.name}-postgres17"
   family = "postgres17"
 
@@ -15,6 +19,8 @@ resource "aws_db_parameter_group" "postgres" {
 }
 
 resource "aws_db_instance" "postgres" {
+  count = var.managed_data_services_enabled ? 1 : 0
+
   identifier = "${local.name}-postgres"
 
   engine                      = "postgres"
@@ -29,9 +35,9 @@ resource "aws_db_instance" "postgres" {
   manage_master_user_password = true
   port                        = 5432
 
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  parameter_group_name   = aws_db_parameter_group.postgres.name
-  vpc_security_group_ids = [aws_security_group.database.id]
+  db_subnet_group_name   = aws_db_subnet_group.main[0].name
+  parameter_group_name   = aws_db_parameter_group.postgres[0].name
+  vpc_security_group_ids = [aws_security_group.database[0].id]
   publicly_accessible    = false
   multi_az               = false
 
@@ -53,16 +59,22 @@ resource "aws_db_instance" "postgres" {
 }
 
 resource "aws_elasticache_subnet_group" "main" {
+  count = var.managed_data_services_enabled ? 1 : 0
+
   name       = "${local.name}-valkey"
   subnet_ids = [for subnet in aws_subnet.data : subnet.id]
 }
 
 resource "aws_elasticache_parameter_group" "valkey" {
+  count = var.managed_data_services_enabled ? 1 : 0
+
   name   = "${local.name}-valkey8"
   family = "valkey8"
 }
 
 resource "aws_elasticache_replication_group" "redis" {
+  count = var.managed_data_services_enabled ? 1 : 0
+
   replication_group_id = "${local.name}-valkey"
   description          = "Non-authoritative rate-limit cache for ${local.name}"
 
@@ -70,9 +82,9 @@ resource "aws_elasticache_replication_group" "redis" {
   engine_version             = "8.2"
   node_type                  = var.redis_node_type
   port                       = 6379
-  parameter_group_name       = aws_elasticache_parameter_group.valkey.name
-  subnet_group_name          = aws_elasticache_subnet_group.main.name
-  security_group_ids         = [aws_security_group.redis.id]
+  parameter_group_name       = aws_elasticache_parameter_group.valkey[0].name
+  subnet_group_name          = aws_elasticache_subnet_group.main[0].name
+  security_group_ids         = [aws_security_group.redis[0].id]
   num_cache_clusters         = 1
   automatic_failover_enabled = false
   multi_az_enabled           = false

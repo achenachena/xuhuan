@@ -90,6 +90,34 @@ func TestLoadFromRejectsIncompleteManagedDatabaseConfig(t *testing.T) {
 	}
 }
 
+func TestLoadFromUsesSeparateMigrationDatabaseURL(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := LoadFrom(lookup(map[string]string{
+		"DATABASE_URL":           "postgres://pooler.example/xuhuan?sslmode=require",
+		"DATABASE_MIGRATION_URL": "postgres://direct.example/xuhuan?sslmode=require",
+	}))
+	if err != nil {
+		t.Fatalf("LoadFrom() error = %v", err)
+	}
+	if cfg.DatabaseURL != "postgres://pooler.example/xuhuan?sslmode=require" {
+		t.Fatalf("DatabaseURL = %q", cfg.DatabaseURL)
+	}
+	if cfg.DatabaseMigrationURL != "postgres://direct.example/xuhuan?sslmode=require" {
+		t.Fatalf("DatabaseMigrationURL = %q", cfg.DatabaseMigrationURL)
+	}
+
+	cfg, err = LoadFrom(lookup(map[string]string{
+		"DATABASE_URL": "postgres://single.example/xuhuan?sslmode=require",
+	}))
+	if err != nil {
+		t.Fatalf("LoadFrom() fallback error = %v", err)
+	}
+	if cfg.DatabaseMigrationURL != cfg.DatabaseURL {
+		t.Fatalf("migration fallback = %q, database = %q", cfg.DatabaseMigrationURL, cfg.DatabaseURL)
+	}
+}
+
 func TestLoadFromRejectsUnsafeProduction(t *testing.T) {
 	t.Parallel()
 

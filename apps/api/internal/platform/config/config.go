@@ -36,34 +36,35 @@ const (
 )
 
 type Config struct {
-	Environment        Environment
-	HTTPAddr           string
-	Version            string
-	DatabaseURL        string
-	RedisURL           string
-	RedisTimeout       time.Duration
-	TelegramBotToken   string
-	TelegramAuthMaxAge time.Duration
-	DevAuthEnabled     bool
-	DevAuthToken       string
-	DevTelegramUserID  int64
-	DevUsername        string
-	DevFirstName       string
-	DevLastName        string
-	DevLanguageCode    string
-	CORSAllowedOrigins []string
-	TrustProxy         bool
-	RateLimitWindow    time.Duration
-	IPRateLimit        int64
-	PlayerRateLimit    int64
-	OTLPEndpoint       string
-	OTELServiceName    string
-	OTELExportInterval time.Duration
-	MaxBodyBytes       int64
-	ReadTimeout        time.Duration
-	WriteTimeout       time.Duration
-	IdleTimeout        time.Duration
-	ShutdownTimeout    time.Duration
+	Environment          Environment
+	HTTPAddr             string
+	Version              string
+	DatabaseURL          string
+	DatabaseMigrationURL string
+	RedisURL             string
+	RedisTimeout         time.Duration
+	TelegramBotToken     string
+	TelegramAuthMaxAge   time.Duration
+	DevAuthEnabled       bool
+	DevAuthToken         string
+	DevTelegramUserID    int64
+	DevUsername          string
+	DevFirstName         string
+	DevLastName          string
+	DevLanguageCode      string
+	CORSAllowedOrigins   []string
+	TrustProxy           bool
+	RateLimitWindow      time.Duration
+	IPRateLimit          int64
+	PlayerRateLimit      int64
+	OTLPEndpoint         string
+	OTELServiceName      string
+	OTELExportInterval   time.Duration
+	MaxBodyBytes         int64
+	ReadTimeout          time.Duration
+	WriteTimeout         time.Duration
+	IdleTimeout          time.Duration
+	ShutdownTimeout      time.Duration
 }
 
 type Lookup func(string) (string, bool)
@@ -147,6 +148,7 @@ func LoadFrom(lookup Lookup) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	databaseMigrationURL := valueOrDefault(lookup, "DATABASE_MIGRATION_URL", databaseURL)
 	otlpEndpoint := valueOrDefault(lookup, "OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	if otlpEndpoint != "" {
 		parsedEndpoint, parseErr := url.Parse(otlpEndpoint)
@@ -164,34 +166,35 @@ func LoadFrom(lookup Lookup) (Config, error) {
 	}
 
 	cfg := Config{
-		Environment:        appEnv,
-		HTTPAddr:           valueOrDefault(lookup, "HTTP_ADDR", defaultHTTPAddr),
-		Version:            valueOrDefault(lookup, "APP_VERSION", "development"),
-		DatabaseURL:        databaseURL,
-		RedisURL:           redisURL,
-		RedisTimeout:       redisTimeout,
-		TelegramBotToken:   valueOrDefault(lookup, "TELEGRAM_BOT_TOKEN", ""),
-		TelegramAuthMaxAge: telegramMaxAge,
-		DevAuthEnabled:     devAuthEnabled,
-		DevAuthToken:       valueOrDefault(lookup, "DEV_AUTH_TOKEN", ""),
-		DevTelegramUserID:  devTelegramUserID,
-		DevUsername:        valueOrDefault(lookup, "DEV_USERNAME", "dev_player"),
-		DevFirstName:       valueOrDefault(lookup, "DEV_FIRST_NAME", "Development"),
-		DevLastName:        valueOrDefault(lookup, "DEV_LAST_NAME", "Player"),
-		DevLanguageCode:    valueOrDefault(lookup, "DEV_LANGUAGE_CODE", "zh-CN"),
-		CORSAllowedOrigins: origins,
-		TrustProxy:         trustProxy,
-		RateLimitWindow:    rateLimitWindow,
-		IPRateLimit:        ipRateLimit,
-		PlayerRateLimit:    playerRateLimit,
-		OTLPEndpoint:       otlpEndpoint,
-		OTELServiceName:    otelServiceName,
-		OTELExportInterval: otelExportInterval,
-		MaxBodyBytes:       maxBodyBytes,
-		ReadTimeout:        readTimeout,
-		WriteTimeout:       writeTimeout,
-		IdleTimeout:        idleTimeout,
-		ShutdownTimeout:    shutdownTimeout,
+		Environment:          appEnv,
+		HTTPAddr:             valueOrDefault(lookup, "HTTP_ADDR", defaultHTTPAddr),
+		Version:              valueOrDefault(lookup, "APP_VERSION", "development"),
+		DatabaseURL:          databaseURL,
+		DatabaseMigrationURL: databaseMigrationURL,
+		RedisURL:             redisURL,
+		RedisTimeout:         redisTimeout,
+		TelegramBotToken:     valueOrDefault(lookup, "TELEGRAM_BOT_TOKEN", ""),
+		TelegramAuthMaxAge:   telegramMaxAge,
+		DevAuthEnabled:       devAuthEnabled,
+		DevAuthToken:         valueOrDefault(lookup, "DEV_AUTH_TOKEN", ""),
+		DevTelegramUserID:    devTelegramUserID,
+		DevUsername:          valueOrDefault(lookup, "DEV_USERNAME", "dev_player"),
+		DevFirstName:         valueOrDefault(lookup, "DEV_FIRST_NAME", "Development"),
+		DevLastName:          valueOrDefault(lookup, "DEV_LAST_NAME", "Player"),
+		DevLanguageCode:      valueOrDefault(lookup, "DEV_LANGUAGE_CODE", "zh-CN"),
+		CORSAllowedOrigins:   origins,
+		TrustProxy:           trustProxy,
+		RateLimitWindow:      rateLimitWindow,
+		IPRateLimit:          ipRateLimit,
+		PlayerRateLimit:      playerRateLimit,
+		OTLPEndpoint:         otlpEndpoint,
+		OTELServiceName:      otelServiceName,
+		OTELExportInterval:   otelExportInterval,
+		MaxBodyBytes:         maxBodyBytes,
+		ReadTimeout:          readTimeout,
+		WriteTimeout:         writeTimeout,
+		IdleTimeout:          idleTimeout,
+		ShutdownTimeout:      shutdownTimeout,
 	}
 
 	if strings.TrimSpace(cfg.HTTPAddr) == "" {

@@ -26,11 +26,13 @@ import (
 // Runtime owns the long-lived dependencies shared by the local HTTP server and
 // warm Lambda invocations.
 type Runtime struct {
-	Handler   http.Handler
-	Database  *postgres.Database
-	Logger    *slog.Logger
-	telemetry *observability.Telemetry
-	redis     *ratelimit.RedisLimiter
+	Handler              http.Handler
+	Database             *postgres.Database
+	Logger               *slog.Logger
+	databaseURL          string
+	migrationDatabaseURL string
+	telemetry            *observability.Telemetry
+	redis                *ratelimit.RedisLimiter
 }
 
 func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, error) {
@@ -65,7 +67,13 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 		return nil, fmt.Errorf("connect to PostgreSQL: %w", err)
 	}
 
-	runtime := &Runtime{Database: database, Logger: logger, telemetry: telemetry}
+	runtime := &Runtime{
+		Database:             database,
+		Logger:               logger,
+		databaseURL:          cfg.DatabaseURL,
+		migrationDatabaseURL: cfg.DatabaseMigrationURL,
+		telemetry:            telemetry,
+	}
 	cleanup := func(cause error) (*Runtime, error) {
 		closeContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -134,10 +142,19 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 }
 
 func (runtime *Runtime) MigrateAndSeed(ctx context.Context) error {
-	if err := runtime.Database.Migrate(ctx, migrations.Files); err != nil {
+	database := runtime.Database
+	if runtime.migrationDatabaseURL != "" && runtime.migrationDatabaseURL != runtime.databaseURL {
+		directDatabase, err := postgres.Open(ctx, runtime.migrationDatabaseURL)
+		if err != nil {
+			return fmt.Errorf("connect to migration PostgreSQL endpoint: %w", err)
+		}
+		defer directDatabase.Close()
+		database = directDatabase
+	}
+	if err := database.Migrate(ctx, migrations.Files); err != nil {
 		return fmt.Errorf("migrate database: %w", err)
 	}
-	if err := runtime.Database.SeedCatalog(ctx, seeddata.Files); err != nil {
+	if err := database.SeedCatalog(ctx, seeddata.Files); err != nil {
 		return fmt.Errorf("seed catalog: %w", err)
 	}
 	return nil
@@ -145,6 +162,10 @@ func (runtime *Runtime) MigrateAndSeed(ctx context.Context) error {
 
 func (runtime *Runtime) Check(ctx context.Context) error {
 	return runtime.Database.Check(ctx)
+}
+
+func (runtime *Runtime) DataSummary(ctx context.Context) (map[string]int64, error) {
+	return runtime.Database.DataSummary(ctx)
 }
 
 func (runtime *Runtime) Close(ctx context.Context) error {

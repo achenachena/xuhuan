@@ -13,3 +13,42 @@ resource "aws_ssm_parameter" "telegram_bot_token" {
     ignore_changes = [value]
   }
 }
+
+# External data-service credentials are written out of band after Terraform
+# creates these standard-tier SecureString placeholders. Keeping only
+# placeholders in state avoids committing Neon or Upstash credentials.
+resource "aws_ssm_parameter" "database_url" {
+  name        = "/${var.project_name}/${var.environment}/database-url"
+  description = "Pooled PostgreSQL URL used by the serverless API runtime."
+  type        = "SecureString"
+  tier        = "Standard"
+  value       = "replace-out-of-band"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+resource "aws_ssm_parameter" "database_migration_url" {
+  name        = "/${var.project_name}/${var.environment}/database-migration-url"
+  description = "Direct PostgreSQL URL used only for migrations and deterministic seed operations."
+  type        = "SecureString"
+  tier        = "Standard"
+  value       = "replace-out-of-band"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+resource "aws_ssm_parameter" "redis_url" {
+  name        = "/${var.project_name}/${var.environment}/redis-url"
+  description = "TLS Redis URL used by the distributed rate limiter."
+  type        = "SecureString"
+  tier        = "Standard"
+  value       = "replace-out-of-band"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
