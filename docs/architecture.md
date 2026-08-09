@@ -13,12 +13,10 @@ Telegram WebView
 Next.js 16 Mini App on Vercel
   │ HTTPS JSON REST (OpenAPI 3.1)
   ▼
-Application Load Balancer
-  ▼
-Go API on ECS Fargate
+Go API on an arm64 Lambda Function URL
   ├── RDS PostgreSQL: players, catalog, battles, ledger, idempotency
-  ├── ElastiCache Redis: rate limits only
-  ├── CloudWatch + OpenTelemetry: logs, metrics, and traces
+  ├── ElastiCache Valkey: Redis-compatible rate limits only
+  ├── CloudWatch: short-retention logs and infrastructure alarms
   └── SQS/EventBridge: deferred until a concrete asynchronous feature exists
 ```
 
@@ -51,7 +49,10 @@ The API remains a modular monolith:
 
 ```text
 apps/api/
-  cmd/api/                 process wiring and lifecycle
+  cmd/api/                 local HTTP process lifecycle
+  cmd/lambda/              Function URL and release-operation entry point
+  internal/application/    shared dependency construction and cleanup
+  internal/lambdahttp/     Function URL to net/http adapter
   internal/api/            router, middleware, transport DTOs
   internal/auth/           Telegram and development authentication
   internal/battle/         deterministic rules and orchestration
@@ -65,7 +66,7 @@ apps/api/
   seed/                    deterministic catalog source data
 ```
 
-Dependencies point inward: HTTP handlers depend on domain services; domain services depend on repository interfaces; the PostgreSQL package implements those interfaces. `cmd/api` performs explicit construction.
+Dependencies point inward: HTTP handlers depend on domain services; domain services depend on repository interfaces; the PostgreSQL package implements those interfaces. Local HTTP and Lambda entry points share the same explicit construction package, so changing the hosting model does not fork domain behavior.
 
 ### PostgreSQL
 
@@ -109,19 +110,18 @@ SQS and EventBridge are not part of the initial runtime. A future delayed-energy
 
 ## AWS deployment
 
-- Route 53/ACM terminate `api.example.com` TLS at an Application Load Balancer.
-- Private-subnet ECS Fargate tasks pull immutable images from ECR and expose `/healthz` and `/readyz`.
-- RDS PostgreSQL and ElastiCache are private and restricted to the ECS security group.
-- Secrets Manager holds database and Telegram credentials. SSM Parameter Store holds non-secret origins, timeouts, and feature configuration.
-- ECS task roles use least privilege. Deployment circuit breakers and CloudWatch alarms roll back unhealthy revisions.
-- GitHub Actions uses OIDC, not long-lived AWS keys, to push an immutable image and update the task definition.
-- Terraform prepares separate staging and production variable sets. Applying either remains an explicit owner action because it creates paid resources.
+- A Lambda Function URL provides the stable public HTTPS endpoint without API Gateway, Route 53, ACM, or an Application Load Balancer. The application middleware remains the CORS authority.
+- One arm64 `provided.al2023` Lambda version runs the existing Chi handler and reuses PostgreSQL and Valkey connections across warm invocations. Reserved concurrency is capped at two.
+- RDS PostgreSQL and one ElastiCache Valkey node remain private and accept traffic only from the Lambda security group. Two isolated subnets satisfy managed-database placement requirements without an internet or NAT gateway.
+- RDS manages its master password in Secrets Manager. A standard-tier SSM SecureString holds the Telegram token. The protected deployment workflow reads both once per release and injects them into an immutable Lambda version, avoiding paid VPC interface endpoints at runtime.
+- GitHub Actions uses OIDC, not long-lived AWS keys. It builds a zip, updates `$LATEST`, publishes a numbered version, runs idempotent migrations and catalog seeds by direct invocation, promotes the `live` alias, verifies health/readiness, and restores the prior alias on failure.
+- The Terraform inputs hard-cap RDS, Valkey, Lambda memory, and concurrency at the selected Free Plan sizes. Applying still consumes credits and remains an explicit owner action.
 
 ## Observability and data handling
 
 Every response has an `X-Request-ID`; every error body repeats that ID. Structured logs include path, method, status, duration, and safe domain identifiers. OpenTelemetry HTTP spans cover the request boundary. Metrics cover request volume/latency/error rate, database latency/error rate, auth failures, starts/completions, conflicts, duplicate idempotency replays, and reward transaction failures. PostgreSQL instrumentation records duration and error state but deliberately excludes query text and arguments.
 
-OTLP/HTTP export is optional and fail-open. On ECS, an optional AWS Distro for OpenTelemetry sidecar forwards spans to X-Ray and metrics to CloudWatch; collector failure never gates API health or readiness. ECS, ALB, RDS, Redis, and application health alarms publish to a per-environment SNS topic.
+OTLP/HTTP export remains optional and fail-open for local or future collectors. The Free Plan Lambda deployment leaves it disabled to avoid a collector or paid VPC endpoint. Lambda errors/throttles, RDS free storage, and Valkey memory alarms publish to one SNS topic, while application logs expire after a few days.
 
 The API never logs the bot token, complete `initData`, authorization/development-auth values, database URLs, or sensitive player metadata. Expected authentication failures and validation errors are safe client messages; internal errors use a generic envelope.
 
@@ -129,7 +129,7 @@ The API never logs the bot token, complete `initData`, authorization/development
 
 - `/healthz` proves that the process event loop is responsive.
 - `/readyz` checks required startup state and PostgreSQL connectivity; Redis does not gate readiness.
-- Server read-header, read, write, idle, and graceful-shutdown timeouts are explicit.
+- The local server retains explicit read-header, read, write, idle, and graceful-shutdown timeouts; Lambda enforces a bounded invocation timeout.
 - Requests have bounded JSON bodies and reject non-JSON bodies where JSON is required.
 - CORS returns headers only for configured HTTPS Mini App origins (plus explicit local origins outside production).
 - RDS transactions, row locks, versions, idempotency records, and ledger constraints prioritize correctness over accepting a conflicting action.

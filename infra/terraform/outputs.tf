@@ -1,47 +1,31 @@
 output "api_url" {
-  value = "https://${var.api_domain_name}"
+  value = trimsuffix(aws_lambda_function_url.api.function_url, "/")
 }
 
-output "load_balancer_dns_name" {
-  value = aws_lb.api.dns_name
+output "lambda_function_name" {
+  value = aws_lambda_function.api.function_name
 }
 
-output "ecr_repository_url" {
-  value = aws_ecr_repository.api.repository_url
+output "lambda_alias_name" {
+  value = aws_lambda_alias.live.name
 }
 
-output "ecs_cluster_name" {
-  value = aws_ecs_cluster.main.name
-}
-
-output "ecs_service_name" {
-  value = aws_ecs_service.api.name
-}
-
-output "ecs_task_definition_family" {
-  value = aws_ecs_task_definition.api.family
-}
-
-output "application_subnet_ids" {
-  value = [for subnet in aws_subnet.application : subnet.id]
-}
-
-output "api_security_group_id" {
-  value = aws_security_group.api.id
+output "lambda_reserved_concurrency" {
+  value = var.lambda_reserved_concurrency
 }
 
 output "github_deploy_role_arn" {
   value = aws_iam_role.github_deploy.arn
 }
 
-output "api_secret_arn" {
-  description = "Populate the telegram_bot_token JSON key out of band; Terraform never stores the value."
-  value       = aws_secretsmanager_secret.api.arn
+output "telegram_token_parameter_name" {
+  description = "Replace the placeholder value out of band before the first deployment."
+  value       = aws_ssm_parameter.telegram_bot_token.name
 }
 
 output "rds_managed_secret_arn" {
-  value     = aws_db_instance.postgres.master_user_secret[0].secret_arn
-  sensitive = true
+  description = "The deploy workflow reads this once per release and injects credentials into the versioned Lambda configuration."
+  value       = aws_db_instance.postgres.master_user_secret[0].secret_arn
 }
 
 output "alarm_topic_arn" {

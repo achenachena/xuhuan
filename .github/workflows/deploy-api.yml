@@ -21,19 +21,38 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy immutable API image
+    name: Deploy immutable Lambda version
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: ${{ inputs.environment }}
+    timeout-minutes: 20
+    environment: ${{ inputs.environment == 'production' && 'Production' || 'staging' }}
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      ECR_REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY }}
-      ECS_CLUSTER: ${{ vars.AWS_ECS_CLUSTER }}
-      ECS_SERVICE: ${{ vars.AWS_ECS_SERVICE }}
+      LAMBDA_FUNCTION: ${{ vars.AWS_LAMBDA_FUNCTION }}
+      LAMBDA_ALIAS: ${{ vars.AWS_LAMBDA_ALIAS }}
+      LAMBDA_RESERVED_CONCURRENCY: ${{ vars.AWS_LAMBDA_RESERVED_CONCURRENCY }}
+      RDS_SECRET_ARN: ${{ vars.AWS_RDS_SECRET_ARN }}
+      TELEGRAM_TOKEN_PARAMETER: ${{ vars.AWS_TELEGRAM_TOKEN_PARAMETER }}
       API_BASE_URL: ${{ vars.API_BASE_URL }}
-      IMAGE_TAG: ${{ github.sha }}
+      RELEASE_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+
+      - name: Build arm64 Lambda archive
+        working-directory: apps/api
+        run: |
+          mkdir -p "$RUNNER_TEMP/xuhuan-lambda"
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+            -tags lambda.norpc \
+            -trimpath \
+            -ldflags="-s -w" \
+            -o "$RUNNER_TEMP/xuhuan-lambda/bootstrap" \
+            ./cmd/lambda
+          cd "$RUNNER_TEMP/xuhuan-lambda"
+          zip -q lambda.zip bootstrap
 
       - name: Configure short-lived AWS credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
@@ -42,118 +61,118 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: xuhuan-${{ github.run_id }}
 
-      - name: Log in to ECR
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
-
-      - name: Build and push immutable image
-        id: image
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-        run: |
-          image="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          docker build --build-arg APP_VERSION="$IMAGE_TAG" --tag "$image" .
-          docker push "$image"
-          echo "uri=$image" >> "$GITHUB_OUTPUT"
-
-      - name: Capture current task definition
+      - name: Capture live version
         id: previous
         run: |
-          task_definition=$(aws ecs describe-services \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE" \
-            --query 'services[0].taskDefinition' \
+          version=$(aws lambda get-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "$LAMBDA_ALIAS" \
+            --query FunctionVersion \
             --output text)
-          test "$task_definition" != "None"
-          echo "arn=$task_definition" >> "$GITHUB_OUTPUT"
-          aws ecs describe-task-definition \
-            --task-definition "$task_definition" \
-            --query taskDefinition \
-            > "$RUNNER_TEMP/task-definition.json"
+          test "$version" != "None"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Insert image into task definition
-        id: render
-        uses: aws-actions/amazon-ecs-render-task-definition@138c24f321fdbdf7edee4a685519d253cae2cdea # v1.9.0
-        with:
-          task-definition: ${{ runner.temp }}/task-definition.json
-          container-name: api
-          image: ${{ steps.image.outputs.uri }}
-          environment-variables: |
-            APP_VERSION=${{ env.IMAGE_TAG }}
-
-      - name: Register task definition
-        id: register
-        env:
-          TASK_DEFINITION_FILE: ${{ steps.render.outputs.task-definition }}
+      - name: Update unpublished code and configuration
         run: |
-          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
-            "$TASK_DEFINITION_FILE" > "$RUNNER_TEMP/register-task-definition.json"
-          task_definition=$(aws ecs register-task-definition \
-            --cli-input-json "file://$RUNNER_TEMP/register-task-definition.json" \
-            --query 'taskDefinition.taskDefinitionArn' \
+          database_secret=$(aws secretsmanager get-secret-value \
+            --secret-id "$RDS_SECRET_ARN" \
+            --query SecretString \
             --output text)
-          echo "arn=$task_definition" >> "$GITHUB_OUTPUT"
+          database_user=$(jq -r '.username' <<< "$database_secret")
+          database_password=$(jq -r '.password' <<< "$database_secret")
+          telegram_token=$(aws ssm get-parameter \
+            --name "$TELEGRAM_TOKEN_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          test -n "$database_user"
+          test -n "$database_password"
+          test -n "$telegram_token"
+          test "$telegram_token" != "replace-out-of-band"
 
-      - name: Run database migrations
-        env:
-          TASK_DEFINITION: ${{ steps.register.outputs.arn }}
-        run: |
-          network=$(aws ecs describe-services \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE" \
-            --query 'services[0].networkConfiguration.awsvpcConfiguration' \
+          current_variables=$(aws lambda get-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" \
+            --query Environment.Variables \
             --output json)
-          network_configuration=$(jq -c '{awsvpcConfiguration: .}' <<< "$network")
-          overrides='{"containerOverrides":[{"name":"api","command":["/app/migrate"]}]}'
-          task=$(aws ecs run-task \
-            --cluster "$ECS_CLUSTER" \
-            --launch-type FARGATE \
-            --task-definition "$TASK_DEFINITION" \
-            --network-configuration "$network_configuration" \
-            --overrides "$overrides" \
-            --query 'tasks[0].taskArn' \
-            --output text)
-          test "$task" != "None"
-          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$task"
-          # shellcheck disable=SC2016
-          exit_code=$(aws ecs describe-tasks \
-            --cluster "$ECS_CLUSTER" \
-            --tasks "$task" \
-            --query 'tasks[0].containers[?name==`api`].exitCode | [0]' \
-            --output text)
-          test "$exit_code" = "0"
+          jq -n \
+            --argjson current "$current_variables" \
+            --arg version "$RELEASE_SHA" \
+            --arg database_user "$database_user" \
+            --arg database_password "$database_password" \
+            --arg telegram_token "$telegram_token" \
+            '{Variables: ($current + {
+              APP_VERSION: $version,
+              DATABASE_USER: $database_user,
+              DATABASE_PASSWORD: $database_password,
+              TELEGRAM_BOT_TOKEN: $telegram_token
+            })}' > "$RUNNER_TEMP/lambda-environment.json"
+          chmod 600 "$RUNNER_TEMP/lambda-environment.json"
 
-      - name: Deploy with ECS circuit breaker
-        env:
-          TASK_DEFINITION: ${{ steps.register.outputs.arn }}
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION" \
+            --zip-file "fileb://$RUNNER_TEMP/xuhuan-lambda/lambda.zip" > /dev/null
+          aws lambda wait function-updated-v2 --function-name "$LAMBDA_FUNCTION"
+          aws lambda update-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" \
+            --environment "file://$RUNNER_TEMP/lambda-environment.json" > /dev/null
+          aws lambda wait function-updated-v2 --function-name "$LAMBDA_FUNCTION"
+
+      - name: Publish immutable version
+        id: release
         run: |
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE" \
-            --task-definition "$TASK_DEFINITION" \
-            --force-new-deployment > /dev/null
-          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
-          deployed_task_definition=$(aws ecs describe-services \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE" \
-            --query 'services[0].taskDefinition' \
+          version=$(aws lambda publish-version \
+            --function-name "$LAMBDA_FUNCTION" \
+            --description "$RELEASE_SHA" \
+            --query Version \
             --output text)
-          test "$deployed_task_definition" = "$TASK_DEFINITION"
+          test "$version" != "None"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Post-deployment health and readiness smoke test
+      - name: Enable bounded concurrency
+        run: |
+          test "$LAMBDA_RESERVED_CONCURRENCY" -ge 1
+          test "$LAMBDA_RESERVED_CONCURRENCY" -le 2
+          aws lambda put-function-concurrency \
+            --function-name "$LAMBDA_FUNCTION" \
+            --reserved-concurrent-executions "$LAMBDA_RESERVED_CONCURRENCY" > /dev/null
+
+      - name: Migrate and seed PostgreSQL
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          aws lambda invoke \
+            --function-name "$LAMBDA_FUNCTION" \
+            --qualifier "$RELEASE_VERSION" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"operation":"migrate-and-seed"}' \
+            "$RUNNER_TEMP/migration-response.json" \
+            > "$RUNNER_TEMP/migration-metadata.json"
+          test -z "$(jq -r '.FunctionError // empty' "$RUNNER_TEMP/migration-metadata.json")"
+          test "$(jq -r .status "$RUNNER_TEMP/migration-response.json")" = "ok"
+
+      - name: Promote version to live alias
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          aws lambda update-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "$LAMBDA_ALIAS" \
+            --function-version "$RELEASE_VERSION" \
+            --description "$RELEASE_SHA" > /dev/null
+
+      - name: Verify public health and readiness
         run: |
           version=$(curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/healthz" | jq -r .version)
-          test "$version" = "$IMAGE_TAG"
+          test "$version" = "$RELEASE_SHA"
           curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/readyz" > /dev/null
 
-      - name: Recover previous task definition
-        if: failure() && steps.previous.outputs.arn != ''
+      - name: Restore previous live version
+        if: failure() && steps.previous.outputs.version != ''
         env:
-          PREVIOUS_TASK_DEFINITION: ${{ steps.previous.outputs.arn }}
+          PREVIOUS_VERSION: ${{ steps.previous.outputs.version }}
         run: |
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE" \
-            --task-definition "$PREVIOUS_TASK_DEFINITION" \
-            --force-new-deployment > /dev/null
-          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+          aws lambda update-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "$LAMBDA_ALIAS" \
+            --function-version "$PREVIOUS_VERSION" \
+            --description "rollback-from-$RELEASE_SHA" > /dev/null

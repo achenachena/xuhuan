@@ -1,63 +1,100 @@
-# AWS infrastructure preparation
+# AWS Free Plan infrastructure preparation
 
-This directory describes a paid AWS deployment target; nothing here has been applied. Keep staging and production in separate state files and AWS accounts where possible. Configure a remote encrypted state backend with locking before the first shared apply—the backend itself is intentionally not hard-coded because its bucket/table names are owner decisions.
+This directory describes a credit-conscious AWS deployment; nothing here has been applied. It preserves the Go, PostgreSQL, and Redis-compatible design while removing the continuously metered NAT Gateway, Application Load Balancer, Fargate, ECR, Route 53, ACM, and telemetry sidecar resources.
+
+An AWS Free Plan account does not charge its payment method, but access ends when the plan expires or its credits are exhausted. Every `terraform apply` and deployment still consumes credits. Never upgrade the account to a paid plan without a new cost review.
 
 ## Prepared topology
 
-- Two or three availability zones with public load-balancer subnets, private application subnets, and isolated data subnets.
-- An HTTPS Application Load Balancer forwarding only to private ECS Fargate tasks.
-- An immutable, scan-on-push ECR repository and ECS deployment circuit breaker.
-- RDS PostgreSQL 17 with encryption, managed master credentials in Secrets Manager, backups, forced TLS, enhanced monitoring, and deletion protection.
-- Encrypted ElastiCache Redis with TLS, private security-group access, and optional replicas/failover. Redis remains non-authoritative.
-- An AWS Distro for OpenTelemetry sidecar exporting application traces to X-Ray and metrics through CloudWatch EMF. API, collector, RDS, ECS, ALB, and alarm telemetry stay in CloudWatch/X-Ray.
-- Exact task-execution/task/deployment IAM policies and GitHub OIDC trust scoped to one repository and protected environment.
+- One public arm64 Go Lambda on the `provided.al2023` runtime, exposed through a stable `live` Function URL alias.
+- Reserved concurrency capped at two and memory capped at 512 MB.
+- Two isolated subnets with no internet gateway, public IPv4 address, NAT gateway, or VPC interface endpoint.
+- Single-AZ `db.t4g.micro` RDS PostgreSQL 17 with 20 GB encrypted storage and an AWS-managed master secret.
+- One encrypted `cache.t4g.micro` ElastiCache Valkey 8 node. It speaks the Redis protocol and remains non-authoritative.
+- A standard-tier SSM SecureString placeholder for the Telegram bot token.
+- Three-day Lambda logs, four infrastructure alarms, and one optional email SNS subscription.
+- GitHub OIDC roles scoped to one protected environment and the exact Lambda, RDS secret, and SSM parameter.
 
-NAT gateways, Fargate, ALB, RDS, ElastiCache, CloudWatch, Route 53, ACM, ECR, and data transfer can all incur charges. Obtain explicit owner approval before any `terraform apply` or deployment workflow run.
+Terraform preconditions reject larger RDS, Valkey, Lambda memory, concurrency, storage, or availability-zone values. This limits accidental credit burn but cannot make AWS promotional terms permanent.
 
 ## Static validation
 
-Install Terraform 1.15.x, then run only the non-mutating checks:
+Install Terraform 1.15.x and build the bootstrap archive, then run only non-mutating checks:
 
 ```sh
+make lambda-package
 terraform -chdir=infra/terraform fmt -check -recursive
 terraform -chdir=infra/terraform init -backend=false
 terraform -chdir=infra/terraform validate
 ```
 
-`terraform plan` contacts AWS but does not create resources. Use an explicit environment file and saved plan only after account/domain/certificate/sizing/cost choices are reviewed:
+The archive is ignored by Git and exists only to create the disabled bootstrap function. Later releases are owned by the protected GitHub workflow.
 
-```sh
-terraform -chdir=infra/terraform plan -var-file=staging.tfvars -out=staging.tfplan
-```
+## Owner inputs
 
-Never apply a plan copied from another environment.
+Copy `production.tfvars.example` to the ignored `production.tfvars` and replace only:
 
-## Owner inputs and bootstrap order
+- `github_oidc_provider_arn`
+- `github_environment` (`Production` is case-sensitive for the OIDC subject)
+- `cors_allowed_origins`
+- `alarm_email`
 
-1. Copy the appropriate `*.tfvars.example` to an untracked `*.tfvars` and replace account, OIDC provider, domain, hosted-zone, certificate, sizing, and alarm values.
-2. Add a remote state backend and verify the selected AWS account/region.
-3. With approval, apply first with `secrets_ready = false`. This deliberately creates zero API tasks.
-4. Populate the created API secret out of band with a JSON object containing `telegram_bot_token`. Terraform never receives or stores the token.
-5. Build and push one image under its full Git SHA, update `bootstrap_image_tag`, set `secrets_ready = true`, review a fresh plan, and apply with approval.
-6. Configure protected GitHub `staging` and `production` environments with the Terraform outputs and required approvals.
+Keep the micro instance, 20 GB storage, 512 MB Lambda, concurrency two, two AZ, single-node cache, and three-day log values unchanged. Do not commit the real tfvars file or email address.
 
-The API accepts split `DATABASE_*` settings so ECS can inject RDS-managed `username` and `password` JSON fields without assembling or storing a database URL in Terraform state.
+For shared or recoverable state, use an encrypted/versioned S3 backend with native state locking. The backend is intentionally not hard-coded because its globally unique bucket name is an owner decision. A local state is acceptable only for the initial personal experiment if it is backed up securely and never committed.
 
-## Deployment workflow configuration
+## Guarded bootstrap order
 
-For `.github/workflows/deploy-api.yml`, configure these GitHub environment variables:
+1. Confirm the AWS console still shows `Free plan`, the remaining credits, and the expiration date. Do not click **Upgrade plan**.
+2. Build `apps/api/build/lambda.zip` with `make lambda-package`.
+3. Run a saved `terraform plan` with the production var file. Planning contacts AWS but creates nothing:
 
-- `AWS_REGION`
-- `AWS_DEPLOY_ROLE_ARN`
-- `AWS_ECR_REPOSITORY` (repository name, not URL)
-- `AWS_ECS_CLUSTER`
-- `AWS_ECS_SERVICE`
-- `API_BASE_URL`
+   ```sh
+   terraform -chdir=infra/terraform plan -var-file=production.tfvars -out=production.tfplan
+   ```
 
-The workflow uses GitHub OIDC, pushes only the immutable commit SHA, records the prior task definition, registers the new revision, runs migrations as a one-off task, waits for ECS stability, checks `/healthz` and `/readyz`, and explicitly restores the previous revision on failure. The ECS circuit breaker independently rolls back failed rollouts.
+4. Review the exact resource list and obtain explicit approval before applying. The first apply creates a Lambda with reserved concurrency zero, so the public URL cannot run with placeholder secrets.
+5. Replace the SSM placeholder directly in AWS; never pass the real token through Terraform or commit it:
 
-For `.github/workflows/deploy-miniapp.yml`, configure `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` as environment variables and `VERCEL_TOKEN` as a secret. It creates a prebuilt deployment, smoke-tests its immutable URL, and promotes that exact artifact only for production.
+   ```sh
+   aws ssm put-parameter \
+     --region us-east-1 \
+     --name /xuhuan/production/telegram-bot-token \
+     --type SecureString \
+     --overwrite \
+     --value 'ENTER_TOKEN_INTERACTIVELY'
+   ```
+
+   Avoid placing the literal token in shell history. Prefer the AWS console or a securely sourced environment variable for the real command.
+
+6. Configure the protected GitHub `production` environment using the outputs below.
+7. Run `Deploy API`. It injects the RDS and Telegram secrets into `$LATEST`, publishes an immutable version, enables concurrency two, migrates/seeds PostgreSQL, promotes `live`, smoke-tests the Function URL, and rolls the alias back on failure.
+8. Set Vercel `NEXT_PUBLIC_API_URL` to the `api_url` output and redeploy the Mini App.
+
+## GitHub environment configuration
+
+Configure these variables; none contains a secret value:
+
+- `AWS_REGION=us-east-1`
+- `AWS_DEPLOY_ROLE_ARN` from `github_deploy_role_arn`
+- `AWS_LAMBDA_FUNCTION` from `lambda_function_name`
+- `AWS_LAMBDA_ALIAS` from `lambda_alias_name`
+- `AWS_LAMBDA_RESERVED_CONCURRENCY` from `lambda_reserved_concurrency`
+- `AWS_RDS_SECRET_ARN` from `rds_managed_secret_arn`
+- `AWS_TELEGRAM_TOKEN_PARAMETER` from `telegram_token_parameter_name`
+- `API_BASE_URL` from `api_url`
+
+The workflow receives short-lived AWS credentials through OIDC. It does not require AWS access keys or a GitHub copy of the Telegram/database secrets.
+
+## Credit safety
+
+- Run only one environment. Do not keep staging and production online together.
+- Check Billing → Free Tier after apply and after each deployment. Credit reporting is delayed.
+- Keep RDS CPU below the burst baseline and avoid manual snapshots or exports.
+- Valkey stores rate-limit counters only; snapshots and replicas are disabled.
+- The generated Function URL avoids custom-domain and load-balancer resources.
+- Before Free Plan expiry, export PostgreSQL data and destroy the stack or accept that AWS access will end. Do not upgrade automatically.
 
 ## Deliberately deferred
 
-SQS and EventBridge are absent. No selected feature needs asynchronous delivery yet; adding empty infrastructure would increase cost and operational surface without improving the game.
+SQS, EventBridge, custom domains, high availability, Redis replicas, enhanced RDS monitoring, X-Ray, OTLP collectors, and separate staging infrastructure are absent. They add cost or operational surface without improving the current personal game.

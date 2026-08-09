@@ -8,6 +8,7 @@ node_modules
 apps/backend
 coverage
 dist
+apps/api/build
 playwright-report
 test-results
 *.log

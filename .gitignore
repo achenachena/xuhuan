@@ -6,6 +6,7 @@ node_modules
 next-env.d.ts
 out
 dist
+apps/api/build
 coverage
 test-results
 playwright-report

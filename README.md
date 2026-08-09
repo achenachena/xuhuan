@@ -8,9 +8,9 @@ Xuhuan is a mobile-first, turn-based fighting game built as a Telegram Mini App.
 Telegram Mini App
   └─ Next.js 16 / React 19 on Vercel
        └─ HTTPS + Telegram initData
-            └─ Go REST API (Chi) on ECS Fargate
+            └─ Go REST API (Chi) on AWS Lambda Function URL
                  ├─ PostgreSQL on RDS (source of truth)
-                 └─ Redis on ElastiCache (rate limits/read cache only)
+                 └─ Valkey on ElastiCache (Redis-compatible rate limits only)
 ```
 
 The API contract is [OpenAPI 3.1](apps/api/openapi/openapi.yaml). Design decisions, trust boundaries, and the AWS topology are documented in [docs/architecture.md](docs/architecture.md); the migration record is in [docs/go-rebuild-plan.md](docs/go-rebuild-plan.md).
@@ -103,4 +103,4 @@ Optional OpenTelemetry export uses OTLP/HTTP. With no collector endpoint—or if
 
 ## Deployment status
 
-The `main` branch deploys the Mini App to Vercel production and is currently passing its deployment checks. The paid API infrastructure has not been provisioned: its target remains AWS ECS Fargate behind an HTTPS Application Load Balancer, with RDS PostgreSQL and ElastiCache Redis. Applying Terraform or running the manual API deployment workflow requires explicit owner approval. Bootstrap and protected-environment instructions are in [infra/terraform/README.md](infra/terraform/README.md).
+The `main` branch deploys the Mini App to Vercel production and is currently passing its deployment checks. The unapplied API target is an AWS Free Plan topology: an arm64 Go Lambda Function URL with RDS PostgreSQL and one Redis-compatible ElastiCache Valkey node in isolated subnets. It deliberately has no NAT Gateway, load balancer, Fargate service, or ECR repository. Applying Terraform still consumes Free Plan credits and remains an explicit owner action. Bootstrap, credit guardrails, and protected-environment instructions are in [infra/terraform/README.md](infra/terraform/README.md).

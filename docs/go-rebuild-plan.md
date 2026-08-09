@@ -78,7 +78,7 @@ Uniqueness constraints prevent duplicate action identity and duplicate battle re
 
 ## AWS preparation
 
-Infrastructure code prepares an ECR repository, HTTPS load balancer, private ECS Fargate service, RDS PostgreSQL, ElastiCache, Secrets Manager references, SSM parameters, CloudWatch telemetry, least-privilege IAM, alarms, and separate staging/production inputs. CI uses GitHub OIDC and immutable image tags. Applying infrastructure remains an explicit owner action because it can create paid resources.
+Infrastructure was subsequently reduced for an AWS Free Plan account. It now prepares an arm64 Go Lambda Function URL, RDS PostgreSQL, one Redis-compatible ElastiCache Valkey node, isolated subnets, short-retention CloudWatch logs, least-privilege IAM, and alarms. NAT Gateway, ALB, Fargate, ECR, custom AWS DNS, and the ADOT sidecar were removed. CI uses GitHub OIDC and immutable Lambda versions. Applying still consumes promotional credits and remains an explicit owner action.
 
 ## Phase acceptance status
 
@@ -105,13 +105,13 @@ Infrastructure code prepares an ECR repository, HTTPS load balancer, private ECS
 - Replaced the remaining native remote character images with `next/image` and restricted optimization to the project's Vercel Blob path.
 - Added the missing English and Simplified Chinese archetype labels and automated coverage for every supported archetype.
 - Re-ran lint, unit tests, type checking, production build, browser E2E, container, and security checks. The production dependency audit reports no known vulnerabilities; the full development audit has the low-severity tool-only finding documented below.
-- Connected `main` to Vercel production; the paid AWS API infrastructure remains unapplied.
+- Connected `main` to Vercel production; the AWS Free Plan API infrastructure remains unapplied.
 
 ## Remaining risks
 
 - The two encounters have no bespoke artwork, so the UI intentionally uses its generated fallback.
 - Integration and browser tests require Docker; Playwright also requires a Chromium install.
 - Production Telegram launch cannot be exercised without a real bot token, although deterministic verifier fixtures cover the protocol.
-- Account IDs, domains, certificates, sizing, budgets, and secret values require owner input before any infrastructure apply.
+- The AWS account, OIDC provider, Free Plan expiration/credits, and secret values require owner verification before any infrastructure apply.
 - The Mini App production deployment cannot provide a complete live battle flow until an HTTPS Go API endpoint and Telegram launch configuration are supplied.
 - `js-yaml` is pinned to the compatible 4.3.1 security release, removing the previous high-severity development-tool finding while preserving OpenAPI generation. The full `npm audit` now reports only the low-severity `esbuild` Windows development-server advisory in `tsup`'s build-only dependency; the repository does not start that server, and the fixed 0.28 line is outside `tsup` 8.5.1's declared `^0.27` range. The production-dependency audit remains clean.
