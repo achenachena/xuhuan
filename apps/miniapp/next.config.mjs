@@ -4,6 +4,11 @@ const config = {
   devIndicators: {
     position: "top-right"
   },
+  images: {
+    remotePatterns: [
+      new URL("https://lsx1nt3pdo55zsho.public.blob.vercel-storage.com/**")
+    ]
+  },
   reactStrictMode: true,
   typedRoutes: true
 };

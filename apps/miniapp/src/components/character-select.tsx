@@ -107,11 +107,12 @@ const CharacterSelect = ({
       {/* Character Grid */}
       <div className={`mx-auto max-w-7xl px-4 ${selectedSlug ? "pb-48" : "pb-24"}`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {characters.map((character) => (
+          {characters.map((character, index) => (
             <CharacterCard
               key={character.id}
               character={character}
               isSelected={selectedSlug === character.slug}
+              loadEagerly={index === 0}
               onSelect={() => {
                 handleSelect(character);
               }}

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { Character } from "@xuhuan/game-types";
 import { generateCharacterPortrait, avatarToDataUrl } from "@/lib/avatar-generator";
@@ -70,9 +71,12 @@ const HealthBarTop = ({
           style={{ borderColor: character.colorTheme }}
         >
           {portraitUrl && (
-            <img
+            <Image
               src={portraitUrl}
               alt={translate("healthBarTop.portraitAlt", { name: character.name })}
+              width={64}
+              height={64}
+              sizes="64px"
               className="w-full h-full object-cover"
               onError={handleImageError}
             />
