@@ -74,6 +74,7 @@ data "aws_iam_policy_document" "github_deploy" {
     sid = "ReleaseLambda"
     actions = [
       "lambda:GetAlias",
+      "lambda:DeleteFunctionConcurrency",
       "lambda:GetFunction",
       "lambda:GetFunctionConcurrency",
       "lambda:GetFunctionConfiguration",
@@ -88,6 +89,12 @@ data "aws_iam_policy_document" "github_deploy" {
       aws_lambda_function.api.arn,
       "${aws_lambda_function.api.arn}:*",
     ]
+  }
+
+  statement {
+    sid       = "ReadAccountConcurrency"
+    actions   = ["lambda:GetAccountSettings"]
+    resources = ["*"]
   }
 
   statement {
