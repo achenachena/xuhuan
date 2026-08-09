@@ -24,8 +24,9 @@ data "aws_iam_policy_document" "lambda_execution" {
   }
 
   # Lambda requires these EC2 actions only during the reversible VPC-backed
-  # migration phase. Keep them until the legacy VPC is retired so detachment
-  # cannot race an execution-role policy update.
+  # migration phase. Before disabling managed data services, delete unaliased
+  # VPC-backed function versions and wait for their Hyperplane ENIs to disappear
+  # so detachment cannot race this execution-role policy update.
   dynamic "statement" {
     for_each = var.managed_data_services_enabled ? [true] : []
 
