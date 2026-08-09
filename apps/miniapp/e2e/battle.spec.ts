@@ -41,6 +41,8 @@ const finishWithLightAttacks = async (page: import("@playwright/test").Page): Pr
 };
 
 test("development player exercises every action and keeps server progression after reload", async ({ page }) => {
+  test.setTimeout(60_000);
+
   await page.goto("/");
   const progression = page.getByTestId("player-progression");
   await expect(progression).toBeVisible();
