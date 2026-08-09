@@ -2,7 +2,7 @@
 
 ## Scope
 
-The backend migration deliberately starts from an empty PostgreSQL database. It preserves the Next.js 14 Mini App, Vercel Blob assets, Chinese presentation, deterministic gameplay values, and useful catalog metadata. It does not import player identities, progression, battle runs, database IDs, or unsafe client-owned state.
+The backend migration deliberately started from an empty PostgreSQL database. At migration time it preserved the existing Mini App, Vercel Blob assets, Chinese presentation, deterministic gameplay values, and useful catalog metadata. It did not import player identities, progression, battle runs, database IDs, or unsafe client-owned state. A later frontend maintenance pass upgraded the application to Next.js 16 and React 19 without changing the API contract.
 
 The retired service is recoverable from Git history; no compatibility layer or parallel runtime is retained in the working tree.
 
@@ -60,6 +60,7 @@ Uniqueness constraints prevent duplicate action identity and duplicate battle re
 - The UI locks pending start/action controls, refreshes after conflicts, and animates only server responses.
 - Bundled Chinese and English locale data keeps the game playable without an external locale host; a valid external bundle may override it.
 - Theme, audio, layout, character selection, battle presentation, and reward modal remain presentation concerns.
+- The post-migration Next.js 16 / React 19 upgrade retained the same server-authoritative data flow, moved remote character artwork to `next/image`, and added locale coverage for every seeded archetype.
 
 ## Test strategy and evidence
 
@@ -98,11 +99,19 @@ Infrastructure code prepares an ECR repository, HTTPS load balancer, private ECS
 | 12 — AWS files | Terraform and guarded deployment workflows pass static validation; no plan, apply, or deployment was run |
 | 13 — asynchronous work | Intentionally deferred because no concrete feature justifies SQS or EventBridge |
 
+## Post-migration frontend maintenance
+
+- Upgraded the Mini App to Next.js 16.3 and React 19.2, along with the compatible lint and test toolchain.
+- Replaced the remaining native remote character images with `next/image` and restricted optimization to the project's Vercel Blob path.
+- Added the missing English and Simplified Chinese archetype labels and automated coverage for every supported archetype.
+- Re-ran lint, unit tests, type checking, production build, browser E2E, container, and security checks. The production dependency audit reports no known vulnerabilities; the full development audit has the tool-only finding documented below.
+- Connected `main` to Vercel production; the paid AWS API infrastructure remains unapplied.
+
 ## Remaining risks
 
 - The two encounters have no bespoke artwork, so the UI intentionally uses its generated fallback.
 - Integration and browser tests require Docker; Playwright also requires a Chromium install.
 - Production Telegram launch cannot be exercised without a real bot token, although deterministic verifier fixtures cover the protocol.
 - Account IDs, domains, certificates, sizing, budgets, and secret values require owner input before any infrastructure apply.
-- The three existing raw-image lint warnings remain; changing image delivery during the backend migration was intentionally avoided.
-- The current Next.js 14 dependency tree retains two high-severity advisories whose automated fix requires an out-of-scope Next.js major upgrade; CI fails on critical advisories and this upgrade should be handled separately.
+- The Mini App production deployment cannot provide a complete live battle flow until an HTTPS Go API endpoint and Telegram launch configuration are supplied.
+- The full `npm audit` reports two high-severity development-tool findings through `openapi-typescript` → Redocly 1.x → `js-yaml`. The production-dependency audit is clean, type generation only parses the repository-controlled OpenAPI file, and `js-yaml` 5 is not API-compatible with Redocly 1.x; CI continues to block critical findings while awaiting a compatible upstream release.
