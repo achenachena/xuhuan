@@ -107,7 +107,7 @@ func accessLogMiddleware(logger *slog.Logger, metrics *observability.Metrics) fu
 			logger.InfoContext(r.Context(), "http_request",
 				"request_id", requestIDFromContext(r.Context()),
 				"method", r.Method,
-				"path", r.URL.Path,
+				"route", chi.RouteContext(r.Context()).RoutePattern(),
 				"status", status,
 				"response_bytes", recorder.bytes,
 				"duration_ms", duration.Milliseconds(),
