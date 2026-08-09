@@ -21,7 +21,7 @@ jobs:
       run:
         working-directory: infra/terraform
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4.0.1
         with:
           terraform_version: 1.15.8
@@ -40,8 +40,8 @@ jobs:
       run:
         working-directory: apps/api
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
@@ -88,8 +88,8 @@ jobs:
       TEST_DATABASE_URL: postgres://xuhuan:xuhuan_test_password@127.0.0.1:5432/xuhuan_test?sslmode=disable
       TEST_REDIS_URL: redis://127.0.0.1:6379/0
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
@@ -101,8 +101,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -162,12 +162,12 @@ jobs:
       NEXT_PUBLIC_DEV_AUTH_TOKEN: local-development-token
       NEXT_PUBLIC_DEFAULT_LANGUAGE: zh-CN
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -196,7 +196,7 @@ jobs:
         run: npm run test:e2e --workspace @xuhuan/miniapp
       - name: Upload browser traces on failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-results
           path: apps/miniapp/test-results
@@ -207,12 +207,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
