@@ -1,0 +1,33 @@
+# Local dependencies and build caches are recreated by Vercel.
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+dist
+**/dist
+coverage
+**/coverage
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+
+# Local deployment metadata and infrastructure state must never be uploaded.
+.vercel
+**/.terraform
+**/.terraform/**
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+
+# Local environment files, logs, and generated backend artifacts.
+.env
+.env.*
+**/.env
+**/.env.*
+*.log
+apps/api/build
+apps/backend/build
