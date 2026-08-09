@@ -1,4 +1,6 @@
 resource "aws_vpc" "main" {
+  count = var.managed_data_services_enabled ? 1 : 0
+
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -13,7 +15,7 @@ resource "aws_vpc" "main" {
 resource "aws_subnet" "data" {
   for_each = { for index, az in local.azs : az => index }
 
-  vpc_id            = aws_vpc.main.id
+  vpc_id            = aws_vpc.main[0].id
   availability_zone = each.key
   cidr_block        = cidrsubnet(var.vpc_cidr, 8, each.value + 32)
 
@@ -21,7 +23,9 @@ resource "aws_subnet" "data" {
 }
 
 resource "aws_route_table" "isolated" {
-  vpc_id = aws_vpc.main.id
+  count = var.managed_data_services_enabled ? 1 : 0
+
+  vpc_id = aws_vpc.main[0].id
   tags   = { Name = "${local.name}-isolated" }
 }
 
@@ -29,5 +33,5 @@ resource "aws_route_table_association" "data" {
   for_each = aws_subnet.data
 
   subnet_id      = each.value.id
-  route_table_id = aws_route_table.isolated.id
+  route_table_id = aws_route_table.isolated[0].id
 }

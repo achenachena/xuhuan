@@ -64,6 +64,18 @@ variable "availability_zone_count" {
   }
 }
 
+variable "managed_data_services_enabled" {
+  description = "Keep the legacy RDS PostgreSQL, ElastiCache Valkey, and isolated VPC while migrating to external scale-to-zero data services. Disable only after the external cutover is verified."
+  type        = bool
+  default     = false
+}
+
+variable "lambda_vpc_enabled" {
+  description = "Attach Lambda to the isolated data VPC. Disable after external PostgreSQL and Redis parameters are ready, before retiring the managed data services."
+  type        = bool
+  default     = false
+}
+
 variable "cors_allowed_origins" {
   description = "Exact HTTPS Mini App origins, comma separated."
   type        = string

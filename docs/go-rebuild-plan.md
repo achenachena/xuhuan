@@ -78,7 +78,7 @@ Uniqueness constraints prevent duplicate action identity and duplicate battle re
 
 ## AWS preparation
 
-Infrastructure was subsequently reduced for an AWS Free Plan account. It now prepares an arm64 Go Lambda Function URL, RDS PostgreSQL, one Redis-compatible ElastiCache Valkey node, isolated subnets, short-retention CloudWatch logs, least-privilege IAM, and alarms. NAT Gateway, ALB, Fargate, ECR, custom AWS DNS, and the ADOT sidecar were removed. CI uses GitHub OIDC and immutable Lambda versions. Applying still consumes promotional credits and remains an explicit owner action.
+Infrastructure was first reduced for an AWS Free Plan account and then moved to a zero-fixed-cost data tier. The arm64 Go Lambda Function URL remains on AWS, while Neon supplies PostgreSQL and Upstash supplies Redis. SQL, transactions, row locks, foreign keys, JSONB, and the Redis Lua limiter remain intact. The final topology removes RDS, ElastiCache, the isolated VPC, NAT Gateway, ALB, Fargate, ECR, custom AWS DNS, and the ADOT sidecar. CI uses GitHub OIDC and immutable Lambda versions; free-plan exhaustion causes suspension or throttling rather than an automatic paid upgrade.
 
 ## Phase acceptance status
 
@@ -105,7 +105,7 @@ Infrastructure was subsequently reduced for an AWS Free Plan account. It now pre
 - Replaced the remaining native remote character images with `next/image` and restricted optimization to the project's Vercel Blob path.
 - Added the missing English and Simplified Chinese archetype labels and automated coverage for every supported archetype.
 - Re-ran lint, unit tests, type checking, production build, browser E2E, container, and security checks. The production dependency audit reports no known vulnerabilities; the full development audit has the low-severity tool-only finding documented below.
-- Connected `main` to Vercel production; the AWS Free Plan API infrastructure remains unapplied.
+- Connected `main` to Vercel production and deployed the Go API on the guarded AWS Lambda topology; the data tier is being moved from fixed-cost AWS services to Neon and Upstash free plans.
 
 ## Remaining risks
 

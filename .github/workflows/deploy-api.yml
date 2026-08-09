@@ -30,7 +30,9 @@ jobs:
       LAMBDA_FUNCTION: ${{ vars.AWS_LAMBDA_FUNCTION }}
       LAMBDA_ALIAS: ${{ vars.AWS_LAMBDA_ALIAS }}
       LAMBDA_RESERVED_CONCURRENCY: ${{ vars.AWS_LAMBDA_RESERVED_CONCURRENCY }}
-      RDS_SECRET_ARN: ${{ vars.AWS_RDS_SECRET_ARN }}
+      DATABASE_URL_PARAMETER: ${{ vars.AWS_DATABASE_URL_PARAMETER }}
+      DATABASE_MIGRATION_URL_PARAMETER: ${{ vars.AWS_DATABASE_MIGRATION_URL_PARAMETER }}
+      REDIS_URL_PARAMETER: ${{ vars.AWS_REDIS_URL_PARAMETER }}
       TELEGRAM_TOKEN_PARAMETER: ${{ vars.AWS_TELEGRAM_TOKEN_PARAMETER }}
       API_BASE_URL: ${{ vars.API_BASE_URL }}
       RELEASE_SHA: ${{ github.sha }}
@@ -83,19 +85,39 @@ jobs:
 
       - name: Update unpublished code and configuration
         run: |
-          database_secret=$(aws secretsmanager get-secret-value \
-            --secret-id "$RDS_SECRET_ARN" \
-            --query SecretString \
+          database_url=$(aws ssm get-parameter \
+            --name "$DATABASE_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
             --output text)
-          database_user=$(jq -r '.username' <<< "$database_secret")
-          database_password=$(jq -r '.password' <<< "$database_secret")
+          database_migration_url=$(aws ssm get-parameter \
+            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          redis_url=$(aws ssm get-parameter \
+            --name "$REDIS_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
           telegram_token=$(aws ssm get-parameter \
             --name "$TELEGRAM_TOKEN_PARAMETER" \
             --with-decryption \
             --query Parameter.Value \
             --output text)
-          test -n "$database_user"
-          test -n "$database_password"
+
+          case "$database_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database runtime parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          case "$database_migration_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          case "$redis_url" in
+            rediss://*) ;;
+            *) echo "::error::Redis parameter must use TLS (rediss://)"; exit 1 ;;
+          esac
           test -n "$telegram_token"
           test "$telegram_token" != "replace-out-of-band"
 
@@ -106,13 +128,23 @@ jobs:
           jq -n \
             --argjson current "$current_variables" \
             --arg version "$RELEASE_SHA" \
-            --arg database_user "$database_user" \
-            --arg database_password "$database_password" \
+            --arg database_url "$database_url" \
+            --arg database_migration_url "$database_migration_url" \
+            --arg redis_url "$redis_url" \
             --arg telegram_token "$telegram_token" \
-            '{Variables: ($current + {
+            '{Variables: (($current | del(
+              .DATABASE_HOST,
+              .DATABASE_PORT,
+              .DATABASE_NAME,
+              .DATABASE_USER,
+              .DATABASE_PASSWORD,
+              .DATABASE_SSLMODE
+            )) + {
               APP_VERSION: $version,
-              DATABASE_USER: $database_user,
-              DATABASE_PASSWORD: $database_password,
+              DATABASE_URL: $database_url,
+              DATABASE_MIGRATION_URL: $database_migration_url,
+              REDIS_URL: $redis_url,
+              REDIS_TIMEOUT: "1s",
               TELEGRAM_BOT_TOKEN: $telegram_token
             })}' > "$RUNNER_TEMP/lambda-environment.json"
           chmod 600 "$RUNNER_TEMP/lambda-environment.json"

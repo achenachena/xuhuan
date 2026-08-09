@@ -9,8 +9,8 @@ Telegram Mini App
   └─ Next.js 16 / React 19 on Vercel
        └─ HTTPS + Telegram initData
             └─ Go REST API (Chi) on AWS Lambda Function URL
-                 ├─ PostgreSQL on RDS (source of truth)
-                 └─ Valkey on ElastiCache (Redis-compatible rate limits only)
+                 ├─ Neon PostgreSQL (source of truth, SQL + transactions)
+                 └─ Upstash Redis (distributed rate limits only)
 ```
 
 The API contract is [OpenAPI 3.1](apps/api/openapi/openapi.yaml). Design decisions, trust boundaries, and the AWS topology are documented in [docs/architecture.md](docs/architecture.md); the migration record is in [docs/go-rebuild-plan.md](docs/go-rebuild-plan.md).
@@ -24,7 +24,7 @@ apps/
 packages/
   game-types/          Frontend-only presentation types
 docs/                  Architecture and migration documentation
-infra/                 Validated, unapplied AWS Terraform configuration
+infra/                 Terraform for the deployed AWS serverless edge
 ```
 
 ## Prerequisites
@@ -95,7 +95,7 @@ npm run check:api-types --workspace @xuhuan/miniapp
 
 ## Configuration and security
 
-All supported local variables and safe example values are documented in [env.example](env.example). Production secrets belong in AWS Secrets Manager; non-secret production settings belong in SSM Parameter Store. Do not expose `DEV_AUTH_*` or `NEXT_PUBLIC_DEV_AUTH_TOKEN` in a production build.
+All supported local variables and safe example values are documented in [env.example](env.example). Production database, Redis, and Telegram credentials are stored as standard-tier AWS SSM SecureStrings and injected only into immutable Lambda versions. Do not expose `DEV_AUTH_*` or `NEXT_PUBLIC_DEV_AUTH_TOKEN` in a production build.
 
 Player requests use raw Telegram `initData` in `X-Telegram-Init-Data`. Mutating battle requests also require an `Idempotency-Key` and an expected battle version. The client cannot submit rewards, outcomes, progression, or random seeds.
 
@@ -103,4 +103,4 @@ Optional OpenTelemetry export uses OTLP/HTTP. With no collector endpoint—or if
 
 ## Deployment status
 
-The `main` branch deploys the Mini App to Vercel production and is currently passing its deployment checks. The unapplied API target is an AWS Free Plan topology: an arm64 Go Lambda Function URL with RDS PostgreSQL and one Redis-compatible ElastiCache Valkey node in isolated subnets. It deliberately has no NAT Gateway, load balancer, Fargate service, or ECR repository. Applying Terraform still consumes Free Plan credits and remains an explicit owner action. Bootstrap, credit guardrails, and protected-environment instructions are in [infra/terraform/README.md](infra/terraform/README.md).
+The production target keeps the resume-relevant AWS and Go design without continuously billed AWS data resources: an arm64 Go Lambda Function URL connects over TLS to Neon PostgreSQL and Upstash Redis. PostgreSQL SQL, foreign keys, row locks, JSONB, and multi-table transactions remain unchanged; Redis remains a real Redis-protocol dependency but is non-authoritative. There is no VPC, NAT Gateway, API Gateway, load balancer, RDS instance, ElastiCache node, Fargate service, or ECR repository in the final topology. Free services stop or throttle at their limits instead of being intentionally upgraded. Bootstrap, cutover, secret, and cost guardrails are in [infra/terraform/README.md](infra/terraform/README.md).

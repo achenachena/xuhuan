@@ -22,23 +22,19 @@ resource "aws_lambda_function" "api" {
   # reduced account-wide cap instead.
   reserved_concurrent_executions = 0
 
-  vpc_config {
-    subnet_ids         = [for subnet in aws_subnet.data : subnet.id]
-    security_group_ids = [aws_security_group.lambda.id]
+  dynamic "vpc_config" {
+    for_each = var.lambda_vpc_enabled ? [true] : []
+
+    content {
+      subnet_ids         = [for subnet in aws_subnet.data : subnet.id]
+      security_group_ids = [aws_security_group.lambda[0].id]
+    }
   }
 
   environment {
-    variables = {
+    variables = merge({
       APP_ENV                    = "production"
       APP_VERSION                = "bootstrap"
-      DATABASE_HOST              = aws_db_instance.postgres.address
-      DATABASE_PORT              = tostring(aws_db_instance.postgres.port)
-      DATABASE_NAME              = var.database_name
-      DATABASE_USER              = var.database_master_username
-      DATABASE_PASSWORD          = "replaced-by-deploy-workflow"
-      DATABASE_SSLMODE           = "require"
-      REDIS_URL                  = "rediss://${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379/0"
-      REDIS_TIMEOUT              = "150ms"
       CORS_ALLOWED_ORIGINS       = var.cors_allowed_origins
       TRUST_PROXY                = "true"
       RATE_LIMIT_WINDOW          = "1m"
@@ -47,7 +43,21 @@ resource "aws_lambda_function" "api" {
       TELEGRAM_BOT_TOKEN         = "replaced-by-deploy-workflow"
       TELEGRAM_AUTH_MAX_AGE      = "24h"
       OTEL_SERVICE_NAME          = "xuhuan-api"
-    }
+      }, var.lambda_vpc_enabled ? {
+      DATABASE_HOST     = aws_db_instance.postgres[0].address
+      DATABASE_PORT     = tostring(aws_db_instance.postgres[0].port)
+      DATABASE_NAME     = var.database_name
+      DATABASE_USER     = var.database_master_username
+      DATABASE_PASSWORD = "replaced-by-deploy-workflow"
+      DATABASE_SSLMODE  = "require"
+      REDIS_URL         = "rediss://${aws_elasticache_replication_group.redis[0].primary_endpoint_address}:6379/0"
+      REDIS_TIMEOUT     = "150ms"
+      } : {
+      DATABASE_URL           = "replaced-by-deploy-workflow"
+      DATABASE_MIGRATION_URL = "replaced-by-deploy-workflow"
+      REDIS_URL              = "replaced-by-deploy-workflow"
+      REDIS_TIMEOUT          = "1s"
+    })
   }
 
   tracing_config {

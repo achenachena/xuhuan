@@ -14,8 +14,8 @@ Next.js 16 Mini App on Vercel
   │ HTTPS JSON REST (OpenAPI 3.1)
   ▼
 Go API on an arm64 Lambda Function URL
-  ├── RDS PostgreSQL: players, catalog, battles, ledger, idempotency
-  ├── ElastiCache Valkey: Redis-compatible rate limits only
+  ├── Neon PostgreSQL: players, catalog, battles, ledger, idempotency
+  ├── Upstash Redis: distributed rate limits only
   ├── CloudWatch: short-retention logs and infrastructure alarms
   └── SQS/EventBridge: deferred until a concrete asynchronous feature exists
 ```
@@ -108,20 +108,22 @@ Redis is used for atomic fixed-window per-player and per-IP rate limiting. Ident
 
 SQS and EventBridge are not part of the initial runtime. A future delayed-energy Telegram notification would justify EventBridge scheduling plus an idempotent SQS consumer, bounded retries, a dead-letter queue, poison-message recording, and a documented redrive process.
 
-## AWS deployment
+## Production deployment
 
 - A Lambda Function URL provides the stable public HTTPS endpoint without API Gateway, Route 53, ACM, or an Application Load Balancer. The application middleware remains the CORS authority.
-- One arm64 `provided.al2023` Lambda version runs the existing Chi handler and reuses PostgreSQL and Valkey connections across warm invocations. Requested reserved concurrency is capped at two. While a new AWS account cannot allocate it, deployment uses the account's reduced regional cap (currently ten) and automatically switches to the per-function cap once the regional quota permits it.
-- RDS PostgreSQL and one ElastiCache Valkey node remain private and accept traffic only from the Lambda security group. Two isolated subnets satisfy managed-database placement requirements without an internet or NAT gateway.
-- RDS manages its master password in Secrets Manager. A standard-tier SSM SecureString holds the Telegram token. The protected deployment workflow reads both once per release and injects them into an immutable Lambda version, avoiding paid VPC interface endpoints at runtime.
+- One arm64 `provided.al2023` Lambda version runs the existing Chi handler and reuses PostgreSQL and Redis connections across warm invocations. Requested reserved concurrency is capped at two. While a new AWS account cannot allocate it, deployment uses the account's reduced regional cap and automatically switches to the per-function cap once the regional quota permits it.
+- Neon provides real PostgreSQL over TLS. Lambda uses its pooled endpoint with at most four connections per execution environment and no minimum idle connection; migrations use the direct endpoint so advisory locking and DDL run on one stable session. The schema, SQL, row locks, constraints, and transactions are unchanged from local PostgreSQL and the former RDS deployment.
+- Upstash provides a TLS Redis-protocol endpoint. The existing `go-redis` Lua fixed-window limiter continues to use atomic `INCR`, `PEXPIRE`, and `PTTL` behavior. Redis holds no authoritative player or battle data.
+- Standard-tier SSM SecureStrings hold the pooled database URL, direct migration URL, Redis URL, and Telegram token. The protected deployment workflow reads them once per release and injects them into an immutable Lambda version.
 - GitHub Actions uses OIDC, not long-lived AWS keys. It builds a zip, updates `$LATEST`, publishes a numbered version, runs idempotent migrations and catalog seeds by direct invocation, promotes the `live` alias, verifies health/readiness, and restores the prior alias on failure.
-- The Terraform inputs hard-cap RDS, Valkey, Lambda memory, and concurrency at the selected Free Plan sizes. Applying still consumes credits and remains an explicit owner action.
+- The final Terraform topology has no VPC, NAT Gateway, RDS, ElastiCache, API Gateway, load balancer, or container registry. Transitional flags retain the old private data tier only until the external cutover is verified.
+- Neon and Upstash remain on their free plans with no paid add-ons. Exhausting a free usage allowance is treated as an availability limit, not a reason to upgrade automatically.
 
 ## Observability and data handling
 
 Every response has an `X-Request-ID`; every error body repeats that ID. Structured logs include path, method, status, duration, and safe domain identifiers. OpenTelemetry HTTP spans cover the request boundary. Metrics cover request volume/latency/error rate, database latency/error rate, auth failures, starts/completions, conflicts, duplicate idempotency replays, and reward transaction failures. PostgreSQL instrumentation records duration and error state but deliberately excludes query text and arguments.
 
-OTLP/HTTP export remains optional and fail-open for local or future collectors. The Free Plan Lambda deployment leaves it disabled to avoid a collector or paid VPC endpoint. Lambda errors/throttles, RDS free storage, and Valkey memory alarms publish to one SNS topic, while application logs expire after a few days.
+OTLP/HTTP export remains optional and fail-open for local or future collectors. The Free Plan Lambda deployment leaves it disabled. Lambda errors and throttles publish to one SNS topic, while application logs expire after a few days. Neon and Upstash usage limits are watched in their provider dashboards.
 
 The API never logs the bot token, complete `initData`, authorization/development-auth values, database URLs, or sensitive player metadata. Expected authentication failures and validation errors are safe client messages; internal errors use a generic envelope.
 
@@ -132,4 +134,4 @@ The API never logs the bot token, complete `initData`, authorization/development
 - The local server retains explicit read-header, read, write, idle, and graceful-shutdown timeouts; Lambda enforces a bounded invocation timeout.
 - Requests have bounded JSON bodies and reject non-JSON bodies where JSON is required.
 - CORS returns headers only for configured HTTPS Mini App origins (plus explicit local origins outside production).
-- RDS transactions, row locks, versions, idempotency records, and ledger constraints prioritize correctness over accepting a conflicting action.
+- PostgreSQL transactions, row locks, versions, idempotency records, and ledger constraints prioritize correctness over accepting a conflicting action.

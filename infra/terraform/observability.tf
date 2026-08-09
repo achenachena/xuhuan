@@ -47,6 +47,8 @@ resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "rds_free_storage" {
+  count = var.managed_data_services_enabled ? 1 : 0
+
   alarm_name          = "${local.name}-rds-free-storage"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 3
@@ -59,11 +61,13 @@ resource "aws_cloudwatch_metric_alarm" "rds_free_storage" {
   alarm_actions       = [aws_sns_topic.alarms.arn]
 
   dimensions = {
-    DBInstanceIdentifier = aws_db_instance.postgres.identifier
+    DBInstanceIdentifier = aws_db_instance.postgres[0].identifier
   }
 }
 
 resource "aws_cloudwatch_metric_alarm" "redis_memory" {
+  count = var.managed_data_services_enabled ? 1 : 0
+
   alarm_name          = "${local.name}-valkey-memory"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 3
@@ -76,6 +80,6 @@ resource "aws_cloudwatch_metric_alarm" "redis_memory" {
   alarm_actions       = [aws_sns_topic.alarms.arn]
 
   dimensions = {
-    ReplicationGroupId = aws_elasticache_replication_group.redis.id
+    ReplicationGroupId = aws_elasticache_replication_group.redis[0].id
   }
 }

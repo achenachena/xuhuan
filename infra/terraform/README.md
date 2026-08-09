@@ -1,27 +1,45 @@
-# AWS Free Plan infrastructure preparation
+# Zero-fixed-cost production infrastructure
 
-This directory describes a credit-conscious AWS deployment; nothing here has been applied. It preserves the Go, PostgreSQL, and Redis-compatible design while removing the continuously metered NAT Gateway, Application Load Balancer, Fargate, ECR, Route 53, ACM, and telemetry sidecar resources.
+This directory owns the AWS edge of Xuhuan's production deployment. The final
+topology keeps the Go backend on AWS Lambda while moving continuously billed
+data services to free serverless providers:
 
-An AWS Free Plan account does not charge its payment method, but access ends when the plan expires or its credits are exhausted. Every `terraform apply` and deployment still consumes credits. Never upgrade the account to a paid plan without a new cost review.
+- arm64 Go Lambda on `provided.al2023`, exposed through the stable `live`
+  Function URL alias;
+- Neon PostgreSQL for the authoritative relational data;
+- Upstash Redis for non-authoritative distributed rate limits;
+- standard-tier SSM SecureStrings for the two PostgreSQL URLs, Redis URL, and
+  Telegram token;
+- short-retention CloudWatch logs, Lambda alarms, SNS, GitHub OIDC, and no
+  long-lived AWS access keys.
 
-## Prepared topology
+There is no VPC, NAT Gateway, RDS, ElastiCache, API Gateway, load balancer,
+Fargate service, or ECR repository after cutover. PostgreSQL SQL, foreign keys,
+JSONB, `SELECT ... FOR UPDATE`, advisory migration locks, and multi-table
+transactions remain real PostgreSQL features. The rate limiter continues to
+use the Redis protocol and an atomic Lua script.
 
-- One public arm64 Go Lambda on the `provided.al2023` runtime, exposed through a stable `live` Function URL alias.
-- Memory capped at 512 MB and requested reserved concurrency capped at two. A
-  new account that cannot yet allocate reserved concurrency temporarily uses
-  its reduced account-wide Lambda concurrency cap.
-- Two isolated subnets with no internet gateway, public IPv4 address, NAT gateway, or VPC interface endpoint.
-- Single-AZ `db.t4g.micro` RDS PostgreSQL 17 with 20 GB encrypted storage and an AWS-managed master secret.
-- One encrypted `cache.t4g.micro` ElastiCache Valkey 8 node. It speaks the Redis protocol and remains non-authoritative.
-- A standard-tier SSM SecureString placeholder for the Telegram bot token.
-- Three-day Lambda logs, four infrastructure alarms, and one optional email SNS subscription.
-- GitHub OIDC roles scoped to one protected environment and the exact Lambda, RDS secret, and SSM parameter.
+The owner requires zero cash spending. Keep AWS on its Free Plan and Neon and
+Upstash on their free plans; do not add payment-backed upgrades or paid add-ons.
+Usage limits are availability limits: if a free allowance is exhausted, let
+the service pause or throttle and investigate before changing plans.
 
-Terraform preconditions reject larger RDS, Valkey, Lambda memory, concurrency, storage, or availability-zone values. This limits accidental credit burn but cannot make AWS promotional terms permanent.
+## Migration switches
+
+Two Terraform variables make the live RDS/ElastiCache migration reversible:
+
+| Variable | Meaning |
+| --- | --- |
+| `managed_data_services_enabled` | Retains the legacy RDS, ElastiCache, isolated VPC, data alarms, and deploy-secret permission. |
+| `lambda_vpc_enabled` | Attaches `$LATEST` Lambda configuration to that isolated VPC. It cannot be true when the managed data tier is false. |
+
+Both default to `false`, so a fresh deployment cannot accidentally create the
+continuously metered AWS data tier. An existing deployment temporarily sets
+both to `true`; never change both to `false` in one unverified step.
 
 ## Static validation
 
-Install Terraform 1.15.x and build the bootstrap archive, then run only non-mutating checks:
+Use the repository-pinned Terraform version and validate before every plan:
 
 ```sh
 make lambda-package
@@ -30,76 +48,124 @@ terraform -chdir=infra/terraform init -backend=false
 terraform -chdir=infra/terraform validate
 ```
 
-The archive is ignored by Git and exists only to create the disabled bootstrap function. Later releases are owned by the protected GitHub workflow.
+The ignored `production.tfvars` and local state must remain mode `0600` and
+must never be committed. For a team deployment, use an encrypted, versioned S3
+backend with native state locking.
 
-## Owner inputs
+## External free data services
 
-Copy `production.tfvars.example` to the ignored `production.tfvars` and replace only:
+Create exactly one production project/database in each provider.
 
-- `github_oidc_provider_arn`
-- `github_environment` (`Production` is case-sensitive for the OIDC subject)
-- `cors_allowed_origins`
-- `alarm_email`
+### Neon PostgreSQL
 
-Keep the micro instance, 20 GB storage, 512 MB Lambda, concurrency two, two AZ, single-node cache, and three-day log values unchanged. Do not commit the real tfvars file or email address.
+1. Select Neon Free and do not enable a paid plan or add-on.
+2. Create a project and database for Xuhuan.
+3. Copy the pooled connection URL for `DATABASE_URL`; its hostname normally
+   contains `-pooler`.
+4. Copy the direct connection URL for `DATABASE_MIGRATION_URL`.
+5. Require TLS in both URLs. Do not commit or print either password.
 
-For shared or recoverable state, use an encrypted/versioned S3 backend with native state locking. The backend is intentionally not hard-coded because its globally unique bucket name is an owner decision. A local state is acceptable only for the initial personal experiment if it is backed up securely and never committed.
+Lambda's pgx pool uses at most four connections per execution environment and
+keeps zero minimum connections, allowing Neon compute to suspend while idle.
+The direct URL is used only by the IAM-invoked migration and seed operation.
 
-## Guarded bootstrap order
+### Upstash Redis
 
-1. Confirm the AWS console still shows `Free plan`, the remaining credits, and the expiration date. Do not click **Upgrade plan**.
-2. Build `apps/api/build/lambda.zip` with `make lambda-package`.
-3. Run a saved `terraform plan` with the production var file. Planning contacts AWS but creates nothing:
+1. Select the Upstash Free Redis plan and do not enable paid overage.
+2. Create one database in the closest practical North American region.
+3. Copy the TLS Redis URL in the form `rediss://default:...@...:port`.
 
-   ```sh
-   terraform -chdir=infra/terraform plan -var-file=production.tfvars -out=production.tfplan
-   ```
+The Redis database contains only short-lived rate-limit counters. If it is
+unavailable or at its free limit, the API fails over to a bounded in-process
+limiter; authoritative game data remains safe in PostgreSQL.
 
-4. Review the exact resource list and obtain explicit approval before applying. The first apply creates a Lambda with reserved concurrency zero, so the public URL cannot run with placeholder secrets.
-5. Replace the SSM placeholder directly in AWS; never pass the real token through Terraform or commit it:
+## Secret storage
 
-   ```sh
-   aws ssm put-parameter \
-     --region us-east-1 \
-     --name /xuhuan/production/telegram-bot-token \
-     --type SecureString \
-     --overwrite \
-     --value 'ENTER_TOKEN_INTERACTIVELY'
-   ```
+Terraform creates placeholders only. Replace all four values out of band in
+AWS Systems Manager Parameter Store as standard `SecureString` parameters:
 
-   Avoid placing the literal token in shell history. Prefer the AWS console or a securely sourced environment variable for the real command.
+- `/xuhuan/production/database-url`
+- `/xuhuan/production/database-migration-url`
+- `/xuhuan/production/redis-url`
+- `/xuhuan/production/telegram-bot-token`
 
-6. Configure the protected GitHub `production` environment using the outputs below.
-7. Run `Deploy API`. It injects the RDS and Telegram secrets into `$LATEST`, publishes an immutable version, enables reserved concurrency two when the account quota permits it, migrates/seeds PostgreSQL, promotes `live`, and smoke-tests the Function URL. New accounts that cannot leave the required ten unreserved executions use their reduced account-wide concurrency cap until AWS raises it automatically. A failure restores both the previous alias and concurrency mode.
-8. Set Vercel `NEXT_PUBLIC_API_URL` to the `api_url` output and redeploy the Mini App.
+Prefer the AWS console or an interactive secret source so credentials do not
+enter shell history. Terraform ignores later value changes and therefore never
+stores these provider credentials in its state.
 
-## GitHub environment configuration
+## Protected GitHub environment
 
-Configure these variables; none contains a secret value:
+Configure the `Production` environment with these non-secret variables:
 
 - `AWS_REGION=us-east-1`
 - `AWS_DEPLOY_ROLE_ARN` from `github_deploy_role_arn`
 - `AWS_LAMBDA_FUNCTION` from `lambda_function_name`
 - `AWS_LAMBDA_ALIAS` from `lambda_alias_name`
 - `AWS_LAMBDA_RESERVED_CONCURRENCY` from `lambda_reserved_concurrency`
-- `AWS_RDS_SECRET_ARN` from `rds_managed_secret_arn`
+- `AWS_DATABASE_URL_PARAMETER` from `database_url_parameter_name`
+- `AWS_DATABASE_MIGRATION_URL_PARAMETER` from
+  `database_migration_url_parameter_name`
+- `AWS_REDIS_URL_PARAMETER` from `redis_url_parameter_name`
 - `AWS_TELEGRAM_TOKEN_PARAMETER` from `telegram_token_parameter_name`
 - `API_BASE_URL` from `api_url`
 
-The workflow receives short-lived AWS credentials through OIDC. It does not require AWS access keys or a GitHub copy of the Telegram/database secrets.
+The deploy workflow exchanges GitHub's OIDC token for short-lived AWS
+credentials, reads the SecureStrings, replaces `$LATEST` code and configuration,
+publishes a numbered Lambda version, migrates/seeds PostgreSQL, and promotes the
+`live` alias only after the new version succeeds.
 
-## Credit safety
+## Guarded cutover from RDS and ElastiCache
 
-- Run only one environment. Do not keep staging and production online together.
-- Watch the deployment warning for a new-account concurrency fallback. Until
-  AWS raises the regional quota to at least twelve, the function can use the
-  account-wide cap of ten instead of its requested per-function cap of two.
-- Check Billing → Free Tier after apply and after each deployment. Credit reporting is delayed.
-- Keep RDS CPU below the burst baseline and avoid manual snapshots or exports.
-- Valkey stores rate-limit counters only; snapshots and replicas are disabled.
-- The generated Function URL avoids custom-domain and load-balancer resources.
-- Before Free Plan expiry, export PostgreSQL data and destroy the stack or accept that AWS access will end. Do not upgrade automatically.
+Use separate saved plans and review each one. The expected order is:
 
-## Deliberately deferred
+1. **Preserve everything.** Set both migration switches to `true`. Apply the
+   moved resource addresses, SSM placeholders, and updated IAM policy. The plan
+   must not delete or replace RDS, ElastiCache, or the VPC.
+2. **Measure the source.** Publish the new Lambda code without promoting it and
+   invoke `{"operation":"data-summary"}` on that numbered version. Record every
+   table count. Catalog rows are deterministic; any player, battle, action,
+   idempotency, ledger, or audit rows must be exported and imported before
+   continuing.
+3. **Prepare external services.** Store the Neon pooled/direct URLs and Upstash
+   TLS URL in the SSM placeholders. Test PostgreSQL and Redis connectivity.
+4. **Detach only `$LATEST`.** Keep `managed_data_services_enabled=true`, set
+   `lambda_vpc_enabled=false`, and apply. The existing `live` numbered version
+   stays on the old VPC and remains the rollback path.
+5. **Release externally.** Update the protected GitHub variables and run
+   `Deploy API`. It migrates/seeds Neon, publishes a new version, promotes
+   `live`, and checks `/healthz` and `/readyz`. Exercise one authenticated read
+   and battle flow if a Telegram session is available.
+6. **Observe before deletion.** Invoke `data-summary` on the new live version,
+   compare expected authoritative counts, verify CloudWatch has no connection
+   errors, and retain the old data tier until these checks pass.
+7. **Disable RDS deletion protection.** Keep managed services enabled, set
+   `database_deletion_protection=false`, and apply that change by itself.
+8. **Remove fixed-cost resources.** Set
+   `managed_data_services_enabled=false`, keep `lambda_vpc_enabled=false`, and
+   set `database_skip_final_snapshot=true` only after authoritative data is
+   verified elsewhere. Review a saved plan listing the exact RDS, ElastiCache,
+   VPC, subnet, security-group, and obsolete alarm deletions, then apply.
 
-SQS, EventBridge, custom domains, high availability, Redis replicas, enhanced RDS monitoring, X-Ray, OTLP collectors, and separate staging infrastructure are absent. They add cost or operational surface without improving the current personal game.
+Do not destroy the source tier if any count is unexplained or the new API is not
+ready. The existing `live` alias and old data resources are the rollback path
+through step 6.
+
+## Cost and operational guardrails
+
+- Keep one production environment; do not run staging concurrently.
+- Lambda memory is capped at 512 MB and requested reserved concurrency at two.
+  A new AWS account may temporarily use its reduced account-wide concurrency
+  cap until AWS permits the per-function reservation.
+- Keep CloudWatch retention at three days and do not enable X-Ray, OTLP
+  collectors, custom domains, API Gateway, provisioned concurrency, VPC
+  endpoints, or extra alarms without a cost review.
+- Watch AWS credits and plan expiration, Neon compute/storage usage, and Upstash
+  commands/storage. Reporting can be delayed.
+- Redis is disposable. PostgreSQL is not: export authoritative data before any
+  provider reset or Free Plan expiration.
+- Rotate exposed database, Redis, or Telegram credentials immediately, update
+  the SSM value, and publish a new immutable Lambda version.
+
+SQS, EventBridge, custom domains, replicas, high availability, and separate
+staging infrastructure remain deferred until a concrete feature justifies both
+their complexity and their cost.
