@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { Character } from "@xuhuan/game-types";
 import { generateCharacterAvatar, avatarToDataUrl } from "@/lib/avatar-generator";
@@ -68,9 +69,13 @@ const CharacterSprite = ({
       }}
     >
       {spriteUrl && (
-        <img
+        <Image
           src={spriteUrl}
           alt={translate("characterSprite.alt", { name: character.name })}
+          width={180}
+          height={300}
+          sizes="180px"
+          loading="eager"
           style={{
             filter: animationState === "damage" ? "brightness(1.5) saturate(0.5)" : "none",
             imageRendering: "crisp-edges",

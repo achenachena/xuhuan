@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { Character } from "@xuhuan/game-types";
 import { generateCharacterPortrait, avatarToDataUrl } from "@/lib/avatar-generator";
@@ -9,12 +10,18 @@ import useLocale from "@/components/providers/use-locale";
 type CharacterCardProps = {
   readonly character: Character;
   readonly isSelected: boolean;
+  readonly loadEagerly?: boolean;
   readonly onSelect: () => void;
 };
 
 const CHARACTER_CARD_HEIGHT = "320px";
 
-const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) => {
+const CharacterCard = ({
+  character,
+  isSelected,
+  loadEagerly = false,
+  onSelect
+}: CharacterCardProps) => {
   const { translate } = useLocale();
   const [failedPortraitUrl, setFailedPortraitUrl] = useState<string | null>(null);
   const fallbackPortraitUrl = useMemo(
@@ -88,9 +95,13 @@ const CharacterCard = ({ character, isSelected, onSelect }: CharacterCardProps) 
         {/* Portrait */}
         <div className="mb-4 w-32 h-32 rounded-full overflow-hidden border-4 border-white/30 bg-black/30">
           {portraitUrl && (
-            <img
+            <Image
               src={portraitUrl}
               alt={portraitAlt}
+              width={128}
+              height={128}
+              sizes="128px"
+              loading={loadEagerly ? "eager" : "lazy"}
               className="w-full h-full object-cover"
               onError={handleImageError}
             />
