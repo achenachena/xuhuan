@@ -11,7 +11,10 @@ const dependencies = vi.hoisted(() => ({
   refreshBattle: vi.fn(),
   mutatePlayer: vi.fn(),
   resetStart: vi.fn(),
-  resetAction: vi.fn()
+  resetAction: vi.fn(),
+  playSound: vi.fn(),
+  playBGM: vi.fn(),
+  stopBGM: vi.fn()
 }));
 
 vi.mock("@/components/providers/use-locale", () => ({
@@ -23,12 +26,14 @@ vi.mock("@/components/providers/use-locale", () => ({
 }));
 vi.mock("@/components/providers/audio-provider", () => ({
   useAudio: () => ({
-    playSound: vi.fn(),
-    playBGM: vi.fn(),
-    stopBGM: vi.fn()
+    playSound: dependencies.playSound,
+    playBGM: dependencies.playBGM,
+    stopBGM: dependencies.stopBGM
   })
 }));
-vi.mock("@/hooks/use-telegram-theme", () => ({ default: () => ({ themeParams: {} }) }));
+vi.mock("@/hooks/use-telegram-theme", () => ({
+  default: () => ({ themeParams: {} })
+}));
 vi.mock("@/hooks/use-characters", () => ({
   useEncounters: () => ({
     encounters: [testEncounter],
@@ -54,7 +59,11 @@ vi.mock("@/hooks/use-player", () => ({
   useAuthoritativeBattle: () => ({ refreshBattle: dependencies.refreshBattle })
 }));
 vi.mock("@/components/character-select", () => ({
-  default: ({ onCharacterSelected }: { onCharacterSelected: (character: ReturnType<typeof toPresentationCharacter>) => void }) => (
+  default: ({
+    onCharacterSelected
+  }: {
+    onCharacterSelected: (character: ReturnType<typeof toPresentationCharacter>) => void;
+  }) => (
     <button type="button" onClick={() => onCharacterSelected(toPresentationCharacter(testCharacter))}>
       choose-character
     </button>
@@ -63,7 +72,17 @@ vi.mock("@/components/character-select", () => ({
 vi.mock("@/components/battle-arena", () => ({
   default: ({ turn }: { turn: number }) => <div>authoritative-turn-{turn}</div>
 }));
-vi.mock("@/components/reward-modal", () => ({ default: () => null }));
+vi.mock("@/components/reward-modal", () => ({
+  default: ({ open, outcome, onClose }: { open: boolean; outcome: string; onClose: () => void }) =>
+    open ? (
+      <div role="dialog">
+        reward-{outcome}
+        <button type="button" onClick={onClose}>
+          close-reward
+        </button>
+      </div>
+    ) : null
+}));
 
 import HomePage from "@/app/page";
 
@@ -107,7 +126,9 @@ describe("authoritative battle page", () => {
 
     const pendingAction = deferred<APIBattleActionResponse>();
     dependencies.submitAction.mockReturnValue(pendingAction.promise);
-    const lightAttack = screen.getByRole("button", { name: /actions\.lightAttack\.title/ });
+    const lightAttack = screen.getByRole("button", {
+      name: /actions\.lightAttack\.title/
+    });
     fireEvent.click(lightAttack);
     fireEvent.click(lightAttack);
     expect(dependencies.submitAction).toHaveBeenCalledOnce();
@@ -131,5 +152,74 @@ describe("authoritative battle page", () => {
     await waitFor(() => expect(dependencies.refreshBattle).toHaveBeenCalledOnce());
     expect(await screen.findByText("authoritative-turn-2")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("战斗状态已更新");
+  });
+
+  it.each([
+    ["actions.heavyAttack.title", "heavy_attack"],
+    ["actions.specialMove.title", "special_move"],
+    ["actions.block.title", "block"],
+    ["battle.heroAction.counter", "counter"]
+  ] as const)("maps %s to the authoritative %s action", async (buttonName, apiAction) => {
+    await enterBattle();
+    dependencies.submitAction.mockReturnValueOnce(new Promise(() => undefined));
+
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(buttonName) }));
+
+    expect(dependencies.submitAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        battleId: createTestBattle().id,
+        action: apiAction,
+        expectedVersion: 1,
+        idempotencyKey: expect.any(String)
+      })
+    );
+  });
+
+  it("keeps the special move disabled until the server meter reaches its cost", async () => {
+    const battle = createTestBattle({
+      hero: {
+        ...createTestBattle().hero,
+        special_meter: 49
+      }
+    });
+    await enterBattle(battle);
+
+    const specialMove = screen.getByRole("button", {
+      name: /actions\.specialMove\.title/
+    });
+    expect(specialMove).toBeDisabled();
+    fireEvent.click(specialMove);
+    expect(dependencies.submitAction).not.toHaveBeenCalled();
+  });
+
+  it("shows defeat, stops battle audio, and resets back to character selection", async () => {
+    await enterBattle();
+    dependencies.submitAction.mockResolvedValueOnce({
+      battle: createTestBattle({
+        status: "completed",
+        outcome: "defeat",
+        version: 2,
+        turn: 2,
+        hero: {
+          ...createTestBattle().hero,
+          current_health: 0
+        },
+        rewards: null,
+        completed_at: "2026-08-06T12:01:00Z"
+      }),
+      result: { sequence: 1, events: [] }
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /actions\.lightAttack\.title/ }));
+
+    expect(await screen.findByRole("dialog", {}, { timeout: 2_000 })).toHaveTextContent("reward-defeat");
+    expect(dependencies.stopBGM).toHaveBeenCalledOnce();
+    expect(dependencies.playSound).toHaveBeenCalledWith("defeat");
+
+    fireEvent.click(screen.getByRole("button", { name: "close-reward" }));
+    expect(await screen.findByRole("button", { name: "choose-character" })).toBeInTheDocument();
+    expect(dependencies.resetStart).toHaveBeenCalledOnce();
+    expect(dependencies.resetAction).toHaveBeenCalledOnce();
+    expect(dependencies.playBGM).toHaveBeenLastCalledWith("select", true);
   });
 });
