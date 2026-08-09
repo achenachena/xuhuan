@@ -7,7 +7,9 @@ An AWS Free Plan account does not charge its payment method, but access ends whe
 ## Prepared topology
 
 - One public arm64 Go Lambda on the `provided.al2023` runtime, exposed through a stable `live` Function URL alias.
-- Reserved concurrency capped at two and memory capped at 512 MB.
+- Memory capped at 512 MB and requested reserved concurrency capped at two. A
+  new account that cannot yet allocate reserved concurrency temporarily uses
+  its reduced account-wide Lambda concurrency cap.
 - Two isolated subnets with no internet gateway, public IPv4 address, NAT gateway, or VPC interface endpoint.
 - Single-AZ `db.t4g.micro` RDS PostgreSQL 17 with 20 GB encrypted storage and an AWS-managed master secret.
 - One encrypted `cache.t4g.micro` ElastiCache Valkey 8 node. It speaks the Redis protocol and remains non-authoritative.
@@ -68,7 +70,7 @@ For shared or recoverable state, use an encrypted/versioned S3 backend with nati
    Avoid placing the literal token in shell history. Prefer the AWS console or a securely sourced environment variable for the real command.
 
 6. Configure the protected GitHub `production` environment using the outputs below.
-7. Run `Deploy API`. It injects the RDS and Telegram secrets into `$LATEST`, publishes an immutable version, enables concurrency two, migrates/seeds PostgreSQL, promotes `live`, smoke-tests the Function URL, and rolls the alias back on failure.
+7. Run `Deploy API`. It injects the RDS and Telegram secrets into `$LATEST`, publishes an immutable version, enables reserved concurrency two when the account quota permits it, migrates/seeds PostgreSQL, promotes `live`, and smoke-tests the Function URL. New accounts that cannot leave the required ten unreserved executions use their reduced account-wide concurrency cap until AWS raises it automatically. A failure restores both the previous alias and concurrency mode.
 8. Set Vercel `NEXT_PUBLIC_API_URL` to the `api_url` output and redeploy the Mini App.
 
 ## GitHub environment configuration
@@ -89,6 +91,9 @@ The workflow receives short-lived AWS credentials through OIDC. It does not requ
 ## Credit safety
 
 - Run only one environment. Do not keep staging and production online together.
+- Watch the deployment warning for a new-account concurrency fallback. Until
+  AWS raises the regional quota to at least twelve, the function can use the
+  account-wide cap of ten instead of its requested per-function cap of two.
 - Check Billing → Free Tier after apply and after each deployment. Credit reporting is delayed.
 - Keep RDS CPU below the burst baseline and avoid manual snapshots or exports.
 - Valkey stores rate-limit counters only; snapshots and replicas are disabled.

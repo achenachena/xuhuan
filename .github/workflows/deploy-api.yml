@@ -61,7 +61,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: xuhuan-${{ github.run_id }}
 
-      - name: Capture live version
+      - name: Capture live state
         id: previous
         run: |
           version=$(aws lambda get-alias \
@@ -71,6 +71,15 @@ jobs:
             --output text)
           test "$version" != "None"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          reserved_concurrency=$(aws lambda get-function-concurrency \
+            --function-name "$LAMBDA_FUNCTION" \
+            --query ReservedConcurrentExecutions \
+            --output text)
+          if test "$reserved_concurrency" = "None"; then
+            reserved_concurrency="unreserved"
+          fi
+          echo "reserved_concurrency=$reserved_concurrency" >> "$GITHUB_OUTPUT"
 
       - name: Update unpublished code and configuration
         run: |
@@ -132,9 +141,21 @@ jobs:
         run: |
           test "$LAMBDA_RESERVED_CONCURRENCY" -ge 1
           test "$LAMBDA_RESERVED_CONCURRENCY" -le 2
-          aws lambda put-function-concurrency \
-            --function-name "$LAMBDA_FUNCTION" \
-            --reserved-concurrent-executions "$LAMBDA_RESERVED_CONCURRENCY" > /dev/null
+          account_concurrency=$(aws lambda get-account-settings \
+            --query AccountLimit.ConcurrentExecutions \
+            --output text)
+          minimum_unreserved_concurrency=10
+          required_account_concurrency=$((LAMBDA_RESERVED_CONCURRENCY + minimum_unreserved_concurrency))
+
+          if test "$account_concurrency" -ge "$required_account_concurrency"; then
+            aws lambda put-function-concurrency \
+              --function-name "$LAMBDA_FUNCTION" \
+              --reserved-concurrent-executions "$LAMBDA_RESERVED_CONCURRENCY" > /dev/null
+          else
+            aws lambda delete-function-concurrency \
+              --function-name "$LAMBDA_FUNCTION"
+            echo "::warning::Lambda account concurrency is $account_concurrency; using the account-wide new-account cap until AWS raises it to at least $required_account_concurrency."
+          fi
 
       - name: Migrate and seed PostgreSQL
         env:
@@ -166,13 +187,25 @@ jobs:
           test "$version" = "$RELEASE_SHA"
           curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/readyz" > /dev/null
 
-      - name: Restore previous live version
+      - name: Restore previous live state
         if: failure() && steps.previous.outputs.version != ''
         env:
           PREVIOUS_VERSION: ${{ steps.previous.outputs.version }}
+          PREVIOUS_RESERVED_CONCURRENCY: ${{ steps.previous.outputs.reserved_concurrency }}
         run: |
+          aws lambda put-function-concurrency \
+            --function-name "$LAMBDA_FUNCTION" \
+            --reserved-concurrent-executions 0 > /dev/null
           aws lambda update-alias \
             --function-name "$LAMBDA_FUNCTION" \
             --name "$LAMBDA_ALIAS" \
             --function-version "$PREVIOUS_VERSION" \
             --description "rollback-from-$RELEASE_SHA" > /dev/null
+          if test "$PREVIOUS_RESERVED_CONCURRENCY" = "unreserved"; then
+            aws lambda delete-function-concurrency \
+              --function-name "$LAMBDA_FUNCTION"
+          else
+            aws lambda put-function-concurrency \
+              --function-name "$LAMBDA_FUNCTION" \
+              --reserved-concurrent-executions "$PREVIOUS_RESERVED_CONCURRENCY" > /dev/null
+          fi

@@ -111,7 +111,7 @@ SQS and EventBridge are not part of the initial runtime. A future delayed-energy
 ## AWS deployment
 
 - A Lambda Function URL provides the stable public HTTPS endpoint without API Gateway, Route 53, ACM, or an Application Load Balancer. The application middleware remains the CORS authority.
-- One arm64 `provided.al2023` Lambda version runs the existing Chi handler and reuses PostgreSQL and Valkey connections across warm invocations. Reserved concurrency is capped at two.
+- One arm64 `provided.al2023` Lambda version runs the existing Chi handler and reuses PostgreSQL and Valkey connections across warm invocations. Requested reserved concurrency is capped at two. While a new AWS account cannot allocate it, deployment uses the account's reduced regional cap (currently ten) and automatically switches to the per-function cap once the regional quota permits it.
 - RDS PostgreSQL and one ElastiCache Valkey node remain private and accept traffic only from the Lambda security group. Two isolated subnets satisfy managed-database placement requirements without an internet or NAT gateway.
 - RDS manages its master password in Secrets Manager. A standard-tier SSM SecureString holds the Telegram token. The protected deployment workflow reads both once per release and injects them into an immutable Lambda version, avoiding paid VPC interface endpoints at runtime.
 - GitHub Actions uses OIDC, not long-lived AWS keys. It builds a zip, updates `$LATEST`, publishes a numbered version, runs idempotent migrations and catalog seeds by direct invocation, promotes the `live` alias, verifies health/readiness, and restores the prior alias on failure.

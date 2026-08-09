@@ -17,7 +17,9 @@ resource "aws_lambda_function" "api" {
 
   # Terraform creates a deliberately disabled bootstrap. The deployment
   # workflow injects real secrets, publishes a version, points the live alias at
-  # it, and then enables the small concurrency limit.
+  # it, and then enables the small concurrency limit. New accounts whose
+  # regional quota cannot allocate reserved concurrency temporarily use their
+  # reduced account-wide cap instead.
   reserved_concurrent_executions = 0
 
   vpc_config {
@@ -65,7 +67,7 @@ resource "aws_lambda_function" "api" {
 
     precondition {
       condition     = var.lambda_memory_size <= 512 && var.lambda_reserved_concurrency <= 2
-      error_message = "The Free Plan topology caps Lambda at 512 MB and two concurrent executions."
+      error_message = "The Free Plan topology caps Lambda at 512 MB and requests at most two reserved concurrent executions."
     }
   }
 }
@@ -77,7 +79,7 @@ resource "aws_lambda_alias" "live" {
   function_version = aws_lambda_function.api.version
 
   lifecycle {
-    ignore_changes = [function_version]
+    ignore_changes = [description, function_version]
   }
 }
 
