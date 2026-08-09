@@ -10,7 +10,7 @@ Xuhuan is a single-player, turn-based Telegram Mini App. The browser is responsi
 Telegram WebView
   │ raw initData in X-Telegram-Init-Data
   ▼
-Next.js 14 Mini App on Vercel
+Next.js 16 Mini App on Vercel
   │ HTTPS JSON REST (OpenAPI 3.1)
   ▼
 Application Load Balancer
@@ -40,7 +40,7 @@ For local development, `X-Dev-Auth` is accepted only when all of these are true:
 
 ### Mini App
 
-- Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, and SWR remain in place.
+- Next.js 16 App Router, React 19, TypeScript, Tailwind CSS, and SWR provide the presentation layer.
 - Existing character selection, battle layout, animation timing, Chinese localization, Telegram theme integration, and audio providers are preserved.
 - One API client owns base URL resolution, Telegram/development headers, error decoding, idempotency keys, and generated OpenAPI types.
 - A `409 version_conflict` response causes the client to fetch the current battle before enabling another action.

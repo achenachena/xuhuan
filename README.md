@@ -6,7 +6,7 @@ Xuhuan is a mobile-first, turn-based fighting game built as a Telegram Mini App.
 
 ```text
 Telegram Mini App
-  └─ Next.js 14 / React 18 on Vercel
+  └─ Next.js 16 / React 19 on Vercel
        └─ HTTPS + Telegram initData
             └─ Go REST API (Chi) on ECS Fargate
                  ├─ PostgreSQL on RDS (source of truth)
@@ -103,4 +103,4 @@ Optional OpenTelemetry export uses OTLP/HTTP. With no collector endpoint—or if
 
 ## Deployment status
 
-The repository prepares deployment artifacts but has not provisioned paid cloud resources. The Mini App target is Vercel; the API target is AWS ECS Fargate behind an HTTPS Application Load Balancer, with RDS PostgreSQL and ElastiCache Redis. Applying Terraform or running either manual deployment workflow requires explicit owner approval. Bootstrap and protected-environment instructions are in [infra/terraform/README.md](infra/terraform/README.md).
+The `main` branch deploys the Mini App to Vercel production and is currently passing its deployment checks. The paid API infrastructure has not been provisioned: its target remains AWS ECS Fargate behind an HTTPS Application Load Balancer, with RDS PostgreSQL and ElastiCache Redis. Applying Terraform or running the manual API deployment workflow requires explicit owner approval. Bootstrap and protected-environment instructions are in [infra/terraform/README.md](infra/terraform/README.md).
