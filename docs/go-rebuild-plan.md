@@ -104,7 +104,7 @@ Infrastructure code prepares an ECR repository, HTTPS load balancer, private ECS
 - Upgraded the Mini App to Next.js 16.3 and React 19.2, along with the compatible lint and test toolchain.
 - Replaced the remaining native remote character images with `next/image` and restricted optimization to the project's Vercel Blob path.
 - Added the missing English and Simplified Chinese archetype labels and automated coverage for every supported archetype.
-- Re-ran lint, unit tests, type checking, production build, browser E2E, container, and security checks. The production dependency audit reports no known vulnerabilities; the full development audit has the tool-only finding documented below.
+- Re-ran lint, unit tests, type checking, production build, browser E2E, container, and security checks. The production dependency audit reports no known vulnerabilities; the full development audit has the low-severity tool-only finding documented below.
 - Connected `main` to Vercel production; the paid AWS API infrastructure remains unapplied.
 
 ## Remaining risks
@@ -114,4 +114,4 @@ Infrastructure code prepares an ECR repository, HTTPS load balancer, private ECS
 - Production Telegram launch cannot be exercised without a real bot token, although deterministic verifier fixtures cover the protocol.
 - Account IDs, domains, certificates, sizing, budgets, and secret values require owner input before any infrastructure apply.
 - The Mini App production deployment cannot provide a complete live battle flow until an HTTPS Go API endpoint and Telegram launch configuration are supplied.
-- The full `npm audit` reports two high-severity development-tool findings through `openapi-typescript` → Redocly 1.x → `js-yaml`. The production-dependency audit is clean, type generation only parses the repository-controlled OpenAPI file, and `js-yaml` 5 is not API-compatible with Redocly 1.x; CI continues to block critical findings while awaiting a compatible upstream release.
+- `js-yaml` is pinned to the compatible 4.3.1 security release, removing the previous high-severity development-tool finding while preserving OpenAPI generation. The full `npm audit` now reports only the low-severity `esbuild` Windows development-server advisory in `tsup`'s build-only dependency; the repository does not start that server, and the fixed 0.28 line is outside `tsup` 8.5.1's declared `^0.27` range. The production-dependency audit remains clean.
