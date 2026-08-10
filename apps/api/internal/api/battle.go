@@ -93,7 +93,7 @@ type battleActionResponse struct {
 	Result actionResultResponse `json:"result"`
 }
 
-func createBattleHandler(service *battle.Service, logger *slog.Logger, metrics *observability.Metrics) http.HandlerFunc {
+func createBattleHandler(service BattleService, logger *slog.Logger, metrics *observability.Metrics) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		principal, ok := authenticatedPrincipal(w, r)
 		if !ok {
@@ -129,7 +129,7 @@ func createBattleHandler(service *battle.Service, logger *slog.Logger, metrics *
 	}
 }
 
-func getBattleHandler(service *battle.Service, logger *slog.Logger) http.HandlerFunc {
+func getBattleHandler(service BattleService, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		principal, ok := authenticatedPrincipal(w, r)
 		if !ok {
@@ -148,7 +148,7 @@ func getBattleHandler(service *battle.Service, logger *slog.Logger) http.Handler
 	}
 }
 
-func createBattleActionHandler(service *battle.Service, logger *slog.Logger, metrics *observability.Metrics) http.HandlerFunc {
+func createBattleActionHandler(service BattleService, logger *slog.Logger, metrics *observability.Metrics) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		principal, ok := authenticatedPrincipal(w, r)
 		if !ok {

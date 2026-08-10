@@ -5,7 +5,6 @@ node_modules
 **/node_modules
 **/.env*
 !env.example
-apps/backend
 coverage
 dist
 apps/api/build

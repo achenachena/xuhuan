@@ -123,7 +123,7 @@ func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
 
 	playerService := player.NewService(playerRepository)
 	catalogService := character.NewService(catalogRepository)
-	battleService := battle.NewService(NewBattleRepository(database), playerService, catalogService)
+	battleService := battle.NewService(NewBattleRepository(database, nil), playerService, catalogService)
 	user := auth.User{ID: 123456789, Username: "second", FirstName: "开发"}
 
 	started, replayed, err := battleService.Start(ctx, user, battle.StartInput{
@@ -142,6 +142,16 @@ func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
 		CharacterSlug: "nana7mi", EncounterSlug: "echo-warlord", IdempotencyKey: "start-battle-0001",
 	}); !errors.Is(err, battle.ErrIdempotencyConflict) {
 		t.Fatalf("conflicting Start() error=%v", err)
+	}
+	if _, err := database.pool.Exec(ctx, `
+		UPDATE idempotency_records SET expires_at = now() - interval '1 second'
+		WHERE player_id = $1::uuid AND operation = 'create_battle' AND idempotency_key = 'start-battle-0001'`, created.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := battleService.Start(ctx, user, battle.StartInput{
+		CharacterSlug: "nana7mi", EncounterSlug: "training-drone", IdempotencyKey: "start-battle-0001",
+	}); !errors.Is(err, battle.ErrIdempotencyConflict) {
+		t.Fatalf("expired idempotency key error=%v", err)
 	}
 
 	var energy, energyLedger, battles int

@@ -13,7 +13,7 @@ Telegram Mini App
                  └─ Upstash Redis (distributed rate limits only)
 ```
 
-The API contract is [OpenAPI 3.1](apps/api/openapi/openapi.yaml). Design decisions, trust boundaries, and the AWS topology are documented in [docs/architecture.md](docs/architecture.md); the migration record is in [docs/go-rebuild-plan.md](docs/go-rebuild-plan.md).
+The API contract is [OpenAPI 3.1](apps/api/openapi/openapi.yaml). Design decisions, trust boundaries, and the AWS topology are documented in [docs/architecture.md](docs/architecture.md).
 
 ## Repository layout
 

@@ -18,6 +18,8 @@ type Adapter struct {
 	handler http.Handler
 }
 
+const maxEventHeaderBytes = 32 << 10
+
 func New(handler http.Handler) *Adapter {
 	return &Adapter{handler: handler}
 }
@@ -51,6 +53,12 @@ func (adapter *Adapter) Serve(ctx context.Context, event events.LambdaFunctionUR
 }
 
 func requestFromEvent(ctx context.Context, event events.LambdaFunctionURLRequest) (*http.Request, error) {
+	if event.RequestContext.HTTP.Method == "" {
+		return nil, errors.New("Lambda Function URL request has no HTTP method")
+	}
+	if headerBytes(event) > maxEventHeaderBytes {
+		return nil, errors.New("Lambda Function URL request headers are too large")
+	}
 	body := []byte(event.Body)
 	if event.IsBase64Encoded {
 		decoded, err := base64.StdEncoding.DecodeString(event.Body)
@@ -69,7 +77,10 @@ func requestFromEvent(ctx context.Context, event events.LambdaFunctionURLRequest
 		return nil, errors.New("parse Lambda Function URL request target")
 	}
 	requestURL.Scheme = "https"
-	requestURL.Host = event.Headers["host"]
+	requestURL.Host = headerValue(event.Headers, "Host")
+	if requestURL.Host == "" {
+		return nil, errors.New("Lambda Function URL request has no host")
+	}
 
 	request, err := http.NewRequestWithContext(ctx, event.RequestContext.HTTP.Method, requestURL.String(), bytes.NewReader(body))
 	if err != nil {
@@ -90,6 +101,26 @@ func requestFromEvent(ctx context.Context, event events.LambdaFunctionURLRequest
 		}
 	}
 	return request, nil
+}
+
+func headerBytes(event events.LambdaFunctionURLRequest) int {
+	total := 0
+	for name, value := range event.Headers {
+		total += len(name) + len(value)
+	}
+	for _, cookie := range event.Cookies {
+		total += len(cookie)
+	}
+	return total
+}
+
+func headerValue(headers map[string]string, name string) string {
+	for candidate, value := range headers {
+		if strings.EqualFold(candidate, name) {
+			return value
+		}
+	}
+	return ""
 }
 
 func querySuffix(rawQuery string) string {

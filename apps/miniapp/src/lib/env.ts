@@ -1,24 +1,42 @@
 import { z } from "zod";
 
-const urlOrPathValidator = z
-  .string()
-  .refine(
-    (val) => {
-      if (!val) {
-        return true; // Optional
-      }
-      // Allow absolute URLs or relative paths starting with /
-      return val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/");
-    },
-    {
-      message: "Must be a valid URL or a path starting with /"
-    }
+const isProduction = process.env.NODE_ENV === "production";
+
+const isSafeExternalURL = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "https:" || (!isProduction && url.protocol === "http:")) &&
+      url.username === "" &&
+      url.password === ""
+    );
+  } catch {
+    return false;
+  }
+};
+
+const optionalString = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === "" ? undefined : value), schema.optional());
+
+const externalURLValidator = optionalString(
+  z.string().refine(isSafeExternalURL, "Must be a safe HTTP(S) URL")
+);
+
+const urlOrPathValidator = optionalString(
+  z.string().refine(
+    (value) => (value.startsWith("/") && !value.startsWith("//")) || isSafeExternalURL(value),
+    "Must be a safe HTTP(S) URL or an absolute path"
   )
-  .optional();
+);
 
 const envSchema = z.object({
-  NEXT_PUBLIC_API_URL: z.string().url().optional(),
-  NEXT_PUBLIC_DEV_AUTH_TOKEN: z.string().min(16).optional(),
+  NEXT_PUBLIC_API_URL: externalURLValidator,
+  NEXT_PUBLIC_DEV_AUTH_TOKEN: optionalString(z.string().min(16)).refine(
+    (value) => !isProduction || value === undefined,
+    "Development authentication cannot be enabled in production"
+  ),
+  NEXT_PUBLIC_DEFAULT_LANGUAGE: z.enum(["zh-CN", "en"]).default("zh-CN"),
+  NEXT_PUBLIC_LOCALE_BASE_URL: externalURLValidator,
   // Base URL for all audio files (if all files are in the same location)
   NEXT_PUBLIC_AUDIO_BASE_URL: urlOrPathValidator,
   // BGM URL - single BGM for all pages (select, battle, reward)
@@ -37,6 +55,8 @@ const envSchema = z.object({
 export const env = envSchema.parse({
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   NEXT_PUBLIC_DEV_AUTH_TOKEN: process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN,
+  NEXT_PUBLIC_DEFAULT_LANGUAGE: process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE,
+  NEXT_PUBLIC_LOCALE_BASE_URL: process.env.NEXT_PUBLIC_LOCALE_BASE_URL,
   NEXT_PUBLIC_AUDIO_BASE_URL: process.env.NEXT_PUBLIC_AUDIO_BASE_URL,
   NEXT_PUBLIC_AUDIO_BGM: process.env.NEXT_PUBLIC_AUDIO_BGM,
   NEXT_PUBLIC_AUDIO_LIGHT_ATTACK: process.env.NEXT_PUBLIC_AUDIO_LIGHT_ATTACK,

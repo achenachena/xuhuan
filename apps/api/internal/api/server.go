@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const maxHeaderBytes = 32 << 10
+
 type ServerConfig struct {
 	Addr         string
 	ReadTimeout  time.Duration
@@ -20,6 +22,6 @@ func NewHTTPServer(config ServerConfig, handler http.Handler) *http.Server {
 		ReadTimeout:       config.ReadTimeout,
 		WriteTimeout:      config.WriteTimeout,
 		IdleTimeout:       config.IdleTimeout,
-		MaxHeaderBytes:    1 << 20,
+		MaxHeaderBytes:    maxHeaderBytes,
 	}
 }

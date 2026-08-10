@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/achenachena/xuhuan/apps/api/internal/auth"
-	"github.com/achenachena/xuhuan/apps/api/internal/battle"
 	"github.com/achenachena/xuhuan/apps/api/internal/character"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/observability"
 	"github.com/achenachena/xuhuan/apps/api/internal/player"
@@ -18,12 +16,6 @@ import (
 )
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-
-type Services struct {
-	Players *player.Service
-	Catalog *character.Service
-	Battles *battle.Service
-}
 
 func registerV1Routes(router chi.Router, authenticate func(http.Handler) http.Handler, rateLimit RateLimitConfig, services Services, logger *slog.Logger, metrics *observability.Metrics) {
 	router.Route("/v1", func(router chi.Router) {
@@ -95,15 +87,10 @@ type encounterResponse struct {
 	ImageURL               *string `json:"image_url"`
 }
 
-func getPlayerHandler(service *player.Service, logger *slog.Logger) http.HandlerFunc {
+func getPlayerHandler(service PlayerService, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if service == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "An internal error occurred")
-			return
-		}
-		principal, ok := auth.PrincipalFromContext(r.Context())
+		principal, ok := authenticatedPrincipal(w, r)
 		if !ok {
-			writeError(w, r, http.StatusUnauthorized, "unauthorized", "Authentication is required")
 			return
 		}
 		item, err := service.GetOrCreate(r.Context(), principal.User)
@@ -116,7 +103,7 @@ func getPlayerHandler(service *player.Service, logger *slog.Logger) http.Handler
 	}
 }
 
-func listCharactersHandler(service *character.Service, logger *slog.Logger) http.HandlerFunc {
+func listCharactersHandler(service CatalogService, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		items, err := service.ListCharacters(r.Context())
 		if err != nil {
@@ -132,7 +119,7 @@ func listCharactersHandler(service *character.Service, logger *slog.Logger) http
 	}
 }
 
-func getCharacterHandler(service *character.Service, logger *slog.Logger) http.HandlerFunc {
+func getCharacterHandler(service CatalogService, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug, ok := validSlug(w, r)
 		if !ok {
@@ -147,7 +134,7 @@ func getCharacterHandler(service *character.Service, logger *slog.Logger) http.H
 	}
 }
 
-func listEncountersHandler(service *character.Service, logger *slog.Logger) http.HandlerFunc {
+func listEncountersHandler(service CatalogService, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		items, err := service.ListEncounters(r.Context())
 		if err != nil {
@@ -163,7 +150,7 @@ func listEncountersHandler(service *character.Service, logger *slog.Logger) http
 	}
 }
 
-func getEncounterHandler(service *character.Service, logger *slog.Logger) http.HandlerFunc {
+func getEncounterHandler(service CatalogService, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug, ok := validSlug(w, r)
 		if !ok {

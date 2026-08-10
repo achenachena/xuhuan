@@ -1,19 +1,22 @@
 {
   "name": "@xuhuan/game-types",
   "version": "0.1.0",
-  "private": false,
+  "private": true,
   "type": "module",
   "main": "dist/index.js",
-  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist --clean",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "tsup": "^8.5.1",
     "typescript": "^5.4.5"
   }
 }
-

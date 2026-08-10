@@ -172,6 +172,55 @@ func TestErrorEnvelopeAndRequestID(t *testing.T) {
 	}
 }
 
+func TestSecurityHeaders(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	response := httptest.NewRecorder()
+	testRouter(ReadinessFunc(func(context.Context) error { return nil }), nil).ServeHTTP(response, request)
+
+	for name, want := range map[string]string{
+		"Content-Security-Policy":   "default-src 'none'; frame-ancestors 'none'; sandbox",
+		"Referrer-Policy":           "no-referrer",
+		"Strict-Transport-Security": "max-age=31536000",
+		"X-Content-Type-Options":    "nosniff",
+		"X-Frame-Options":           "DENY",
+	} {
+		if got := response.Header().Get(name); got != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestPanicResponseDoesNotLogRecoveredValue(t *testing.T) {
+	t.Parallel()
+
+	var logs bytes.Buffer
+	router := NewRouter(Dependencies{
+		Logger:       slog.New(slog.NewJSONHandler(&logs, nil)),
+		Version:      "test",
+		MaxBodyBytes: 1024,
+		Readiness:    ReadinessFunc(func(context.Context) error { return nil }),
+		RegisterRoutes: func(router chi.Router, _ func(http.Handler) http.Handler) {
+			router.Get("/panic", func(http.ResponseWriter, *http.Request) {
+				panic("password=do-not-log")
+			})
+		},
+	})
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/panic", nil))
+	if response.Code != http.StatusInternalServerError || !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
+		t.Fatalf("panic response = %d %s", response.Code, response.Body.String())
+	}
+	if strings.Contains(logs.String(), "password=do-not-log") {
+		t.Fatalf("panic value leaked into logs: %s", logs.String())
+	}
+	if !strings.Contains(logs.String(), `"status":500`) {
+		t.Fatalf("panic request was not recorded as a 500: %s", logs.String())
+	}
+}
+
 func TestAuthenticationMiddleware(t *testing.T) {
 	t.Parallel()
 
@@ -203,6 +252,9 @@ func TestAuthenticationMiddleware(t *testing.T) {
 	router.ServeHTTP(unauthorizedResponse, unauthorized)
 	if unauthorizedResponse.Code != http.StatusUnauthorized || !strings.Contains(unauthorizedResponse.Body.String(), `"code":"unauthorized"`) {
 		t.Fatalf("unauthorized response = %d %s", unauthorizedResponse.Code, unauthorizedResponse.Body.String())
+	}
+	if unauthorizedResponse.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("authenticated route responses must not be cached")
 	}
 
 	authorized := httptest.NewRequest(http.MethodGet, "/v1/protected", nil)

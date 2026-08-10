@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -32,7 +31,8 @@ func serverlessPoolConfig(databaseURL string, tracer pgx.QueryTracer) (*pgxpool.
 	}
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		return nil, errors.New("parse DATABASE_URL: " + err.Error())
+		// pgx parse errors can contain credentials from the connection URL.
+		return nil, errors.New("parse DATABASE_URL")
 	}
 	// Keep each Lambda execution environment small and allow serverless
 	// PostgreSQL computes to suspend. A minimum connection would keep a free
@@ -65,42 +65,4 @@ func (d *Database) Close() {
 
 func (d *Database) Check(ctx context.Context) error {
 	return d.pool.Ping(ctx)
-}
-
-// DataSummary returns fixed-table row counts for cutover safety checks. The
-// table list is deliberately static so this maintenance operation cannot be
-// used to execute arbitrary SQL.
-func (d *Database) DataSummary(ctx context.Context) (map[string]int64, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT 'players', count(*)::bigint FROM players
-		UNION ALL SELECT 'characters', count(*)::bigint FROM characters
-		UNION ALL SELECT 'encounters', count(*)::bigint FROM encounters
-		UNION ALL SELECT 'battles', count(*)::bigint FROM battles
-		UNION ALL SELECT 'battle_actions', count(*)::bigint FROM battle_actions
-		UNION ALL SELECT 'idempotency_records', count(*)::bigint FROM idempotency_records
-		UNION ALL SELECT 'player_ledger', count(*)::bigint FROM player_ledger
-		UNION ALL SELECT 'admin_audit_events', count(*)::bigint FROM admin_audit_events
-	`)
-	if err != nil {
-		return nil, fmt.Errorf("query data summary: %w", err)
-	}
-	defer rows.Close()
-
-	counts := make(map[string]int64, 8)
-	for rows.Next() {
-		var table string
-		var count int64
-		if err := rows.Scan(&table, &count); err != nil {
-			return nil, fmt.Errorf("scan data summary: %w", err)
-		}
-		counts[table] = count
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("read data summary: %w", err)
-	}
-	return counts, nil
-}
-
-func (d *Database) Pool() *pgxpool.Pool {
-	return d.pool
 }

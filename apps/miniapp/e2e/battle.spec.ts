@@ -1,5 +1,14 @@
 import { expect, test } from "@playwright/test";
 
+test("serves browser security headers", async ({ request }) => {
+  const response = await request.get("/");
+
+  expect(response.headers()["content-security-policy"]).toContain("frame-ancestors");
+  expect(response.headers()["permissions-policy"]).toContain("camera=()");
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response.headers()["x-powered-by"]).toBeUndefined();
+});
+
 const waitForAction = async (page: import("@playwright/test").Page, name: RegExp): Promise<void> => {
   const action = page.getByRole("button", { name });
   const actionBarReady = page.locator('button[data-kind="lightAttack"]');

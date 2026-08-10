@@ -5,6 +5,7 @@ import "./globals.css";
 import TelegramWebAppProvider from "@/components/providers/telegram-webapp-provider";
 import LocaleProvider from "@/components/providers/locale-provider";
 import { AudioProvider } from "@/components/providers/audio-provider";
+import { env } from "@/lib/env";
 
 const roboto = Roboto({
   subsets: ["latin"],
@@ -27,7 +28,7 @@ export const viewport = {
 };
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
-  const defaultLanguage = process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE ?? "zh-CN";
+  const defaultLanguage = env.NEXT_PUBLIC_DEFAULT_LANGUAGE;
   return (
     <html lang={defaultLanguage} className={roboto.variable}>
       <head>

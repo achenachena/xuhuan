@@ -91,8 +91,8 @@ Battle state includes turn, hero/enemy health, special meters, combo counters, b
 
 An action transaction performs:
 
-1. Look up any completed idempotency record and replay it if present.
-2. Lock the player-owned battle with `SELECT ... FOR UPDATE`.
+1. Lock the player-owned battle with `SELECT ... FOR UPDATE`.
+2. Look up an idempotency record and replay it only while its 24-hour replay window is active; expired keys remain reserved and are rejected.
 3. Require `status = active` and `expected_version = battles.version`.
 4. Validate the action against the current state.
 5. Advance battle rules and calculate the enemy response.
@@ -116,7 +116,7 @@ SQS and EventBridge are not part of the initial runtime. A future delayed-energy
 - Upstash provides a TLS Redis-protocol endpoint. The existing `go-redis` Lua fixed-window limiter continues to use atomic `INCR`, `PEXPIRE`, and `PTTL` behavior. Redis holds no authoritative player or battle data.
 - Standard-tier SSM SecureStrings hold the pooled database URL, direct migration URL, Redis URL, and Telegram token. The protected deployment workflow reads them once per release and injects them into an immutable Lambda version.
 - GitHub Actions uses OIDC, not long-lived AWS keys. It builds a zip, updates `$LATEST`, publishes a numbered version, runs idempotent migrations and catalog seeds by direct invocation, promotes the `live` alias, verifies health/readiness, and restores the prior alias on failure.
-- The final Terraform topology has no VPC, NAT Gateway, RDS, ElastiCache, API Gateway, load balancer, or container registry. Transitional flags retain the old private data tier only until the external cutover is verified.
+- The final Terraform topology has no VPC, NAT Gateway, RDS, ElastiCache, API Gateway, load balancer, or container registry.
 - Neon and Upstash remain on their free plans with no paid add-ons. Exhausting a free usage allowance is treated as an availability limit, not a reason to upgrade automatically.
 
 ## Observability and data handling

@@ -11,6 +11,7 @@ import (
 func requireAuthentication(authenticator *auth.Authenticator, logger *slog.Logger, metrics *observability.Metrics) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
 			if authenticator == nil {
 				metrics.AuthenticationFailure(r.Context(), "unconfigured")
 				logger.ErrorContext(r.Context(), "authentication_unconfigured", "request_id", requestIDFromContext(r.Context()))

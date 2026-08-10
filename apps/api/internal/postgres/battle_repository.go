@@ -22,12 +22,8 @@ type BattleRepository struct {
 	metrics  *observability.Metrics
 }
 
-func NewBattleRepository(database *Database, metrics ...*observability.Metrics) *BattleRepository {
-	result := &BattleRepository{database: database}
-	if len(metrics) > 0 {
-		result.metrics = metrics[0]
-	}
-	return result
+func NewBattleRepository(database *Database, metrics *observability.Metrics) *BattleRepository {
+	return &BattleRepository{database: database, metrics: metrics}
 }
 
 func (r *BattleRepository) Create(ctx context.Context, input battle.CreateRepositoryInput) (battle.Battle, bool, error) {
@@ -235,16 +231,22 @@ func readStoredResponse[T any](ctx context.Context, tx pgx.Tx, playerID, operati
 	var zero T
 	var storedHash []byte
 	var responseBody []byte
+	var replayable bool
 	err := tx.QueryRow(ctx, `
-		SELECT request_hash, response_body FROM idempotency_records
+		SELECT request_hash, response_body, expires_at > now() FROM idempotency_records
 		WHERE player_id = $1::uuid AND operation = $2 AND idempotency_key = $3`,
 		playerID, operation, key,
-	).Scan(&storedHash, &responseBody)
+	).Scan(&storedHash, &responseBody, &replayable)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return zero, false, nil
 	}
 	if err != nil {
 		return zero, false, err
+	}
+	// Keys stay reserved after the replay window closes. This matches the
+	// ledger's permanent uniqueness guarantee and prevents a second mutation.
+	if !replayable {
+		return zero, false, battle.ErrIdempotencyConflict
 	}
 	if !bytes.Equal(storedHash, requestHash) {
 		return zero, false, battle.ErrIdempotencyConflict

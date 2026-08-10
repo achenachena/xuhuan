@@ -46,8 +46,9 @@ func NewRouter(dependencies Dependencies) http.Handler {
 
 	router := chi.NewRouter()
 	router.Use(requestIDMiddleware)
-	router.Use(recoverMiddleware(dependencies.Logger))
 	router.Use(accessLogMiddleware(dependencies.Logger, dependencies.Metrics))
+	router.Use(recoverMiddleware(dependencies.Logger))
+	router.Use(securityHeadersMiddleware)
 	router.Use(corsMiddleware(dependencies.AllowedOrigins))
 	router.Use(maxBodyMiddleware(dependencies.MaxBodyBytes))
 	router.Use(requireJSONMiddleware)

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/netip"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
@@ -16,12 +15,11 @@ type RateLimitConfig struct {
 	Limiter      ratelimit.Limiter
 	IPPolicy     ratelimit.Policy
 	PlayerPolicy ratelimit.Policy
-	TrustProxy   bool
 }
 
 func ipRateLimitMiddleware(config RateLimitConfig) func(http.Handler) http.Handler {
 	return rateLimitMiddleware(config.Limiter, config.IPPolicy, func(r *http.Request) string {
-		return ratelimit.Key("ip", clientIP(r, config.TrustProxy))
+		return ratelimit.Key("ip", clientIP(r))
 	})
 }
 
@@ -59,16 +57,7 @@ func rateLimitMiddleware(limiter ratelimit.Limiter, policy ratelimit.Policy, key
 	}
 }
 
-func clientIP(r *http.Request, trustProxy bool) string {
-	if trustProxy {
-		forwarded := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
-		for index := len(forwarded) - 1; index >= 0; index-- {
-			candidate := strings.TrimSpace(forwarded[index])
-			if address, err := netip.ParseAddr(candidate); err == nil {
-				return address.String()
-			}
-		}
-	}
+func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil {
 		return host

@@ -63,30 +63,30 @@ func TestLoadFromValidatesTelemetry(t *testing.T) {
 	}
 }
 
-func TestLoadFromBuildsEscapedDatabaseURLForManagedSecrets(t *testing.T) {
+func TestLoadFromValidatesDatabaseURLs(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := LoadFrom(lookup(map[string]string{
-		"DATABASE_HOST":     "db.example.internal",
-		"DATABASE_PORT":     "5432",
-		"DATABASE_NAME":     "xuhuan",
-		"DATABASE_USER":     "game-user",
-		"DATABASE_PASSWORD": "p@ss:/word",
-		"DATABASE_SSLMODE":  "verify-full",
-	}))
-	if err != nil {
-		t.Fatalf("LoadFrom() error = %v", err)
+	tests := map[string]map[string]string{
+		"invalid scheme":        {"DATABASE_URL": "https://db.example.com/xuhuan"},
+		"missing database name": {"DATABASE_URL": "postgres://db.example.com"},
+		"production no TLS": {
+			"APP_ENV": "production", "DATABASE_URL": "postgres://db.example.com/xuhuan",
+		},
+		"production TLS disabled": {
+			"APP_ENV": "production", "DATABASE_URL": "postgres://db.example.com/xuhuan?sslmode=disable",
+		},
+		"unsafe migration URL": {
+			"APP_ENV": "production", "DATABASE_URL": "postgres://pooler.example.com/xuhuan?sslmode=require",
+			"DATABASE_MIGRATION_URL": "postgres://direct.example.com/xuhuan?sslmode=disable",
+		},
 	}
-	if !strings.Contains(cfg.DatabaseURL, "p%40ss%3A%2Fword") || !strings.Contains(cfg.DatabaseURL, "sslmode=verify-full") {
-		t.Fatalf("DATABASE_URL was not safely encoded: %q", cfg.DatabaseURL)
-	}
-}
-
-func TestLoadFromRejectsIncompleteManagedDatabaseConfig(t *testing.T) {
-	t.Parallel()
-
-	if _, err := LoadFrom(lookup(map[string]string{"DATABASE_HOST": "db.internal"})); err == nil {
-		t.Fatal("LoadFrom() accepted incomplete database settings")
+	for name, values := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := LoadFrom(lookup(values)); err == nil {
+				t.Fatal("LoadFrom() accepted an unsafe database URL")
+			}
+		})
 	}
 }
 
@@ -127,10 +127,13 @@ func TestLoadFromRejectsUnsafeProduction(t *testing.T) {
 		want   string
 	}{
 		{name: "database missing", values: map[string]string{"APP_ENV": "production"}, want: "DATABASE_URL"},
-		{name: "bot token missing", values: map[string]string{"APP_ENV": "production", "DATABASE_URL": "postgres://db"}, want: "TELEGRAM_BOT_TOKEN"},
-		{name: "origins missing", values: map[string]string{"APP_ENV": "production", "DATABASE_URL": "postgres://db", "TELEGRAM_BOT_TOKEN": "token"}, want: "CORS_ALLOWED_ORIGINS"},
-		{name: "redis missing", values: map[string]string{"APP_ENV": "production", "DATABASE_URL": "postgres://db", "TELEGRAM_BOT_TOKEN": "token", "CORS_ALLOWED_ORIGINS": "https://game.example.com"}, want: "REDIS_URL"},
+		{name: "bot token missing", values: map[string]string{"APP_ENV": "production", "DATABASE_URL": "postgres://db/xuhuan?sslmode=require"}, want: "TELEGRAM_BOT_TOKEN"},
+		{name: "origins missing", values: map[string]string{"APP_ENV": "production", "DATABASE_URL": "postgres://db/xuhuan?sslmode=require", "TELEGRAM_BOT_TOKEN": "token"}, want: "CORS_ALLOWED_ORIGINS"},
+		{name: "redis missing", values: map[string]string{"APP_ENV": "production", "DATABASE_URL": "postgres://db/xuhuan?sslmode=require", "TELEGRAM_BOT_TOKEN": "token", "CORS_ALLOWED_ORIGINS": "https://game.example.com"}, want: "REDIS_URL"},
+		{name: "redis without TLS", values: map[string]string{"APP_ENV": "production", "REDIS_URL": "redis://cache.example.com/0"}, want: "rediss://"},
+		{name: "telemetry without TLS", values: map[string]string{"APP_ENV": "production", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector.example.com"}, want: "https"},
 		{name: "http origin", values: map[string]string{"APP_ENV": "production", "CORS_ALLOWED_ORIGINS": "http://game.example.com"}, want: "must use https"},
+		{name: "origin user info", values: map[string]string{"CORS_ALLOWED_ORIGINS": "https://user@game.example.com"}, want: "invalid CORS origin"},
 		{name: "wildcard", values: map[string]string{"APP_ENV": "production", "CORS_ALLOWED_ORIGINS": "*"}, want: "wildcard"},
 	}
 
@@ -168,7 +171,8 @@ func TestLoadFromDevelopmentAuthIsExplicitAndDevelopmentOnly(t *testing.T) {
 
 	_, err := LoadFrom(lookup(map[string]string{
 		"APP_ENV":              "production",
-		"DATABASE_URL":         "postgres://db",
+		"DATABASE_URL":         "postgres://db/xuhuan?sslmode=require",
+		"REDIS_URL":            "rediss://cache.example.com/0",
 		"TELEGRAM_BOT_TOKEN":   "token",
 		"CORS_ALLOWED_ORIGINS": "https://game.example.com",
 		"DEV_AUTH_ENABLED":     "true",
