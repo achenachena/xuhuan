@@ -14,11 +14,8 @@ export const toPresentationCharacter = (character: APICharacter): Character => (
   baseAttack: character.base_attack,
   baseDefense: character.base_defense,
   baseSpeed: character.base_speed,
-  baseCritRate: character.base_crit_rate,
-  baseCritDamage: character.base_crit_damage,
   specialMoveName: character.special_move_name,
   specialMoveDesc: character.special_move_description,
-  specialMoveType: character.special_move_type,
   rarity: character.rarity,
   colorTheme: character.color_theme
 });
@@ -35,11 +32,8 @@ export const encounterToPresentationCharacter = (encounter: APIEncounter): Chara
   baseAttack: encounter.attack,
   baseDefense: encounter.defense,
   baseSpeed: encounter.speed,
-  baseCritRate: encounter.crit_rate,
-  baseCritDamage: encounter.crit_damage,
   specialMoveName: encounter.special_move_name,
   specialMoveDesc: encounter.special_move_description,
-  specialMoveType: "energy",
   rarity: encounter.level >= 5 ? "legendary" : "rare",
   colorTheme: encounter.color_theme
 });

@@ -66,7 +66,7 @@ func handleEvent(
 ) (any, error) {
 	var operation operationEvent
 	if err := json.Unmarshal(payload, &operation); err != nil {
-		return nil, errors.New("decode Lambda event")
+		return nil, errors.New("decode lambda event")
 	}
 	switch operation.Operation {
 	case "migrate-and-seed":
@@ -88,10 +88,10 @@ func handleEvent(
 	case "":
 		var request events.LambdaFunctionURLRequest
 		if err := json.Unmarshal(payload, &request); err != nil {
-			return nil, errors.New("decode Lambda Function URL event")
+			return nil, errors.New("decode lambda Function URL event")
 		}
 		if request.RequestContext.HTTP.Method == "" {
-			return nil, errors.New("Lambda event has no operation or HTTP method")
+			return nil, errors.New("lambda event has no operation or HTTP method")
 		}
 		return serve(ctx, request)
 	default:

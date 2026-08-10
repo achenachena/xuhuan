@@ -4,7 +4,6 @@ import useSWR from "swr";
 import type { Character } from "@xuhuan/game-types";
 
 import {
-  getCharacter,
   getCharacters,
   getEncounters,
   type APIEncounter
@@ -31,23 +30,6 @@ export const useCharacters = (): UseCharactersResult => {
       const refreshed = await swr.mutate();
       return refreshed?.map(toPresentationCharacter);
     }
-  };
-};
-
-type UseCharacterResult = {
-  readonly character: Character | null;
-  readonly isLoading: boolean;
-  readonly error: Error | undefined;
-};
-
-export const useCharacter = (slug: string | null): UseCharacterResult => {
-  const swr = useSWR(slug ? ["/v1/characters", slug] : null, () => getCharacter(slug ?? ""), {
-    revalidateOnFocus: false
-  });
-  return {
-    character: swr.data ? toPresentationCharacter(swr.data) : null,
-    isLoading: swr.isLoading,
-    error: swr.error
   };
 };
 

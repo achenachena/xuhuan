@@ -21,9 +21,8 @@ type SoundEffectType =
   | "combo";
 
 type AudioConfig = {
-  bgmVolume: number;
-  sfxVolume: number;
-  enabled: boolean;
+  readonly bgmVolume: number;
+  readonly sfxVolume: number;
 };
 
 // Audio file mapping configuration
@@ -44,17 +43,15 @@ class AudioManager {
   private bgmAudio: HTMLAudioElement | null = null;
   private currentBgmUrl: string | null = null;
   private soundPool: Map<SoundEffectType, HTMLAudioElement[]> = new Map();
-  private config: AudioConfig;
+  private readonly config: AudioConfig;
   private isInitialized = false;
   private userInteracted = false;
   private audioFiles: AudioFileMap;
 
   constructor() {
-    // Initialize config as mutable object
     this.config = {
       bgmVolume: 0.5,
-      sfxVolume: 0.7,
-      enabled: true
+      sfxVolume: 0.7
     };
     // Build audio file URL map
     // Priority: Individual URL > Base URL + filename > null (graceful degradation)
@@ -78,19 +75,16 @@ class AudioManager {
       return null;
     };
 
-    // Get unified BGM URL (priority: NEXT_PUBLIC_AUDIO_BGM > individual > base URL + filename)
-    const getBgmUrl = (individualBgm: string | undefined, filename: string): string | null => {
-      // Use unified BGM if configured (highest priority)
+    const getBgmUrl = (filename: string): string | null => {
       if (env.NEXT_PUBLIC_AUDIO_BGM) {
         return env.NEXT_PUBLIC_AUDIO_BGM;
       }
-      // Fallback to individual BGM or base URL + filename
-      return buildUrl(individualBgm, filename);
+      return buildUrl(undefined, filename);
     };
 
     this.audioFiles = {
-      selectBgm: getBgmUrl(env.NEXT_PUBLIC_AUDIO_SELECT_BGM, "select-bgm.mp3"),
-      battleBgm: getBgmUrl(env.NEXT_PUBLIC_AUDIO_BATTLE_BGM, "battle-bgm.mp3"),
+      selectBgm: getBgmUrl("select-bgm.mp3"),
+      battleBgm: getBgmUrl("battle-bgm.mp3"),
       lightAttack: buildUrl(env.NEXT_PUBLIC_AUDIO_LIGHT_ATTACK, "lightAttack.mp3"),
       heavyAttack: buildUrl(env.NEXT_PUBLIC_AUDIO_HEAVY_ATTACK, "heavyAttack.mp3"),
       specialMove: buildUrl(env.NEXT_PUBLIC_AUDIO_SPECIAL_MOVE, "specialMove.mp3"),
@@ -205,7 +199,7 @@ class AudioManager {
    * @param loop - Whether to loop the music
    */
   playBGM(bgmType: "select" | "battle", loop: boolean = true): void {
-    if (!this.config.enabled || !this.userInteracted) {
+    if (!this.userInteracted) {
       return;
     }
 
@@ -264,7 +258,7 @@ class AudioManager {
    * Gracefully handles missing audio files (silent failure)
    */
   playSound(type: SoundEffectType): void {
-    if (!this.config.enabled || !this.userInteracted) {
+    if (!this.userInteracted) {
       return;
     }
 
@@ -300,72 +294,9 @@ class AudioManager {
       });
     }
   }
-
-  /**
-   * Set BGM volume (0.0 to 1.0)
-   */
-  setBGMVolume(volume: number): void {
-    this.config.bgmVolume = Math.max(0, Math.min(1, volume));
-    if (this.bgmAudio) {
-      this.bgmAudio.volume = this.config.bgmVolume;
-    }
-  }
-
-  /**
-   * Set SFX volume (0.0 to 1.0)
-   */
-  setSFXVolume(volume: number): void {
-    this.config.sfxVolume = Math.max(0, Math.min(1, volume));
-    // Update all sound pool volumes
-    this.soundPool.forEach((pool) => {
-      pool.forEach((audio) => {
-        audio.volume = this.config.sfxVolume;
-      });
-    });
-  }
-
-  /**
-   * Enable/disable audio
-   */
-  setEnabled(enabled: boolean): void {
-    this.config.enabled = enabled;
-    if (!enabled) {
-      this.stopBGM();
-    }
-  }
-
-  /**
-   * Get current BGM volume
-   */
-  getBGMVolume(): number {
-    return this.config.bgmVolume;
-  }
-
-  /**
-   * Get current SFX volume
-   */
-  getSFXVolume(): number {
-    return this.config.sfxVolume;
-  }
-
-  /**
-   * Check if audio is enabled
-   */
-  isEnabled(): boolean {
-    return this.config.enabled;
-  }
-
-  /**
-   * Check if user has interacted
-   */
-  hasUserInteracted(): boolean {
-    return this.userInteracted;
-  }
 }
 
 // Singleton instance
 export const audioManager = new AudioManager();
 
-// Export types
-export type { SoundEffectType, AudioConfig };
-
+export type { SoundEffectType };

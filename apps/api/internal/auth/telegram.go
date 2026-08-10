@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	ErrMalformedInitData = errors.New("Telegram init data is malformed")
-	ErrInvalidSignature  = errors.New("Telegram init data signature is invalid")
-	ErrExpiredInitData   = errors.New("Telegram init data is stale")
-	ErrFutureInitData    = errors.New("Telegram init data auth_date is in the future")
-	ErrMalformedUser     = errors.New("Telegram user data is malformed")
+	ErrMalformedInitData = errors.New("telegram init data is malformed")
+	ErrInvalidSignature  = errors.New("telegram init data signature is invalid")
+	ErrExpiredInitData   = errors.New("telegram init data is stale")
+	ErrFutureInitData    = errors.New("telegram init data auth_date is in the future")
+	ErrMalformedUser     = errors.New("telegram user data is malformed")
 )
 
 const (
@@ -48,10 +48,10 @@ func NewTelegramVerifier(botToken string, maxAge time.Duration) (*TelegramVerifi
 
 func newTelegramVerifier(botToken string, maxAge time.Duration, now func() time.Time) (*TelegramVerifier, error) {
 	if botToken == "" {
-		return nil, errors.New("Telegram bot token is required")
+		return nil, errors.New("telegram bot token is required")
 	}
 	if maxAge <= 0 {
-		return nil, errors.New("Telegram auth max age must be positive")
+		return nil, errors.New("telegram auth max age must be positive")
 	}
 	secret := hmac.New(sha256.New, []byte("WebAppData"))
 	_, _ = secret.Write([]byte(botToken))

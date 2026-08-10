@@ -115,8 +115,7 @@ const toRewards = (battle: APIBattle): RewardBundle | undefined => {
   }
   return {
     experience: battle.rewards.experience,
-    credits: battle.rewards.credits,
-    drops: []
+    credits: battle.rewards.credits
   };
 };
 

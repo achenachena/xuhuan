@@ -113,10 +113,6 @@ export const getCharacters = async (): Promise<readonly APICharacter[]> => {
   return response.characters;
 };
 
-export const getCharacter = (slug: string): Promise<APICharacter> => {
-  return requestJSON<APICharacter>(`/v1/characters/${encodeURIComponent(slug)}`);
-};
-
 export const getEncounters = async (): Promise<readonly APIEncounter[]> => {
   const response = await requestJSON<{ encounters: APIEncounter[] }>("/v1/encounters");
   return response.encounters;

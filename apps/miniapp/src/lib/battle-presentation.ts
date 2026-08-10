@@ -1,19 +1,8 @@
-import type {
-  BattleOutcomeState,
-  CombatantSnapshot,
-  StatusEffectSnapshot
-} from "@xuhuan/game-types";
+import type { BattleOutcomeState } from "@xuhuan/game-types";
 
 import type { TelegramThemeParams } from "@/lib/telegram-theme";
 
 export type BattleOutcome = BattleOutcomeState;
-export type StatusEffectState = StatusEffectSnapshot;
-
-export type CombatantState = CombatantSnapshot & {
-  readonly specialMeter: number;
-  readonly comboCount: number;
-  readonly isBlocking: boolean;
-};
 
 export const summarizeBattleTheme = (
   theme: TelegramThemeParams | undefined,
