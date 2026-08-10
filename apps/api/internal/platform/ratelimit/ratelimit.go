@@ -40,7 +40,7 @@ local ttl = redis.call('PTTL', KEYS[1])
 return {count, ttl}
 `)
 
-var ErrInvalidRedisURL = errors.New("invalid Redis URL")
+var ErrInvalidRedisURL = errors.New("invalid redis URL")
 
 func NewRedis(rawURL string, timeout time.Duration) (*RedisLimiter, error) {
 	options, err := redis.ParseURL(rawURL)
@@ -56,14 +56,14 @@ func NewRedis(rawURL string, timeout time.Duration) (*RedisLimiter, error) {
 
 func (limiter *RedisLimiter) Allow(ctx context.Context, key string, policy Policy) (Decision, error) {
 	if limiter == nil || limiter.client == nil {
-		return Decision{}, errors.New("Redis rate limiter is unavailable")
+		return Decision{}, errors.New("redis rate limiter is unavailable")
 	}
 	values, err := fixedWindowScript.Run(ctx, limiter.client, []string{key}, policy.Window.Milliseconds()).Int64Slice()
 	if err != nil {
 		return Decision{}, err
 	}
 	if len(values) != 2 {
-		return Decision{}, errors.New("unexpected Redis rate-limit response")
+		return Decision{}, errors.New("unexpected redis rate-limit response")
 	}
 	count := values[0]
 	remaining := max(policy.Limit-count, 0)

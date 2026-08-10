@@ -3,9 +3,7 @@
 import { useCallback, useEffect } from "react";
 import type { MouseEventHandler } from "react";
 
-import clsx from "clsx";
-
-import type { RewardBundle, RewardDrop } from "@xuhuan/game-types";
+import type { RewardBundle } from "@xuhuan/game-types";
 import { summarizeBattleTheme, type BattleOutcome } from "@/lib/battle-presentation";
 import type { TelegramThemeParams } from "@/lib/telegram-theme";
 import useLocale from "@/components/providers/use-locale";
@@ -54,8 +52,6 @@ const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProp
     event.stopPropagation();
   };
 
-  const dropItems = rewards?.drops ?? [];
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-xs"
@@ -80,12 +76,6 @@ const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProp
             type="button"
             className="rounded-full border border-white/20 px-3 py-1 text-xs uppercase tracking-[0.2em]"
             onClick={onClose}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onClose();
-              }
-            }}
           >
             {translate("rewardModal.action.close")}
           </button>
@@ -102,37 +92,6 @@ const RewardModal = ({ open, outcome, rewards, theme, onClose }: RewardModalProp
               {translate("rewardModal.label.credits")}
             </span>
             <span className="text-lg font-semibold">{rewards?.credits ?? 0}</span>
-          </div>
-          <div className="rounded-2xl border border-white/10 px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.2em] opacity-70">
-              {translate("rewardModal.label.drops")}
-            </p>
-            {dropItems.length === 0 ? (
-              <p className="mt-3 text-sm opacity-70">{translate("rewardModal.drops.empty")}</p>
-            ) : (
-              <ul className="mt-3 flex flex-col gap-2">
-                {dropItems.map((drop: RewardDrop) => (
-                  <li
-                    key={drop.id}
-                    className={clsx(
-                      "flex items-center justify-between rounded-2xl px-3 py-2 text-sm",
-                      drop.rarity === "epic"
-                        ? "bg-purple-500/10 text-purple-100"
-                        : drop.rarity === "rare"
-                          ? "bg-sky-500/10 text-sky-100"
-                          : "bg-emerald-500/10 text-emerald-100"
-                    )}
-                  >
-                    <span className="font-medium">
-                      {drop.name} × {drop.quantity}
-                    </span>
-                    <span className="text-xs uppercase tracking-[0.2em] opacity-80">
-                      {translate(`rewardModal.rarity.${drop.rarity}`)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         </div>
       </div>

@@ -22,27 +22,6 @@ data "aws_iam_policy_document" "lambda_execution" {
     ]
     resources = ["${aws_cloudwatch_log_group.api.arn}:*"]
   }
-
-  # Lambda requires these EC2 actions only during the reversible VPC-backed
-  # migration phase. Before disabling managed data services, delete unaliased
-  # VPC-backed function versions and wait for their Hyperplane ENIs to disappear
-  # so detachment cannot race this execution-role policy update.
-  dynamic "statement" {
-    for_each = var.managed_data_services_enabled ? [true] : []
-
-    content {
-      sid = "ManageVpcInterfaces"
-      actions = [
-        "ec2:CreateNetworkInterface",
-        "ec2:DescribeNetworkInterfaces",
-        "ec2:DescribeSubnets",
-        "ec2:DeleteNetworkInterface",
-        "ec2:AssignPrivateIpAddresses",
-        "ec2:UnassignPrivateIpAddresses",
-      ]
-      resources = ["*"]
-    }
-  }
 }
 
 resource "aws_iam_role_policy" "lambda_execution" {
@@ -102,16 +81,6 @@ data "aws_iam_policy_document" "github_deploy" {
     sid       = "ReadAccountConcurrency"
     actions   = ["lambda:GetAccountSettings"]
     resources = ["*"]
-  }
-
-  dynamic "statement" {
-    for_each = var.managed_data_services_enabled ? [true] : []
-
-    content {
-      sid       = "ReadDatabaseBootstrapSecret"
-      actions   = ["secretsmanager:GetSecretValue"]
-      resources = [aws_db_instance.postgres[0].master_user_secret[0].secret_arn]
-    }
   }
 
   statement {

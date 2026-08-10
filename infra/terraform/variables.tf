@@ -47,35 +47,6 @@ variable "github_oidc_provider_arn" {
   type        = string
 }
 
-variable "vpc_cidr" {
-  description = "CIDR for the isolated database VPC."
-  type        = string
-  default     = "10.20.0.0/16"
-}
-
-variable "availability_zone_count" {
-  description = "Two isolated AZs are required by the RDS and ElastiCache subnet groups."
-  type        = number
-  default     = 2
-
-  validation {
-    condition     = var.availability_zone_count == 2
-    error_message = "The Free Plan topology uses exactly two isolated availability zones."
-  }
-}
-
-variable "managed_data_services_enabled" {
-  description = "Keep the legacy RDS PostgreSQL, ElastiCache Valkey, and isolated VPC while migrating to external scale-to-zero data services. Disable only after the external cutover is verified."
-  type        = bool
-  default     = false
-}
-
-variable "lambda_vpc_enabled" {
-  description = "Attach Lambda to the isolated data VPC. Disable after external PostgreSQL and Redis parameters are ready, before retiring the managed data services."
-  type        = bool
-  default     = false
-}
-
 variable "cors_allowed_origins" {
   description = "Exact HTTPS Mini App origins, comma separated."
   type        = string
@@ -108,46 +79,6 @@ variable "lambda_reserved_concurrency" {
   description = "Concurrency enabled by the deploy workflow after secrets and migrations are ready."
   type        = number
   default     = 2
-}
-
-variable "database_name" {
-  type    = string
-  default = "xuhuan"
-}
-
-variable "database_master_username" {
-  type    = string
-  default = "xuhuan_admin"
-}
-
-variable "database_instance_class" {
-  type    = string
-  default = "db.t4g.micro"
-}
-
-variable "database_allocated_storage" {
-  type    = number
-  default = 20
-}
-
-variable "database_max_allocated_storage" {
-  type    = number
-  default = 0
-}
-
-variable "database_deletion_protection" {
-  type    = bool
-  default = true
-}
-
-variable "database_skip_final_snapshot" {
-  type    = bool
-  default = false
-}
-
-variable "redis_node_type" {
-  type    = string
-  default = "cache.t4g.micro"
 }
 
 variable "log_retention_days" {

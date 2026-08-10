@@ -57,6 +57,7 @@ test-go:
 	cd apps/api && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/xuhuan-lambda-bootstrap ./cmd/lambda
 
 test-frontend:
+	npm run build --workspace @xuhuan/game-types
 	npm run check:api-types --workspace @xuhuan/miniapp
 	npm run test --workspace @xuhuan/miniapp
 	npm run lint --workspace @xuhuan/miniapp
@@ -70,5 +71,9 @@ e2e-install:
 	npx playwright install chromium
 
 e2e:
-	docker compose up --build -d api
-	npm run test:e2e --workspace @xuhuan/miniapp
+	@set -eu; \
+		DEV_TELEGRAM_USER_ID="$$(date +%s)"; \
+		export DEV_TELEGRAM_USER_ID; \
+		trap 'docker compose down' EXIT; \
+		docker compose up --build -d api; \
+		npm run test:e2e --workspace @xuhuan/miniapp

@@ -24,19 +24,6 @@ Upstash on their free plans; do not add payment-backed upgrades or paid add-ons.
 Usage limits are availability limits: if a free allowance is exhausted, let
 the service pause or throttle and investigate before changing plans.
 
-## Migration switches
-
-Two Terraform variables make the live RDS/ElastiCache migration reversible:
-
-| Variable | Meaning |
-| --- | --- |
-| `managed_data_services_enabled` | Retains the legacy RDS, ElastiCache, isolated VPC, data alarms, and deploy-secret permission. |
-| `lambda_vpc_enabled` | Attaches `$LATEST` Lambda configuration to that isolated VPC. It cannot be true when the managed data tier is false. |
-
-Both default to `false`, so a fresh deployment cannot accidentally create the
-continuously metered AWS data tier. An existing deployment temporarily sets
-both to `true`; never change both to `false` in one unverified step.
-
 ## Static validation
 
 Use the repository-pinned Terraform version and validate before every plan:
@@ -113,56 +100,6 @@ The deploy workflow exchanges GitHub's OIDC token for short-lived AWS
 credentials, reads the SecureStrings, replaces `$LATEST` code and configuration,
 publishes a numbered Lambda version, migrates/seeds PostgreSQL, and promotes the
 `live` alias only after the new version succeeds.
-
-## Guarded cutover from RDS and ElastiCache
-
-Use separate saved plans and review each one. The expected order is:
-
-1. **Preserve everything.** Set both migration switches to `true`. Apply the
-   moved resource addresses, SSM placeholders, and updated IAM policy. The plan
-   must not delete or replace RDS, ElastiCache, or the VPC.
-2. **Measure the source.** Publish the new Lambda code without promoting it and
-   invoke `{"operation":"data-summary"}` on that numbered version. Record every
-   table count. Catalog rows are deterministic; any player, battle, action,
-   idempotency, ledger, or audit rows must be exported and imported before
-   continuing.
-3. **Prepare external services.** Store the Neon pooled/direct URLs and Upstash
-   TLS URL in the SSM placeholders. Test PostgreSQL and Redis connectivity.
-4. **Detach only `$LATEST`.** Keep `managed_data_services_enabled=true`, set
-   `lambda_vpc_enabled=false`, and apply. The existing `live` numbered version
-   stays on the old VPC and remains the rollback path.
-5. **Release externally.** Update the protected GitHub variables and run
-   `Deploy API`. It migrates/seeds Neon, publishes a new version, promotes
-   `live`, and checks `/healthz` and `/readyz`. Exercise one authenticated read
-   and battle flow if a Telegram session is available.
-6. **Observe before deletion.** Invoke `data-summary` on the new live version,
-   compare expected authoritative counts, verify CloudWatch has no connection
-   errors, and retain the old data tier until these checks pass.
-7. **Disable RDS deletion protection.** Keep managed services enabled, set
-   `database_deletion_protection=false`, and apply that change by itself.
-8. **Persist the no-snapshot decision separately.** Keep
-   `managed_data_services_enabled=true` and `lambda_vpc_enabled=false`, set
-   `database_skip_final_snapshot=true` only after authoritative data is
-   verified elsewhere, and apply a plan with zero destroys. Confirm Terraform
-   state records `skip_final_snapshot=true` and no final snapshot identifier.
-   Do not combine this state change with removing the counted RDS resource: a
-   destroy plan can otherwise retain the old `skip_final_snapshot=false` state.
-9. **Release Lambda VPC interfaces.** List every alias and published version,
-   then delete only unaliased historical versions that still reference the old
-   VPC. Keep the execution role's EC2 interface permissions in place and allow
-   up to 20 minutes for Lambda to delete its Hyperplane ENIs. Verify that no ENI
-   uses the legacy Lambda security group before continuing.
-10. **Remove fixed-cost resources.** Set
-    `managed_data_services_enabled=false` and keep
-    `lambda_vpc_enabled=false`. Review a new saved plan listing the exact RDS,
-    ElastiCache, VPC, subnet, security-group, and obsolete alarm deletions.
-    Confirm the Lambda function, `live` alias, Function URL, and SSM parameters
-    are no-ops, then apply. The final IAM update should remove the now-unused
-    EC2 interface and RDS bootstrap-secret permissions.
-
-Do not destroy the source tier if any count is unexplained or the new API is not
-ready. The existing VPC-backed Lambda versions are the direct rollback path
-through step 8; the old data resources remain intact until step 10.
 
 ## Cost and operational guardrails
 
