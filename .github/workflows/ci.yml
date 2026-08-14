@@ -225,7 +225,7 @@ jobs:
       - name: Scan Go call graph for known vulnerabilities
         working-directory: apps/api
         env:
-          GOTOOLCHAIN: go1.26.5
+          GOTOOLCHAIN: go1.26.6
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
       - name: Build API container
         run: docker build --tag xuhuan-api:ci .
