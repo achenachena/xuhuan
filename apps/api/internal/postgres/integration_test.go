@@ -11,8 +11,6 @@ import (
 	"errors"
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
 	"github.com/achenachena/xuhuan/apps/api/internal/battle"
-	"github.com/achenachena/xuhuan/apps/api/internal/character"
-	"github.com/achenachena/xuhuan/apps/api/internal/player"
 	"github.com/achenachena/xuhuan/apps/api/internal/repository"
 	"github.com/achenachena/xuhuan/apps/api/migrations"
 	seeddata "github.com/achenachena/xuhuan/apps/api/seed"
@@ -121,9 +119,7 @@ func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
 		t.Fatalf("GetCharacter(missing) error=%v", err)
 	}
 
-	playerService := player.NewService(playerRepository)
-	catalogService := character.NewService(catalogRepository)
-	battleService := battle.NewService(NewBattleRepository(database, nil), playerService, catalogService)
+	battleService := battle.NewService(NewBattleRepository(database, nil), playerRepository, catalogRepository)
 	user := auth.User{ID: 123456789, Username: "second", FirstName: "开发"}
 
 	started, replayed, err := battleService.Start(ctx, user, battle.StartInput{

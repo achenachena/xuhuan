@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 
@@ -33,10 +32,13 @@ type Dependencies struct {
 	RateLimit      RateLimitConfig
 	Metrics        *observability.Metrics
 	TracingEnabled bool
-	RegisterRoutes func(chi.Router, func(http.Handler) http.Handler)
 }
 
 func NewRouter(dependencies Dependencies) http.Handler {
+	return newRouter(dependencies, nil)
+}
+
+func newRouter(dependencies Dependencies, register func(chi.Router, func(http.Handler) http.Handler)) http.Handler {
 	if dependencies.Logger == nil {
 		panic("api: Logger is required")
 	}
@@ -81,8 +83,8 @@ func NewRouter(dependencies Dependencies) http.Handler {
 		registerV1Routes(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics), dependencies.RateLimit, *dependencies.Services, dependencies.Logger, dependencies.Metrics)
 	}
 
-	if dependencies.RegisterRoutes != nil {
-		dependencies.RegisterRoutes(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics))
+	if register != nil {
+		register(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics))
 	}
 
 	if dependencies.TracingEnabled {
@@ -90,5 +92,3 @@ func NewRouter(dependencies Dependencies) http.Handler {
 	}
 	return router
 }
-
-var ErrNotReady = errors.New("not ready")

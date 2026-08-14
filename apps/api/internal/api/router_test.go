@@ -17,14 +17,13 @@ import (
 )
 
 func testRouter(readiness ReadinessChecker, register func(chi.Router, func(http.Handler) http.Handler)) http.Handler {
-	return NewRouter(Dependencies{
+	return newRouter(Dependencies{
 		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Version:        "test",
 		AllowedOrigins: []string{"https://game.example.com"},
 		MaxBodyBytes:   1024,
 		Readiness:      readiness,
-		RegisterRoutes: register,
-	})
+	}, register)
 }
 
 func TestHealthAndReadiness(t *testing.T) {
@@ -39,7 +38,7 @@ func TestHealthAndReadiness(t *testing.T) {
 	}{
 		{name: "health", path: "/healthz", readiness: ReadinessFunc(func(context.Context) error { return nil }), status: http.StatusOK},
 		{name: "ready", path: "/readyz", readiness: ReadinessFunc(func(context.Context) error { return nil }), status: http.StatusOK},
-		{name: "not ready", path: "/readyz", readiness: ReadinessFunc(func(context.Context) error { return ErrNotReady }), status: http.StatusServiceUnavailable, code: "not_ready"},
+		{name: "not ready", path: "/readyz", readiness: ReadinessFunc(func(context.Context) error { return errors.New("not ready") }), status: http.StatusServiceUnavailable, code: "not_ready"},
 	}
 
 	for _, tt := range tests {
@@ -65,16 +64,15 @@ func TestAccessLogUsesBoundedRoutePattern(t *testing.T) {
 	t.Parallel()
 
 	var logs bytes.Buffer
-	router := NewRouter(Dependencies{
+	router := newRouter(Dependencies{
 		Logger:       slog.New(slog.NewJSONHandler(&logs, nil)),
 		Version:      "test",
 		MaxBodyBytes: 1024,
 		Readiness:    ReadinessFunc(func(context.Context) error { return nil }),
-		RegisterRoutes: func(router chi.Router, _ func(http.Handler) http.Handler) {
-			router.Get("/v1/characters/{slug}", func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusNoContent)
-			})
-		},
+	}, func(router chi.Router, _ func(http.Handler) http.Handler) {
+		router.Get("/v1/characters/{slug}", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})
 	})
 
 	request := httptest.NewRequest(http.MethodGet, "/v1/characters/user%0Acontrolled", nil)
@@ -196,16 +194,15 @@ func TestPanicResponseDoesNotLogRecoveredValue(t *testing.T) {
 	t.Parallel()
 
 	var logs bytes.Buffer
-	router := NewRouter(Dependencies{
+	router := newRouter(Dependencies{
 		Logger:       slog.New(slog.NewJSONHandler(&logs, nil)),
 		Version:      "test",
 		MaxBodyBytes: 1024,
 		Readiness:    ReadinessFunc(func(context.Context) error { return nil }),
-		RegisterRoutes: func(router chi.Router, _ func(http.Handler) http.Handler) {
-			router.Get("/panic", func(http.ResponseWriter, *http.Request) {
-				panic("password=do-not-log")
-			})
-		},
+	}, func(router chi.Router, _ func(http.Handler) http.Handler) {
+		router.Get("/panic", func(http.ResponseWriter, *http.Request) {
+			panic("password=do-not-log")
+		})
 	})
 
 	response := httptest.NewRecorder()
@@ -230,21 +227,20 @@ func TestAuthenticationMiddleware(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	router := NewRouter(Dependencies{
+	router := newRouter(Dependencies{
 		Logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Version:       "test",
 		MaxBodyBytes:  1024,
 		Readiness:     ReadinessFunc(func(context.Context) error { return nil }),
 		Authenticator: authenticator,
-		RegisterRoutes: func(router chi.Router, authenticate func(http.Handler) http.Handler) {
-			router.With(authenticate).Get("/v1/protected", func(w http.ResponseWriter, r *http.Request) {
-				principal, ok := auth.PrincipalFromContext(r.Context())
-				if !ok {
-					t.Fatal("principal missing from context")
-				}
-				writeJSON(w, http.StatusOK, map[string]int64{"telegram_id": principal.User.ID})
-			})
-		},
+	}, func(router chi.Router, authenticate func(http.Handler) http.Handler) {
+		router.With(authenticate).Get("/v1/protected", func(w http.ResponseWriter, r *http.Request) {
+			principal, ok := auth.PrincipalFromContext(r.Context())
+			if !ok {
+				t.Fatal("principal missing from context")
+			}
+			writeJSON(w, http.StatusOK, map[string]int64{"telegram_id": principal.User.ID})
+		})
 	})
 
 	unauthorized := httptest.NewRequest(http.MethodGet, "/v1/protected", nil)

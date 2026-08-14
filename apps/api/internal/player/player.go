@@ -26,15 +26,3 @@ type Player struct {
 type Repository interface {
 	GetOrCreate(context.Context, auth.User) (Player, error)
 }
-
-type Service struct {
-	repository Repository
-}
-
-func NewService(repository Repository) *Service {
-	return &Service{repository: repository}
-}
-
-func (s *Service) GetOrCreate(ctx context.Context, user auth.User) (Player, error) {
-	return s.repository.GetOrCreate(ctx, user)
-}

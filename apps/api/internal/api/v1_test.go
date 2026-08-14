@@ -84,12 +84,12 @@ func v1TestRouter(t *testing.T) http.Handler {
 		t.Fatal(err)
 	}
 	services := &Services{
-		Players: player.NewService(fakePlayerRepository{item: player.Player{
+		Players: fakePlayerRepository{item: player.Player{
 			ID: "53fbdabe-798f-4da5-a70e-f265c1e0786c", TelegramUserID: 9_007_199_254_740_993,
 			Username: &username, FirstName: &firstName, LastName: &lastName, Level: 1,
 			Energy: 120, Version: 1, CreatedAt: now, UpdatedAt: now,
-		}}),
-		Catalog: character.NewService(fakeCatalogRepository{
+		}},
+		Catalog: fakeCatalogRepository{
 			characters: []character.Character{{
 				ID: "d045d8f2-1ec9-41f4-8f1c-8a0224d70db8", Slug: "nana7mi",
 				Name:      character.LocalizedText{ZHCN: "七海Nana7mi", EN: "Nana7mi"},
@@ -110,7 +110,7 @@ func v1TestRouter(t *testing.T) http.Handler {
 				SpecialMoveDescription: character.LocalizedText{ZHCN: "能量脉冲", EN: "Energy pulse"},
 				ColorTheme:             "#64748B",
 			}},
-		}),
+		},
 	}
 	return NewRouter(Dependencies{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Version: "test", MaxBodyBytes: 1024,
@@ -165,7 +165,7 @@ func TestReadAPIsNeverExposeRepositoryErrors(t *testing.T) {
 	t.Parallel()
 	secret := errors.New("postgres password=do-not-expose")
 	handler := requestIDMiddleware(listCharactersHandler(
-		character.NewService(fakeCatalogRepository{err: secret}),
+		fakeCatalogRepository{err: secret},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 	))
 	response := httptest.NewRecorder()
