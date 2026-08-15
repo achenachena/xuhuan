@@ -1,4 +1,5 @@
 import type { LocaleBundle } from "@/lib/localization/locale-bundle";
+import { env } from "@/lib/env";
 
 type LoadLocaleParams = {
   readonly language?: string;
@@ -20,14 +21,14 @@ const loadBundledLocale = async (language: string): Promise<LocaleBundle> => {
 };
 
 const loadLocaleBundle = async (params: LoadLocaleParams): Promise<LocaleBundle> => {
-  const language = params.language ?? "zh-CN";
-  const baseUrl = process.env.NEXT_PUBLIC_LOCALE_BASE_URL;
+  const language = params.language?.toLowerCase().startsWith("en") ? "en" : "zh-CN";
+  const baseUrl = env.NEXT_PUBLIC_LOCALE_BASE_URL;
   if (!baseUrl) {
     return loadBundledLocale(language);
   }
   try {
-    const url = `${baseUrl.replace(/\/+$/, "")}/${language}.json`;
-    const response = await fetch(url, {
+    const url = new URL(`${language}.json`, `${baseUrl.replace(/\/+$/, "")}/`);
+    const response = await fetch(url.toString(), {
       cache: "no-store",
       signal: params.signal
     });

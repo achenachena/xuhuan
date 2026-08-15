@@ -71,6 +71,7 @@ const requestJSON = async <TResponse>(
   const authenticationHeaders = await buildAuthenticationHeaders();
   const response = await fetch(resolveURL(path), {
     ...init,
+    cache: "no-store",
     headers: {
       Accept: "application/json",
       "Accept-Language": "zh-CN",
@@ -100,10 +101,10 @@ const postJSON = async <TBody, TResponse>(
 };
 
 export const createIdempotencyKey = (): string => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
+  if (typeof globalThis.crypto?.randomUUID !== "function") {
+    throw new Error("Secure random UUID generation is unavailable");
   }
-  return `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return globalThis.crypto.randomUUID();
 };
 
 export const getPlayer = (): Promise<APIPlayer> => requestJSON<APIPlayer>("/v1/player");

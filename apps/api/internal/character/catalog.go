@@ -61,27 +61,3 @@ type Repository interface {
 	ListEncounters(context.Context) ([]Encounter, error)
 	GetEncounter(context.Context, string) (Encounter, error)
 }
-
-type Service struct {
-	repository Repository
-}
-
-func NewService(repository Repository) *Service {
-	return &Service{repository: repository}
-}
-
-func (s *Service) ListCharacters(ctx context.Context) ([]Character, error) {
-	return s.repository.ListCharacters(ctx)
-}
-
-func (s *Service) GetCharacter(ctx context.Context, slug string) (Character, error) {
-	return s.repository.GetCharacter(ctx, slug)
-}
-
-func (s *Service) ListEncounters(ctx context.Context) ([]Encounter, error) {
-	return s.repository.ListEncounters(ctx)
-}
-
-func (s *Service) GetEncounter(ctx context.Context, slug string) (Encounter, error) {
-	return s.repository.GetEncounter(ctx, slug)
-}

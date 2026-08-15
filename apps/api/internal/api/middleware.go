@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
@@ -21,6 +22,9 @@ type responseRecorder struct {
 }
 
 func (r *responseRecorder) WriteHeader(status int) {
+	if r.status != 0 {
+		return
+	}
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
 }
@@ -32,6 +36,10 @@ func (r *responseRecorder) Write(body []byte) (int, error) {
 	written, err := r.ResponseWriter.Write(body)
 	r.bytes += written
 	return written, err
+}
+
+func (r *responseRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
 }
 
 func maxBodyMiddleware(limit int64) func(http.Handler) http.Handler {
@@ -60,6 +68,18 @@ func requireJSONMiddleware(next http.Handler) http.Handler {
 				return
 			}
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; sandbox")
+		w.Header().Set("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -98,21 +118,24 @@ func accessLogMiddleware(logger *slog.Logger, metrics *observability.Metrics) fu
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			started := time.Now()
 			recorder := &responseRecorder{ResponseWriter: w}
+			defer func() {
+				duration := time.Since(started)
+				status := recorder.status
+				if status == 0 {
+					status = http.StatusOK
+				}
+				route := chi.RouteContext(r.Context()).RoutePattern()
+				logger.InfoContext(r.Context(), "http_request",
+					"request_id", requestIDFromContext(r.Context()),
+					"method", r.Method,
+					"route", route,
+					"status", status,
+					"response_bytes", recorder.bytes,
+					"duration_ms", duration.Milliseconds(),
+				)
+				metrics.HTTPRequest(r.Context(), r.Method, route, status, duration)
+			}()
 			next.ServeHTTP(recorder, r)
-			duration := time.Since(started)
-			status := recorder.status
-			if status == 0 {
-				status = http.StatusOK
-			}
-			logger.InfoContext(r.Context(), "http_request",
-				"request_id", requestIDFromContext(r.Context()),
-				"method", r.Method,
-				"route", chi.RouteContext(r.Context()).RoutePattern(),
-				"status", status,
-				"response_bytes", recorder.bytes,
-				"duration_ms", duration.Milliseconds(),
-			)
-			metrics.HTTPRequest(r.Context(), r.Method, chi.RouteContext(r.Context()).RoutePattern(), status, duration)
 		})
 	}
 }
@@ -124,10 +147,12 @@ func recoverMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 				if recovered := recover(); recovered != nil {
 					logger.ErrorContext(r.Context(), "panic_recovered",
 						"request_id", requestIDFromContext(r.Context()),
-						"panic", recovered,
+						"panic_type", fmt.Sprintf("%T", recovered),
 						"stack", string(debug.Stack()),
 					)
-					writeError(w, r, http.StatusInternalServerError, "internal_error", "An internal error occurred")
+					if recorder, ok := w.(*responseRecorder); !ok || recorder.status == 0 {
+						writeError(w, r, http.StatusInternalServerError, "internal_error", "An internal error occurred")
+					}
 				}
 			}()
 			next.ServeHTTP(w, r)

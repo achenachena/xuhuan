@@ -20,9 +20,8 @@ type operationEvent struct {
 }
 
 type operationResponse struct {
-	Status    string           `json:"status"`
-	Operation string           `json:"operation"`
-	Counts    map[string]int64 `json:"counts,omitempty"`
+	Status    string `json:"status"`
+	Operation string `json:"operation"`
 }
 
 func main() {
@@ -51,7 +50,7 @@ func run() error {
 
 	adapter := lambdahttp.New(runtime.Handler)
 	awslambda.Start(func(ctx context.Context, payload json.RawMessage) (any, error) {
-		return handleEvent(ctx, payload, adapter.Serve, runtime.MigrateAndSeed, runtime.Check, runtime.DataSummary)
+		return handleEvent(ctx, payload, adapter.Serve, runtime.MigrateAndSeed, runtime.Check)
 	})
 	return nil
 }
@@ -62,7 +61,6 @@ func handleEvent(
 	serve func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error),
 	migrateAndSeed func(context.Context) error,
 	check func(context.Context) error,
-	dataSummary func(context.Context) (map[string]int64, error),
 ) (any, error) {
 	var operation operationEvent
 	if err := json.Unmarshal(payload, &operation); err != nil {
@@ -79,12 +77,6 @@ func handleEvent(
 			return nil, err
 		}
 		return operationResponse{Status: "ok", Operation: operation.Operation}, nil
-	case "data-summary":
-		counts, err := dataSummary(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return operationResponse{Status: "ok", Operation: operation.Operation, Counts: counts}, nil
 	case "":
 		var request events.LambdaFunctionURLRequest
 		if err := json.Unmarshal(payload, &request); err != nil {

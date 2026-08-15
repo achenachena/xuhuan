@@ -37,6 +37,7 @@ describe("API client", () => {
       "https://api.example.com/v1/battles/c8c6d56d-974f-4c82-8a83-a3c20e736e38/actions"
     );
     expect(request).toMatchObject({ method: "POST" });
+    expect(request?.cache).toBe("no-store");
     expect(request?.headers).toMatchObject({
       "X-Telegram-Init-Data": telegram.initData,
       "Idempotency-Key": "action-key-001"

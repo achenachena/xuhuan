@@ -13,7 +13,7 @@ Telegram Mini App
                  └─ Upstash Redis (distributed rate limits only)
 ```
 
-The API contract is [OpenAPI 3.1](apps/api/openapi/openapi.yaml). Design decisions, trust boundaries, and the AWS topology are documented in [docs/architecture.md](docs/architecture.md); the migration record is in [docs/go-rebuild-plan.md](docs/go-rebuild-plan.md).
+The API contract is [OpenAPI 3.1](apps/api/openapi/openapi.yaml). Design decisions, trust boundaries, and the AWS topology are documented in [docs/architecture.md](docs/architecture.md).
 
 ## Repository layout
 
@@ -31,7 +31,7 @@ infra/                 Terraform for the deployed AWS serverless edge
 
 - Docker with Compose v2
 - Node.js 20 and npm 10
-- Go 1.25+ (the module selects the tested Go 1.26.5 toolchain)
+- Go 1.25+ (the module selects the tested Go 1.26.6 toolchain)
 
 No Telegram bot token is needed for local play. The local stack uses an explicit development identity that the API refuses to enable outside `APP_ENV=development`.
 

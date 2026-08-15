@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
 	"github.com/achenachena/xuhuan/apps/api/internal/character"
@@ -138,9 +137,4 @@ func hashRequest(value any) ([sha256.Size]byte, error) {
 		return [sha256.Size]byte{}, err
 	}
 	return sha256.Sum256(encoded), nil
-}
-
-func IsConflict(err error) bool {
-	return errors.Is(err, ErrVersionConflict) || errors.Is(err, ErrBattleNotActive) ||
-		errors.Is(err, ErrInsufficientEnergy) || errors.Is(err, ErrIdempotencyConflict)
 }

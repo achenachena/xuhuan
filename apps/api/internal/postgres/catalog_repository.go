@@ -67,11 +67,7 @@ func (r *CatalogRepository) GetEncounter(ctx context.Context, slug string) (char
 	return item, err
 }
 
-type catalogRow interface {
-	Scan(...any) error
-}
-
-func scanCharacter(row catalogRow) (character.Character, error) {
+func scanCharacter(row rowScanner) (character.Character, error) {
 	var item character.Character
 	err := row.Scan(
 		&item.ID, &item.Slug, &item.Name.ZHCN, &item.Name.EN, &item.Biography.ZHCN, &item.Biography.EN,
@@ -83,7 +79,7 @@ func scanCharacter(row catalogRow) (character.Character, error) {
 	return item, err
 }
 
-func scanEncounter(row catalogRow) (character.Encounter, error) {
+func scanEncounter(row rowScanner) (character.Encounter, error) {
 	var item character.Encounter
 	err := row.Scan(
 		&item.ID, &item.Slug, &item.Name.ZHCN, &item.Name.EN, &item.Description.ZHCN, &item.Description.EN,
@@ -108,3 +104,5 @@ const encounterSelectSQL = `SELECT
     special_move_name_zh_cn, special_move_name_en,
     special_move_description_zh_cn, special_move_description_en, color_theme, image_url
 FROM encounters`
+
+var _ character.Repository = (*CatalogRepository)(nil)

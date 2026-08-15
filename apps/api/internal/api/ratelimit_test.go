@@ -60,16 +60,13 @@ func TestIPRateLimitReturnsStableErrorAndHeaders(t *testing.T) {
 	}
 }
 
-func TestClientIPTrustsOnlyConfiguredProxyHeader(t *testing.T) {
+func TestClientIPIgnoresSpoofableForwardedHeader(t *testing.T) {
 	t.Parallel()
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.RemoteAddr = "10.0.0.4:4321"
 	request.Header.Set("X-Forwarded-For", "198.51.100.2, 203.0.113.8")
-	if got := clientIP(request, false); got != "10.0.0.4" {
-		t.Fatalf("untrusted proxy IP=%q", got)
-	}
-	if got := clientIP(request, true); got != "203.0.113.8" {
-		t.Fatalf("trusted proxy IP=%q", got)
+	if got := clientIP(request); got != "10.0.0.4" {
+		t.Fatalf("client IP=%q", got)
 	}
 }
 

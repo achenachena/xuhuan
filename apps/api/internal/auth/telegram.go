@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/url"
 	"sort"
@@ -166,8 +165,4 @@ func parseUser(value string) (User, error) {
 		LastName:     raw.LastName,
 		LanguageCode: raw.LanguageCode,
 	}, nil
-}
-
-func (u User) String() string {
-	return fmt.Sprintf("TelegramUser(%d)", u.ID)
 }

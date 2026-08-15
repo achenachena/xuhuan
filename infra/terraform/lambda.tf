@@ -25,7 +25,6 @@ resource "aws_lambda_function" "api" {
       APP_ENV                    = "production"
       APP_VERSION                = "bootstrap"
       CORS_ALLOWED_ORIGINS       = var.cors_allowed_origins
-      TRUST_PROXY                = "true"
       RATE_LIMIT_WINDOW          = "1m"
       RATE_LIMIT_IP_REQUESTS     = "120"
       RATE_LIMIT_PLAYER_REQUESTS = "60"

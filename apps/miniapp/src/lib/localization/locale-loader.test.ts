@@ -1,18 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const runtimeEnv = vi.hoisted(() => ({ NEXT_PUBLIC_LOCALE_BASE_URL: undefined as string | undefined }));
+
+vi.mock("@/lib/env", () => ({ env: runtimeEnv }));
+
 import loadLocaleBundle from "@/lib/localization/locale-loader";
 
 describe("locale bundle loading", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.unstubAllEnvs();
+    runtimeEnv.NEXT_PUBLIC_LOCALE_BASE_URL = undefined;
   });
 
   it.each([
     ["en-US", "Light Attack", "Victory"],
     ["zh-CN", "轻击", "战斗胜利"]
   ])("loads the bundled %s language without a remote host", async (language, lightAttack, victory) => {
-    vi.stubEnv("NEXT_PUBLIC_LOCALE_BASE_URL", "");
+    runtimeEnv.NEXT_PUBLIC_LOCALE_BASE_URL = undefined;
 
     const bundle = await loadLocaleBundle({ language });
 
@@ -21,7 +25,7 @@ describe("locale bundle loading", () => {
   });
 
   it("falls back to the bundled language when a remote bundle is invalid", async () => {
-    vi.stubEnv("NEXT_PUBLIC_LOCALE_BASE_URL", "https://locales.example.com/");
+    runtimeEnv.NEXT_PUBLIC_LOCALE_BASE_URL = "https://locales.example.com/";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ "actions.lightAttack.title": 42 }), {
         status: 200,

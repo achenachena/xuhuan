@@ -32,11 +32,7 @@ func (r *PlayerRepository) GetOrCreate(ctx context.Context, user auth.User) (pla
 	return scanPlayer(row)
 }
 
-type playerRow interface {
-	Scan(...any) error
-}
-
-func scanPlayer(row playerRow) (player.Player, error) {
+func scanPlayer(row rowScanner) (player.Player, error) {
 	var result player.Player
 	err := row.Scan(
 		&result.ID, &result.TelegramUserID, &result.Username, &result.FirstName, &result.LastName,
@@ -45,6 +41,8 @@ func scanPlayer(row playerRow) (player.Player, error) {
 	)
 	return result, err
 }
+
+var _ player.Repository = (*PlayerRepository)(nil)
 
 func nullIfEmpty(value string) any {
 	if value == "" {

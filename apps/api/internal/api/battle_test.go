@@ -92,14 +92,14 @@ func battleAPIRouter(t *testing.T) http.Handler {
 	t.Helper()
 	username := "dev"
 	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
-	playerService := player.NewService(fakePlayerRepository{item: player.Player{
+	players := fakePlayerRepository{item: player.Player{
 		ID: "53fbdabe-798f-4da5-a70e-f265c1e0786c", TelegramUserID: 123, Username: &username,
 		Level: 1, Energy: 120, Version: 1, CreatedAt: now, UpdatedAt: now,
-	}})
-	catalogService := character.NewService(fakeCatalogRepository{
+	}}
+	catalog := fakeCatalogRepository{
 		characters: []character.Character{testAPICharacter()}, encounters: []character.Encounter{testAPIEncounter()},
-	})
-	battleService := battle.NewService(fakeBattleRepository{}, playerService, catalogService)
+	}
+	battles := battle.NewService(fakeBattleRepository{}, players, catalog)
 	authenticator, err := auth.NewAuthenticator(nil, auth.DevelopmentConfig{
 		Enabled: true, Environment: "development", Token: "0123456789abcdef", TelegramID: 123,
 	})
@@ -109,7 +109,7 @@ func battleAPIRouter(t *testing.T) http.Handler {
 	return NewRouter(Dependencies{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Version: "test", MaxBodyBytes: 1024,
 		Readiness: ReadinessFunc(func(context.Context) error { return nil }), Authenticator: authenticator,
-		Services: &Services{Players: playerService, Catalog: catalogService, Battles: battleService},
+		Services: &Services{Players: players, Catalog: catalog, Battles: battles},
 	})
 }
 

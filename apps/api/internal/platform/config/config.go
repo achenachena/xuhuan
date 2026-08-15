@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -53,7 +52,6 @@ type Config struct {
 	DevLastName          string
 	DevLanguageCode      string
 	CORSAllowedOrigins   []string
-	TrustProxy           bool
 	RateLimitWindow      time.Duration
 	IPRateLimit          int64
 	PlayerRateLimit      int64
@@ -133,27 +131,26 @@ func LoadFrom(lookup Lookup) (Config, error) {
 	if err != nil || playerRateLimit <= 0 || playerRateLimit > 1_000_000 {
 		return Config{}, errors.New("RATE_LIMIT_PLAYER_REQUESTS must be between 1 and 1000000")
 	}
-	trustProxy, err := parseBool(lookup, "TRUST_PROXY", false)
-	if err != nil {
+	redisURL := valueOrDefault(lookup, "REDIS_URL", "")
+	if err := validateRedisURL(redisURL, appEnv); err != nil {
 		return Config{}, err
 	}
-	redisURL := valueOrDefault(lookup, "REDIS_URL", "")
-	if redisURL != "" {
-		parsedRedisURL, parseErr := url.Parse(redisURL)
-		if parseErr != nil || (parsedRedisURL.Scheme != "redis" && parsedRedisURL.Scheme != "rediss") || parsedRedisURL.Host == "" {
-			return Config{}, errors.New("REDIS_URL must be a valid redis:// or rediss:// URL")
-		}
-	}
-	databaseURL, err := databaseConnectionURL(lookup, appEnv)
-	if err != nil {
+	databaseURL := valueOrDefault(lookup, "DATABASE_URL", "")
+	if err := validatePostgresURL("DATABASE_URL", databaseURL, appEnv); err != nil {
 		return Config{}, err
 	}
 	databaseMigrationURL := valueOrDefault(lookup, "DATABASE_MIGRATION_URL", databaseURL)
+	if err := validatePostgresURL("DATABASE_MIGRATION_URL", databaseMigrationURL, appEnv); err != nil {
+		return Config{}, err
+	}
 	otlpEndpoint := valueOrDefault(lookup, "OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	if otlpEndpoint != "" {
 		parsedEndpoint, parseErr := url.Parse(otlpEndpoint)
 		if parseErr != nil || (parsedEndpoint.Scheme != "http" && parsedEndpoint.Scheme != "https") || parsedEndpoint.Host == "" || parsedEndpoint.User != nil || parsedEndpoint.RawQuery != "" || parsedEndpoint.Fragment != "" {
 			return Config{}, errors.New("OTEL_EXPORTER_OTLP_ENDPOINT must be an http(s) URL without user information, query, or fragment")
+		}
+		if appEnv == Production && parsedEndpoint.Scheme != "https" {
+			return Config{}, errors.New("OTEL_EXPORTER_OTLP_ENDPOINT must use https in production")
 		}
 	}
 	otelExportInterval, err := parseDuration(lookup, "OTEL_EXPORT_INTERVAL", defaultOTELInterval)
@@ -183,7 +180,6 @@ func LoadFrom(lookup Lookup) (Config, error) {
 		DevLastName:          valueOrDefault(lookup, "DEV_LAST_NAME", "Player"),
 		DevLanguageCode:      valueOrDefault(lookup, "DEV_LANGUAGE_CODE", "zh-CN"),
 		CORSAllowedOrigins:   origins,
-		TrustProxy:           trustProxy,
 		RateLimitWindow:      rateLimitWindow,
 		IPRateLimit:          ipRateLimit,
 		PlayerRateLimit:      playerRateLimit,
@@ -229,37 +225,40 @@ func LoadFrom(lookup Lookup) (Config, error) {
 	return cfg, nil
 }
 
-func databaseConnectionURL(lookup Lookup, environment Environment) (string, error) {
-	if databaseURL := valueOrDefault(lookup, "DATABASE_URL", ""); databaseURL != "" {
-		return databaseURL, nil
+func validatePostgresURL(key, raw string, environment Environment) error {
+	if raw == "" {
+		return nil
 	}
-	host := valueOrDefault(lookup, "DATABASE_HOST", "")
-	name := valueOrDefault(lookup, "DATABASE_NAME", "")
-	username := valueOrDefault(lookup, "DATABASE_USER", "")
-	password := valueOrDefault(lookup, "DATABASE_PASSWORD", "")
-	if host == "" && name == "" && username == "" && password == "" {
-		return "", nil
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Opaque != "" || (parsed.Scheme != "postgres" && parsed.Scheme != "postgresql") || parsed.Hostname() == "" || strings.Trim(parsed.Path, "/") == "" || parsed.Fragment != "" {
+		return fmt.Errorf("%s must be a valid PostgreSQL URL", key)
 	}
-	if host == "" || strings.ContainsAny(host, " /?#@") || name == "" || strings.ContainsAny(name, "/?#") || username == "" || password == "" {
-		return "", errors.New("DATABASE_HOST, DATABASE_NAME, DATABASE_USER, and DATABASE_PASSWORD must all be valid when DATABASE_URL is not set")
+	query, err := url.ParseQuery(parsed.RawQuery)
+	if err != nil || len(query["sslmode"]) > 1 {
+		return fmt.Errorf("%s must have valid query parameters", key)
 	}
-	port, err := parseInt64(lookup, "DATABASE_PORT", 5432)
-	if err != nil || port < 1 || port > 65535 {
-		return "", errors.New("DATABASE_PORT must be between 1 and 65535")
+	if environment != Production {
+		return nil
 	}
-	sslMode := valueOrDefault(lookup, "DATABASE_SSLMODE", "require")
-	validSSLModes := map[string]bool{"disable": true, "require": true, "verify-ca": true, "verify-full": true}
-	if !validSSLModes[sslMode] || (environment == Production && sslMode == "disable") {
-		return "", errors.New("DATABASE_SSLMODE must be require, verify-ca, or verify-full in production")
+	sslModes := query["sslmode"]
+	if len(sslModes) != 1 || (sslModes[0] != "require" && sslModes[0] != "verify-ca" && sslModes[0] != "verify-full") {
+		return fmt.Errorf("%s must use TLS with sslmode=require, verify-ca, or verify-full in production", key)
 	}
-	connection := &url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(username, password),
-		Host:     net.JoinHostPort(host, strconv.FormatInt(port, 10)),
-		Path:     name,
-		RawQuery: url.Values{"sslmode": []string{sslMode}}.Encode(),
+	return nil
+}
+
+func validateRedisURL(raw string, environment Environment) error {
+	if raw == "" {
+		return nil
 	}
-	return connection.String(), nil
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Opaque != "" || (parsed.Scheme != "redis" && parsed.Scheme != "rediss") || parsed.Hostname() == "" || parsed.Fragment != "" {
+		return errors.New("REDIS_URL must be a valid redis:// or rediss:// URL")
+	}
+	if environment == Production && parsed.Scheme != "rediss" {
+		return errors.New("REDIS_URL must use rediss:// in production")
+	}
+	return nil
 }
 
 func valueOrDefault(lookup Lookup, key, fallback string) string {
@@ -317,13 +316,13 @@ func parseOrigins(raw string, environment Environment) ([]string, error) {
 			return nil, errors.New("CORS_ALLOWED_ORIGINS must not contain a wildcard")
 		}
 		parsed, err := url.Parse(candidate)
-		if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		if err != nil || parsed.Opaque != "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
 			return nil, fmt.Errorf("invalid CORS origin %q", candidate)
 		}
 		if environment == Production && parsed.Scheme != "https" {
 			return nil, fmt.Errorf("production CORS origin %q must use https", candidate)
 		}
-		origin := parsed.Scheme + "://" + parsed.Host
+		origin := strings.ToLower(parsed.Scheme + "://" + parsed.Host)
 		if _, ok := seen[origin]; ok {
 			continue
 		}

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -35,7 +36,7 @@ func TestServeTranslatesFunctionURLRequestAndResponse(t *testing.T) {
 	response, err := New(handler).Serve(context.Background(), events.LambdaFunctionURLRequest{
 		RawPath:         "/v1/test",
 		RawQueryString:  "page=2",
-		Headers:         map[string]string{"host": "example.lambda-url.us-east-1.on.aws", "x-test": "value"},
+		Headers:         map[string]string{"Host": "example.lambda-url.us-east-1.on.aws", "x-test": "value"},
 		Cookies:         []string{"a=1", "b=2"},
 		Body:            base64.StdEncoding.EncodeToString([]byte(`{"ok":true}`)),
 		IsBase64Encoded: true,
@@ -51,6 +52,22 @@ func TestServeTranslatesFunctionURLRequestAndResponse(t *testing.T) {
 	}
 	if len(response.Cookies) != 2 || response.Cookies[0] != "session=one" || response.Cookies[1] != "mode=game" {
 		t.Fatalf("unexpected cookies: %#v", response.Cookies)
+	}
+}
+
+func TestServeRejectsOversizedHeaders(t *testing.T) {
+	_, err := New(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})).Serve(context.Background(), events.LambdaFunctionURLRequest{
+		RawPath: "/",
+		Headers: map[string]string{
+			"host":    "example.lambda-url.us-east-1.on.aws",
+			"x-large": strings.Repeat("x", maxEventHeaderBytes),
+		},
+		RequestContext: events.LambdaFunctionURLRequestContext{HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+			Method: http.MethodGet,
+		}},
+	})
+	if err == nil {
+		t.Fatal("expected oversized headers to fail")
 	}
 }
 

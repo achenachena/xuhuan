@@ -63,9 +63,6 @@ Thumbs.db
 .cursorrules
 CLAUDE.md
 
-# Private configuration
-apps/backend/config/character-roster.json
-
 # Character assets (should be uploaded to Vercel Blob, not committed)
 *.png
 *.jpg
@@ -94,7 +91,3 @@ apps/miniapp/public/sounds/
 # Old/backup files
 **/*-old.*
 **/*.backup.*
-
-# Scripts output and temporary files
-apps/backend/scripts/*.sql
-apps/backend/scripts/*.log

@@ -12,12 +12,10 @@ import (
 	apihttp "github.com/achenachena/xuhuan/apps/api/internal/api"
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
 	"github.com/achenachena/xuhuan/apps/api/internal/battle"
-	"github.com/achenachena/xuhuan/apps/api/internal/character"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/config"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/logging"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/observability"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/ratelimit"
-	"github.com/achenachena/xuhuan/apps/api/internal/player"
 	"github.com/achenachena/xuhuan/apps/api/internal/postgres"
 	"github.com/achenachena/xuhuan/apps/api/migrations"
 	seeddata "github.com/achenachena/xuhuan/apps/api/seed"
@@ -27,9 +25,8 @@ import (
 // warm Lambda invocations.
 type Runtime struct {
 	Handler              http.Handler
-	Database             *postgres.Database
 	Logger               *slog.Logger
-	databaseURL          string
+	database             *postgres.Database
 	migrationDatabaseURL string
 	telemetry            *observability.Telemetry
 	redis                *ratelimit.RedisLimiter
@@ -68,11 +65,12 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 	}
 
 	runtime := &Runtime{
-		Database:             database,
-		Logger:               logger,
-		databaseURL:          cfg.DatabaseURL,
-		migrationDatabaseURL: cfg.DatabaseMigrationURL,
-		telemetry:            telemetry,
+		Logger:    logger,
+		database:  database,
+		telemetry: telemetry,
+	}
+	if cfg.DatabaseMigrationURL != cfg.DatabaseURL {
+		runtime.migrationDatabaseURL = cfg.DatabaseMigrationURL
 	}
 	cleanup := func(cause error) (*Runtime, error) {
 		closeContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -101,9 +99,9 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 		return cleanup(fmt.Errorf("configure authentication: %w", err))
 	}
 
-	playerService := player.NewService(postgres.NewPlayerRepository(database))
-	catalogService := character.NewService(postgres.NewCatalogRepository(database))
-	battleService := battle.NewService(postgres.NewBattleRepository(database, telemetry.Metrics), playerService, catalogService)
+	players := postgres.NewPlayerRepository(database)
+	catalog := postgres.NewCatalogRepository(database)
+	battles := battle.NewService(postgres.NewBattleRepository(database, telemetry.Metrics), players, catalog)
 
 	if cfg.RedisURL != "" {
 		runtime.redis, err = ratelimit.NewRedis(cfg.RedisURL, cfg.RedisTimeout)
@@ -128,22 +126,21 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 			PlayerPolicy: ratelimit.Policy{
 				Limit: cfg.PlayerRateLimit, Window: cfg.RateLimitWindow,
 			},
-			TrustProxy: cfg.TrustProxy,
 		},
 		Metrics:        telemetry.Metrics,
 		TracingEnabled: telemetry.Enabled(),
 		Services: &apihttp.Services{
-			Players: playerService,
-			Catalog: catalogService,
-			Battles: battleService,
+			Players: players,
+			Catalog: catalog,
+			Battles: battles,
 		},
 	})
 	return runtime, nil
 }
 
 func (runtime *Runtime) MigrateAndSeed(ctx context.Context) error {
-	database := runtime.Database
-	if runtime.migrationDatabaseURL != "" && runtime.migrationDatabaseURL != runtime.databaseURL {
+	database := runtime.database
+	if runtime.migrationDatabaseURL != "" {
 		directDatabase, err := postgres.Open(ctx, runtime.migrationDatabaseURL)
 		if err != nil {
 			return fmt.Errorf("connect to migration PostgreSQL endpoint: %w", err)
@@ -161,11 +158,7 @@ func (runtime *Runtime) MigrateAndSeed(ctx context.Context) error {
 }
 
 func (runtime *Runtime) Check(ctx context.Context) error {
-	return runtime.Database.Check(ctx)
-}
-
-func (runtime *Runtime) DataSummary(ctx context.Context) (map[string]int64, error) {
-	return runtime.Database.DataSummary(ctx)
+	return runtime.database.Check(ctx)
 }
 
 func (runtime *Runtime) Close(ctx context.Context) error {
@@ -176,8 +169,8 @@ func (runtime *Runtime) Close(ctx context.Context) error {
 	if runtime.redis != nil {
 		redisErr = runtime.redis.Close()
 	}
-	if runtime.Database != nil {
-		runtime.Database.Close()
+	if runtime.database != nil {
+		runtime.database.Close()
 	}
 	return errors.Join(redisErr, runtime.telemetry.Shutdown(ctx))
 }

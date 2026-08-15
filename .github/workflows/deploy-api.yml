@@ -37,8 +37,8 @@ jobs:
       API_BASE_URL: ${{ vars.API_BASE_URL }}
       RELEASE_SHA: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
@@ -138,7 +138,8 @@ jobs:
               .DATABASE_NAME,
               .DATABASE_USER,
               .DATABASE_PASSWORD,
-              .DATABASE_SSLMODE
+              .DATABASE_SSLMODE,
+              .TRUST_PROXY
             )) + {
               APP_VERSION: $version,
               DATABASE_URL: $database_url,
