@@ -124,6 +124,7 @@ The release is deliberately split:
 2. After production verifies migration, prologue, resume, version conflicts, a full boss clear, story choice, and noise unlock, a separate destructive migration removes V1 HTTP handlers, `battle` code, seed data, presentation types, and old tables.
 
 Stage two must not be bundled into the first deploy because database rollback compatibility is a release safety property.
+The protected `Smoke Production V2` workflow is the stage-two gate: GitHub OIDC reads the Telegram token directly from SSM, signs a synthetic Mini App identity without logging the credential or raw init data, respects production rate-limit headers, and exercises the complete authoritative journey.
 
 ## Verification
 

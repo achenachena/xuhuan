@@ -68,6 +68,8 @@ make e2e-install          # one-time Playwright Chromium install
 make e2e                  # browser → API → PostgreSQL authoritative journey
 ```
 
+合并生产候选版本后，手动运行 GitHub Actions 的 `Smoke Production V2`。该门禁通过 AWS OIDC 临时读取 SSM 中的 bot token，以明确标记的合成 Telegram 身份验证签名认证、断线恢复、Boss、结算剧情和噪声解锁；凭据与原始 `initData` 不会写入日志。
+
 修改 OpenAPI 后重新生成并检查前端类型：
 
 ```sh
@@ -80,7 +82,7 @@ npm run check:api-types --workspace @xuhuan/miniapp
 本次重制使用两阶段发布：
 
 1. `002_story_roguelite.sql` 会按产品决定清空旧玩家与旧玩法数据，添加 V2 表和 API，但保留空的 V1 表及端点，确保旧 Lambda 版本仍能被别名回滚。
-2. V2 Mini App 在生产完成迁移、恢复、Boss 和剧情选择验证后，才会另开迁移删除 V1 API、旧战斗目录、旧种子目录和旧数据库表。
+2. V2 Mini App 在生产通过 `Smoke Production V2` 门禁后，才会另开迁移删除 V1 API、旧战斗目录、旧种子目录和旧数据库表。
 
 不要在第一阶段提前删除 V1 表；那会破坏 Lambda 版本回滚。
 
