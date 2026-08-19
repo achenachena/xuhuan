@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Roboto } from "next/font/google";
 
 import "./globals.css";
 import TelegramWebAppProvider from "@/components/providers/telegram-webapp-provider";
@@ -7,16 +6,9 @@ import LocaleProvider from "@/components/providers/locale-provider";
 import { AudioProvider } from "@/components/providers/audio-provider";
 import { env } from "@/lib/env";
 
-const roboto = Roboto({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-roboto",
-  display: "swap"
-});
-
 export const metadata: Metadata = {
-  title: "虚环 Mini",
-  description: "A Telegram mini app roguelike experience inspired by 虚环."
+  title: "虚环：仅一人在线",
+  description: "A server-authoritative story card roguelite for Telegram."
 };
 
 export const viewport = {
@@ -30,7 +22,7 @@ export const viewport = {
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   const defaultLanguage = env.NEXT_PUBLIC_DEFAULT_LANGUAGE;
   return (
-    <html lang={defaultLanguage} className={roboto.variable}>
+    <html lang={defaultLanguage}>
       <head>
         <meta name="telegram-mini-app" content="true" />
       </head>

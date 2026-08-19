@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 html, body {
@@ -15,12 +15,18 @@ html, body {
 }
 
 body {
-  @apply bg-telegram-bg text-telegram-text antialiased;
+  @apply bg-[#080d18] text-white antialiased;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overscroll-behavior: none;
 }
 
 #__next {
   width: 100%;
   min-height: 100vh;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Custom scrollbar styles */
@@ -40,4 +46,3 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(168, 85, 247, 0.7);
 }
-

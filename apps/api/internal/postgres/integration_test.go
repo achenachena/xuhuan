@@ -2,16 +2,21 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
 
-	"errors"
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
 	"github.com/achenachena/xuhuan/apps/api/internal/battle"
+	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
+	"github.com/achenachena/xuhuan/apps/api/internal/progression"
 	"github.com/achenachena/xuhuan/apps/api/internal/repository"
+	gameRun "github.com/achenachena/xuhuan/apps/api/internal/run"
 	"github.com/achenachena/xuhuan/apps/api/migrations"
 	seeddata "github.com/achenachena/xuhuan/apps/api/seed"
 	"github.com/jackc/pgx/v5"
@@ -65,7 +70,7 @@ func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
 	}
 
 	expectedCounts := map[string]int{
-		"schema_migrations":   1,
+		"schema_migrations":   2,
 		"players":             0,
 		"characters":          7,
 		"encounters":          2,
@@ -74,6 +79,11 @@ func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
 		"idempotency_records": 0,
 		"player_ledger":       0,
 		"admin_audit_events":  0,
+		"player_progress":     0,
+		"player_unlocks":      0,
+		"story_choices":       0,
+		"runs":                0,
+		"run_commands":        0,
 	}
 	for table, expected := range expectedCounts {
 		var count int
@@ -299,5 +309,124 @@ func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
 	}
 	if rollbackStatus != "active" || rollbackVersion != 1 || actionCount != 0 {
 		t.Fatalf("rollback status=%s version=%d actions=%d", rollbackStatus, rollbackVersion, actionCount)
+	}
+
+	progressRepository := NewProgressionRepository(database)
+	progress, err := progressRepository.GetOrCreate(ctx, created.ID)
+	if err != nil || progress.Version != 1 || !progression.HasUnlock(progress, "character", "nana7mi") {
+		t.Fatalf("initial V2 progress=%#v error=%v", progress, err)
+	}
+	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
+	prologue, ok := catalog.Scene("prologue-last-viewer")
+	if !ok {
+		t.Fatal("prologue content is missing")
+	}
+	choiceHash := sha256.Sum256([]byte("prologue-choice"))
+	chosen, replayed, err := progressRepository.Choose(ctx, progression.ChooseInput{
+		PlayerID: created.ID, Scene: prologue, Option: prologue.Options[0], ExpectedVersion: 1,
+		IdempotencyKey: "story-choice-0001", RequestHash: choiceHash,
+	})
+	if err != nil || replayed || chosen.Version != 2 || len(chosen.Choices) != 1 {
+		t.Fatalf("story choice=%#v replayed=%t error=%v", chosen, replayed, err)
+	}
+	replayedChoice, replayed, err := progressRepository.Choose(ctx, progression.ChooseInput{
+		PlayerID: created.ID, Scene: prologue, Option: prologue.Options[0], ExpectedVersion: 1,
+		IdempotencyKey: "story-choice-0001", RequestHash: choiceHash,
+	})
+	if err != nil || !replayed || replayedChoice.Version != 2 {
+		t.Fatalf("story replay=%#v replayed=%t error=%v", replayedChoice, replayed, err)
+	}
+
+	runState, err := gameRun.NewState(gameRun.StartInput{
+		ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", NoiseLevel: 0,
+		Seed: "integration-seed-0000000000000001",
+	}, catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runRepository := NewRunRepository(database)
+	startHash := sha256.Sum256([]byte("start-run"))
+	createdRun, replayed, err := runRepository.Create(ctx, gameRun.CreateInput{
+		PlayerID: created.ID, ContentVersion: gamecontent.CurrentVersion,
+		Seed: "integration-seed-0000000000000001", State: runState,
+		IdempotencyKey: "start-run-0001", RequestHash: startHash,
+	})
+	if err != nil || replayed || createdRun.Version != 1 {
+		t.Fatalf("create run=%#v replayed=%t error=%v", createdRun, replayed, err)
+	}
+	if _, _, err := runRepository.Create(ctx, gameRun.CreateInput{
+		PlayerID: created.ID, ContentVersion: gamecontent.CurrentVersion,
+		Seed: "integration-seed-0000000000000002", State: runState,
+		IdempotencyKey: "start-run-0002", RequestHash: sha256.Sum256([]byte("second-run")),
+	}); !errors.Is(err, gameRun.ErrActiveRunExists) {
+		t.Fatalf("second active run error=%v", err)
+	}
+	resolve := func(current gameRun.GameRun, command gameRun.Command) (gameRun.Resolution, *gameRun.Outcome, error) {
+		return gameRun.Apply(current.State, current.Seed, command, catalog)
+	}
+	commandHash := sha256.Sum256([]byte("choose-l1-a"))
+	firstCommand, replayed, err := runRepository.Apply(ctx, gameRun.ApplyInput{
+		PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.ChooseNode, NodeID: "l1-a"},
+		ExpectedVersion: 1, IdempotencyKey: "run-command-0001", RequestHash: commandHash,
+	}, resolve)
+	if err != nil || replayed || firstCommand.Run.Version != 2 || firstCommand.Run.State.Phase != gameRun.CombatPhase {
+		t.Fatalf("first run command=%#v replayed=%t error=%v", firstCommand, replayed, err)
+	}
+	replayedCommand, replayed, err := runRepository.Apply(ctx, gameRun.ApplyInput{
+		PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.ChooseNode, NodeID: "l1-a"},
+		ExpectedVersion: 1, IdempotencyKey: "run-command-0001", RequestHash: commandHash,
+	}, resolve)
+	if err != nil || !replayed || replayedCommand.Run.Version != 2 {
+		t.Fatalf("run replay=%#v replayed=%t error=%v", replayedCommand, replayed, err)
+	}
+
+	concurrentRunErrors := make([]error, 2)
+	for index := range 2 {
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			_, _, concurrentRunErrors[index] = runRepository.Apply(context.Background(), gameRun.ApplyInput{
+				PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.EndTurn},
+				ExpectedVersion: 2, IdempotencyKey: fmt.Sprintf("run-concurrent-%d", index),
+				RequestHash: sha256.Sum256([]byte(fmt.Sprintf("end-turn-%d", index))),
+			}, resolve)
+		}()
+	}
+	waitGroup.Wait()
+	runSuccesses, runConflicts := 0, 0
+	for _, concurrentErr := range concurrentRunErrors {
+		if concurrentErr == nil {
+			runSuccesses++
+		} else if errors.Is(concurrentErr, gameRun.ErrVersionConflict) {
+			runConflicts++
+		} else {
+			t.Fatalf("unexpected concurrent run error=%v", concurrentErr)
+		}
+	}
+	if runSuccesses != 1 || runConflicts != 1 {
+		t.Fatalf("concurrent run successes=%d conflicts=%d errors=%v", runSuccesses, runConflicts, concurrentRunErrors)
+	}
+
+	beforeRollback, err := runRepository.Get(ctx, created.ID, createdRun.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollbackError := errors.New("forced resolver rollback")
+	if _, _, err := runRepository.Apply(ctx, gameRun.ApplyInput{
+		PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.EndTurn},
+		ExpectedVersion: beforeRollback.Version, IdempotencyKey: "run-rollback-0001",
+		RequestHash: sha256.Sum256([]byte("rollback")),
+	}, func(gameRun.GameRun, gameRun.Command) (gameRun.Resolution, *gameRun.Outcome, error) {
+		return gameRun.Resolution{}, nil, rollbackError
+	}); !errors.Is(err, rollbackError) {
+		t.Fatalf("rollback resolver error=%v", err)
+	}
+	afterRollback, err := runRepository.Get(ctx, created.ID, createdRun.ID)
+	if err != nil || afterRollback.Version != beforeRollback.Version || !reflect.DeepEqual(afterRollback.State, beforeRollback.State) {
+		t.Fatalf("run rollback before=%#v after=%#v error=%v", beforeRollback, afterRollback, err)
+	}
+	activeRun, err := runRepository.GetActive(ctx, created.ID)
+	if err != nil || activeRun == nil || activeRun.ID != createdRun.ID || activeRun.Version != beforeRollback.Version {
+		t.Fatalf("disconnect recovery run=%#v error=%v", activeRun, err)
 	}
 }

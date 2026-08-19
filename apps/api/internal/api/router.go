@@ -81,6 +81,9 @@ func newRouter(dependencies Dependencies, register func(chi.Router, func(http.Ha
 	})
 	if dependencies.Services != nil {
 		registerV1Routes(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics), dependencies.RateLimit, *dependencies.Services, dependencies.Logger, dependencies.Metrics)
+		if dependencies.Services.Game != nil {
+			registerV2Routes(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics), dependencies.RateLimit, dependencies.Services.Game, dependencies.Logger)
+		}
 	}
 
 	if register != nil {

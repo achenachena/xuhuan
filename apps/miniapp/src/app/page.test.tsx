@@ -1,225 +1,140 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APIError, type APIBattle, type APIBattleActionResponse } from "@/lib/api/client";
-import { toPresentationCharacter } from "@/lib/api/presentation";
-import { createTestBattle, testCharacter, testEncounter } from "@/test/fixtures";
+import type { APIGameContent, APIGameRun, APIGameSnapshot } from "@/lib/api/client";
 
 const dependencies = vi.hoisted(() => ({
-  startBattle: vi.fn(),
-  submitAction: vi.fn(),
-  refreshBattle: vi.fn(),
-  mutatePlayer: vi.fn(),
-  resetStart: vi.fn(),
-  resetAction: vi.fn(),
-  playSound: vi.fn(),
-  playBGM: vi.fn(),
-  stopBGM: vi.fn()
+  getGameContent: vi.fn(),
+  getGame: vi.fn(),
+  createRun: vi.fn(),
+  getRun: vi.fn(),
+  createRunCommand: vi.fn(),
+  createStoryChoice: vi.fn()
 }));
 
+vi.mock("@/lib/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/client")>()),
+  ...dependencies,
+  createIdempotencyKey: () => "11111111-1111-4111-8111-111111111111"
+}));
 vi.mock("@/components/providers/use-locale", () => ({
-  default: () => ({
-    translate: (key: string) => key,
-    isReady: true,
-    language: "zh-CN"
-  })
+  default: () => ({ translate: (key: string) => key, isReady: true, language: "zh-CN" })
 }));
-vi.mock("@/components/providers/audio-provider", () => ({
-  useAudio: () => ({
-    playSound: dependencies.playSound,
-    playBGM: dependencies.playBGM,
-    stopBGM: dependencies.stopBGM
-  })
-}));
-vi.mock("@/hooks/use-telegram-theme", () => ({
-  default: () => ({ themeParams: {} })
-}));
-vi.mock("@/hooks/use-characters", () => ({
-  useEncounters: () => ({
-    encounters: [testEncounter],
-    isLoading: false,
-    error: undefined
-  })
-}));
-vi.mock("@/hooks/use-player", () => ({
-  usePlayerProfile: () => ({
-    player: { level: 1, credits: 0, energy: 120 },
-    mutatePlayer: dependencies.mutatePlayer
-  }),
-  useStartBattle: () => ({
-    startBattle: dependencies.startBattle,
-    isMutating: false,
-    reset: dependencies.resetStart
-  }),
-  useBattleAction: () => ({
-    submitAction: dependencies.submitAction,
-    isMutating: false,
-    reset: dependencies.resetAction
-  }),
-  useAuthoritativeBattle: () => ({ refreshBattle: dependencies.refreshBattle })
-}));
-vi.mock("@/components/character-select", () => ({
-  default: ({
-    onCharacterSelected
-  }: {
-    onCharacterSelected: (character: ReturnType<typeof toPresentationCharacter>) => void;
-  }) => (
-    <button type="button" onClick={() => onCharacterSelected(toPresentationCharacter(testCharacter))}>
-      choose-character
-    </button>
-  )
-}));
-vi.mock("@/components/battle-arena", () => ({
-  default: ({ turn }: { turn: number }) => <div>authoritative-turn-{turn}</div>
-}));
-vi.mock("@/components/reward-modal", () => ({
-  default: ({ open, outcome, onClose }: { open: boolean; outcome: string; onClose: () => void }) =>
-    open ? (
-      <div role="dialog">
-        reward-{outcome}
-        <button type="button" onClick={onClose}>
-          close-reward
-        </button>
-      </div>
-    ) : null
+vi.mock("next/image", () => ({
+  default: ({ alt }: { alt?: string }) => alt ? <span role="img" aria-label={alt} /> : <span />
 }));
 
 import HomePage from "@/app/page";
+import { APIError } from "@/lib/api/client";
 
-type Deferred<T> = {
-  readonly promise: Promise<T>;
-  readonly resolve: (value: T) => void;
+const content: APIGameContent = {
+  version: "v1",
+  locale: "zh-CN",
+  characters: [{ slug: "nana7mi", name: "七海", biography: "数字分身", playstyle: "航线循环", color_theme: "#67e8f9", portrait_url: "/nana.png", model_url: "/nana.png", available: true }],
+  cards: [{ slug: "forward-signal", character_slug: "nana7mi", name: "向前发送", description: "造成6点伤害。", type: "attack", target: "enemy", rarity: "starter", cost: 1, starter_copies: 3, exhaust: false, unplayable: false, effects: [{ kind: "damage", amount: 6 }] }],
+  enemies: [{ slug: "retention-drone", name: "留存无人机", description: "测试敌人", kind: "normal", max_health: 28, color_theme: "#f43f5e", image_url: "/game/v1/enemy.webp", intents: [{ slug: "measure", name: "测量", description: "造成5点伤害", effects: [{ kind: "damage_player", amount: 5 }] }] }],
+  relics: [],
+  events: [],
+  scenes: [{ slug: "prologue-last-viewer", title: "最后一位观众", messages: [{ sender: "system", kind: "system", text: "检测到仅一位观众在线。" }], options: [{ slug: "answer", label: "回复七海" }] }],
+  chapters: [{ slug: "seventh-dock", title: "第七码头没有海", subtitle: "找回非标准的七海", character_slug: "nana7mi", available: true }]
 };
 
-const deferred = <T,>(): Deferred<T> => {
-  let resolvePromise: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((resolve) => {
-    resolvePromise = resolve;
-  });
-  return { promise, resolve: resolvePromise };
+const baseState: APIGameRun["state"] = {
+  phase: "map",
+  chapter_slug: "seventh-dock",
+  character_slug: "nana7mi",
+  noise_level: 0,
+  health: 64,
+  max_health: 64,
+  deck: [{ id: "deck-1", slug: "forward-signal" }],
+  relics: [],
+  map: { nodes: [{ id: "l1-a", layer: 1, lane: 0, type: "combat", status: "available", next: [], enemy_slugs: ["retention-drone"] }] },
+  choice_tags: [],
+  next_card_sequence: 2,
+  rng_cursor: 1
 };
 
-const enterBattle = async (battle: APIBattle = createTestBattle()): Promise<void> => {
-  dependencies.startBattle.mockResolvedValueOnce(battle);
-  render(<HomePage />);
-  fireEvent.click(screen.getByRole("button", { name: "choose-character" }));
-  await screen.findByText(`authoritative-turn-${battle.turn}`);
-};
+const createRun = (overrides: Partial<APIGameRun> = {}): APIGameRun => ({
+  id: "10000000-0000-4000-8000-000000000001",
+  content_version: "v1",
+  state: baseState,
+  status: "active",
+  outcome: null,
+  version: 1,
+  created_at: "2026-08-18T12:00:00Z",
+  updated_at: "2026-08-18T12:00:00Z",
+  completed_at: null,
+  ...overrides
+});
 
-describe("authoritative battle page", () => {
+const createGame = (overrides: Partial<APIGameSnapshot> = {}): APIGameSnapshot => ({
+  player: { id: "20000000-0000-4000-8000-000000000002", display_name: "Viewer One", language_code: "zh-CN" },
+  progress: { current_chapter_slug: "seventh-dock", highest_noise_level: 0, story_version: 1, version: 1, unlocks: [], choices: [] },
+  active_run: null,
+  pending_scene_slug: null,
+  ...overrides
+});
+
+describe("story roguelite page", () => {
   beforeEach(() => {
     Object.values(dependencies).forEach((mock) => mock.mockReset());
+    dependencies.getGameContent.mockResolvedValue(content);
   });
 
-  it("prevents duplicate battle starts and duplicate action submissions", async () => {
-    const pendingStart = deferred<APIBattle>();
-    dependencies.startBattle.mockReturnValue(pendingStart.promise);
+  it("plays a pending story scene before showing the run hub", async () => {
+    dependencies.getGame.mockResolvedValue(createGame({ pending_scene_slug: "prologue-last-viewer" }));
+    dependencies.createStoryChoice.mockResolvedValue({ progress: createGame().progress, pending_scene_slug: null });
+
+    render(<HomePage />);
+    expect(await screen.findByText("检测到仅一位观众在线。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "回复七海" }));
+
+    await waitFor(() => expect(dependencies.createStoryChoice).toHaveBeenCalledWith(
+      { scene_slug: "prologue-last-viewer", option_slug: "answer", expected_version: 1 },
+      "11111111-1111-4111-8111-111111111111"
+    ));
+    expect(await screen.findByRole("button", { name: /接入第七码头/ })).toBeInTheDocument();
+  });
+
+  it("starts a run and immediately renders its authoritative map", async () => {
+    dependencies.getGame.mockResolvedValue(createGame());
+    dependencies.createRun.mockResolvedValue(createRun());
+
+    render(<HomePage />);
+    fireEvent.click(await screen.findByRole("button", { name: /接入第七码头/ }));
+
+    await waitFor(() => expect(dependencies.createRun).toHaveBeenCalledWith(
+      { chapter_slug: "seventh-dock", character_slug: "nana7mi", noise_level: 0 },
+      "11111111-1111-4111-8111-111111111111"
+    ));
+    expect(await screen.findByRole("img", { name: "频道拓扑" })).toBeInTheDocument();
+  });
+
+  it("restores an unfinished run without using browser storage", async () => {
+    dependencies.getGame.mockResolvedValue(createGame({ active_run: createRun() }));
+
     render(<HomePage />);
 
-    const select = screen.getByRole("button", { name: "choose-character" });
-    fireEvent.click(select);
-    fireEvent.click(select);
-    expect(dependencies.startBattle).toHaveBeenCalledOnce();
-
-    pendingStart.resolve(createTestBattle());
-    await screen.findByText("authoritative-turn-1");
-
-    const pendingAction = deferred<APIBattleActionResponse>();
-    dependencies.submitAction.mockReturnValue(pendingAction.promise);
-    const lightAttack = screen.getByRole("button", {
-      name: /actions\.lightAttack\.title/
-    });
-    fireEvent.click(lightAttack);
-    fireEvent.click(lightAttack);
-    expect(dependencies.submitAction).toHaveBeenCalledOnce();
-
-    pendingAction.resolve({
-      battle: createTestBattle({ version: 2, turn: 2 }),
-      result: { sequence: 1, events: [] }
-    });
-    await screen.findByText("authoritative-turn-2", {}, { timeout: 2_000 });
+    expect(await screen.findByRole("img", { name: "频道拓扑" })).toBeInTheDocument();
+    expect(dependencies.createRun).not.toHaveBeenCalled();
   });
 
-  it("refreshes the authoritative battle after a version conflict", async () => {
-    await enterBattle();
-    dependencies.submitAction.mockRejectedValueOnce(
-      new APIError(409, "version_conflict", "The battle state has changed", "request-1")
-    );
-    dependencies.refreshBattle.mockResolvedValueOnce(createTestBattle({ version: 2, turn: 2 }));
+  it("submits expected_version and resynchronizes after a conflict", async () => {
+    const run = createRun();
+    dependencies.getGame.mockResolvedValue(createGame({ active_run: run }));
+    dependencies.createRunCommand.mockRejectedValueOnce(new APIError(409, "version_conflict", "changed"));
+    dependencies.getRun.mockResolvedValue(createRun({ version: 2 }));
 
-    fireEvent.click(screen.getByRole("button", { name: /actions\.lightAttack\.title/ }));
+    render(<HomePage />);
+    const node = await screen.findByRole("button", { name: /冲突 available/ });
+    fireEvent.click(node);
 
-    await waitFor(() => expect(dependencies.refreshBattle).toHaveBeenCalledOnce());
-    expect(await screen.findByText("authoritative-turn-2")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("战斗状态已更新");
-  });
-
-  it.each([
-    ["actions.heavyAttack.title", "heavy_attack"],
-    ["actions.specialMove.title", "special_move"],
-    ["actions.block.title", "block"],
-    ["battle.heroAction.counter", "counter"]
-  ] as const)("maps %s to the authoritative %s action", async (buttonName, apiAction) => {
-    await enterBattle();
-    dependencies.submitAction.mockReturnValueOnce(new Promise(() => undefined));
-
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(buttonName) }));
-
-    expect(dependencies.submitAction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        battleId: createTestBattle().id,
-        action: apiAction,
-        expectedVersion: 1,
-        idempotencyKey: expect.any(String)
-      })
-    );
-  });
-
-  it("keeps the special move disabled until the server meter reaches its cost", async () => {
-    const battle = createTestBattle({
-      hero: {
-        ...createTestBattle().hero,
-        special_meter: 49
-      }
-    });
-    await enterBattle(battle);
-
-    const specialMove = screen.getByRole("button", {
-      name: /actions\.specialMove\.title/
-    });
-    expect(specialMove).toBeDisabled();
-    fireEvent.click(specialMove);
-    expect(dependencies.submitAction).not.toHaveBeenCalled();
-  });
-
-  it("shows defeat, stops battle audio, and resets back to character selection", async () => {
-    await enterBattle();
-    dependencies.submitAction.mockResolvedValueOnce({
-      battle: createTestBattle({
-        status: "completed",
-        outcome: "defeat",
-        version: 2,
-        turn: 2,
-        hero: {
-          ...createTestBattle().hero,
-          current_health: 0
-        },
-        rewards: null,
-        completed_at: "2026-08-06T12:01:00Z"
-      }),
-      result: { sequence: 1, events: [] }
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /actions\.lightAttack\.title/ }));
-
-    expect(await screen.findByRole("dialog", {}, { timeout: 2_000 })).toHaveTextContent("reward-defeat");
-    expect(dependencies.stopBGM).toHaveBeenCalledOnce();
-    expect(dependencies.playSound).toHaveBeenCalledWith("defeat");
-
-    fireEvent.click(screen.getByRole("button", { name: "close-reward" }));
-    expect(await screen.findByRole("button", { name: "choose-character" })).toBeInTheDocument();
-    expect(dependencies.resetStart).toHaveBeenCalledOnce();
-    expect(dependencies.resetAction).toHaveBeenCalledOnce();
-    expect(dependencies.playBGM).toHaveBeenLastCalledWith("select", true);
+    await waitFor(() => expect(dependencies.createRunCommand).toHaveBeenCalledWith(
+      run.id,
+      { type: "choose_node", node_id: "l1-a", expected_version: 1 },
+      "11111111-1111-4111-8111-111111111111"
+    ));
+    await waitFor(() => expect(dependencies.getRun).toHaveBeenCalledWith(run.id));
+    expect(screen.queryByText("连接失败；服务器状态没有丢失。")).not.toBeInTheDocument();
   });
 });

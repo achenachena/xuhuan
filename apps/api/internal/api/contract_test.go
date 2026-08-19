@@ -44,6 +44,10 @@ func TestResponsesMatchOpenAPIContract(t *testing.T) {
 			path: "/v1/player", status: http.StatusUnauthorized,
 		},
 		{
+			name: "v2 content", router: func() http.Handler { router, _ := v2TestRouter(t); return router }(),
+			method: http.MethodGet, path: "/v2/content/v1?locale=zh-CN", status: http.StatusOK,
+		},
+		{
 			name: "battle created", router: battleAPIRouter(t), method: http.MethodPost,
 			path: "/v1/battles", status: http.StatusCreated, auth: true,
 		},
@@ -77,7 +81,11 @@ func TestResponsesMatchOpenAPIContract(t *testing.T) {
 
 func validateContractResponse(t *testing.T, document *openapi3.T, path, method string, response *httptest.ResponseRecorder) {
 	t.Helper()
-	pathItem := document.Paths.Find(path)
+	contractPath := strings.SplitN(path, "?", 2)[0]
+	if strings.HasPrefix(contractPath, "/v2/content/") {
+		contractPath = "/v2/content/{version}"
+	}
+	pathItem := document.Paths.Find(contractPath)
 	if pathItem == nil {
 		t.Fatalf("OpenAPI path %q missing", path)
 	}
