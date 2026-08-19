@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/achenachena/xuhuan/apps/api/internal/combat"
+	"github.com/achenachena/xuhuan/apps/api/internal/action"
 )
 
 var (
@@ -37,7 +37,7 @@ type Phase string
 
 const (
 	MapPhase       Phase = "map"
-	CombatPhase    Phase = "combat"
+	EncounterPhase Phase = "encounter"
 	RewardPhase    Phase = "reward"
 	EventPhase     Phase = "event"
 	RestPhase      Phase = "rest"
@@ -47,12 +47,13 @@ const (
 type NodeType string
 
 const (
-	CombatNode NodeType = "combat"
-	EliteNode  NodeType = "elite"
-	EventNode  NodeType = "event"
-	StoryNode  NodeType = "story"
-	RestNode   NodeType = "rest"
-	BossNode   NodeType = "boss"
+	CombatNode   NodeType = "combat"
+	EliteNode    NodeType = "elite"
+	EventNode    NodeType = "event"
+	StoryNode    NodeType = "story"
+	RestNode     NodeType = "rest"
+	BossNode     NodeType = "boss"
+	TutorialNode NodeType = "tutorial"
 )
 
 type NodeStatus string
@@ -65,42 +66,53 @@ const (
 )
 
 type MapNode struct {
-	ID         string     `json:"id"`
-	Layer      int        `json:"layer"`
-	Lane       int        `json:"lane"`
-	Type       NodeType   `json:"type"`
-	Status     NodeStatus `json:"status"`
-	Next       []string   `json:"next"`
-	EnemySlugs []string   `json:"enemy_slugs,omitempty"`
-	EventSlug  string     `json:"event_slug,omitempty"`
+	ID            string     `json:"id"`
+	Layer         int        `json:"layer"`
+	Lane          int        `json:"lane"`
+	Type          NodeType   `json:"type"`
+	Status        NodeStatus `json:"status"`
+	Next          []string   `json:"next"`
+	EncounterSlug string     `json:"encounter_slug,omitempty"`
+	EventSlug     string     `json:"event_slug,omitempty"`
 }
-
 type MapState struct {
 	Nodes         []MapNode `json:"nodes"`
 	CurrentNodeID string    `json:"current_node_id,omitempty"`
 }
-
+type ModuleLevel struct {
+	Slug  string `json:"slug"`
+	Level int    `json:"level"`
+}
+type EncounterState struct {
+	Slug          string `json:"slug"`
+	Seed          string `json:"seed"`
+	Kind          string `json:"kind"`
+	DurationTicks int    `json:"duration_ticks"`
+	MaxTicks      int    `json:"max_ticks"`
+	Tutorial      bool   `json:"tutorial"`
+}
 type RewardState struct {
-	CardChoices  []string `json:"card_choices"`
-	GrantedRelic string   `json:"granted_relic,omitempty"`
+	ModuleChoices []string `json:"module_choices"`
+	GrantedPlugin string   `json:"granted_plugin,omitempty"`
 }
 
 type State struct {
-	Phase            Phase                 `json:"phase"`
-	ChapterSlug      string                `json:"chapter_slug"`
-	CharacterSlug    string                `json:"character_slug"`
-	NoiseLevel       int                   `json:"noise_level"`
-	Health           int                   `json:"health"`
-	MaxHealth        int                   `json:"max_health"`
-	Deck             []combat.CardInstance `json:"deck"`
-	Relics           []string              `json:"relics"`
-	Map              MapState              `json:"map"`
-	Combat           *combat.State         `json:"combat,omitempty"`
-	Reward           *RewardState          `json:"reward,omitempty"`
-	CurrentEventSlug string                `json:"current_event_slug,omitempty"`
-	ChoiceTags       []string              `json:"choice_tags"`
-	NextCardSequence int                   `json:"next_card_sequence"`
-	RNGCursor        uint64                `json:"rng_cursor"`
+	Phase                       Phase           `json:"phase"`
+	ChapterSlug                 string          `json:"chapter_slug"`
+	CharacterSlug               string          `json:"character_slug"`
+	WeaponSlug                  string          `json:"weapon_slug"`
+	NoiseLevel                  int             `json:"noise_level"`
+	Health                      int             `json:"health"`
+	MaxHealth                   int             `json:"max_health"`
+	Modules                     []ModuleLevel   `json:"modules"`
+	Plugins                     []string        `json:"plugins"`
+	Map                         MapState        `json:"map"`
+	Encounter                   *EncounterState `json:"encounter,omitempty"`
+	Reward                      *RewardState    `json:"reward,omitempty"`
+	CurrentEventSlug            string          `json:"current_event_slug,omitempty"`
+	ChoiceTags                  []string        `json:"choice_tags"`
+	RNGCursor                   uint64          `json:"rng_cursor"`
+	EmergencyReconnectAvailable bool            `json:"emergency_reconnect_available"`
 }
 
 type GameRun struct {
@@ -120,46 +132,42 @@ type GameRun struct {
 type CommandType string
 
 const (
-	ChooseNode       CommandType = "choose_node"
-	PlayCard         CommandType = "play_card"
-	EndTurn          CommandType = "end_turn"
-	ChooseCardReward CommandType = "choose_card_reward"
-	ResolveEvent     CommandType = "resolve_event"
-	Rest             CommandType = "rest"
-	AbandonRun       CommandType = "abandon_run"
+	ChooseNode         CommandType = "choose_node"
+	CompleteEncounter  CommandType = "complete_encounter"
+	ChooseModuleReward CommandType = "choose_module_reward"
+	ResolveEvent       CommandType = "resolve_event"
+	Rest               CommandType = "rest"
+	AbandonRun         CommandType = "abandon_run"
 )
 
 type Command struct {
-	Type           CommandType `json:"type"`
-	NodeID         string      `json:"node_id,omitempty"`
-	CardInstanceID string      `json:"card_instance_id,omitempty"`
-	TargetID       string      `json:"target_id,omitempty"`
-	ChoiceSlug     string      `json:"choice_slug,omitempty"`
-	Operation      string      `json:"operation,omitempty"`
+	Type       CommandType        `json:"type"`
+	NodeID     string             `json:"node_id,omitempty"`
+	ChoiceSlug string             `json:"choice_slug,omitempty"`
+	ModuleSlug string             `json:"module_slug,omitempty"`
+	Operation  string             `json:"operation,omitempty"`
+	Trace      *action.InputTrace `json:"trace,omitempty"`
 }
-
 type Event struct {
-	Kind      string        `json:"kind"`
-	NodeID    string        `json:"node_id,omitempty"`
-	CardSlug  string        `json:"card_slug,omitempty"`
-	RelicSlug string        `json:"relic_slug,omitempty"`
-	ChoiceTag string        `json:"choice_tag,omitempty"`
-	Amount    int           `json:"amount,omitempty"`
-	Combat    *combat.Event `json:"combat,omitempty"`
+	Kind            string         `json:"kind"`
+	NodeID          string         `json:"node_id,omitempty"`
+	ModuleSlug      string         `json:"module_slug,omitempty"`
+	PluginSlug      string         `json:"plugin_slug,omitempty"`
+	ChoiceTag       string         `json:"choice_tag,omitempty"`
+	Amount          int            `json:"amount,omitempty"`
+	EncounterResult *action.Result `json:"encounter_result,omitempty"`
 }
-
 type Resolution struct {
 	State  State   `json:"state"`
 	Events []Event `json:"events"`
 }
-
 type StartInput struct {
-	ChapterSlug   string
-	CharacterSlug string
-	NoiseLevel    int
-	Seed          string
+	ChapterSlug                 string
+	CharacterSlug               string
+	NoiseLevel                  int
+	Seed                        string
+	EmergencyReconnectAvailable bool
 }
-
 type CreateInput struct {
 	PlayerID       string
 	ContentVersion string
@@ -168,7 +176,6 @@ type CreateInput struct {
 	IdempotencyKey string
 	RequestHash    [32]byte
 }
-
 type ApplyInput struct {
 	PlayerID        string
 	RunID           string
@@ -177,14 +184,11 @@ type ApplyInput struct {
 	IdempotencyKey  string
 	RequestHash     [32]byte
 }
-
 type CommandResponse struct {
 	Run    GameRun `json:"run"`
 	Events []Event `json:"events"`
 }
-
 type Resolver func(GameRun, Command) (Resolution, *Outcome, error)
-
 type Repository interface {
 	Create(context.Context, CreateInput) (GameRun, bool, error)
 	Get(context.Context, string, string) (GameRun, error)

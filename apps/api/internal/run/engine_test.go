@@ -1,108 +1,168 @@
 package run
 
 import (
-	"reflect"
+	"encoding/base64"
 	"testing"
 
+	"github.com/achenachena/xuhuan/apps/api/internal/action"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 )
 
-func newTestState(t *testing.T, seed string, noise int) State {
-	t.Helper()
-	state, err := NewState(StartInput{ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", NoiseLevel: noise, Seed: seed}, gamecontent.MustLoad(gamecontent.CurrentVersion))
+func autopilotTrace(ticks int) action.InputTrace {
+	controls := make([]byte, ticks)
+	route := []byte{0, 4, 8, 12}
+	for tick := range ticks {
+		control := route[(tick/45)%len(route)] | 0x30
+		if tick%210 == 1 {
+			control |= 0x40
+		}
+		controls[tick] = control
+	}
+	raw := make([]byte, 0, ticks/20)
+	for index := 0; index < len(controls); {
+		count := 1
+		for index+count < len(controls) && controls[index+count] == controls[index] && count < 255 {
+			count++
+		}
+		raw = append(raw, controls[index], byte(count))
+		index += count
+	}
+	return action.InputTrace{Encoding: action.TraceEncodingRLE, Ticks: ticks, Data: base64.RawStdEncoding.EncodeToString(raw)}
+}
+
+func TestNewRunStartsInsideTutorial(t *testing.T) {
+	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
+	state, err := NewState(StartInput{ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", Seed: "0123456789abcdef", EmergencyReconnectAvailable: true}, catalog)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return state
+	if state.Phase != EncounterPhase || state.Encounter == nil || !state.Encounter.Tutorial || state.Map.CurrentNodeID != "tutorial" {
+		t.Fatalf("state = %#v", state)
+	}
+	if len(state.Map.Nodes) != 10 {
+		t.Fatalf("nodes = %d", len(state.Map.Nodes))
+	}
 }
 
-func TestMapGenerationIsDeterministicAndReachable(t *testing.T) {
-	first := newTestState(t, "map-seed", 1)
-	second := newTestState(t, "map-seed", 1)
-	if first.Relics == nil || first.ChoiceTags == nil {
-		t.Fatal("new run must serialize empty collections as arrays")
+func TestTutorialCompletionOffersThreeBuildCores(t *testing.T) {
+	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
+	state, err := NewState(StartInput{ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", Seed: "0123456789abcdef", EmergencyReconnectAvailable: true}, catalog)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(first.Map, second.Map) {
-		t.Fatal("same seed produced different maps")
+	trace := autopilotTrace(state.Encounter.MaxTicks)
+	resolution, outcome, err := Apply(state, "0123456789abcdef", Command{Type: CompleteEncounter, Trace: &trace}, catalog)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(first.Map.Nodes) != 12 {
-		t.Fatalf("nodes = %d, want 12", len(first.Map.Nodes))
+	if outcome != nil || resolution.State.Phase != RewardPhase || resolution.State.Reward == nil {
+		t.Fatalf("resolution = %#v outcome=%v", resolution, outcome)
 	}
-	for _, node := range first.Map.Nodes {
-		if node.Next == nil {
-			t.Fatalf("node %s must serialize next as an array", node.ID)
+	want := []string{"route-needle", "near-miss-cache", "soft-firewall"}
+	for index, slug := range want {
+		if resolution.State.Reward.ModuleChoices[index] != slug {
+			t.Fatalf("choices = %#v", resolution.State.Reward.ModuleChoices)
 		}
-		if len(node.EnemySlugs) == 2 && node.EnemySlugs[0] == node.EnemySlugs[1] {
-			t.Fatalf("node %s contains a duplicate enemy pair", node.ID)
-		}
 	}
+	foundTutorial := false
+	for _, event := range resolution.Events {
+		foundTutorial = foundTutorial || event.Kind == "tutorial_completed"
+	}
+	if !foundTutorial {
+		t.Fatal("tutorial completion event missing")
+	}
+}
 
-	seen := map[string]bool{"l1-a": true, "l1-b": true}
-	for changed := true; changed; {
-		changed = false
-		for _, node := range first.Map.Nodes {
-			if !seen[node.ID] {
-				continue
-			}
-			for _, next := range node.Next {
+func TestModuleRewardAndRestUpgrade(t *testing.T) {
+	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
+	state := State{Phase: RewardPhase, Health: 80, MaxHealth: 100, Modules: []ModuleLevel{}, Plugins: []string{}, Map: MapState{CurrentNodeID: "node", Nodes: []MapNode{{ID: "node", Status: CurrentNode}}}, Reward: &RewardState{ModuleChoices: []string{"soft-firewall"}}}
+	resolution, _, err := Apply(state, "seed", Command{Type: ChooseModuleReward, ChoiceSlug: "soft-firewall"}, catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resolution.State.Modules) != 1 || resolution.State.Modules[0].Level != 1 {
+		t.Fatalf("modules=%#v", resolution.State.Modules)
+	}
+	resolution.State.Phase = RestPhase
+	resolution.State.Map.CurrentNodeID = "node"
+	resolution.State.Map.Nodes[0].Status = CurrentNode
+	upgraded, _, err := Apply(resolution.State, "seed", Command{Type: Rest, Operation: "tune", ModuleSlug: "soft-firewall"}, catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upgraded.State.Modules[0].Level != 2 {
+		t.Fatalf("module=%#v", upgraded.State.Modules[0])
+	}
+}
+
+func TestSmokeAutopilotCanClearEveryEncounterAtNoiseZero(t *testing.T) {
+	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
+	for _, slug := range []string{"signal-handshake", "dock-pursuit", "comment-storm", "mixed-signal", "cache-purge", "moderation-sweep", "optimal-persona"} {
+		definition, _ := catalog.Encounter(slug)
+		state := State{Health: 100, MaxHealth: 100, NoiseLevel: 0, EmergencyReconnectAvailable: true, Modules: []ModuleLevel{}, Plugins: []string{}, Encounter: &EncounterState{Slug: slug, Seed: "smoke-seed:" + slug, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, Tutorial: definition.Tutorial}}
+		config, err := actionConfig(state, catalog)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := action.Simulate(config, autopilotTrace(definition.DurationTicks))
+		if err != nil {
+			t.Fatalf("%s: %v", slug, err)
+		}
+		if !result.Won {
+			t.Fatalf("%s was not cleared: %#v", slug, result)
+		}
+	}
+}
+
+func TestThreeBuildCoresCanClearBaseEncounters(t *testing.T) {
+	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
+	definition, _ := catalog.Encounter("mixed-signal")
+	for _, core := range []string{"route-needle", "near-miss-cache", "soft-firewall"} {
+		state := State{Health: 100, MaxHealth: 100, NoiseLevel: 0, EmergencyReconnectAvailable: true, Modules: []ModuleLevel{{Slug: core, Level: 1}}, Plugins: []string{}, Encounter: &EncounterState{Slug: definition.Slug, Seed: "build:" + core, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks}}
+		config, err := actionConfig(state, catalog)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := action.Simulate(config, autopilotTrace(definition.DurationTicks))
+		if err != nil || !result.Won {
+			t.Fatalf("core %s did not clear: result=%#v err=%v", core, result, err)
+		}
+	}
+}
+
+func TestMapIsReachableAndNoiseAddsRouteConstraints(t *testing.T) {
+	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
+	for noise := 0; noise <= 3; noise++ {
+		state, err := NewState(StartInput{ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", NoiseLevel: noise, Seed: "map-seed", EmergencyReconnectAvailable: true}, catalog)
+		if err != nil {
+			t.Fatal(err)
+		}
+		byID := make(map[string]MapNode, len(state.Map.Nodes))
+		for _, node := range state.Map.Nodes {
+			byID[node.ID] = node
+		}
+		seen, queue := map[string]bool{"tutorial": true}, []string{"tutorial"}
+		for len(queue) > 0 {
+			id := queue[0]
+			queue = queue[1:]
+			for _, next := range byID[id].Next {
+				if _, ok := byID[next]; !ok {
+					t.Fatalf("noise %d: node %s references %s", noise, id, next)
+				}
 				if !seen[next] {
 					seen[next] = true
-					changed = true
+					queue = append(queue, next)
 				}
 			}
 		}
-	}
-	if !seen["l7-a"] {
-		t.Fatal("boss is unreachable")
-	}
-}
-
-func TestBackupBatteryPermanentlyRaisesRunHealth(t *testing.T) {
-	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
-	state := newTestState(t, "battery", 0)
-	state.Phase = EventPhase
-	state.CurrentEventSlug = "late-night-ops"
-	state.Map.CurrentNodeID = "l2-a"
-	state.Map.Nodes[nodeIndex(state.Map, "l2-a")].Status = CurrentNode
-
-	resolution, outcome, err := Apply(state, "battery", Command{Type: ResolveEvent, ChoiceSlug: "copy"}, catalog)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if outcome != nil {
-		t.Fatalf("outcome = %v, want nil", *outcome)
-	}
-	if resolution.State.MaxHealth != 72 || resolution.State.Health != 72 {
-		t.Fatalf("health = %d/%d, want 72/72", resolution.State.Health, resolution.State.MaxHealth)
-	}
-	if len(resolution.State.Relics) != 1 || resolution.State.Relics[0] != "backup-battery" {
-		t.Fatalf("relics = %#v", resolution.State.Relics)
-	}
-}
-
-func TestNoiseThreeChangesRulesInsteadOfOnlyHealth(t *testing.T) {
-	state := newTestState(t, "noise", 3)
-	resolution, _, err := Apply(state, "noise", Command{Type: ChooseNode, NodeID: "l1-b"}, gamecontent.MustLoad(gamecontent.CurrentVersion))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resolution.State.Combat == nil {
-		t.Fatal("combat was not started")
-	}
-	if got := len(resolution.State.Combat.Enemies); got != 2 {
-		t.Fatalf("noise encounter enemies = %d, want 2", got)
-	}
-	if resolution.State.Map.Nodes[nodeIndex(resolution.State.Map, "l1-a")].Status != LockedNode {
-		t.Fatal("choosing l1-b did not close the alternative l1-a route")
-	}
-	if resolution.State.Combat.Player.DistortionLimit != 5 {
-		t.Fatalf("distortion limit = %d, want 5", resolution.State.Combat.Player.DistortionLimit)
-	}
-	foundPacketLoss := false
-	for _, card := range resolution.State.Combat.DiscardPile {
-		foundPacketLoss = foundPacketLoss || card.Slug == "packet-loss"
-	}
-	if !foundPacketLoss {
-		t.Fatal("noise level 3 did not inject packet-loss")
+		if !seen["l6-a"] {
+			t.Fatalf("noise %d cannot reach boss", noise)
+		}
+		if noise >= 2 && len(byID["l1-a"].Next) != 1 {
+			t.Fatalf("noise %d did not constrain route", noise)
+		}
+		if noise == 3 && byID["l3-b"].Type != EliteNode {
+			t.Fatal("noise 3 should replace rest with an elite")
+		}
 	}
 }

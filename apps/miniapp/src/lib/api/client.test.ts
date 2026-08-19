@@ -27,7 +27,7 @@ describe("API client", () => {
 
     await createRunCommand(
       "c8c6d56d-974f-4c82-8a83-a3c20e736e38",
-      { type: "end_turn", expected_version: 4 },
+	  { type: "choose_node", node_id: "l1-a", expected_version: 4 },
       "action-key-001"
     );
 
@@ -42,7 +42,7 @@ describe("API client", () => {
       "X-Telegram-Init-Data": telegram.initData,
       "Idempotency-Key": "action-key-001"
     });
-    expect(request?.body).toBe(JSON.stringify({ type: "end_turn", expected_version: 4 }));
+	expect(request?.body).toBe(JSON.stringify({ type: "choose_node", node_id: "l1-a", expected_version: 4 }));
   });
 
   it("uses explicit development auth only when Telegram initData is absent", async () => {

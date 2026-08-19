@@ -25,7 +25,10 @@ export default defineConfig({
   projects: [
     {
       name: "mobile-chromium",
-      use: { ...devices["Pixel 7"] }
+      use: {
+        ...devices["Pixel 7"],
+        channel: process.env.PLAYWRIGHT_CHANNEL === "chrome" ? "chrome" : undefined
+      }
     }
   ]
 });

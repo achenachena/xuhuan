@@ -36,7 +36,6 @@ const envSchema = z.object({
     "Development authentication cannot be enabled in production"
   ),
   NEXT_PUBLIC_DEFAULT_LANGUAGE: z.enum(["zh-CN", "en"]).default("zh-CN"),
-  NEXT_PUBLIC_LOCALE_BASE_URL: externalURLValidator,
   // Base URL for all audio files (if all files are in the same location)
   NEXT_PUBLIC_AUDIO_BASE_URL: urlOrPathValidator,
   // BGM URL - single BGM for all pages (select, battle, reward)
@@ -56,7 +55,6 @@ export const env = envSchema.parse({
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   NEXT_PUBLIC_DEV_AUTH_TOKEN: process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN,
   NEXT_PUBLIC_DEFAULT_LANGUAGE: process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE,
-  NEXT_PUBLIC_LOCALE_BASE_URL: process.env.NEXT_PUBLIC_LOCALE_BASE_URL,
   NEXT_PUBLIC_AUDIO_BASE_URL: process.env.NEXT_PUBLIC_AUDIO_BASE_URL,
   NEXT_PUBLIC_AUDIO_BGM: process.env.NEXT_PUBLIC_AUDIO_BGM,
   NEXT_PUBLIC_AUDIO_LIGHT_ATTACK: process.env.NEXT_PUBLIC_AUDIO_LIGHT_ATTACK,

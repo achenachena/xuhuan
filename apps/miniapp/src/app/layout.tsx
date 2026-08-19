@@ -8,7 +8,7 @@ import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "虚环：仅一人在线",
-  description: "A server-authoritative story card roguelite for Telegram."
+  description: "A server-authoritative one-thumb action roguelite for Telegram."
 };
 
 export const viewport = {

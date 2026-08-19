@@ -124,13 +124,13 @@ func TestMigrateFromEmptySchema(t *testing.T) {
 	}
 
 	expectedCounts := map[string]int{
-		"schema_migrations": 3,
-		"players":           1,
-		"player_progress":   1,
-		"player_unlocks":    1,
-		"story_choices":     1,
-		"runs":              1,
-		"run_commands":      1,
+		"schema_migrations": 4,
+		"players":           0,
+		"player_progress":   0,
+		"player_unlocks":    0,
+		"story_choices":     0,
+		"runs":              0,
+		"run_commands":      0,
 	}
 	for table, expected := range expectedCounts {
 		var count int
@@ -158,23 +158,6 @@ func TestMigrateFromEmptySchema(t *testing.T) {
 	if legacyColumnCount != 0 {
 		t.Fatalf("legacy player column count = %d", legacyColumnCount)
 	}
-	var preservedUsername string
-	var preservedFlags map[string]any
-	var preservedRunVersion int64
-	if err := database.pool.QueryRow(ctx, `
-		SELECT players.username, player_progress.story_flags, runs.version
-		FROM players
-		JOIN player_progress ON player_progress.player_id = players.id
-		JOIN runs ON runs.player_id = players.id
-		WHERE players.id = $1 AND runs.id = $2`, preservedPlayerID, preservedRunID).Scan(
-		&preservedUsername, &preservedFlags, &preservedRunVersion,
-	); err != nil {
-		t.Fatalf("read preserved V2 state: %v", err)
-	}
-	if preservedUsername != "preserved" || preservedFlags["preserved"] != true || preservedRunVersion != 2 {
-		t.Fatalf("contract migration changed V2 state: username=%q flags=%v run_version=%d", preservedUsername, preservedFlags, preservedRunVersion)
-	}
-
 	playerRepository := NewPlayerRepository(database)
 	created, err := playerRepository.GetOrCreate(ctx, auth.User{ID: 123456789, Username: "first", FirstName: "开发"})
 	if err != nil {
@@ -239,16 +222,27 @@ func TestMigrateFromEmptySchema(t *testing.T) {
 	}); !errors.Is(err, gameRun.ErrActiveRunExists) {
 		t.Fatalf("second active run error=%v", err)
 	}
-	resolve := func(current gameRun.GameRun, command gameRun.Command) (gameRun.Resolution, *gameRun.Outcome, error) {
-		return gameRun.Apply(current.State, current.Seed, command, catalog)
+	resolve := func(current gameRun.GameRun, _ gameRun.Command) (gameRun.Resolution, *gameRun.Outcome, error) {
+		current.State.RNGCursor++
+		return gameRun.Resolution{State: current.State, Events: []gameRun.Event{{Kind: "repository_test"}}}, nil, nil
 	}
 	commandHash := sha256.Sum256([]byte("choose-l1-a"))
 	firstCommand, replayed, err := runRepository.Apply(ctx, gameRun.ApplyInput{
 		PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.ChooseNode, NodeID: "l1-a"},
 		ExpectedVersion: 1, IdempotencyKey: "run-command-0001", RequestHash: commandHash,
 	}, resolve)
-	if err != nil || replayed || firstCommand.Run.Version != 2 || firstCommand.Run.State.Phase != gameRun.CombatPhase {
+	if err != nil || replayed || firstCommand.Run.Version != 2 || firstCommand.Run.State.Phase != gameRun.EncounterPhase {
 		t.Fatalf("first run command=%#v replayed=%t error=%v", firstCommand, replayed, err)
+	}
+	var storedCommandType, storedNodeID string
+	if err := database.pool.QueryRow(ctx, `
+		SELECT command_payload->>'type', command_payload->>'node_id'
+		FROM run_commands WHERE run_id = $1::uuid AND sequence = 1`, createdRun.ID,
+	).Scan(&storedCommandType, &storedNodeID); err != nil {
+		t.Fatal(err)
+	}
+	if storedCommandType != "choose_node" || storedNodeID != "l1-a" {
+		t.Fatalf("stored immutable command = %q/%q", storedCommandType, storedNodeID)
 	}
 	replayedCommand, replayed, err := runRepository.Apply(ctx, gameRun.ApplyInput{
 		PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.ChooseNode, NodeID: "l1-a"},
@@ -264,7 +258,7 @@ func TestMigrateFromEmptySchema(t *testing.T) {
 		go func() {
 			defer waitGroup.Done()
 			_, _, concurrentRunErrors[index] = runRepository.Apply(context.Background(), gameRun.ApplyInput{
-				PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.EndTurn},
+				PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.ResolveEvent},
 				ExpectedVersion: 2, IdempotencyKey: fmt.Sprintf("run-concurrent-%d", index),
 				RequestHash: sha256.Sum256([]byte(fmt.Sprintf("end-turn-%d", index))),
 			}, resolve)
@@ -291,7 +285,7 @@ func TestMigrateFromEmptySchema(t *testing.T) {
 	}
 	rollbackError := errors.New("forced resolver rollback")
 	if _, _, err := runRepository.Apply(ctx, gameRun.ApplyInput{
-		PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.EndTurn},
+		PlayerID: created.ID, RunID: createdRun.ID, Command: gameRun.Command{Type: gameRun.ResolveEvent},
 		ExpectedVersion: beforeRollback.Version, IdempotencyKey: "run-rollback-0001",
 		RequestHash: sha256.Sum256([]byte("rollback")),
 	}, func(gameRun.GameRun, gameRun.Command) (gameRun.Resolution, *gameRun.Outcome, error) {

@@ -14,7 +14,7 @@ import {
   type APIGameContent,
   type APIGameSnapshot,
   type APIRunCommand,
-  type APIRunCommandResponse
+  type APIRunCommandResponse,
 } from "@/lib/api/client";
 import type { GameLocale } from "@/features/game/game-copy";
 
@@ -31,7 +31,7 @@ const initialState: ControllerState = {
   game: null,
   loading: true,
   busy: false,
-  error: null
+  error: null,
 };
 
 export const useGameController = (locale: GameLocale) => {
@@ -40,10 +40,18 @@ export const useGameController = (locale: GameLocale) => {
   const load = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
-      const [content, game] = await Promise.all([getGameContent(locale), getGame()]);
+      const [content, game] = await Promise.all([
+        getGameContent(locale),
+        getGame(),
+      ]);
       setState({ content, game, loading: false, busy: false, error: null });
     } catch (error) {
-      setState((current) => ({ ...current, loading: false, busy: false, error }));
+      setState((current) => ({
+        ...current,
+        loading: false,
+        busy: false,
+        error,
+      }));
     }
   }, [locale]);
 
@@ -56,59 +64,72 @@ export const useGameController = (locale: GameLocale) => {
       setState((current) => ({ ...current, busy: true, error: null }));
       try {
         const run = await createRun(
-          { chapter_slug: chapterSlug, character_slug: characterSlug, noise_level: noiseLevel },
-          createIdempotencyKey()
+          {
+            chapter_slug: chapterSlug,
+            character_slug: characterSlug,
+            noise_level: noiseLevel,
+          },
+          createIdempotencyKey(),
         );
         setState((current) => ({
           ...current,
           busy: false,
-          game: current.game ? { ...current.game, active_run: run } : null
+          game: current.game ? { ...current.game, active_run: run } : null,
         }));
       } catch (error) {
         setState((current) => ({ ...current, busy: false, error }));
       }
     },
-    []
+    [],
   );
 
-  const command = useCallback(async (body: Omit<APIRunCommand, "expected_version">) => {
-    const currentRun = state.game?.active_run;
-    if (!currentRun) {
-      return null;
-    }
-    setState((current) => ({ ...current, busy: true, error: null }));
-    try {
-      const response = await createRunCommand(
-        currentRun.id,
-        { ...body, expected_version: currentRun.version },
-        createIdempotencyKey()
-      );
-      setState((current) => ({
-        ...current,
-        busy: false,
-        game: current.game ? { ...current.game, active_run: response.run } : null
-      }));
-      return response;
-    } catch (error) {
-      if (error instanceof APIError && error.code === "version_conflict") {
-        try {
-          const run = await getRun(currentRun.id);
-          setState((current) => ({
-            ...current,
-            busy: false,
-            error: null,
-            game: current.game ? { ...current.game, active_run: run } : null
-          }));
-          return null;
-        } catch (refreshError) {
-          setState((current) => ({ ...current, busy: false, error: refreshError }));
-          return null;
-        }
+  const command = useCallback(
+    async (body: Omit<APIRunCommand, "expected_version">) => {
+      const currentRun = state.game?.active_run;
+      if (!currentRun) {
+        return null;
       }
-      setState((current) => ({ ...current, busy: false, error }));
-      return null;
-    }
-  }, [state.game?.active_run]);
+      setState((current) => ({ ...current, busy: true, error: null }));
+      try {
+        const response = await createRunCommand(
+          currentRun.id,
+          { ...body, expected_version: currentRun.version },
+          createIdempotencyKey(),
+        );
+        setState((current) => ({
+          ...current,
+          busy: false,
+          game: current.game
+            ? { ...current.game, active_run: response.run }
+            : null,
+        }));
+        return response;
+      } catch (error) {
+        if (error instanceof APIError && error.code === "version_conflict") {
+          try {
+            const run = await getRun(currentRun.id);
+            setState((current) => ({
+              ...current,
+              busy: false,
+              error: null,
+              game: current.game ? { ...current.game, active_run: run } : null,
+            }));
+            return null;
+          } catch (refreshError) {
+            setState((current) => ({
+              ...current,
+              busy: false,
+              error: refreshError,
+            }));
+            return null;
+          }
+        }
+        setState((current) => ({ ...current, busy: false, error }));
+        return null;
+      }
+    },
+    [state.game?.active_run],
+  );
 
   const chooseStory = useCallback(
     async (sceneSlug: string, optionSlug: string) => {
@@ -119,21 +140,44 @@ export const useGameController = (locale: GameLocale) => {
       setState((current) => ({ ...current, busy: true, error: null }));
       try {
         const response = await createStoryChoice(
-          { scene_slug: sceneSlug, option_slug: optionSlug, expected_version: game.progress.version },
-          createIdempotencyKey()
+          {
+            scene_slug: sceneSlug,
+            option_slug: optionSlug,
+            expected_version: game.progress.version,
+          },
+          createIdempotencyKey(),
         );
+        const tutorialRun =
+          sceneSlug === "prologue-last-viewer"
+            ? await createRun(
+                {
+                  chapter_slug: "seventh-dock",
+                  character_slug: "nana7mi",
+                  noise_level: 0,
+                },
+                createIdempotencyKey(),
+              )
+            : null;
         setState((current) => ({
           ...current,
           busy: false,
           game: current.game
-            ? { ...current.game, progress: response.progress, pending_scene_slug: response.pending_scene_slug }
-            : null
+            ? {
+                ...current.game,
+                progress: response.progress,
+                pending_scene_slug: response.pending_scene_slug,
+                active_run: tutorialRun ?? current.game.active_run,
+                onboarding_stage: tutorialRun
+                  ? "tutorial"
+                  : current.game.onboarding_stage,
+              }
+            : null,
         }));
       } catch (error) {
         setState((current) => ({ ...current, busy: false, error }));
       }
     },
-    [state.game]
+    [state.game],
   );
 
   const returnToHub = useCallback(async () => {
@@ -150,8 +194,18 @@ export const useGameController = (locale: GameLocale) => {
     setState((current) => ({ ...current, error: null }));
   }, []);
 
-  return { ...state, load, startRun, command, chooseStory, returnToHub, clearError };
+  return {
+    ...state,
+    load,
+    startRun,
+    command,
+    chooseStory,
+    returnToHub,
+    clearError,
+  };
 };
 
-export type GameCommand = Parameters<ReturnType<typeof useGameController>["command"]>[0];
+export type GameCommand = Parameters<
+  ReturnType<typeof useGameController>["command"]
+>[0];
 export type GameCommandResult = APIRunCommandResponse | null;

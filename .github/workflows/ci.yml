@@ -161,6 +161,7 @@ jobs:
       NEXT_PUBLIC_API_URL: http://127.0.0.1:8080
       NEXT_PUBLIC_DEV_AUTH_TOKEN: local-development-token
       NEXT_PUBLIC_DEFAULT_LANGUAGE: zh-CN
+      PLAYWRIGHT_CHANNEL: chrome
       RATE_LIMIT_PLAYER_REQUESTS: "1000"
       RATE_LIMIT_IP_REQUESTS: "2000"
     steps:
@@ -190,8 +191,8 @@ jobs:
           done
           cat "$RUNNER_TEMP/api.log"
           exit 1
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Verify system Chrome
+        run: google-chrome --version
       - name: Run persisted roguelite journey
         run: npm run test:e2e --workspace @xuhuan/miniapp
       - name: Upload browser traces on failure

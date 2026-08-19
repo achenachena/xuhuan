@@ -65,6 +65,6 @@ jobs:
             echo "- V2 content and player bootstrap"
             echo "- Prologue choice and idempotent replay"
             echo "- Run creation and authoritative disconnect recovery"
-            echo "- Map, combat, rewards, events, rest, and boss clear"
+            echo "- One-trace-per-room action replay, map, modules, events, rest, and three-phase boss clear"
             echo "- Post-boss story choices and noise level 1 unlock"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -240,8 +240,8 @@ jobs:
           version=$(curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/healthz" | jq -r .version)
           test "$version" = "$RELEASE_SHA"
           curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/readyz" > /dev/null
-          content_version=$(curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/v2/content/v1?locale=en" | jq -r .version)
-          test "$content_version" = "v1"
+          protocol=$(curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/v2/content/v2?locale=en" | jq -r .protocol)
+          test "$protocol" = "action-v1"
 
       - name: Record forward-only migration boundary
         if: failure() && steps.migration.outcome == 'success'

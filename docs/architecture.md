@@ -2,102 +2,97 @@
 
 ## Purpose
 
-The product is a single-player, server-authoritative story card roguelite embedded in Telegram. The browser owns presentation and transient selection state. The Go API owns identity, content versions, map generation, shuffle order, combat resolution, story progression, unlocks, and run outcomes. PostgreSQL is the system of record; Redis is never authoritative.
+The product is a single-player, server-authoritative action story roguelite embedded in Telegram. The browser owns rendering, transient controls, and local prediction. Go owns encounter replay, damage, drops, map generation, story progression, unlocks, and outcomes. PostgreSQL is the system of record; Redis is only a disposable distributed rate limiter.
 
-The first content release is the prologue plus Nana's chapter, *No Sea at the Seventh Dock*. Six later chapters share the same versioned content and domain machinery.
+The first release contains the prologue and Nana's full chapter, *No Sea at the Seventh Dock*. Six later character chapters reuse the same content and domain machinery.
 
 ## Target system
 
 ```text
 Telegram WebView
-  │ raw initData in X-Telegram-Init-Data
-  ▼
-Next.js 16 Mini App on Vercel
-  │ HTTPS JSON REST (OpenAPI 3.1)
-  ▼
-Go modular monolith on arm64 AWS Lambda Function URL
-  ├── embedded, versioned bilingual content bundle
-  ├── pure deterministic combat/map/run engine
-  ├── Neon PostgreSQL: identity, progression, runs, immutable commands
-  ├── Upstash Redis: distributed fixed-window rate limits only
-  └── CloudWatch: short-retention logs and infrastructure alarms
+  └─ Next.js 16 / React 19 on Vercel
+       ├─ Canvas 2D: 30Hz prediction + 60Hz rendering
+       └─ HTTPS JSON REST + signed Telegram initData
+            └─ Go modular monolith on arm64 AWS Lambda
+                 ├─ deterministic action/map/run engines
+                 ├─ embedded bilingual V2 content
+                 ├─ Neon PostgreSQL: authoritative state and history
+                 └─ Upstash Redis: rate-limit counters only
 ```
 
-There is no VPC, NAT Gateway, API Gateway, load balancer, RDS, ElastiCache, queue, Kubernetes cluster, container service, or paid observability dependency. Exhausting a provider's free allowance reduces availability; it never triggers an automatic paid upgrade.
+There is no game engine, WebSocket server, VPC, NAT Gateway, API Gateway, RDS, ElastiCache, queue, Kubernetes cluster, or paid observability dependency.
 
-## Trust boundary and command flow
+## Trust boundary and room replay
 
 1. Telegram signs raw Mini App `initData`; the browser forwards it unchanged.
-2. The API recomputes the Telegram HMAC, performs a constant-time comparison, checks `auth_date`, and resolves the internal player UUID.
-3. `GET /v2/game` returns progression, the next pending story scene, and at most one active Run.
-4. A client mutation includes an `Idempotency-Key` and `expected_version`. It never sends damage, draws, drops, random seeds, unlocks, or outcomes.
-5. The repository selects the player-owned Run `FOR UPDATE`, checks the idempotency identity and expected version, then calls the pure domain resolver.
-6. The transaction updates the authoritative snapshot, appends an immutable result snapshot to `run_commands`, applies progression flags/unlocks, and commits atomically.
-7. A repeated identical key returns the stored response. A reused key with a different hash is rejected. A stale version causes the client to fetch the current Run.
+2. The API verifies the HMAC, timestamp, and internal player identity.
+3. `GET /v2/game` returns story progress and at most one active Run.
+4. Entering a node stores an encounter slug, seed, duration, and trace limit in the Run.
+5. The browser simulates locally but records only quantized direction, magnitude, and Warp presses.
+6. On room completion it submits one `rle8-v1` trace. It never submits damage, positions, kills, drops, or outcomes.
+7. Go validates and replays at a fixed 30Hz with fixed-point coordinates and stable entity order.
+8. PostgreSQL locks the player-owned Run `FOR UPDATE`, checks `expected_version` and `Idempotency-Key`, writes the new JSONB snapshot plus immutable command result, and commits atomically.
 
-Local `X-Dev-Auth` is possible only when `APP_ENV=development`, `DEV_AUTH_ENABLED=true`, and the configured token matches. Production configuration rejects development auth even if a token is accidentally supplied.
+The worst-case 2,700-Tick trace remains below the 64KB request limit. A malformed, oversized, incomplete, or digest-mismatched trace cannot advance the Run. Closing the WebView discards only local frames; reopening restarts the same room seed.
 
 ## Domain structure
 
 ```text
 apps/api/internal/
-  content/       embedded versioned JSON, indexes, reference/translation checks
-  combat/        pure card, intent, status, route and distortion rules
-  run/           deterministic map, phase machine, rewards, events and rest
-  story/         represented by content scenes and progression choice policy
-  progression/   unlocks, immutable choices, pending-scene calculation
-  game/          authenticated orchestration across player/progression/run
-  api/           V2 HTTP transport and request validation
+  action/        fixed-step physics, enemies, projectiles, route, distortion, trace codec
+  content/       embedded V2 JSON and reference/translation validation
+  run/           map, phase machine, encounters, modules, plugins, events, rest
+  story/         pending authored scene policy
+  progression/   unlocks, immutable choices, one-time flags
+  game/          authenticated application orchestration
+  api/           V2 HTTP transport and OpenAPI mapping
   postgres/      pgx repositories and transaction boundaries
 ```
 
-`combat` and `run` do not call databases, clocks, networks, or global random APIs. A Run contains its cryptographic server-generated seed, content version, and deterministic RNG cursor. The same initial snapshot and command sequence therefore produce the same result.
+`action` and `run` do not call databases, clocks, networks, or global random APIs. TypeScript mirrors the action rules for responsive rendering and consumes a permanent Go-generated conformance vector in Vitest.
 
-### Combat state
+### Encounter rules
 
-- Five-card opening draw, three bandwidth per turn, draw/discard/exhaust piles, ten-card hand cap.
-- Up to two enemies with a visible intent index.
-- Attack, defense, signal, and glitch cards with validated targets and effect parameters.
-- Distortion threshold and desynchronization penalty; noise 3 lowers the threshold.
-- Nana route completion is tracked once per turn and awards one beacon plus one draw.
-- Noise levels change enemy composition, deck pollution, and distortion rules rather than only scaling health.
+- The arena uses a 360×640 logical viewport represented as integer tenths.
+- A full-screen relative joystick controls movement; automatic attacks select the nearest live enemy.
+- Warp provides a short dash and 12 invulnerable Ticks. Its base cooldown is 240 Ticks.
+- Three ordered beacons complete a route, refresh Warp, and empower its damaging wake.
+- Hostile shots expose a charge line or area before firing. Boss phase one uses scripted volleys, phase two copies the dominant route/distortion/echo build, and phase three loses control into radial barrages.
+- Grazing hostile projectiles raises distortion. At 60, attacks overclock; at 100, the player loses health, hostile bullets clear, and distortion returns to 40–55 depending on noise.
+- The first account-wide death can trigger Emergency Reconnect: 40% health, bullet clear, and a one-time progression flag.
+- Entity and projectile caps bound CPU and memory in both implementations.
 
 ### Run phase machine
 
 ```text
-map → combat → reward ┐
-map → event ──────────┤→ map → … → boss → completed
-map → rest ───────────┘
+one-tap prologue → tutorial encounter → module reward → map
+map → encounter → reward ┐
+map → event ─────────────┤→ map → story → boss → completed
+map → rest ──────────────┘
 ```
 
-The seven-layer map is generated in full before play and records every edge. Selecting a node closes alternatives in the same layer. Failure or abandonment completes the Run and preserves story/unlocks while a new Run receives a fresh map and starter deck.
+The full route is generated before play. Selecting a node locks alternatives in the same layer. A Run carries at most six module types at levels one through three. Elite encounters grant one channel plugin. Rest offers either 30% healing or one module level.
+
+Noise 1–3 changes firing cadence, telegraph time, distortion pressure, route connectivity, and eventually removes the rest branch; health scaling is not the sole difficulty control.
 
 ## Versioned content
 
-`apps/api/internal/content/v1/bundle.json` contains characters, cards, enemies, intents, relics, events, scenes, and chapters. Go embeds it into the Lambda binary. Startup and CI reject duplicate slugs, missing translations, broken references, invalid rules, an incorrect seven-character roster, or a starter deck other than ten cards.
+`apps/api/internal/content/v2/bundle.json` contains seven characters, 32 modules, 10 plugins, 7 enemies, 7 encounter definitions, 12 events, 3 story scenes, and chapter metadata. Startup and CI reject duplicate slugs, missing translations, invalid effects, and broken references.
 
-The V1 content budget is:
+`GET /v2/content/v2?locale=...` returns a localized `action-v1` manifest with immutable caching. Runs retain `content_version`, although this forward-only launch resets all card-era data.
 
-- 25 Nana-specific cards (including character glitches) and 8 common glitch cards;
-- 10 channel plugins;
-- 4 normal enemies, 2 elites, and 1 boss;
-- 12 random/fixed events and 3 base story scenes;
-- metadata for all seven character chapters, with Nana available.
-
-`GET /v2/content/{version}?locale=...` returns a localized DTO with an immutable ETag and year-long cache. Active Runs keep `content_version`; a future V2 bundle is additive rather than an in-place rules mutation.
-
-## PostgreSQL V2 model
+## PostgreSQL model
 
 | Table | Responsibility | Important constraints |
 | --- | --- | --- |
-| `players` | Telegram identity, language, and timestamps | unique `telegram_user_id BIGINT` |
-| `player_progress` | chapter, highest noise, story flags/version | one row per player; optimistic version |
-| `player_unlocks` | character/card/relic/starter-module unlocks | unique `(player, type, slug)` |
-| `story_choices` | immutable base-story decisions and result snapshots | unique scene and idempotency identities; update/delete rejected |
-| `runs` | seed, content version, phase/status and authoritative JSONB snapshot | partial unique index permits one active Run per player |
-| `run_commands` | immutable command/result history | unique sequence and idempotency identity; expected/resulting version invariant |
+| `players` | Telegram identity and timestamps | unique Telegram user |
+| `player_progress` | chapter, noise, story and one-time action flags | one row/player; optimistic version |
+| `player_unlocks` | character/module/plugin/starter-module unlocks | unique type and slug |
+| `story_choices` | immutable decisions and result snapshots | update/delete rejected |
+| `runs` | seed, content version, status and JSONB action snapshot | one active Run/player |
+| `run_commands` | immutable route, trace, reward and event history | unique sequence and idempotency identity |
 
-Redis keys contain hashed identities and rate-limit counters only. Losing Redis does not lose game state; the API falls back to a bounded in-process limiter.
+Migration `004_action_roguelite.sql` intentionally truncates player-owned data and replaces the card-era constraints. It is forward-only.
 
 ## V2 REST surface
 
@@ -108,33 +103,23 @@ Redis keys contain hashed identities and rate-limit counters only. Losing Redis 
 - `POST /v2/runs/{id}/commands`
 - `POST /v2/story/choices`
 
-The command endpoint accepts `choose_node`, `play_card`, `end_turn`, `choose_card_reward`, `resolve_event`, `rest`, and `abandon_run`. OpenAPI is the transport contract and generates the TypeScript schema used by the Mini App.
+Commands are `choose_node`, `complete_encounter`, `choose_module_reward`, `resolve_event`, `rest`, and `abandon_run`. Every mutation is versioned and idempotent.
 
 ## Mini App boundaries
 
-`src/app/page.tsx` remains a Server Component and mounts one interactive `GameShell` boundary. Feature components are split into story chat, hub, map, combat, reward, event, rest, and result screens. The controller loads content and game state in parallel, stores no authoritative state in local storage, and replaces its snapshot only with server responses.
+`page.tsx` remains a Server Component and mounts one `GameShell` Client boundary. The Canvas runtime owns mutable entities outside React; React receives low-frequency HUD snapshots and phase transitions only. Content and game state load in parallel, and no browser storage is authoritative.
 
-The map and battle layouts target a 320×568 viewport, observe Telegram safe-area insets, expose SVG nodes through keyboard roles, and keep all combat resources and enemy intents visible. Existing Telegram SDK, theme, audio, and character portrait integration remain available; no voice runtime or third-party game engine was added.
-
-## Completed compatibility rollout
-
-The release used an expand/contract sequence:
-
-1. Migration 002 truncated legacy player/game data as a product decision, created V2 tables, and deployed the V2 endpoints and UI while retaining empty V1 tables/endpoints as a temporary Lambda rollback boundary.
-2. The protected `Smoke Production V2` workflow passed in [run 32222594249](https://github.com/achenachena/xuhuan/actions/runs/32222594249). GitHub OIDC read the Telegram token directly from SSM, signed a clearly marked synthetic identity without logging the credential or raw init data, respected production rate limits, and exercised the complete authoritative journey through resume, boss clear, story choice, and noise unlock.
-3. Migration 003 is the contract step. It removes V1 HTTP handlers, the legacy `battle` domain, seed data, presentation types, old tables, and the legacy gameplay columns on `players`.
-
-The deploy workflow promotes a new Lambda binary that can read both the 002 and 003 schemas before applying the contract migration. Migrations run transactionally under an advisory lock. Once migration 003 succeeds, rollback to a binary that queries the V1 schema is intentionally disabled; any database issue is fixed forward.
+The UI targets 320×568, Telegram safe areas, pointer capture, `touch-action: none`, capped device-pixel ratio, and visibility pause. Existing Telegram theme, audio, and portrait integration remain; no third-party game runtime was added.
 
 ## Verification
 
-- Content tests enforce counts, translations, references, and starter deck invariants.
-- Pure Go tests cover deterministic shuffle/map generation, target validity, route completion, distortion overflow, multi-enemy noise rules, and persistent relic effects.
-- PostgreSQL integration tests cover migration idempotency, one active Run, story and command replay, conflicting keys/versions, row-lock competition, transaction rollback, and disconnect recovery.
-- API contract tests validate localized content, immutable caching, auth, idempotency/version forwarding, and response schemas.
-- Vitest covers pending story, Run creation, authoritative resume, and conflict resynchronization.
-- Playwright owns the complete browser → API → PostgreSQL journey and the 320px viewport assertion.
+- Go covers trace validation, deterministic physics, collision, Warp, route, distortion, enemy behavior, reconnect, map/reward rules, and a complete smoke autopilot for every encounter.
+- Vitest consumes a shared Go/TypeScript digest vector and covers story/start/resume/version-conflict behavior.
+- PostgreSQL tests cover migrations, one active Run, row locks, idempotency replay, version conflicts, rollback, and recovery.
+- API tests validate the OpenAPI 3.1 response contract, localization, authentication, and immutable caching.
+- Playwright exercises one-tap onboarding, real pointer input, room restart after reload, authoritative Boss completion, story settlement, noise unlock, and the 320px viewport.
+- Production smoke signs a synthetic Telegram identity from the SSM-provided bot token and replays complete action traces without logging credentials or raw init data.
 
 ## Observability and data handling
 
-Every response has an `X-Request-ID`. Structured logs and metrics use route templates and bounded outcome/reason labels, never complete init data, bot tokens, database URLs, SQL arguments, or player/run identifiers. Optional OTLP export is fail-open and disabled in the free production plan. PostgreSQL gates readiness; Redis degradation does not.
+Responses carry `X-Request-ID`. Logs and metrics use route templates and bounded reason labels, never init data, bot tokens, database URLs, SQL arguments, full traces, or player/run identifiers. PostgreSQL gates readiness; Redis degradation falls back to a bounded in-process limiter.

@@ -11,7 +11,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Process liveness */
         get: operations["getHealth"];
         put?: never;
         post?: never;
@@ -28,7 +27,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Required dependency readiness */
         get: operations["getReadiness"];
         put?: never;
         post?: never;
@@ -49,7 +47,6 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Get one immutable localized roguelite content bundle */
         get: operations["getGameContent"];
         put?: never;
         post?: never;
@@ -66,7 +63,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get player story progress and resumable run */
         get: operations["getGameState"];
         put?: never;
         post?: never;
@@ -85,7 +81,6 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start a server-seeded roguelite run */
         post: operations["createRun"];
         delete?: never;
         options?: never;
@@ -102,7 +97,6 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Resume one player-owned run */
         get: operations["getRun"];
         put?: never;
         post?: never;
@@ -123,7 +117,6 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Apply one authoritative versioned run command */
         post: operations["createRunCommand"];
         delete?: never;
         options?: never;
@@ -140,7 +133,6 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Resolve the currently pending authored story scene */
         post: operations["createStoryChoice"];
         delete?: never;
         options?: never;
@@ -153,16 +145,13 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         Health: {
-            /** @constant */
-            status: "ok";
+            status: string;
             version: string;
         };
         Readiness: {
-            /** @constant */
-            status: "ready";
-            checks: {
-                /** @constant */
-                postgres: "ready";
+            status: string;
+            dependencies: {
+                [key: string]: string;
             };
         };
         ErrorEnvelope: {
@@ -183,29 +172,21 @@ export interface components {
             biography: string;
             playstyle: string;
             color_theme: string;
-            /** Format: uri */
             portrait_url: string;
-            /** Format: uri */
             model_url: string;
             available: boolean;
         };
-        GameCardContent: {
+        GameModuleContent: {
             slug: string;
             character_slug: string | null;
             name: string;
             description: string;
             /** @enum {string} */
-            type: "attack" | "defense" | "signal" | "glitch";
-            /** @enum {string} */
-            target: "none" | "self" | "enemy" | "all_enemies";
+            archetype: "route" | "distortion" | "echo" | "glitch";
             rarity: string;
-            cost: number;
-            starter_copies: number;
-            exhaust: boolean;
-            unplayable: boolean;
             effects: components["schemas"]["GameEffect"][];
         };
-        EnemyIntentContent: {
+        GamePluginContent: {
             slug: string;
             name: string;
             description: string;
@@ -215,18 +196,26 @@ export interface components {
             slug: string;
             name: string;
             description: string;
-            /** @enum {string} */
-            kind: "normal" | "elite" | "boss";
+            kind: string;
+            pattern: string;
             max_health: number;
+            speed: number;
+            contact_damage: number;
+            fire_interval: number;
+            projectile_speed: number;
+            projectile_damage: number;
             color_theme: string;
             image_url: string;
-            intents: components["schemas"]["EnemyIntentContent"][];
         };
-        GameRelicContent: {
+        GameEncounterContent: {
             slug: string;
-            name: string;
-            description: string;
-            effect: components["schemas"]["GameEffect"];
+            kind: string;
+            duration_ticks: number;
+            max_ticks: number;
+            spawn_interval: number;
+            max_alive: number;
+            enemy_slugs: string[];
+            tutorial: boolean;
         };
         GameEventOptionContent: {
             slug: string;
@@ -241,8 +230,7 @@ export interface components {
         };
         StoryMessageContent: {
             sender: string;
-            /** @enum {string} */
-            kind: "system" | "character";
+            kind: string;
             text: string;
         };
         StoryOptionContent: {
@@ -264,19 +252,21 @@ export interface components {
         };
         GameContent: {
             version: string;
+            /** @constant */
+            protocol: "action-v1";
             /** @enum {string} */
             locale: "zh-CN" | "en";
             characters: components["schemas"]["GameCharacterContent"][];
-            cards: components["schemas"]["GameCardContent"][];
+            modules: components["schemas"]["GameModuleContent"][];
+            plugins: components["schemas"]["GamePluginContent"][];
             enemies: components["schemas"]["GameEnemyContent"][];
-            relics: components["schemas"]["GameRelicContent"][];
+            encounters: components["schemas"]["GameEncounterContent"][];
             events: components["schemas"]["GameEventContent"][];
             scenes: components["schemas"]["StorySceneContent"][];
             chapters: components["schemas"]["ChapterContent"][];
         };
         PlayerUnlock: {
-            /** @enum {string} */
-            type: "character" | "card" | "relic" | "starter_module";
+            type: string;
             content_slug: string;
             /** Format: date-time */
             created_at: string;
@@ -292,6 +282,7 @@ export interface components {
             current_chapter_slug: string;
             highest_noise_level: number;
             story_version: number;
+            /** Format: int64 */
             version: number;
             unlocks: components["schemas"]["PlayerUnlock"][];
             choices: components["schemas"]["StoryChoice"][];
@@ -302,92 +293,57 @@ export interface components {
             display_name: string;
             language_code: string | null;
         };
-        CardInstance: {
-            id: string;
+        ModuleLevel: {
             slug: string;
-        };
-        CombatPlayerState: {
-            max_health: number;
-            health: number;
-            block: number;
-            bandwidth: number;
-            next_bandwidth: number;
-            distortion: number;
-            distortion_limit: number;
-            beacons: number;
-            weak: number;
-            vulnerable: number;
-            discount_signal: number;
-            distortion_shield_used: boolean;
-            first_attack_bonus_used: boolean;
-        };
-        CombatEnemyState: {
-            id: string;
-            slug: string;
-            max_health: number;
-            health: number;
-            block: number;
-            strength: number;
-            weak: number;
-            vulnerable: number;
-            intent_index: number;
-        };
-        CombatStateV2: {
-            /** @enum {string} */
-            status: "active" | "won" | "lost";
-            turn: number;
-            seed: string;
-            rng_cursor: number;
-            player: components["schemas"]["CombatPlayerState"];
-            enemies: components["schemas"]["CombatEnemyState"][];
-            draw_pile: components["schemas"]["CardInstance"][];
-            discard_pile: components["schemas"]["CardInstance"][];
-            hand: components["schemas"]["CardInstance"][];
-            exhaust_pile: components["schemas"]["CardInstance"][];
-            played_types: string[];
-            previous_card_type?: string;
-            cards_played: number;
-            route_completed: boolean;
-            next_card_sequence: number;
-            noise_level: number;
+            level: number;
         };
         MapNode: {
             id: string;
             layer: number;
             lane: number;
             /** @enum {string} */
-            type: "combat" | "elite" | "event" | "story" | "rest" | "boss";
+            type: "tutorial" | "combat" | "elite" | "event" | "story" | "rest" | "boss";
             /** @enum {string} */
             status: "locked" | "available" | "current" | "completed";
             next: string[];
-            enemy_slugs?: string[];
+            encounter_slug?: string;
             event_slug?: string;
         };
         RunMap: {
             nodes: components["schemas"]["MapNode"][];
             current_node_id?: string;
         };
+        EncounterState: {
+            slug: string;
+            seed: string;
+            kind: string;
+            duration_ticks: number;
+            max_ticks: number;
+            tutorial: boolean;
+        };
         RewardState: {
-            card_choices: string[];
-            granted_relic?: string;
+            module_choices: string[];
+            granted_plugin?: string;
         };
         RunState: {
             /** @enum {string} */
-            phase: "map" | "combat" | "reward" | "event" | "rest" | "completed";
+            phase: "map" | "encounter" | "reward" | "event" | "rest" | "completed";
             chapter_slug: string;
             character_slug: string;
+            weapon_slug: string;
             noise_level: number;
             health: number;
             max_health: number;
-            deck: components["schemas"]["CardInstance"][];
-            relics: string[];
+            modules: components["schemas"]["ModuleLevel"][];
+            plugins: string[];
             map: components["schemas"]["RunMap"];
-            combat?: components["schemas"]["CombatStateV2"];
+            encounter?: components["schemas"]["EncounterState"];
             reward?: components["schemas"]["RewardState"];
             current_event_slug?: string;
             choice_tags: string[];
-            next_card_sequence: number;
+            /** Format: int64 */
             rng_cursor: number;
+            emergency_reconnect_available: boolean;
         };
         GameRun: {
             /** Format: uuid */
@@ -398,6 +354,7 @@ export interface components {
             status: "active" | "completed" | "abandoned";
             /** @enum {string|null} */
             outcome: "cleared" | "failed" | "abandoned" | null;
+            /** Format: int64 */
             version: number;
             /** Format: date-time */
             created_at: string;
@@ -407,44 +364,62 @@ export interface components {
             completed_at: string | null;
         };
         GameSnapshot: {
+            /** @constant */
+            protocol: "action-v1";
             player: components["schemas"]["GamePlayer"];
             progress: components["schemas"]["GameProgress"];
             active_run: components["schemas"]["GameRun"] | null;
             pending_scene_slug: string | null;
+            /** @enum {string} */
+            onboarding_stage: "intro" | "tutorial" | "complete";
         };
         CreateRunRequest: {
             chapter_slug: string;
             character_slug: string;
             noise_level: number;
         };
-        /** @enum {string} */
-        RunCommandType: "choose_node" | "play_card" | "end_turn" | "choose_card_reward" | "resolve_event" | "rest" | "abandon_run";
+        InputTrace: {
+            /** @constant */
+            encoding: "rle8-v1";
+            ticks: number;
+            data: string;
+            client_digest?: string;
+        };
         RunCommandRequest: {
-            type: components["schemas"]["RunCommandType"];
+            /** @enum {string} */
+            type: "choose_node" | "complete_encounter" | "choose_module_reward" | "resolve_event" | "rest" | "abandon_run";
+            /** Format: int64 */
             expected_version: number;
             node_id?: string;
-            card_instance_id?: string;
-            target_id?: string;
             choice_slug?: string;
+            module_slug?: string;
             /** @enum {string} */
-            operation?: "heal" | "remove";
+            operation?: "repair" | "tune";
+            trace?: components["schemas"]["InputTrace"];
         };
-        CombatEventV2: {
-            kind: string;
-            actor?: string;
-            target_id?: string;
-            card_slug?: string;
-            intent_slug?: string;
-            amount?: number;
+        EncounterResult: {
+            won: boolean;
+            health: number;
+            ticks: number;
+            kills: number;
+            routes_completed: number;
+            distortion: number;
+            emergency_reconnect_used: boolean;
+            digest: string;
+            final: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
         };
         RunEvent: {
             kind: string;
             node_id?: string;
-            card_slug?: string;
-            relic_slug?: string;
+            module_slug?: string;
+            plugin_slug?: string;
             choice_tag?: string;
             amount?: number;
-            combat?: components["schemas"]["CombatEventV2"];
+            encounter_result?: components["schemas"]["EncounterResult"];
         };
         RunCommandResponse: {
             run: components["schemas"]["GameRun"];
@@ -453,6 +428,7 @@ export interface components {
         StoryChoiceRequest: {
             scene_slug: string;
             option_slug: string;
+            /** Format: int64 */
             expected_version: number;
         };
         StoryChoiceResponse: {
@@ -461,45 +437,27 @@ export interface components {
         };
     };
     responses: {
-        /** @description Request validation failed */
+        /** @description Invalid request */
         InvalidRequest: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
                 [name: string]: unknown;
             };
             content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "invalid_request",
-                 *         "message": "The request is invalid",
-                 *         "request_id": "01J4Z6PQZ91GF4G74AM2R3PE8W"
-                 *       }
-                 *     }
-                 */
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Authentication is missing, invalid, malformed, or stale */
+        /** @description Authentication required */
         Unauthorized: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
                 [name: string]: unknown;
             };
             content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "unauthorized",
-                 *         "message": "Authentication is required",
-                 *         "request_id": "01J4Z6PQZ91GF4G74AM2R3PE8W"
-                 *       }
-                 *     }
-                 */
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Authenticated player has not unlocked the requested content */
+        /** @description Content locked */
         Forbidden: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
@@ -509,45 +467,27 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Resource is absent or not owned by the authenticated player */
+        /** @description Resource not found */
         NotFound: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
                 [name: string]: unknown;
             };
             content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "not_found",
-                 *         "message": "The requested resource was not found",
-                 *         "request_id": "01J4Z6PQZ91GF4G74AM2R3PE8W"
-                 *       }
-                 *     }
-                 */
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Expected version, run state, story state, or idempotency payload conflict */
+        /** @description Version, story, or idempotency conflict */
         Conflict: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
                 [name: string]: unknown;
             };
             content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "version_conflict",
-                 *         "message": "The authoritative state has changed",
-                 *         "request_id": "01J4Z6PQZ91GF4G74AM2R3PE8W"
-                 *       }
-                 *     }
-                 */
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Request body exceeds the configured limit */
+        /** @description Trace payload is too large */
         PayloadTooLarge: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
@@ -557,28 +497,17 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description JSON endpoint did not receive application/json */
-        UnsupportedMediaType: {
-            headers: {
-                "X-Request-ID": components["headers"]["RequestID"];
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /** @description Per-player or per-IP rate limit exceeded */
+        /** @description Too many requests */
         RateLimited: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
-                "Retry-After"?: number;
                 [name: string]: unknown;
             };
             content: {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Unexpected internal failure */
+        /** @description Internal error */
         InternalError: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
@@ -588,7 +517,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Required dependency is not ready */
+        /** @description Dependency unavailable */
         ServiceUnavailable: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
@@ -601,14 +530,11 @@ export interface components {
     };
     parameters: {
         ResourceID: string;
-        /** @description Unique per player and operation; reuse replays the original response */
         IdempotencyKey: string;
     };
     requestBodies: never;
     headers: {
-        /** @description Correlation ID generated or accepted by the API */
         RequestID: string;
-        /** @description True when the exact stored response was replayed */
         IdempotencyReplayed: boolean;
     };
     pathItems: never;
@@ -645,7 +571,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description API is ready to serve traffic */
+            /** @description Dependencies are ready */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -671,7 +597,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Localized game content */
+            /** @description Immutable localized action content */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -702,7 +628,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Current game state */
+            /** @description Story progress and resumable run */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -721,7 +647,6 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description Unique per player and operation; reuse replays the original response */
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
@@ -733,7 +658,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Run created */
+            /** @description Run created directly inside the tutorial encounter */
             201: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -783,7 +708,6 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description Unique per player and operation; reuse replays the original response */
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path: {
@@ -797,7 +721,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Resulting run and ordered presentation events */
+            /** @description Authoritative command result */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -812,6 +736,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
@@ -820,7 +745,6 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description Unique per player and operation; reuse replays the original response */
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
