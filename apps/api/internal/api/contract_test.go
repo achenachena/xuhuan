@@ -29,46 +29,24 @@ func TestResponsesMatchOpenAPIContract(t *testing.T) {
 		method string
 		path   string
 		status int
-		auth   bool
 	}{
 		{
 			name: "health", router: testRouter(ReadinessFunc(func(context.Context) error { return nil }), nil),
 			method: http.MethodGet, path: "/healthz", status: http.StatusOK,
 		},
 		{
-			name: "characters", router: v1TestRouter(t), method: http.MethodGet,
-			path: "/v1/characters", status: http.StatusOK,
-		},
-		{
-			name: "player unauthorized", router: v1TestRouter(t), method: http.MethodGet,
-			path: "/v1/player", status: http.StatusUnauthorized,
-		},
-		{
 			name: "v2 content", router: func() http.Handler { router, _ := v2TestRouter(t); return router }(),
 			method: http.MethodGet, path: "/v2/content/v1?locale=zh-CN", status: http.StatusOK,
 		},
 		{
-			name: "battle created", router: battleAPIRouter(t), method: http.MethodPost,
-			path: "/v1/battles", status: http.StatusCreated, auth: true,
+			name: "game unauthorized", router: func() http.Handler { router, _ := v2TestRouter(t); return router }(),
+			method: http.MethodGet, path: "/v2/game", status: http.StatusUnauthorized,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(test.method, test.path, nil)
-			if test.method == http.MethodPost {
-				request = httptest.NewRequest(test.method, test.path, http.NoBody)
-				request.Header.Set("Content-Type", "application/json")
-				request.Body = http.NoBody
-			}
-			if test.name == "battle created" {
-				request = httptest.NewRequest(test.method, test.path, strings.NewReader(`{"character_slug":"nana7mi","encounter_slug":"training-drone"}`))
-				request.Header.Set("Content-Type", "application/json")
-				request.Header.Set("Idempotency-Key", "contract-start-001")
-			}
-			if test.auth {
-				request.Header.Set("X-Dev-Auth", "0123456789abcdef")
-			}
 			response := httptest.NewRecorder()
 			test.router.ServeHTTP(response, request)
 			if response.Code != test.status {

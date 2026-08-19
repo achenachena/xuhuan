@@ -1,12 +1,6 @@
 import type { components } from "@/lib/api/generated";
 import { env } from "@/lib/env";
 
-export type APIPlayer = components["schemas"]["Player"];
-export type APICharacter = components["schemas"]["Character"];
-export type APIEncounter = components["schemas"]["Encounter"];
-export type APIBattle = components["schemas"]["Battle"];
-export type APIBattleActionResponse = components["schemas"]["BattleActionResponse"];
-export type APIActionKind = components["schemas"]["ActionKind"];
 export type APIGameContent = components["schemas"]["GameContent"];
 export type APIGameSnapshot = components["schemas"]["GameSnapshot"];
 export type APIGameRun = components["schemas"]["GameRun"];
@@ -113,35 +107,6 @@ export const createIdempotencyKey = (): string => {
     throw new Error("Secure random UUID generation is unavailable");
   }
   return globalThis.crypto.randomUUID();
-};
-
-export const getPlayer = (): Promise<APIPlayer> => requestJSON<APIPlayer>("/v1/player");
-
-export const getCharacters = async (): Promise<readonly APICharacter[]> => {
-  const response = await requestJSON<{ characters: APICharacter[] }>("/v1/characters");
-  return response.characters;
-};
-
-export const getEncounters = async (): Promise<readonly APIEncounter[]> => {
-  const response = await requestJSON<{ encounters: APIEncounter[] }>("/v1/encounters");
-  return response.encounters;
-};
-
-export const createBattle = (
-  body: { readonly character_slug: string; readonly encounter_slug: string },
-  idempotencyKey: string
-): Promise<APIBattle> => postJSON("/v1/battles", body, idempotencyKey);
-
-export const getBattle = (battleId: string): Promise<APIBattle> => {
-  return requestJSON<APIBattle>(`/v1/battles/${encodeURIComponent(battleId)}`);
-};
-
-export const createBattleAction = (
-  battleId: string,
-  body: { readonly action: APIActionKind; readonly expected_version: number },
-  idempotencyKey: string
-): Promise<APIBattleActionResponse> => {
-  return postJSON(`/v1/battles/${encodeURIComponent(battleId)}/actions`, body, idempotencyKey);
 };
 
 export const getGameContent = (locale: "zh-CN" | "en"): Promise<APIGameContent> => {

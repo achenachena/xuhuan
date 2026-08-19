@@ -131,3 +131,10 @@ func nullableString(value string) any {
 	}
 	return value
 }
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}

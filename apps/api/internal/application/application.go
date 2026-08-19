@@ -11,7 +11,6 @@ import (
 
 	apihttp "github.com/achenachena/xuhuan/apps/api/internal/api"
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
-	"github.com/achenachena/xuhuan/apps/api/internal/battle"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 	"github.com/achenachena/xuhuan/apps/api/internal/game"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/config"
@@ -20,7 +19,6 @@ import (
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/ratelimit"
 	"github.com/achenachena/xuhuan/apps/api/internal/postgres"
 	"github.com/achenachena/xuhuan/apps/api/migrations"
-	seeddata "github.com/achenachena/xuhuan/apps/api/seed"
 )
 
 // Runtime owns the long-lived dependencies shared by the local HTTP server and
@@ -102,8 +100,6 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 	}
 
 	players := postgres.NewPlayerRepository(database)
-	catalog := postgres.NewCatalogRepository(database)
-	battles := battle.NewService(postgres.NewBattleRepository(database, telemetry.Metrics), players, catalog)
 	contentCatalog, err := gamecontent.Load(gamecontent.CurrentVersion)
 	if err != nil {
 		return cleanup(fmt.Errorf("load game content: %w", err))
@@ -141,17 +137,12 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 		},
 		Metrics:        telemetry.Metrics,
 		TracingEnabled: telemetry.Enabled(),
-		Services: &apihttp.Services{
-			Players: players,
-			Catalog: catalog,
-			Battles: battles,
-			Game:    gameService,
-		},
+		Game:           gameService,
 	})
 	return runtime, nil
 }
 
-func (runtime *Runtime) MigrateAndSeed(ctx context.Context) error {
+func (runtime *Runtime) Migrate(ctx context.Context) error {
 	database := runtime.database
 	if runtime.migrationDatabaseURL != "" {
 		directDatabase, err := postgres.Open(ctx, runtime.migrationDatabaseURL)
@@ -163,9 +154,6 @@ func (runtime *Runtime) MigrateAndSeed(ctx context.Context) error {
 	}
 	if err := database.Migrate(ctx, migrations.Files); err != nil {
 		return fmt.Errorf("migrate database: %w", err)
-	}
-	if err := database.SeedCatalog(ctx, seeddata.Files); err != nil {
-		return fmt.Errorf("seed catalog: %w", err)
 	}
 	return nil
 }

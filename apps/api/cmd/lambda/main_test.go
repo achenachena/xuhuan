@@ -20,7 +20,7 @@ func TestHandleEventDispatchesMaintenanceOperations(t *testing.T) {
 	migrate := func(context.Context) error { migrations++; return nil }
 	check := func(context.Context) error { checks++; return nil }
 
-	for _, operation := range []string{"migrate-and-seed", "check"} {
+	for _, operation := range []string{"migrate", "check"} {
 		payload, _ := json.Marshal(operationEvent{Operation: operation})
 		response, err := handleEvent(context.Background(), payload, serve, migrate, check)
 		if err != nil {

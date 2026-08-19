@@ -38,150 +38,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/player": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get or create the authenticated player */
-        get: operations["getPlayer"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/characters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List playable characters */
-        get: operations["listCharacters"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/characters/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["Slug"];
-            };
-            cookie?: never;
-        };
-        /** Get one playable character */
-        get: operations["getCharacter"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/encounters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List active encounters */
-        get: operations["listEncounters"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/encounters/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["Slug"];
-            };
-            cookie?: never;
-        };
-        /** Get one active encounter */
-        get: operations["getEncounter"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/battles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create a server-seeded battle and debit its energy cost */
-        post: operations["createBattle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/battles/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["BattleID"];
-            };
-            cookie?: never;
-        };
-        /** Get the player's authoritative battle state */
-        get: operations["getBattle"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/battles/{id}/actions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["BattleID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Apply one authoritative, versioned battle action */
-        post: operations["createBattleAction"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v2/content/{version}": {
         parameters: {
             query?: {
@@ -242,7 +98,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["BattleID"];
+                id: components["parameters"]["ResourceID"];
             };
             cookie?: never;
         };
@@ -261,7 +117,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["BattleID"];
+                id: components["parameters"]["ResourceID"];
             };
             cookie?: never;
         };
@@ -315,140 +171,6 @@ export interface components {
                 message: string;
                 request_id: string;
             };
-        };
-        Player: {
-            /** Format: uuid */
-            id: string;
-            /** @description String encoding avoids JavaScript integer precision loss */
-            telegram_user_id: string;
-            username: string | null;
-            display_name: string;
-            level: number;
-            experience: number;
-            credits: number;
-            energy: number;
-            version: number;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        Character: {
-            /** Format: uuid */
-            id: string;
-            slug: string;
-            name: string;
-            biography: string;
-            archetype: string;
-            base_health: number;
-            base_attack: number;
-            base_defense: number;
-            base_speed: number;
-            base_crit_rate: number;
-            base_crit_damage: number;
-            special_move_name: string;
-            special_move_description: string;
-            special_move_type: string;
-            /** @enum {string} */
-            rarity: "common" | "rare" | "epic" | "legendary";
-            color_theme: string;
-            /** Format: uri */
-            portrait_url: string;
-            /** Format: uri */
-            model_url: string;
-        };
-        Encounter: {
-            /** Format: uuid */
-            id: string;
-            slug: string;
-            name: string;
-            description: string;
-            level: number;
-            max_health: number;
-            attack: number;
-            defense: number;
-            speed: number;
-            crit_rate: number;
-            crit_damage: number;
-            special_move_name: string;
-            special_move_description: string;
-            color_theme: string;
-            /** Format: uri */
-            image_url: string | null;
-        };
-        CreateBattleRequest: {
-            character_slug: string;
-            encounter_slug: string;
-        };
-        BattleActionRequest: {
-            action: components["schemas"]["ActionKind"];
-            expected_version: number;
-        };
-        /** @enum {string} */
-        ActionKind: "light_attack" | "heavy_attack" | "special_move" | "block" | "counter";
-        /** @enum {string} */
-        BattleStatus: "active" | "completed" | "cancelled";
-        /** @enum {string|null} */
-        BattleOutcome: "victory" | "defeat" | null;
-        CombatantState: {
-            slug: string;
-            name: string;
-            level: number;
-            max_health: number;
-            current_health: number;
-            attack: number;
-            defense: number;
-            speed: number;
-            crit_rate: number;
-            crit_damage: number;
-            special_meter: number;
-            combo_count: number;
-            is_blocking: boolean;
-        };
-        Reward: {
-            experience: number;
-            credits: number;
-            energy: number;
-        };
-        Battle: {
-            /** Format: uuid */
-            id: string;
-            status: components["schemas"]["BattleStatus"];
-            outcome: components["schemas"]["BattleOutcome"];
-            version: number;
-            turn: number;
-            character: components["schemas"]["Character"];
-            encounter: components["schemas"]["Encounter"];
-            hero: components["schemas"]["CombatantState"];
-            enemy: components["schemas"]["CombatantState"];
-            rewards: components["schemas"]["Reward"] | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            completed_at: string | null;
-        };
-        DamageResult: {
-            amount: number;
-            critical: boolean;
-            blocked: boolean;
-            countered: boolean;
-        };
-        ActionEvent: {
-            /** @enum {string} */
-            actor: "hero" | "enemy";
-            action: components["schemas"]["ActionKind"];
-            damage: components["schemas"]["DamageResult"] | null;
-            description: string;
-        };
-        BattleActionResult: {
-            sequence: number;
-            events: components["schemas"]["ActionEvent"][];
-        };
-        BattleActionResponse: {
-            battle: components["schemas"]["Battle"];
-            result: components["schemas"]["BattleActionResult"];
         };
         GameEffect: {
             kind: string;
@@ -806,7 +528,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Expected version, battle state, energy, or idempotency payload conflict */
+        /** @description Expected version, run state, story state, or idempotency payload conflict */
         Conflict: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
@@ -817,7 +539,7 @@ export interface components {
                  * @example {
                  *       "error": {
                  *         "code": "version_conflict",
-                 *         "message": "The battle state has changed",
+                 *         "message": "The authoritative state has changed",
                  *         "request_id": "01J4Z6PQZ91GF4G74AM2R3PE8W"
                  *       }
                  *     }
@@ -878,8 +600,7 @@ export interface components {
         };
     };
     parameters: {
-        Slug: string;
-        BattleID: string;
+        ResourceID: string;
         /** @description Unique per player and operation; reuse replays the original response */
         IdempotencyKey: string;
     };
@@ -935,232 +656,6 @@ export interface operations {
                 };
             };
             503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    getPlayer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current player profile */
-            200: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestID"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Player"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    listCharacters: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Active character catalog */
-            200: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestID"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        characters: components["schemas"]["Character"][];
-                    };
-                };
-            };
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getCharacter: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["Slug"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Character detail */
-            200: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestID"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Character"];
-                };
-            };
-            400: components["responses"]["InvalidRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    listEncounters: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Active encounter catalog */
-            200: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestID"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        encounters: components["schemas"]["Encounter"][];
-                    };
-                };
-            };
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getEncounter: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["Slug"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Encounter detail */
-            200: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestID"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Encounter"];
-                };
-            };
-            400: components["responses"]["InvalidRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    createBattle: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Unique per player and operation; reuse replays the original response */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateBattleRequest"];
-            };
-        };
-        responses: {
-            /** @description Battle created */
-            201: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestID"];
-                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Battle"];
-                };
-            };
-            400: components["responses"]["InvalidRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            413: components["responses"]["PayloadTooLarge"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getBattle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["BattleID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current battle state */
-            200: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestID"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Battle"];
-                };
-            };
-            400: components["responses"]["InvalidRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    createBattleAction: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Unique per player and operation; reuse replays the original response */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                id: components["parameters"]["BattleID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BattleActionRequest"];
-            };
-        };
-        responses: {
-            /** @description Action result and resulting battle */
-            200: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestID"];
-                    "Idempotency-Replayed": components["headers"]["IdempotencyReplayed"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BattleActionResponse"];
-                };
-            };
-            400: components["responses"]["InvalidRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            413: components["responses"]["PayloadTooLarge"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["InternalError"];
         };
     };
     getGameContent: {
@@ -1262,7 +757,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["BattleID"];
+                id: components["parameters"]["ResourceID"];
             };
             cookie?: never;
         };
@@ -1292,7 +787,7 @@ export interface operations {
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path: {
-                id: components["parameters"]["BattleID"];
+                id: components["parameters"]["ResourceID"];
             };
             cookie?: never;
         };

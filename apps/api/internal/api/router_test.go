@@ -70,12 +70,12 @@ func TestAccessLogUsesBoundedRoutePattern(t *testing.T) {
 		MaxBodyBytes: 1024,
 		Readiness:    ReadinessFunc(func(context.Context) error { return nil }),
 	}, func(router chi.Router, _ func(http.Handler) http.Handler) {
-		router.Get("/v1/characters/{slug}", func(w http.ResponseWriter, _ *http.Request) {
+		router.Get("/v2/content/{version}", func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 		})
 	})
 
-	request := httptest.NewRequest(http.MethodGet, "/v1/characters/user%0Acontrolled", nil)
+	request := httptest.NewRequest(http.MethodGet, "/v2/content/user%0Acontrolled", nil)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 
@@ -83,7 +83,7 @@ func TestAccessLogUsesBoundedRoutePattern(t *testing.T) {
 	if err := json.Unmarshal(logs.Bytes(), &entry); err != nil {
 		t.Fatalf("decode access log: %v", err)
 	}
-	if entry["route"] != "/v1/characters/{slug}" {
+	if entry["route"] != "/v2/content/{version}" {
 		t.Fatalf("route = %#v", entry["route"])
 	}
 	if _, exists := entry["path"]; exists {
@@ -234,7 +234,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 		Readiness:     ReadinessFunc(func(context.Context) error { return nil }),
 		Authenticator: authenticator,
 	}, func(router chi.Router, authenticate func(http.Handler) http.Handler) {
-		router.With(authenticate).Get("/v1/protected", func(w http.ResponseWriter, r *http.Request) {
+		router.With(authenticate).Get("/v2/protected", func(w http.ResponseWriter, r *http.Request) {
 			principal, ok := auth.PrincipalFromContext(r.Context())
 			if !ok {
 				t.Fatal("principal missing from context")
@@ -243,7 +243,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 		})
 	})
 
-	unauthorized := httptest.NewRequest(http.MethodGet, "/v1/protected", nil)
+	unauthorized := httptest.NewRequest(http.MethodGet, "/v2/protected", nil)
 	unauthorizedResponse := httptest.NewRecorder()
 	router.ServeHTTP(unauthorizedResponse, unauthorized)
 	if unauthorizedResponse.Code != http.StatusUnauthorized || !strings.Contains(unauthorizedResponse.Body.String(), `"code":"unauthorized"`) {
@@ -253,7 +253,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 		t.Fatal("authenticated route responses must not be cached")
 	}
 
-	authorized := httptest.NewRequest(http.MethodGet, "/v1/protected", nil)
+	authorized := httptest.NewRequest(http.MethodGet, "/v2/protected", nil)
 	authorized.Header.Set(auth.DevelopmentHeader, "0123456789abcdef")
 	authorizedResponse := httptest.NewRecorder()
 	router.ServeHTTP(authorizedResponse, authorized)

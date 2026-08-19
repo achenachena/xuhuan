@@ -89,7 +89,7 @@ func TestPlayerRateLimitRunsAfterAuthentication(t *testing.T) {
 	)
 
 	for requestNumber := range 2 {
-		request := httptest.NewRequest(http.MethodGet, "/v1/player", nil)
+		request := httptest.NewRequest(http.MethodGet, "/v2/game", nil)
 		request.Header.Set(auth.DevelopmentHeader, "0123456789abcdef")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)

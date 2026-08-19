@@ -220,7 +220,7 @@ func createStoryChoiceHandler(service GameService, logger *slog.Logger) http.Han
 
 func validatedRunID(w http.ResponseWriter, r *http.Request) (string, bool) {
 	value := chi.URLParam(r, "id")
-	if !battleIDPattern.MatchString(value) {
+	if !resourceIDPattern.MatchString(value) {
 		writeError(w, r, http.StatusBadRequest, "invalid_request", "The request is invalid")
 		return "", false
 	}

@@ -54,7 +54,7 @@ Create exactly one production project/database in each provider.
 
 Lambda's pgx pool uses at most four connections per execution environment and
 keeps zero minimum connections, allowing Neon compute to suspend while idle.
-The direct URL is used only by the IAM-invoked migration and seed operation.
+The direct URL is used only by the IAM-invoked migration operation.
 
 ### Upstash Redis
 
@@ -98,8 +98,11 @@ Configure the `Production` environment with these non-secret variables:
 
 The deploy workflow exchanges GitHub's OIDC token for short-lived AWS
 credentials, reads the SecureStrings, replaces `$LATEST` code and configuration,
-publishes a numbered Lambda version, migrates/seeds PostgreSQL, and promotes the
-`live` alias only after the new version succeeds.
+publishes a numbered Lambda version, promotes a schema-compatible binary,
+applies PostgreSQL migrations, and verifies the `live` alias again afterward.
+Contract migrations are a rollback boundary: after a successful destructive
+migration, the workflow does not repoint `live` to an older binary that depends
+on the removed schema. Failures after that point are fixed forward.
 
 ## Cost and operational guardrails
 

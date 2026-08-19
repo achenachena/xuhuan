@@ -39,17 +39,6 @@ services:
       postgres:
         condition: service_healthy
 
-  seed:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    entrypoint: ["/app/seed"]
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-xuhuan}:${POSTGRES_PASSWORD:-local_xuhuan_password}@postgres:5432/${POSTGRES_DB:-xuhuan}?sslmode=disable
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-
   api:
     build:
       context: .
@@ -88,7 +77,7 @@ services:
       retries: 20
       start_period: 5s
     depends_on:
-      seed:
+      migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy

@@ -28,7 +28,7 @@ type Dependencies struct {
 	MaxBodyBytes   int64
 	Readiness      ReadinessChecker
 	Authenticator  *auth.Authenticator
-	Services       *Services
+	Game           GameService
 	RateLimit      RateLimitConfig
 	Metrics        *observability.Metrics
 	TracingEnabled bool
@@ -79,11 +79,8 @@ func newRouter(dependencies Dependencies, register func(chi.Router, func(http.Ha
 			"checks": map[string]string{"postgres": "ready"},
 		})
 	})
-	if dependencies.Services != nil {
-		registerV1Routes(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics), dependencies.RateLimit, *dependencies.Services, dependencies.Logger, dependencies.Metrics)
-		if dependencies.Services.Game != nil {
-			registerV2Routes(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics), dependencies.RateLimit, dependencies.Services.Game, dependencies.Logger)
-		}
+	if dependencies.Game != nil {
+		registerV2Routes(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics), dependencies.RateLimit, dependencies.Game, dependencies.Logger)
 	}
 
 	if register != nil {

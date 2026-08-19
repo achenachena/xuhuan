@@ -47,7 +47,7 @@ apps/api/internal/
   story/         represented by content scenes and progression choice policy
   progression/   unlocks, immutable choices, pending-scene calculation
   game/          authenticated orchestration across player/progression/run
-  api/           V1 compatibility and V2 HTTP transport
+  api/           V2 HTTP transport and request validation
   postgres/      pgx repositories and transaction boundaries
 ```
 
@@ -90,7 +90,7 @@ The V1 content budget is:
 
 | Table | Responsibility | Important constraints |
 | --- | --- | --- |
-| `players` | Telegram identity and timestamps; legacy columns remain during compatibility release | unique `telegram_user_id BIGINT` |
+| `players` | Telegram identity, language, and timestamps | unique `telegram_user_id BIGINT` |
 | `player_progress` | chapter, highest noise, story flags/version | one row per player; optimistic version |
 | `player_unlocks` | character/card/relic/starter-module unlocks | unique `(player, type, slug)` |
 | `story_choices` | immutable base-story decisions and result snapshots | unique scene and idempotency identities; update/delete rejected |
@@ -116,15 +116,15 @@ The command endpoint accepts `choose_node`, `play_card`, `end_turn`, `choose_car
 
 The map and battle layouts target a 320×568 viewport, observe Telegram safe-area insets, expose SVG nodes through keyboard roles, and keep all combat resources and enemy intents visible. Existing Telegram SDK, theme, audio, and character portrait integration remain available; no voice runtime or third-party game engine was added.
 
-## Compatibility rollout
+## Completed compatibility rollout
 
-The release is deliberately split:
+The release used an expand/contract sequence:
 
-1. Migration 002 truncates legacy player/game data as a product decision, creates V2 tables, and deploys V2 endpoints and UI. Empty V1 tables/endpoints remain so the Lambda alias can roll back to the prior binary.
-2. After production verifies migration, prologue, resume, version conflicts, a full boss clear, story choice, and noise unlock, a separate destructive migration removes V1 HTTP handlers, `battle` code, seed data, presentation types, and old tables.
+1. Migration 002 truncated legacy player/game data as a product decision, created V2 tables, and deployed the V2 endpoints and UI while retaining empty V1 tables/endpoints as a temporary Lambda rollback boundary.
+2. The protected `Smoke Production V2` workflow passed in [run 32222594249](https://github.com/achenachena/xuhuan/actions/runs/32222594249). GitHub OIDC read the Telegram token directly from SSM, signed a clearly marked synthetic identity without logging the credential or raw init data, respected production rate limits, and exercised the complete authoritative journey through resume, boss clear, story choice, and noise unlock.
+3. Migration 003 is the contract step. It removes V1 HTTP handlers, the legacy `battle` domain, seed data, presentation types, old tables, and the legacy gameplay columns on `players`.
 
-Stage two must not be bundled into the first deploy because database rollback compatibility is a release safety property.
-The protected `Smoke Production V2` workflow is the stage-two gate: GitHub OIDC reads the Telegram token directly from SSM, signs a synthetic Mini App identity without logging the credential or raw init data, respects production rate-limit headers, and exercises the complete authoritative journey.
+The deploy workflow promotes a new Lambda binary that can read both the 002 and 003 schemas before applying the contract migration. Migrations run transactionally under an advisory lock. Once migration 003 succeeds, rollback to a binary that queries the V1 schema is intentionally disabled; any database issue is fixed forward.
 
 ## Verification
 

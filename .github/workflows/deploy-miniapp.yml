@@ -37,7 +37,6 @@ jobs:
       - name: Install and verify workspace
         run: |
           npm ci
-          npm run build --workspace @xuhuan/game-types
           npm run check:api-types --workspace @xuhuan/miniapp
           npm run test --workspace @xuhuan/miniapp
           npm run lint --workspace @xuhuan/miniapp
