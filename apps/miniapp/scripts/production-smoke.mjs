@@ -62,7 +62,7 @@ const requestJSON = async (
       await sleep(Math.min(2 ** attempt * 500, 8_000));
       continue;
     }
-    if (response.ok())
+    if (response.ok)
       return {
         body: await response.json(),
         replayed: response.headers.get("idempotency-replayed") === "true",
