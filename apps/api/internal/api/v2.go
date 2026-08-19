@@ -255,7 +255,7 @@ func writeV2Error(w http.ResponseWriter, r *http.Request, logger *slog.Logger, e
 		strings.HasPrefix(err.Error(), "combat: unknown"):
 		writeError(w, r, http.StatusBadRequest, "invalid_command", "The command is invalid for the current state")
 	default:
-		logger.ErrorContext(r.Context(), event, "request_id", requestIDFromContext(r.Context()), "error", err)
+		logger.ErrorContext(r.Context(), event, "request_id", requestIDFromContext(r.Context()), "error_type", fmt.Sprintf("%T", err))
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "An internal error occurred")
 	}
 }
