@@ -188,13 +188,17 @@ func (repository *RunRepository) Apply(ctx context.Context, input gameRun.ApplyI
 		if err != nil {
 			return err
 		}
+		commandPayload, err := json.Marshal(input.Command)
+		if err != nil {
+			return err
+		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO run_commands (
 				run_id, player_id, sequence, command_type, expected_version,
-				resulting_version, idempotency_key, request_hash, result_snapshot
-			) VALUES ($1::uuid, $2::uuid, $3, $4, $5::bigint, $5::bigint + 1, $6, $7, $8)`,
+				resulting_version, idempotency_key, request_hash, command_payload, result_snapshot
+			) VALUES ($1::uuid, $2::uuid, $3, $4, $5::bigint, $5::bigint + 1, $6, $7, $8, $9)`,
 			current.ID, input.PlayerID, input.ExpectedVersion, input.Command.Type,
-			input.ExpectedVersion, input.IdempotencyKey, input.RequestHash[:], snapshot,
+			input.ExpectedVersion, input.IdempotencyKey, input.RequestHash[:], commandPayload, snapshot,
 		)
 		return err
 	})
@@ -211,6 +215,12 @@ func updateProgressFromRunEvents(ctx context.Context, tx pgx.Tx, current gameRun
 		if event.Kind == "chapter_cleared" {
 			chapterCleared = true
 			flags["chapter-one-cleared"] = true
+		}
+		if event.Kind == "emergency_reconnect_used" {
+			flags["emergency-reconnect-used"] = true
+		}
+		if event.Kind == "tutorial_completed" {
+			flags["action-tutorial-completed"] = true
 		}
 	}
 	if len(flags) == 0 && !chapterCleared {

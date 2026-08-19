@@ -2,68 +2,50 @@ package content
 
 import "testing"
 
-func TestVersionOneContentMeetsVerticalSliceBudget(t *testing.T) {
-	catalog, err := Load(CurrentVersion)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+func TestActionCatalogIsCompleteAndBilingual(t *testing.T) {
+	catalog := MustLoad(CurrentVersion)
+	if catalog.Version != "v2" || len(catalog.Characters) != 7 || len(catalog.Modules) < 32 || len(catalog.Plugins) != 10 || len(catalog.Enemies) != 7 || len(catalog.Events) != 12 {
+		t.Fatalf("unexpected action content counts: characters=%d modules=%d plugins=%d enemies=%d events=%d", len(catalog.Characters), len(catalog.Modules), len(catalog.Plugins), len(catalog.Enemies), len(catalog.Events))
 	}
-
-	if got := len(catalog.Characters); got != 7 {
-		t.Fatalf("characters = %d, want 7", got)
-	}
-	if got := len(catalog.StarterDeck("nana7mi")); got != 10 {
-		t.Fatalf("starter cards = %d, want 10", got)
-	}
-	nanaCards, commonGlitches := 0, 0
-	for _, card := range catalog.Cards {
-		if card.CharacterSlug == "nana7mi" {
-			nanaCards++
-		}
-		if card.CharacterSlug == "" && card.Type == "glitch" {
-			commonGlitches++
+	for _, module := range catalog.Modules {
+		if module.Name.Resolve("zh-CN") == "" || module.Name.Resolve("en") == "" || module.Description.Resolve("zh-CN") == "" || module.Description.Resolve("en") == "" {
+			t.Fatalf("module %q is not bilingual", module.Slug)
 		}
 	}
-	if nanaCards < 24 {
-		t.Fatalf("nana cards = %d, want at least 24", nanaCards)
+	if encounter, ok := catalog.Encounter("signal-handshake"); !ok || !encounter.Tutorial || encounter.DurationTicks != 1350 {
+		t.Fatalf("tutorial encounter = %#v, %v", encounter, ok)
 	}
-	if commonGlitches != 8 {
-		t.Fatalf("common glitch cards = %d, want 8", commonGlitches)
-	}
-	if got := len(catalog.Relics); got != 10 {
-		t.Fatalf("relics = %d, want 10", got)
-	}
-	if got := len(catalog.Events); got != 12 {
-		t.Fatalf("events = %d, want 12", got)
-	}
-
-	kinds := map[string]int{}
-	for _, enemy := range catalog.Enemies {
-		kinds[enemy.Kind]++
-	}
-	if kinds["normal"] != 4 || kinds["elite"] != 2 || kinds["boss"] != 1 {
-		t.Fatalf("enemy kinds = %#v, want 4 normal, 2 elite, 1 boss", kinds)
+	if chapter, ok := catalog.Chapter("seventh-dock"); !ok || chapter.BossEncounterSlug != "optimal-persona" {
+		t.Fatalf("chapter = %#v, %v", chapter, ok)
 	}
 }
 
-func TestEveryLocalizedFieldResolvesInBothLanguages(t *testing.T) {
-	catalog := MustLoad(CurrentVersion)
-	assert := func(label string, value LocalizedText) {
-		t.Helper()
-		if value.Resolve("zh-CN") == "" || value.Resolve("en") == "" {
-			t.Errorf("%s is missing a translation", label)
-		}
+func TestUnknownContentVersionIsRejected(t *testing.T) {
+	if _, err := Load("v999"); err == nil {
+		t.Fatal("expected unknown content version to fail")
 	}
-	for _, card := range catalog.Cards {
-		assert("card name "+card.Slug, card.Name)
-		assert("card description "+card.Slug, card.Description)
-	}
-	for _, scene := range catalog.Scenes {
-		assert("scene title "+scene.Slug, scene.Title)
-		for _, message := range scene.Messages {
-			assert("scene message "+scene.Slug, message.Text)
+}
+
+func TestCatalogValidationRejectsBrokenAuthoredContent(t *testing.T) {
+	t.Run("unsupported module effect", func(t *testing.T) {
+		catalog := MustLoad(CurrentVersion)
+		catalog.Modules[0].Effects[0].Kind = "trust_the_client"
+		if err := catalog.indexAndValidate(); err == nil {
+			t.Fatal("expected unsupported effect to fail validation")
 		}
-		for _, option := range scene.Options {
-			assert("scene option "+scene.Slug+"/"+option.Slug, option.Label)
+	})
+	t.Run("missing translation", func(t *testing.T) {
+		catalog := MustLoad(CurrentVersion)
+		catalog.Events[0].Title.EN = ""
+		if err := catalog.indexAndValidate(); err == nil {
+			t.Fatal("expected missing translation to fail validation")
 		}
-	}
+	})
+	t.Run("duplicate scene", func(t *testing.T) {
+		catalog := MustLoad(CurrentVersion)
+		catalog.Scenes = append(catalog.Scenes, catalog.Scenes[0])
+		if err := catalog.indexAndValidate(); err == nil {
+			t.Fatal("expected duplicate scene to fail validation")
+		}
+	})
 }

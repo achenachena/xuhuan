@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/achenachena/xuhuan/apps/api/internal/combat"
+	"github.com/achenachena/xuhuan/apps/api/internal/action"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 )
+
+const baseMaxHealth = 100
 
 func NewState(input StartInput, catalog *gamecontent.Catalog) (State, error) {
 	chapter, ok := catalog.Chapter(input.ChapterSlug)
@@ -17,44 +19,33 @@ func NewState(input StartInput, catalog *gamecontent.Catalog) (State, error) {
 	if !ok || !character.Available {
 		return State{}, ErrContentLocked
 	}
-	starter := catalog.StarterDeck(input.CharacterSlug)
-	if len(starter) == 0 {
-		return State{}, fmt.Errorf("run: character %q has no starter deck", input.CharacterSlug)
-	}
-	deck := make([]combat.CardInstance, 0, len(starter))
-	for index, slug := range starter {
-		deck = append(deck, combat.CardInstance{ID: fmt.Sprintf("deck-%d", index+1), Slug: slug})
-	}
 	gameMap, cursor, err := generateMap(input.Seed, input.NoiseLevel, catalog)
 	if err != nil {
 		return State{}, err
 	}
-	return State{
-		Phase: MapPhase, ChapterSlug: input.ChapterSlug, CharacterSlug: input.CharacterSlug,
-		NoiseLevel: input.NoiseLevel, Health: combat.BaseMaxHealth, MaxHealth: combat.BaseMaxHealth,
-		Deck: deck, Relics: []string{}, ChoiceTags: []string{}, Map: gameMap,
-		NextCardSequence: len(deck) + 1, RNGCursor: cursor,
-	}, nil
+	state := State{Phase: EncounterPhase, ChapterSlug: input.ChapterSlug, CharacterSlug: input.CharacterSlug, WeaponSlug: "auto-signal", NoiseLevel: input.NoiseLevel, Health: baseMaxHealth, MaxHealth: baseMaxHealth, Modules: []ModuleLevel{}, Plugins: []string{}, Map: gameMap, ChoiceTags: []string{}, RNGCursor: cursor, EmergencyReconnectAvailable: input.EmergencyReconnectAvailable}
+	if err := startEncounter(&state, input.Seed, "signal-handshake", catalog); err != nil {
+		return State{}, err
+	}
+	return state, nil
 }
 
 func Apply(current State, seed string, command Command, catalog *gamecontent.Catalog) (Resolution, *Outcome, error) {
 	state := cloneState(current)
-	events := make([]Event, 0, 16)
+	events := make([]Event, 0, 8)
 	var outcome *Outcome
 	var err error
 	switch command.Type {
 	case ChooseNode:
 		err = chooseNode(&state, seed, command.NodeID, catalog, &events)
-	case PlayCard:
-		err = playCard(&state, command.CardInstanceID, command.TargetID, catalog, &events)
-	case EndTurn:
-		err = endTurn(&state, catalog, &events)
-	case ChooseCardReward:
+	case CompleteEncounter:
+		err = completeEncounter(&state, command.Trace, catalog, &events)
+	case ChooseModuleReward:
 		err = chooseReward(&state, command.ChoiceSlug, catalog, &events)
 	case ResolveEvent:
 		err = resolveEvent(&state, command.ChoiceSlug, catalog, &events)
 	case Rest:
-		err = rest(&state, command.Operation, command.CardInstanceID, &events)
+		err = rest(&state, command.Operation, command.ModuleSlug, catalog, &events)
 	case AbandonRun:
 		state.Phase = CompletedPhase
 		value := Quit
@@ -73,28 +64,8 @@ func Apply(current State, seed string, command Command, catalog *gamecontent.Cat
 		}
 		outcome = &value
 	}
-	normalizeRunCollections(&state)
+	normalizeCollections(&state)
 	return Resolution{State: state, Events: events}, outcome, nil
-}
-
-func normalizeRunCollections(state *State) {
-	if state.Deck == nil {
-		state.Deck = []combat.CardInstance{}
-	}
-	if state.Relics == nil {
-		state.Relics = []string{}
-	}
-	if state.ChoiceTags == nil {
-		state.ChoiceTags = []string{}
-	}
-	if state.Map.Nodes == nil {
-		state.Map.Nodes = []MapNode{}
-	}
-	for index := range state.Map.Nodes {
-		if state.Map.Nodes[index].Next == nil {
-			state.Map.Nodes[index].Next = []string{}
-		}
-	}
 }
 
 func chooseNode(state *State, seed, id string, catalog *gamecontent.Catalog, events *[]Event) error {
@@ -112,21 +83,7 @@ func chooseNode(state *State, seed, id string, catalog *gamecontent.Catalog, eve
 	*events = append(*events, Event{Kind: "node_entered", NodeID: id})
 	switch node.Type {
 	case CombatNode, EliteNode, BossNode:
-		enemies := slices.Clone(node.EnemySlugs)
-		if node.Type == BossNode {
-			chapter, _ := catalog.Chapter(state.ChapterSlug)
-			enemies = []string{chapter.BossSlug}
-		}
-		started, err := combat.Start(combat.StartInput{
-			Deck: state.Deck, EnemySlugs: enemies, Relics: state.Relics,
-			Seed: seed + ":" + node.ID, Health: state.Health, MaxHealth: state.MaxHealth, NoiseLevel: state.NoiseLevel,
-		}, catalog)
-		if err != nil {
-			return err
-		}
-		state.Phase = CombatPhase
-		state.Combat = &started.State
-		appendCombatEvents(events, started.Events)
+		return startEncounter(state, seed, node.EncounterSlug, catalog)
 	case EventNode, StoryNode:
 		state.Phase = EventPhase
 		state.CurrentEventSlug = node.EventSlug
@@ -138,69 +95,124 @@ func chooseNode(state *State, seed, id string, catalog *gamecontent.Catalog, eve
 	return nil
 }
 
-func playCard(state *State, cardID, targetID string, catalog *gamecontent.Catalog, events *[]Event) error {
-	if state.Phase != CombatPhase || state.Combat == nil {
+func startEncounter(state *State, runSeed, slug string, catalog *gamecontent.Catalog) error {
+	definition, ok := catalog.Encounter(slug)
+	if !ok {
+		return fmt.Errorf("run: unknown encounter %q", slug)
+	}
+	state.Phase = EncounterPhase
+	state.Encounter = &EncounterState{Slug: slug, Seed: runSeed + ":" + state.Map.CurrentNodeID, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, Tutorial: definition.Tutorial}
+	return nil
+}
+
+func completeEncounter(state *State, trace *action.InputTrace, catalog *gamecontent.Catalog, events *[]Event) error {
+	if state.Phase != EncounterPhase || state.Encounter == nil || trace == nil {
 		return ErrInvalidCommand
 	}
-	result, err := combat.PlayCard(*state.Combat, cardID, targetID, state.Relics, catalog)
+	config, err := actionConfig(*state, catalog)
 	if err != nil {
 		return err
 	}
-	state.Combat = &result.State
-	appendCombatEvents(events, result.Events)
-	return resolveCombatOutcome(state, catalog, events)
-}
-
-func endTurn(state *State, catalog *gamecontent.Catalog, events *[]Event) error {
-	if state.Phase != CombatPhase || state.Combat == nil {
-		return ErrInvalidCommand
-	}
-	result, err := combat.EndTurn(*state.Combat, state.Relics, catalog)
+	result, err := action.Simulate(config, *trace)
 	if err != nil {
 		return err
 	}
-	state.Combat = &result.State
-	appendCombatEvents(events, result.Events)
-	return resolveCombatOutcome(state, catalog, events)
-}
-
-func resolveCombatOutcome(state *State, catalog *gamecontent.Catalog, events *[]Event) error {
-	if state.Combat == nil || state.Combat.Status == combat.Active {
-		return nil
+	state.Health = min(state.MaxHealth, result.Health)
+	if result.EmergencyReconnectUsed {
+		state.EmergencyReconnectAvailable = false
+		*events = append(*events, Event{Kind: "emergency_reconnect_used"})
 	}
-	state.Health = min(state.MaxHealth, state.Combat.Player.Health)
-	if state.Combat.Status == combat.Lost {
+	*events = append(*events, Event{Kind: "encounter_completed", EncounterResult: &result})
+	state.Encounter = nil
+	if !result.Won {
 		state.Health = 0
 		state.Phase = CompletedPhase
-		state.Combat = nil
 		*events = append(*events, Event{Kind: "run_failed"})
 		return nil
 	}
 	node := state.Map.Nodes[nodeIndex(state.Map, state.Map.CurrentNodeID)]
-	for _, relic := range state.Relics {
-		definition, ok := catalog.Relic(relic)
-		if ok && definition.Effect.Kind == "heal_after_combat" {
-			healRun(state, definition.Effect.Amount, events)
-		}
+	if node.Type == TutorialNode {
+		*events = append(*events, Event{Kind: "tutorial_completed"})
 	}
-	state.Combat = nil
 	if node.Type == BossNode {
 		completeCurrentNode(state)
 		state.Phase = CompletedPhase
 		*events = append(*events, Event{Kind: "chapter_cleared"})
 		return nil
 	}
-	state.Phase = RewardPhase
-	reward := RewardState{CardChoices: rewardChoices(state, catalog)}
+	reward := RewardState{ModuleChoices: rewardChoices(state, catalog, node.Type == TutorialNode)}
 	if node.Type == EliteNode {
-		reward.GrantedRelic = grantRelic(state, catalog)
-		if reward.GrantedRelic != "" {
-			applyRelicToRun(state, reward.GrantedRelic, catalog, events)
-			*events = append(*events, Event{Kind: "relic_granted", RelicSlug: reward.GrantedRelic})
+		reward.GrantedPlugin = grantPlugin(state, catalog)
+		if reward.GrantedPlugin != "" {
+			if err := applyEffects(state, mustPlugin(catalog, reward.GrantedPlugin).Effects, catalog, events); err != nil {
+				return err
+			}
+			*events = append(*events, Event{Kind: "plugin_granted", PluginSlug: reward.GrantedPlugin})
 		}
 	}
 	state.Reward = &reward
+	state.Phase = RewardPhase
 	return nil
+}
+
+func actionConfig(state State, catalog *gamecontent.Catalog) (action.Config, error) {
+	definition, ok := catalog.Encounter(state.Encounter.Slug)
+	if !ok {
+		return action.Config{}, ErrInvalidCommand
+	}
+	enemies := make([]action.EnemySpec, 0, len(definition.EnemySlugs))
+	for _, slug := range definition.EnemySlugs {
+		enemy, ok := catalog.Enemy(slug)
+		if !ok {
+			return action.Config{}, ErrInvalidCommand
+		}
+		enemies = append(enemies, action.EnemySpec{Slug: enemy.Slug, Pattern: enemy.Pattern, MaxHealth: enemy.MaxHealth, Speed: enemy.Speed, ContactDamage: enemy.ContactDamage, FireInterval: enemy.FireInterval, ProjectileSpeed: enemy.ProjectileSpeed, ProjectileDamage: enemy.ProjectileDamage})
+	}
+	buffs := action.Buffs{AttackDamage: 8, AttackInterval: 12, MoveSpeed: 42, DashCooldown: 240, DashDamage: 14, DistortionGain: 4}
+	for _, owned := range state.Modules {
+		module, ok := catalog.Module(owned.Slug)
+		if !ok {
+			return action.Config{}, ErrInvalidCommand
+		}
+		for range owned.Level {
+			accumulateBuffs(&buffs, module.Effects)
+		}
+	}
+	for _, slug := range state.Plugins {
+		plugin, ok := catalog.Plugin(slug)
+		if !ok {
+			return action.Config{}, ErrInvalidCommand
+		}
+		accumulateBuffs(&buffs, plugin.Effects)
+	}
+	return action.Config{Seed: state.Encounter.Seed, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, SpawnInterval: definition.SpawnInterval, MaxAlive: definition.MaxAlive, PlayerHealth: state.Health, PlayerMaxHealth: state.MaxHealth, NoiseLevel: state.NoiseLevel, EmergencyReconnectAvailable: state.EmergencyReconnectAvailable, Enemies: enemies, Buffs: buffs}, nil
+}
+
+func accumulateBuffs(buffs *action.Buffs, effects []gamecontent.Effect) {
+	for _, effect := range effects {
+		switch effect.Kind {
+		case "attack_damage":
+			buffs.AttackDamage += effect.Amount
+		case "attack_speed":
+			buffs.AttackInterval = max(5, buffs.AttackInterval-effect.Amount)
+		case "move_speed":
+			buffs.MoveSpeed += effect.Amount
+		case "dash_cooldown":
+			buffs.DashCooldown = max(90, buffs.DashCooldown-effect.Amount)
+		case "dash_damage":
+			buffs.DashDamage += effect.Amount
+		case "starting_shield":
+			buffs.StartingShield += effect.Amount
+		case "overload_bonus":
+			buffs.OverloadBonus += effect.Amount
+		case "distortion_gain":
+			buffs.DistortionGain += effect.Amount
+		case "route_heal":
+			buffs.RouteHeal += effect.Amount
+		case "reflect_damage":
+			buffs.ReflectDamage += effect.Amount
+		}
+	}
 }
 
 func chooseReward(state *State, slug string, catalog *gamecontent.Catalog, events *[]Event) error {
@@ -208,19 +220,44 @@ func chooseReward(state *State, slug string, catalog *gamecontent.Catalog, event
 		return ErrInvalidCommand
 	}
 	if slug != "" {
-		if !slices.Contains(state.Reward.CardChoices, slug) {
+		if !slices.Contains(state.Reward.ModuleChoices, slug) {
 			return ErrInvalidCommand
 		}
-		if _, ok := catalog.Card(slug); !ok {
-			return ErrInvalidCommand
+		if err := addOrUpgradeModule(state, slug, catalog, events); err != nil {
+			return err
 		}
-		state.Deck = append(state.Deck, combat.CardInstance{ID: fmt.Sprintf("deck-%d", state.NextCardSequence), Slug: slug})
-		state.NextCardSequence++
-		*events = append(*events, Event{Kind: "card_rewarded", CardSlug: slug})
 	}
 	state.Reward = nil
 	completeCurrentNode(state)
 	state.Phase = MapPhase
+	return nil
+}
+func addOrUpgradeModule(state *State, slug string, catalog *gamecontent.Catalog, events *[]Event) error {
+	module, ok := catalog.Module(slug)
+	if !ok {
+		return ErrInvalidCommand
+	}
+	for index := range state.Modules {
+		if state.Modules[index].Slug == slug {
+			if state.Modules[index].Level >= 3 {
+				return ErrInvalidCommand
+			}
+			state.Modules[index].Level++
+			if err := applyEffects(state, module.Effects, catalog, events); err != nil {
+				return err
+			}
+			*events = append(*events, Event{Kind: "module_upgraded", ModuleSlug: slug})
+			return nil
+		}
+	}
+	if len(state.Modules) >= 6 {
+		return ErrInvalidCommand
+	}
+	state.Modules = append(state.Modules, ModuleLevel{Slug: slug, Level: 1})
+	if err := applyEffects(state, module.Effects, catalog, events); err != nil {
+		return err
+	}
+	*events = append(*events, Event{Kind: "module_rewarded", ModuleSlug: slug})
 	return nil
 }
 
@@ -232,37 +269,13 @@ func resolveEvent(state *State, choiceSlug string, catalog *gamecontent.Catalog,
 	if !ok {
 		return ErrInvalidCommand
 	}
-	optionIndex := slices.IndexFunc(definition.Options, func(option gamecontent.EventOption) bool { return option.Slug == choiceSlug })
-	if optionIndex < 0 {
+	index := slices.IndexFunc(definition.Options, func(option gamecontent.EventOption) bool { return option.Slug == choiceSlug })
+	if index < 0 {
 		return ErrInvalidCommand
 	}
-	option := definition.Options[optionIndex]
-	for _, effect := range option.Effects {
-		switch effect.Kind {
-		case "heal_run":
-			healRun(state, effect.Amount, events)
-		case "damage_run":
-			state.Health = max(1, state.Health-effect.Amount)
-			*events = append(*events, Event{Kind: "run_health_changed", Amount: -effect.Amount})
-		case "add_card":
-			if _, ok := catalog.Card(effect.Status); !ok {
-				return fmt.Errorf("run: event references unknown card %q", effect.Status)
-			}
-			state.Deck = append(state.Deck, combat.CardInstance{ID: fmt.Sprintf("deck-%d", state.NextCardSequence), Slug: effect.Status})
-			state.NextCardSequence++
-			*events = append(*events, Event{Kind: "card_rewarded", CardSlug: effect.Status})
-		case "add_relic":
-			if _, ok := catalog.Relic(effect.Status); !ok {
-				return fmt.Errorf("run: event references unknown relic %q", effect.Status)
-			}
-			if !slices.Contains(state.Relics, effect.Status) {
-				state.Relics = append(state.Relics, effect.Status)
-				applyRelicToRun(state, effect.Status, catalog, events)
-				*events = append(*events, Event{Kind: "relic_granted", RelicSlug: effect.Status})
-			}
-		default:
-			return fmt.Errorf("run: unsupported event effect %q", effect.Kind)
-		}
+	option := definition.Options[index]
+	if err := applyEffects(state, option.Effects, catalog, events); err != nil {
+		return err
 	}
 	if option.ChoiceTag != "" && !slices.Contains(state.ChoiceTags, option.ChoiceTag) {
 		state.ChoiceTags = append(state.ChoiceTags, option.ChoiceTag)
@@ -274,28 +287,24 @@ func resolveEvent(state *State, choiceSlug string, catalog *gamecontent.Catalog,
 	return nil
 }
 
-func rest(state *State, operation, cardID string, events *[]Event) error {
+func rest(state *State, operation, moduleSlug string, catalog *gamecontent.Catalog, events *[]Event) error {
 	if state.Phase != RestPhase {
 		return ErrInvalidCommand
 	}
 	switch operation {
-	case "heal":
-		amount := 14
-		if slices.Contains(state.Relics, "operations-read") {
-			amount += 5
-		}
-		healRun(state, amount, events)
-	case "remove":
-		if len(state.Deck) <= 7 {
+	case "repair":
+		healRun(state, max(1, state.MaxHealth*30/100), events)
+	case "tune":
+		index := slices.IndexFunc(state.Modules, func(item ModuleLevel) bool { return item.Slug == moduleSlug })
+		if index < 0 || state.Modules[index].Level >= 3 {
 			return ErrInvalidCommand
 		}
-		index := slices.IndexFunc(state.Deck, func(card combat.CardInstance) bool { return card.ID == cardID })
-		if index < 0 {
-			return ErrInvalidCommand
+		module, _ := catalog.Module(moduleSlug)
+		state.Modules[index].Level++
+		if err := applyEffects(state, module.Effects, catalog, events); err != nil {
+			return err
 		}
-		removed := state.Deck[index]
-		state.Deck = append(state.Deck[:index], state.Deck[index+1:]...)
-		*events = append(*events, Event{Kind: "card_removed", CardSlug: removed.Slug})
+		*events = append(*events, Event{Kind: "module_upgraded", ModuleSlug: moduleSlug})
 	default:
 		return ErrInvalidCommand
 	}
@@ -304,14 +313,63 @@ func rest(state *State, operation, cardID string, events *[]Event) error {
 	return nil
 }
 
-func rewardChoices(state *State, catalog *gamecontent.Catalog) []string {
-	pool := catalog.RewardCards(state.CharacterSlug)
-	if len(pool) == 0 {
-		return nil
+func applyEffects(state *State, effects []gamecontent.Effect, catalog *gamecontent.Catalog, events *[]Event) error {
+	for _, effect := range effects {
+		switch effect.Kind {
+		case "heal_run":
+			healRun(state, effect.Amount, events)
+		case "damage_run":
+			state.Health = max(1, state.Health-effect.Amount)
+			*events = append(*events, Event{Kind: "run_health_changed", Amount: -effect.Amount})
+		case "add_module":
+			if catalog == nil {
+				return ErrInvalidCommand
+			}
+			if err := addOrUpgradeModule(state, effect.Status, catalog, events); err != nil {
+				return err
+			}
+		case "add_plugin":
+			if catalog == nil || slices.Contains(state.Plugins, effect.Status) {
+				return ErrInvalidCommand
+			}
+			plugin, ok := catalog.Plugin(effect.Status)
+			if !ok {
+				return ErrInvalidCommand
+			}
+			state.Plugins = append(state.Plugins, effect.Status)
+			if err := applyEffects(state, plugin.Effects, catalog, events); err != nil {
+				return err
+			}
+			*events = append(*events, Event{Kind: "plugin_granted", PluginSlug: effect.Status})
+		case "max_health":
+			state.MaxHealth += effect.Amount
+			state.Health += effect.Amount
+			*events = append(*events, Event{Kind: "run_health_changed", Amount: effect.Amount})
+		default: /* encounter-only effects are accumulated when an encounter starts */
+		}
 	}
-	stream := randomStream{seed: state.ChapterSlug + ":rewards", cursor: state.RNGCursor}
+	return nil
+}
+
+func rewardChoices(state *State, catalog *gamecontent.Catalog, tutorial bool) []string {
+	if tutorial {
+		return []string{"route-needle", "near-miss-cache", "soft-firewall"}
+	}
+	pool := catalog.RewardModules(state.CharacterSlug)
+	available := make([]gamecontent.Module, 0, len(pool))
+	for _, item := range pool {
+		level := 0
+		for _, owned := range state.Modules {
+			if owned.Slug == item.Slug {
+				level = owned.Level
+			}
+		}
+		if level < 3 && (level > 0 || len(state.Modules) < 6) {
+			available = append(available, item)
+		}
+	}
+	stream := randomStream{seed: state.ChapterSlug + ":modules", cursor: state.RNGCursor}
 	choices := make([]string, 0, 3)
-	available := slices.Clone(pool)
 	for len(choices) < 3 && len(available) > 0 {
 		index := stream.Intn(len(available))
 		choices = append(choices, available[index].Slug)
@@ -320,36 +378,26 @@ func rewardChoices(state *State, catalog *gamecontent.Catalog) []string {
 	state.RNGCursor = stream.cursor
 	return choices
 }
-
-func grantRelic(state *State, catalog *gamecontent.Catalog) string {
+func grantPlugin(state *State, catalog *gamecontent.Catalog) string {
 	available := make([]string, 0)
-	for _, relic := range catalog.Relics {
-		if !slices.Contains(state.Relics, relic.Slug) {
-			available = append(available, relic.Slug)
+	for _, item := range catalog.Plugins {
+		if !slices.Contains(state.Plugins, item.Slug) {
+			available = append(available, item.Slug)
 		}
 	}
 	if len(available) == 0 {
 		return ""
 	}
-	stream := randomStream{seed: state.ChapterSlug + ":relics", cursor: state.RNGCursor}
+	stream := randomStream{seed: state.ChapterSlug + ":plugins", cursor: state.RNGCursor}
 	slug := available[stream.Intn(len(available))]
 	state.RNGCursor = stream.cursor
-	state.Relics = append(state.Relics, slug)
+	state.Plugins = append(state.Plugins, slug)
 	return slug
 }
-
-func applyRelicToRun(state *State, slug string, catalog *gamecontent.Catalog, events *[]Event) {
-	relic, ok := catalog.Relic(slug)
-	if !ok {
-		return
-	}
-	if relic.Effect.Kind == "max_health" && relic.Effect.Amount > 0 {
-		state.MaxHealth += relic.Effect.Amount
-		state.Health += relic.Effect.Amount
-		*events = append(*events, Event{Kind: "run_health_changed", Amount: relic.Effect.Amount})
-	}
+func mustPlugin(catalog *gamecontent.Catalog, slug string) gamecontent.Plugin {
+	item, _ := catalog.Plugin(slug)
+	return item
 }
-
 func healRun(state *State, amount int, events *[]Event) {
 	healed := min(amount, state.MaxHealth-state.Health)
 	state.Health += healed
@@ -357,31 +405,41 @@ func healRun(state *State, amount int, events *[]Event) {
 		*events = append(*events, Event{Kind: "run_health_changed", Amount: healed})
 	}
 }
-
-func appendCombatEvents(events *[]Event, combatEvents []combat.Event) {
-	for index := range combatEvents {
-		item := combatEvents[index]
-		*events = append(*events, Event{Kind: "combat", Combat: &item})
+func normalizeCollections(state *State) {
+	if state.Modules == nil {
+		state.Modules = []ModuleLevel{}
+	}
+	if state.Plugins == nil {
+		state.Plugins = []string{}
+	}
+	if state.ChoiceTags == nil {
+		state.ChoiceTags = []string{}
+	}
+	if state.Map.Nodes == nil {
+		state.Map.Nodes = []MapNode{}
+	}
+	for index := range state.Map.Nodes {
+		if state.Map.Nodes[index].Next == nil {
+			state.Map.Nodes[index].Next = []string{}
+		}
 	}
 }
-
 func cloneState(current State) State {
 	next := current
-	next.Deck = slices.Clone(current.Deck)
-	next.Relics = slices.Clone(current.Relics)
+	next.Modules = slices.Clone(current.Modules)
+	next.Plugins = slices.Clone(current.Plugins)
 	next.ChoiceTags = slices.Clone(current.ChoiceTags)
 	next.Map.Nodes = slices.Clone(current.Map.Nodes)
 	for index := range next.Map.Nodes {
 		next.Map.Nodes[index].Next = slices.Clone(current.Map.Nodes[index].Next)
-		next.Map.Nodes[index].EnemySlugs = slices.Clone(current.Map.Nodes[index].EnemySlugs)
 	}
-	if current.Combat != nil {
-		value := *current.Combat
-		next.Combat = &value
+	if current.Encounter != nil {
+		value := *current.Encounter
+		next.Encounter = &value
 	}
 	if current.Reward != nil {
 		value := *current.Reward
-		value.CardChoices = slices.Clone(current.Reward.CardChoices)
+		value.ModuleChoices = slices.Clone(current.Reward.ModuleChoices)
 		next.Reward = &value
 	}
 	return next

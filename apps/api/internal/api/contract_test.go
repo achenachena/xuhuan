@@ -36,7 +36,7 @@ func TestResponsesMatchOpenAPIContract(t *testing.T) {
 		},
 		{
 			name: "v2 content", router: func() http.Handler { router, _ := v2TestRouter(t); return router }(),
-			method: http.MethodGet, path: "/v2/content/v1?locale=zh-CN", status: http.StatusOK,
+			method: http.MethodGet, path: "/v2/content/v2?locale=zh-CN", status: http.StatusOK,
 		},
 		{
 			name: "game unauthorized", router: func() http.Handler { router, _ := v2TestRouter(t); return router }(),

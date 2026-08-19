@@ -1,122 +1,148 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 
 const apiURL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080";
 const authHeaders = {
-  "X-Dev-Auth": process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN ?? "local-development-token"
+  "X-Dev-Auth":
+    process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN ?? "local-development-token",
 };
-
 type Content = {
-  cards: Array<{ slug: string; type: string; target: string; cost: number; unplayable: boolean; effects: Array<{ kind: string; amount?: number }> }>;
   events: Array<{ slug: string; options: Array<{ slug: string }> }>;
 };
-
 type Run = {
   id: string;
   version: number;
   status: "active" | "completed" | "abandoned";
   outcome: "cleared" | "failed" | "abandoned" | null;
   state: {
-    phase: "map" | "combat" | "reward" | "event" | "rest" | "completed";
-    map: { nodes: Array<{ id: string; layer: number; type: string; status: string }> };
-    reward?: { card_choices: string[] };
-    current_event_slug?: string;
-    combat?: {
-      player: { bandwidth: number; beacons: number; discount_signal: number };
-      enemies: Array<{ id: string; health: number }>;
-      hand: Array<{ id: string; slug: string }>;
-      played_types: string[];
+    phase: "map" | "encounter" | "reward" | "event" | "rest" | "completed";
+    map: {
+      nodes: Array<{ id: string; layer: number; type: string; status: string }>;
     };
+    encounter?: { kind: string; duration_ticks: number; max_ticks: number };
+    reward?: { module_choices: string[] };
+    current_event_slug?: string;
+    modules: Array<{ slug: string; level: number }>;
   };
 };
 
-const command = async (request: APIRequestContext, run: Run, body: Record<string, unknown>): Promise<Run> => {
+const command = async (
+  request: APIRequestContext,
+  run: Run,
+  body: Record<string, unknown>,
+): Promise<Run> => {
   const response = await request.post(`${apiURL}/v2/runs/${run.id}/commands`, {
     headers: { ...authHeaders, "Idempotency-Key": crypto.randomUUID() },
-    data: { ...body, expected_version: run.version }
+    data: { ...body, expected_version: run.version },
   });
-  if (!response.ok()) {
-    throw new Error(`command failed (${response.status()}): ${await response.text()}`);
-  }
+  if (!response.ok())
+    throw new Error(
+      `${String(body.type)} failed in ${run.state.phase} (${response.status()}): ${await response.text()}`,
+    );
   return (await response.json()).run as Run;
 };
 
-const scoreCard = (card: Content["cards"][number]): number => card.effects.reduce((score, effect) => {
-  if (effect.kind.startsWith("damage")) return score + (effect.amount ?? 2) * 3;
-  if (effect.kind.startsWith("block")) return score + (effect.amount ?? 2) * 2;
-  if (effect.kind.startsWith("draw")) return score + (effect.amount ?? 1) * 5;
-  if (effect.kind.includes("bandwidth")) return score + 6;
-  return score;
-}, 0) - card.cost;
-
-const playCombat = async (request: APIRequestContext, initial: Run, content: Content): Promise<Run> => {
-  const cards = new Map(content.cards.map((card) => [card.slug, card]));
-  let run = initial;
-  for (let turn = 0; turn < 30 && run.state.phase === "combat"; turn += 1) {
-    let safety = 0;
-    while (run.state.phase === "combat" && safety < 16) {
-      safety += 1;
-      const combat = run.state.combat;
-      if (!combat) break;
-      const missingTypes = ["attack", "defense", "signal"].filter((type) => !combat.played_types.includes(type));
-      const playable = combat.hand
-        .map((instance) => ({ instance, card: cards.get(instance.slug) }))
-        .filter(({ card }) => {
-          if (!card || card.unplayable) return false;
-          const cost = card.type === "signal" && combat.player.discount_signal > 0 ? 0 : card.cost;
-          const required = card.effects.find((effect) => effect.kind === "spend_marker")?.amount ?? 0;
-          return cost <= combat.player.bandwidth && required <= combat.player.beacons;
-        })
-        .sort((left, right) => {
-          const leftRoute = missingTypes.includes(left.card?.type ?? "") ? 1 : 0;
-          const rightRoute = missingTypes.includes(right.card?.type ?? "") ? 1 : 0;
-          return rightRoute - leftRoute || scoreCard(right.card!) - scoreCard(left.card!);
-        });
-      if (playable.length === 0) break;
-      const selected = playable[0];
-      const target = combat.enemies.find((enemy) => enemy.health > 0)?.id;
-      run = await command(request, run, {
-        type: "play_card",
-        card_instance_id: selected.instance.id,
-        target_id: selected.card?.target === "enemy" ? target : selected.card?.target === "self" ? "player" : undefined
-      });
-    }
-    if (run.state.phase === "combat") {
-      run = await command(request, run, { type: "end_turn" });
-    }
+const actionTrace = (ticks: number) => {
+  const controls: number[] = [];
+  const route = [0, 4, 8, 12];
+  for (let tick = 0; tick < ticks; tick += 1) {
+    let control = route[Math.floor(tick / 45) % route.length]! | 0x30;
+    if (tick % 210 === 1) control |= 0x40;
+    controls.push(control);
   }
-  return run;
+  const bytes: number[] = [];
+  for (let index = 0; index < controls.length; ) {
+    let count = 1;
+    while (
+      index + count < controls.length &&
+      controls[index + count] === controls[index] &&
+      count < 255
+    )
+      count += 1;
+    bytes.push(controls[index]!, count);
+    index += count;
+  }
+  return {
+    encoding: "rle8-v1",
+    ticks,
+    data: Buffer.from(bytes).toString("base64").replace(/=+$/, ""),
+  };
 };
 
-const finishRun = async (request: APIRequestContext, initial: Run, content: Content): Promise<Run> => {
+const finishRun = async (
+  request: APIRequestContext,
+  initial: Run,
+  content: Content,
+): Promise<Run> => {
   let run = initial;
-  for (let step = 0; step < 350 && run.status === "active"; step += 1) {
+  for (let step = 0; step < 50 && run.status === "active"; step += 1) {
     switch (run.state.phase) {
-      case "map": {
-        const available = run.state.map.nodes.filter((node) => node.status === "available");
-        const preferred = [...available].sort((left, right) => {
-          const priority: Record<string, number> = { rest: 0, event: 1, story: 1, combat: 2, elite: 3, boss: 4 };
-          return (priority[left.type] ?? 9) - (priority[right.type] ?? 9);
-        })[0];
-        run = await command(request, run, { type: "choose_node", node_id: preferred.id });
-        break;
-      }
-      case "combat":
-        run = await playCombat(request, run, content);
-        break;
-      case "reward": {
-        const cards = new Map(content.cards.map((card) => [card.slug, card]));
-        const choice = [...(run.state.reward?.card_choices ?? [])].sort((a, b) => scoreCard(cards.get(b)!) - scoreCard(cards.get(a)!))[0];
-        run = await command(request, run, { type: "choose_card_reward", choice_slug: choice });
-        break;
-      }
-      case "event":
+      case "encounter": {
+        const encounter = run.state.encounter;
+        if (!encounter) throw new Error("encounter has no duration");
         run = await command(request, run, {
-          type: "resolve_event",
-          choice_slug: content.events.find((event) => event.slug === run.state.current_event_slug)?.options[0]?.slug
+          type: "complete_encounter",
+          trace: actionTrace(
+            encounter.kind === "boss"
+              ? encounter.max_ticks
+              : encounter.duration_ticks,
+          ),
         });
         break;
+      }
+      case "reward":
+        run = await command(request, run, {
+          type: "choose_module_reward",
+          choice_slug: run.state.reward?.module_choices[0] ?? "",
+        });
+        break;
+      case "map": {
+        const available = run.state.map.nodes.filter(
+          (node) => node.status === "available",
+        );
+        const priority: Record<string, number> = {
+          elite: 0,
+          story: 1,
+          event: 2,
+          combat: 3,
+          boss: 4,
+          rest: 9,
+        };
+        const selected = [...available].sort(
+          (left, right) =>
+            (priority[left.type] ?? 8) - (priority[right.type] ?? 8),
+        )[0];
+        if (!selected) throw new Error("map has no available node");
+        run = await command(request, run, {
+          type: "choose_node",
+          node_id: selected.id,
+        });
+        break;
+      }
+      case "event": {
+        const event = content.events.find(
+          (item) => item.slug === run.state.current_event_slug,
+        );
+        const choice = event?.options[0]?.slug;
+        if (!choice)
+          throw new Error(
+            `event ${run.state.current_event_slug} has no choice`,
+          );
+        run = await command(request, run, {
+          type: "resolve_event",
+          choice_slug: choice,
+        });
+        break;
+      }
       case "rest":
-        run = await command(request, run, { type: "rest", operation: "heal" });
+        run = await command(request, run, {
+          type: "rest",
+          operation: "repair",
+        });
         break;
       case "completed":
         return run;
@@ -124,8 +150,7 @@ const finishRun = async (request: APIRequestContext, initial: Run, content: Cont
   }
   return run;
 };
-
-const chooseCurrentStoryOption = async (page: Page): Promise<void> => {
+const chooseStory = async (page: Page) => {
   const choice = page.locator("footer button").first();
   await expect(choice).toBeVisible();
   await choice.click();
@@ -133,57 +158,57 @@ const chooseCurrentStoryOption = async (page: Page): Promise<void> => {
 
 test("serves browser security headers", async ({ request }) => {
   const response = await request.get("/");
-  expect(response.headers()["content-security-policy"]).toContain("frame-ancestors");
+  expect(response.headers()["content-security-policy"]).toContain(
+    "frame-ancestors",
+  );
   expect(response.headers()["permissions-policy"]).toContain("camera=()");
   expect(response.headers()["x-content-type-options"]).toBe("nosniff");
   expect(response.headers()["x-powered-by"]).toBeUndefined();
 });
 
-test("new viewer completes the authoritative prologue, resumes a run, and unlocks noise", async ({ page, request }) => {
+test("new viewer enters action in one tap, resumes the room, clears the boss, and unlocks noise", async ({
+  page,
+  request,
+}) => {
   test.setTimeout(150_000);
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
-
-  await expect(page.getByText(/直播已结束。当前在线人数：1。/)).toBeVisible();
-  await chooseCurrentStoryOption(page);
-  const start = page.getByRole("button", { name: /接入第七码头/ });
-  await expect(start).toBeVisible();
-
-  const contentResponse = await request.get(`${apiURL}/v2/content/v1?locale=zh-CN`);
+  await expect(page.getByText("直播已结束。当前在线人数：1。")).toBeVisible();
+  await chooseStory(page);
+  const canvas = page.getByRole("img", { name: "动作战斗区域" });
+  await expect(canvas).toBeVisible();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("canvas has no bounds");
+  await page.mouse.move(box.x + 80, box.y + 380);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 170, box.y + 300, { steps: 5 });
+  await page.waitForTimeout(300);
+  await page.mouse.up();
+  await page.getByRole("button", { name: "航线跃迁" }).click();
+  const firstGame = await request.get(`${apiURL}/v2/game`, {
+    headers: authHeaders,
+  });
+  const first = (await firstGame.json()) as { active_run: Run | null };
+  expect(first.active_run?.state.phase).toBe("encounter");
+  await page.reload();
+  await expect(page.getByRole("img", { name: "动作战斗区域" })).toBeVisible();
+  const contentResponse = await request.get(
+    `${apiURL}/v2/content/v2?locale=zh-CN`,
+  );
   expect(contentResponse.ok()).toBe(true);
   const content = (await contentResponse.json()) as Content;
-
-  let cleared = false;
-  for (let attempt = 0; attempt < 3 && !cleared; attempt += 1) {
-    await start.click();
-    const map = page.getByRole("img", { name: "频道拓扑" });
-    await expect(map).toBeVisible();
-    if (attempt === 0) {
-      await page.getByRole("button", { name: /冲突 available/ }).first().click();
-      await expect(page.getByText("信号冲突")).toBeVisible();
-      await page.reload();
-      await expect(page.getByText("信号冲突")).toBeVisible();
-    }
-
-    const gameResponse = await request.get(`${apiURL}/v2/game`, { headers: authHeaders });
-    expect(gameResponse.ok()).toBe(true);
-    const game = await gameResponse.json() as { active_run: Run | null };
-    expect(game.active_run).not.toBeNull();
-    const result = await finishRun(request, game.active_run!, content);
-    cleared = result.outcome === "cleared";
-    await page.reload();
-  }
-
-  expect(cleared).toBe(true);
-  await expect(page.getByText(/未被剪辑的瞬间|Unedited Moment/i)).toBeVisible();
-  await chooseCurrentStoryOption(page);
-  await chooseCurrentStoryOption(page);
-  const noiseOne = page.getByRole("button", { name: "1" });
-  await expect(noiseOne).toBeEnabled();
-
+  const result = await finishRun(request, first.active_run!, content);
+  expect(result.outcome).toBe("cleared");
+  await page.reload();
+  await expect(
+    page.getByText("最优人格已离线。请选择要保留的七海版本。"),
+  ).toBeVisible();
+  await chooseStory(page);
+  await chooseStory(page);
+  await expect(page.getByRole("button", { name: "1" })).toBeEnabled();
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth
+    scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 });

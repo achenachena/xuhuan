@@ -7,20 +7,14 @@ import (
 )
 
 func generateMap(seed string, noiseLevel int, catalog *gamecontent.Catalog) (MapState, uint64, error) {
-	stream := randomStream{seed: seed + ":map"}
-	normalEnemies := make([]string, 0)
-	eliteEnemies := make([]string, 0)
-	for _, enemy := range catalog.Enemies {
-		switch enemy.Kind {
-		case "normal":
-			normalEnemies = append(normalEnemies, enemy.Slug)
-		case "elite":
-			eliteEnemies = append(eliteEnemies, enemy.Slug)
+	required := []string{"signal-handshake", "dock-pursuit", "comment-storm", "mixed-signal", "cache-purge", "moderation-sweep", "optimal-persona"}
+	for _, slug := range required {
+		if _, ok := catalog.Encounter(slug); !ok {
+			return MapState{}, 0, fmt.Errorf("run: missing encounter %q", slug)
 		}
 	}
-	if len(normalEnemies) < 4 || len(eliteEnemies) < 2 {
-		return MapState{}, 0, fmt.Errorf("run: content needs four normal and two elite enemies")
-	}
+	stream := randomStream{seed: seed + ":map"}
+	elite := []string{"cache-purge", "moderation-sweep"}[stream.Intn(2)]
 	eventSlugs := make([]string, 0, len(catalog.Events))
 	for _, event := range catalog.Events {
 		if event.Slug != "chapter-midpoint" {
@@ -30,37 +24,38 @@ func generateMap(seed string, noiseLevel int, catalog *gamecontent.Catalog) (Map
 	if len(eventSlugs) < 2 {
 		return MapState{}, 0, fmt.Errorf("run: content needs random events")
 	}
-
-	pickNormal := func(allowPair bool) []string {
-		firstIndex := stream.Intn(len(normalEnemies))
-		first := normalEnemies[firstIndex]
-		result := []string{first}
-		if allowPair && noiseLevel >= 1 {
-			secondIndex := stream.Intn(len(normalEnemies) - 1)
-			if secondIndex >= firstIndex {
-				secondIndex++
-			}
-			result = append(result, normalEnemies[secondIndex])
-		}
-		return result
-	}
-	pickEvent := func() string { return eventSlugs[stream.Intn(len(eventSlugs))] }
-
+	event := eventSlugs[stream.Intn(len(eventSlugs))]
 	nodes := []MapNode{
-		{ID: "l1-a", Layer: 1, Lane: 0, Type: CombatNode, Status: AvailableNode, Next: []string{"l2-a", "l2-b"}, EnemySlugs: pickNormal(false)},
-		{ID: "l1-b", Layer: 1, Lane: 1, Type: CombatNode, Status: AvailableNode, Next: []string{"l2-a", "l2-b"}, EnemySlugs: pickNormal(true)},
-		{ID: "l2-a", Layer: 2, Lane: 0, Type: EventNode, Status: LockedNode, Next: []string{"l3-a"}, EventSlug: pickEvent()},
-		{ID: "l2-b", Layer: 2, Lane: 1, Type: RestNode, Status: LockedNode, Next: []string{"l3-a"}},
-		{ID: "l3-a", Layer: 3, Lane: 0, Type: StoryNode, Status: LockedNode, Next: []string{"l4-a", "l4-b"}, EventSlug: "chapter-midpoint"},
-		{ID: "l4-a", Layer: 4, Lane: 0, Type: CombatNode, Status: LockedNode, Next: []string{"l5-a", "l5-b"}, EnemySlugs: pickNormal(true)},
-		{ID: "l4-b", Layer: 4, Lane: 1, Type: EliteNode, Status: LockedNode, Next: []string{"l5-a", "l5-b"}, EnemySlugs: []string{eliteEnemies[stream.Intn(len(eliteEnemies))]}},
-		{ID: "l5-a", Layer: 5, Lane: 0, Type: CombatNode, Status: LockedNode, Next: []string{"l6-a", "l6-b"}, EnemySlugs: pickNormal(true)},
-		{ID: "l5-b", Layer: 5, Lane: 1, Type: RestNode, Status: LockedNode, Next: []string{"l6-a", "l6-b"}},
-		{ID: "l6-a", Layer: 6, Lane: 0, Type: EventNode, Status: LockedNode, Next: []string{"l7-a"}, EventSlug: pickEvent()},
-		{ID: "l6-b", Layer: 6, Lane: 1, Type: EliteNode, Status: LockedNode, Next: []string{"l7-a"}, EnemySlugs: []string{eliteEnemies[stream.Intn(len(eliteEnemies))]}},
-		{ID: "l7-a", Layer: 7, Lane: 0, Type: BossNode, Status: LockedNode, Next: []string{}},
+		{ID: "tutorial", Layer: 0, Lane: 0, Type: TutorialNode, Status: CurrentNode, Next: []string{"l1-a", "l1-b"}, EncounterSlug: "signal-handshake"},
+		{ID: "l1-a", Layer: 1, Lane: 0, Type: CombatNode, Status: LockedNode, Next: []string{"l2-a", "l2-b"}, EncounterSlug: "dock-pursuit"},
+		{ID: "l1-b", Layer: 1, Lane: 1, Type: CombatNode, Status: LockedNode, Next: []string{"l2-a", "l2-b"}, EncounterSlug: "comment-storm"},
+		{ID: "l2-a", Layer: 2, Lane: 0, Type: EventNode, Status: LockedNode, Next: []string{"l3-a", "l3-b"}, EventSlug: event},
+		{ID: "l2-b", Layer: 2, Lane: 1, Type: CombatNode, Status: LockedNode, Next: []string{"l3-a", "l3-b"}, EncounterSlug: "mixed-signal"},
+		{ID: "l3-a", Layer: 3, Lane: 0, Type: EliteNode, Status: LockedNode, Next: []string{"l4-a"}, EncounterSlug: elite},
+		{ID: "l3-b", Layer: 3, Lane: 1, Type: RestNode, Status: LockedNode, Next: []string{"l4-a"}},
+		{ID: "l4-a", Layer: 4, Lane: 0, Type: CombatNode, Status: LockedNode, Next: []string{"l5-a"}, EncounterSlug: "mixed-signal"},
+		{ID: "l5-a", Layer: 5, Lane: 0, Type: StoryNode, Status: LockedNode, Next: []string{"l6-a"}, EventSlug: "chapter-midpoint"},
+		{ID: "l6-a", Layer: 6, Lane: 0, Type: BossNode, Status: LockedNode, Next: []string{}, EncounterSlug: "optimal-persona"},
 	}
-	return MapState{Nodes: nodes}, stream.cursor, nil
+	if noiseLevel >= 2 {
+		for index := range nodes {
+			switch nodes[index].ID {
+			case "l1-a":
+				nodes[index].Next = []string{"l2-a"}
+			case "l1-b":
+				nodes[index].Next = []string{"l2-b"}
+			}
+		}
+	}
+	if noiseLevel >= 3 {
+		for index := range nodes {
+			if nodes[index].ID == "l3-b" {
+				nodes[index].Type = EliteNode
+				nodes[index].EncounterSlug = "moderation-sweep"
+			}
+		}
+	}
+	return MapState{Nodes: nodes, CurrentNodeID: "tutorial"}, stream.cursor, nil
 }
 
 func nodeIndex(gameMap MapState, id string) int {
@@ -71,7 +66,6 @@ func nodeIndex(gameMap MapState, id string) int {
 	}
 	return -1
 }
-
 func lockAlternativeNodes(gameMap *MapState, selected MapNode) {
 	for index := range gameMap.Nodes {
 		node := &gameMap.Nodes[index]
@@ -80,7 +74,6 @@ func lockAlternativeNodes(gameMap *MapState, selected MapNode) {
 		}
 	}
 }
-
 func completeCurrentNode(state *State) {
 	index := nodeIndex(state.Map, state.Map.CurrentNodeID)
 	if index < 0 {

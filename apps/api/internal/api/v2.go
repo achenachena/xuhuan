@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/achenachena/xuhuan/apps/api/internal/combat"
+	"github.com/achenachena/xuhuan/apps/api/internal/action"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 	"github.com/achenachena/xuhuan/apps/api/internal/game"
 	"github.com/achenachena/xuhuan/apps/api/internal/progression"
@@ -28,10 +28,10 @@ type runCommandRequest struct {
 	Type            gameRun.CommandType `json:"type"`
 	ExpectedVersion int64               `json:"expected_version"`
 	NodeID          string              `json:"node_id,omitempty"`
-	CardInstanceID  string              `json:"card_instance_id,omitempty"`
-	TargetID        string              `json:"target_id,omitempty"`
 	ChoiceSlug      string              `json:"choice_slug,omitempty"`
+	ModuleSlug      string              `json:"module_slug,omitempty"`
 	Operation       string              `json:"operation,omitempty"`
+	Trace           *action.InputTrace  `json:"trace,omitempty"`
 }
 
 type storyChoiceRequest struct {
@@ -167,8 +167,8 @@ func createRunCommandHandler(service GameService, logger *slog.Logger) http.Hand
 		result, replayed, err := service.Command(r.Context(), principal.User, game.CommandInput{
 			RunID: runID, ExpectedVersion: request.ExpectedVersion, IdempotencyKey: key,
 			Command: gameRun.Command{
-				Type: request.Type, NodeID: request.NodeID, CardInstanceID: request.CardInstanceID,
-				TargetID: request.TargetID, ChoiceSlug: request.ChoiceSlug, Operation: request.Operation,
+				Type: request.Type, NodeID: request.NodeID, ChoiceSlug: request.ChoiceSlug,
+				ModuleSlug: request.ModuleSlug, Operation: request.Operation, Trace: request.Trace,
 			},
 		})
 		if err != nil {
@@ -246,13 +246,10 @@ func writeV2Error(w http.ResponseWriter, r *http.Request, logger *slog.Logger, e
 	case errors.Is(err, progression.ErrChoiceAlreadyMade), errors.Is(err, progression.ErrSceneNotPending):
 		writeError(w, r, http.StatusConflict, "story_conflict", "The story choice is no longer pending")
 	case errors.Is(err, gameRun.ErrInvalidCommand),
-		errors.Is(err, combat.ErrCombatComplete),
-		errors.Is(err, combat.ErrCardNotInHand),
-		errors.Is(err, combat.ErrCardUnplayable),
-		errors.Is(err, combat.ErrInsufficientCost),
-		errors.Is(err, combat.ErrInvalidTarget),
-		errors.Is(err, combat.ErrInsufficientMarker),
-		strings.HasPrefix(err.Error(), "combat: unknown"):
+		errors.Is(err, action.ErrInvalidTrace),
+		errors.Is(err, action.ErrIncompleteRoom),
+		errors.Is(err, action.ErrDigestMismatch),
+		strings.HasPrefix(err.Error(), "action:"):
 		writeError(w, r, http.StatusBadRequest, "invalid_command", "The command is invalid for the current state")
 	default:
 		logger.ErrorContext(r.Context(), event, "request_id", requestIDFromContext(r.Context()), "error_class", "internal")

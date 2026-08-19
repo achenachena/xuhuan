@@ -5,7 +5,6 @@ export type APIGameContent = components["schemas"]["GameContent"];
 export type APIGameSnapshot = components["schemas"]["GameSnapshot"];
 export type APIGameRun = components["schemas"]["GameRun"];
 export type APIRunState = components["schemas"]["RunState"];
-export type APICombatState = components["schemas"]["CombatStateV2"];
 export type APIRunCommand = components["schemas"]["RunCommandRequest"];
 export type APIRunCommandResponse = components["schemas"]["RunCommandResponse"];
 export type APIStoryChoiceResponse = components["schemas"]["StoryChoiceResponse"];
@@ -111,7 +110,7 @@ export const createIdempotencyKey = (): string => {
 
 export const getGameContent = (locale: "zh-CN" | "en"): Promise<APIGameContent> => {
   return requestJSON<APIGameContent>(
-    `/v2/content/v1?locale=${encodeURIComponent(locale)}`,
+    `/v2/content/v2?locale=${encodeURIComponent(locale)}`,
     { headers: { "Accept-Language": locale } }
   );
 };

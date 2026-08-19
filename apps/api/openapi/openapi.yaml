@@ -1,18 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Xuhuan Game API
+  title: Xuhuan Action Roguelite API
   version: 2.0.0
-  summary: Server-authoritative API for the Xuhuan Telegram Mini App
-  description: >-
-    The API owns player identity, run state, randomness, progression, and rewards.
-    DevelopmentAuth is accepted only by an explicitly enabled development process and
-    is never available in production.
-jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 servers:
   - url: http://localhost:8080
-    description: Local development
-  - url: https://api.example.com
-    description: Production placeholder
 tags:
   - name: Platform
   - name: Game V2
@@ -22,426 +13,174 @@ paths:
     get:
       operationId: getHealth
       tags: [Platform]
-      summary: Process liveness
       security: []
       responses:
         "200":
           description: Process is alive
-          headers:
-            X-Request-ID:
-              $ref: "#/components/headers/RequestID"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Health"
+          headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } }
   /readyz:
     get:
       operationId: getReadiness
       tags: [Platform]
-      summary: Required dependency readiness
       security: []
       responses:
         "200":
-          description: API is ready to serve traffic
-          headers:
-            X-Request-ID:
-              $ref: "#/components/headers/RequestID"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Readiness"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
+          description: Dependencies are ready
+          headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/Readiness" } } }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /v2/content/{version}:
     parameters:
       - name: version
         in: path
         required: true
-        schema:
-          type: string
-          pattern: "^v[1-9][0-9]*$"
+        schema: { type: string, pattern: "^v[1-9][0-9]*$" }
       - name: locale
         in: query
-        required: false
-        schema:
-          type: string
-          enum: [zh-CN, en]
+        schema: { type: string, enum: [zh-CN, en] }
     get:
       operationId: getGameContent
       tags: [Game V2]
-      summary: Get one immutable localized roguelite content bundle
       security: []
       responses:
         "200":
-          description: Localized game content
+          description: Immutable localized action content
           headers:
-            X-Request-ID:
-              $ref: "#/components/headers/RequestID"
-            ETag:
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GameContent"
-        "304":
-          description: Cached content is current
-        "400":
-          $ref: "#/components/responses/InvalidRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
+            X-Request-ID: { $ref: "#/components/headers/RequestID" }
+            ETag: { schema: { type: string } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/GameContent" } } }
+        "304": { description: Cached content is current }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /v2/game:
     get:
       operationId: getGameState
       tags: [Game V2]
-      summary: Get player story progress and resumable run
-      security:
-        - TelegramInitData: []
-        - DevelopmentAuth: []
+      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
       responses:
         "200":
-          description: Current game state
-          headers:
-            X-Request-ID:
-              $ref: "#/components/headers/RequestID"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GameSnapshot"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+          description: Story progress and resumable run
+          headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/GameSnapshot" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
   /v2/runs:
     post:
       operationId: createRun
       tags: [Game V2]
-      summary: Start a server-seeded roguelite run
-      security:
-        - TelegramInitData: []
-        - DevelopmentAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateRunRequest"
+        content: { application/json: { schema: { $ref: "#/components/schemas/CreateRunRequest" } } }
       responses:
         "201":
-          description: Run created
+          description: Run created directly inside the tutorial encounter
           headers:
-            X-Request-ID:
-              $ref: "#/components/headers/RequestID"
-            Idempotency-Replayed:
-              $ref: "#/components/headers/IdempotencyReplayed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GameRun"
-        "400":
-          $ref: "#/components/responses/InvalidRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+            X-Request-ID: { $ref: "#/components/headers/RequestID" }
+            Idempotency-Replayed: { $ref: "#/components/headers/IdempotencyReplayed" }
+          content: { application/json: { schema: { $ref: "#/components/schemas/GameRun" } } }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
   /v2/runs/{id}:
-    parameters:
-      - $ref: "#/components/parameters/ResourceID"
+    parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       operationId: getRun
       tags: [Game V2]
-      summary: Resume one player-owned run
-      security:
-        - TelegramInitData: []
-        - DevelopmentAuth: []
+      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
       responses:
         "200":
           description: Authoritative run state
-          headers:
-            X-Request-ID:
-              $ref: "#/components/headers/RequestID"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GameRun"
-        "400":
-          $ref: "#/components/responses/InvalidRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
+          headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/GameRun" } } }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
   /v2/runs/{id}/commands:
-    parameters:
-      - $ref: "#/components/parameters/ResourceID"
+    parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     post:
       operationId: createRunCommand
       tags: [Game V2]
-      summary: Apply one authoritative versioned run command
-      security:
-        - TelegramInitData: []
-        - DevelopmentAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RunCommandRequest"
+        content: { application/json: { schema: { $ref: "#/components/schemas/RunCommandRequest" } } }
       responses:
         "200":
-          description: Resulting run and ordered presentation events
+          description: Authoritative command result
           headers:
-            X-Request-ID:
-              $ref: "#/components/headers/RequestID"
-            Idempotency-Replayed:
-              $ref: "#/components/headers/IdempotencyReplayed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RunCommandResponse"
-        "400":
-          $ref: "#/components/responses/InvalidRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+            X-Request-ID: { $ref: "#/components/headers/RequestID" }
+            Idempotency-Replayed: { $ref: "#/components/headers/IdempotencyReplayed" }
+          content: { application/json: { schema: { $ref: "#/components/schemas/RunCommandResponse" } } }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
   /v2/story/choices:
     post:
       operationId: createStoryChoice
       tags: [Story V2]
-      summary: Resolve the currently pending authored story scene
-      security:
-        - TelegramInitData: []
-        - DevelopmentAuth: []
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StoryChoiceRequest"
+        content: { application/json: { schema: { $ref: "#/components/schemas/StoryChoiceRequest" } } }
       responses:
         "200":
           description: Updated story progress
           headers:
-            X-Request-ID:
-              $ref: "#/components/headers/RequestID"
-            Idempotency-Replayed:
-              $ref: "#/components/headers/IdempotencyReplayed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StoryChoiceResponse"
-        "400":
-          $ref: "#/components/responses/InvalidRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+            X-Request-ID: { $ref: "#/components/headers/RequestID" }
+            Idempotency-Replayed: { $ref: "#/components/headers/IdempotencyReplayed" }
+          content: { application/json: { schema: { $ref: "#/components/schemas/StoryChoiceResponse" } } }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
 components:
   securitySchemes:
-    TelegramInitData:
-      type: apiKey
-      in: header
-      name: X-Telegram-Init-Data
-      description: Raw, unmodified Telegram Mini App initData
-    DevelopmentAuth:
-      type: apiKey
-      in: header
-      name: X-Dev-Auth
-      description: Explicit local token; impossible to enable when APP_ENV is production
+    TelegramInitData: { type: apiKey, in: header, name: X-Telegram-Init-Data }
+    DevelopmentAuth: { type: apiKey, in: header, name: X-Dev-Auth }
   headers:
-    RequestID:
-      description: Correlation ID generated or accepted by the API
-      schema:
-        type: string
-        minLength: 1
-        maxLength: 128
-    IdempotencyReplayed:
-      description: True when the exact stored response was replayed
-      schema:
-        type: boolean
+    RequestID: { schema: { type: string, minLength: 1, maxLength: 128 } }
+    IdempotencyReplayed: { schema: { type: boolean } }
   parameters:
-    ResourceID:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: true
-      description: Unique per player and operation; reuse replays the original response
-      schema:
-        type: string
-        minLength: 8
-        maxLength: 128
-        pattern: "^[A-Za-z0-9._:-]+$"
+    ResourceID: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128, pattern: "^[A-Za-z0-9._:-]+$" } }
   responses:
-    InvalidRequest:
-      description: Request validation failed
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
-          example:
-            error:
-              code: invalid_request
-              message: The request is invalid
-              request_id: 01J4Z6PQZ91GF4G74AM2R3PE8W
-    Unauthorized:
-      description: Authentication is missing, invalid, malformed, or stale
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
-          example:
-            error:
-              code: unauthorized
-              message: Authentication is required
-              request_id: 01J4Z6PQZ91GF4G74AM2R3PE8W
-    Forbidden:
-      description: Authenticated player has not unlocked the requested content
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
-    NotFound:
-      description: Resource is absent or not owned by the authenticated player
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
-          example:
-            error:
-              code: not_found
-              message: The requested resource was not found
-              request_id: 01J4Z6PQZ91GF4G74AM2R3PE8W
-    Conflict:
-      description: Expected version, run state, story state, or idempotency payload conflict
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
-          example:
-            error:
-              code: version_conflict
-              message: The authoritative state has changed
-              request_id: 01J4Z6PQZ91GF4G74AM2R3PE8W
-    PayloadTooLarge:
-      description: Request body exceeds the configured limit
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
-    UnsupportedMediaType:
-      description: JSON endpoint did not receive application/json
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
-    RateLimited:
-      description: Per-player or per-IP rate limit exceeded
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-        Retry-After:
-          schema:
-            type: integer
-            minimum: 1
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
-    InternalError:
-      description: Unexpected internal failure
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
-    ServiceUnavailable:
-      description: Required dependency is not ready
-      headers:
-        X-Request-ID:
-          $ref: "#/components/headers/RequestID"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorEnvelope"
+    InvalidRequest: { description: Invalid request, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    Unauthorized: { description: Authentication required, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    Forbidden: { description: Content locked, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    NotFound: { description: Resource not found, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    Conflict: { description: "Version, story, or idempotency conflict", headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    PayloadTooLarge: { description: Trace payload is too large, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    RateLimited: { description: Too many requests, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    InternalError: { description: Internal error, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    ServiceUnavailable: { description: Dependency unavailable, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
   schemas:
     Health:
       type: object
       additionalProperties: false
       required: [status, version]
-      properties:
-        status:
-          const: ok
-        version:
-          type: string
+      properties: { status: { type: string }, version: { type: string } }
     Readiness:
       type: object
       additionalProperties: false
-      required: [status, checks]
+      required: [status, dependencies]
       properties:
-        status:
-          const: ready
-        checks:
-          type: object
-          additionalProperties: false
-          required: [postgres]
-          properties:
-            postgres:
-              const: ready
+        status: { type: string }
+        dependencies: { type: object, additionalProperties: { type: string } }
     ErrorEnvelope:
       type: object
       additionalProperties: false
@@ -451,592 +190,300 @@ components:
           type: object
           additionalProperties: false
           required: [code, message, request_id]
-          properties:
-            code:
-              type: string
-              pattern: "^[a-z][a-z0-9_]*$"
-            message:
-              type: string
-              minLength: 1
-            request_id:
-              type: string
-              minLength: 1
+          properties: { code: { type: string }, message: { type: string }, request_id: { type: string } }
     GameEffect:
       type: object
       additionalProperties: false
       required: [kind]
-      properties:
-        kind:
-          type: string
-        amount:
-          type: integer
-        status:
-          type: string
+      properties: { kind: { type: string }, amount: { type: integer }, status: { type: string } }
     GameCharacterContent:
       type: object
       additionalProperties: false
       required: [slug, name, biography, playstyle, color_theme, portrait_url, model_url, available]
       properties:
-        slug:
-          type: string
-        name:
-          type: string
-        biography:
-          type: string
-        playstyle:
-          type: string
-        color_theme:
-          type: string
-        portrait_url:
-          type: string
-          format: uri
-        model_url:
-          type: string
-          format: uri
-        available:
-          type: boolean
-    GameCardContent:
+        slug: { type: string }
+        name: { type: string }
+        biography: { type: string }
+        playstyle: { type: string }
+        color_theme: { type: string }
+        portrait_url: { type: string }
+        model_url: { type: string }
+        available: { type: boolean }
+    GameModuleContent:
       type: object
       additionalProperties: false
-      required: [slug, character_slug, name, description, type, target, rarity, cost, starter_copies, exhaust, unplayable, effects]
+      required: [slug, character_slug, name, description, archetype, rarity, effects]
       properties:
-        slug:
-          type: string
-        character_slug:
-          type: [string, "null"]
-        name:
-          type: string
-        description:
-          type: string
-        type:
-          type: string
-          enum: [attack, defense, signal, glitch]
-        target:
-          type: string
-          enum: [none, self, enemy, all_enemies]
-        rarity:
-          type: string
-        cost:
-          type: integer
-          minimum: 0
-        starter_copies:
-          type: integer
-          minimum: 0
-        exhaust:
-          type: boolean
-        unplayable:
-          type: boolean
-        effects:
-          type: array
-          items:
-            $ref: "#/components/schemas/GameEffect"
-    EnemyIntentContent:
+        slug: { type: string }
+        character_slug: { type: [string, "null"] }
+        name: { type: string }
+        description: { type: string }
+        archetype: { type: string, enum: [route, distortion, echo, glitch] }
+        rarity: { type: string }
+        effects: { type: array, items: { $ref: "#/components/schemas/GameEffect" } }
+    GamePluginContent:
       type: object
       additionalProperties: false
       required: [slug, name, description, effects]
       properties:
-        slug:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        effects:
-          type: array
-          minItems: 1
-          items:
-            $ref: "#/components/schemas/GameEffect"
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        effects: { type: array, items: { $ref: "#/components/schemas/GameEffect" } }
     GameEnemyContent:
       type: object
       additionalProperties: false
-      required: [slug, name, description, kind, max_health, color_theme, image_url, intents]
+      required: [slug, name, description, kind, pattern, max_health, speed, contact_damage, fire_interval, projectile_speed, projectile_damage, color_theme, image_url]
       properties:
-        slug:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        kind:
-          type: string
-          enum: [normal, elite, boss]
-        max_health:
-          type: integer
-          minimum: 1
-        color_theme:
-          type: string
-        image_url:
-          type: string
-        intents:
-          type: array
-          minItems: 1
-          items:
-            $ref: "#/components/schemas/EnemyIntentContent"
-    GameRelicContent:
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        kind: { type: string }
+        pattern: { type: string }
+        max_health: { type: integer }
+        speed: { type: integer }
+        contact_damage: { type: integer }
+        fire_interval: { type: integer }
+        projectile_speed: { type: integer }
+        projectile_damage: { type: integer }
+        color_theme: { type: string }
+        image_url: { type: string }
+    GameEncounterContent:
       type: object
       additionalProperties: false
-      required: [slug, name, description, effect]
+      required: [slug, kind, duration_ticks, max_ticks, spawn_interval, max_alive, enemy_slugs, tutorial]
       properties:
-        slug:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        effect:
-          $ref: "#/components/schemas/GameEffect"
+        slug: { type: string }
+        kind: { type: string }
+        duration_ticks: { type: integer }
+        max_ticks: { type: integer }
+        spawn_interval: { type: integer }
+        max_alive: { type: integer }
+        enemy_slugs: { type: array, items: { type: string } }
+        tutorial: { type: boolean }
     GameEventOptionContent:
       type: object
       additionalProperties: false
       required: [slug, label, result]
-      properties:
-        slug:
-          type: string
-        label:
-          type: string
-        result:
-          type: string
+      properties: { slug: { type: string }, label: { type: string }, result: { type: string } }
     GameEventContent:
       type: object
       additionalProperties: false
       required: [slug, title, body, options]
       properties:
-        slug:
-          type: string
-        title:
-          type: string
-        body:
-          type: string
-        options:
-          type: array
-          minItems: 2
-          items:
-            $ref: "#/components/schemas/GameEventOptionContent"
+        slug: { type: string }
+        title: { type: string }
+        body: { type: string }
+        options: { type: array, items: { $ref: "#/components/schemas/GameEventOptionContent" } }
     StoryMessageContent:
       type: object
       additionalProperties: false
       required: [sender, kind, text]
-      properties:
-        sender:
-          type: string
-        kind:
-          type: string
-          enum: [system, character]
-        text:
-          type: string
+      properties: { sender: { type: string }, kind: { type: string }, text: { type: string } }
     StoryOptionContent:
       type: object
       additionalProperties: false
       required: [slug, label]
-      properties:
-        slug:
-          type: string
-        label:
-          type: string
+      properties: { slug: { type: string }, label: { type: string } }
     StorySceneContent:
       type: object
       additionalProperties: false
       required: [slug, title, messages, options]
       properties:
-        slug:
-          type: string
-        title:
-          type: string
-        messages:
-          type: array
-          minItems: 1
-          items:
-            $ref: "#/components/schemas/StoryMessageContent"
-        options:
-          type: array
-          minItems: 1
-          items:
-            $ref: "#/components/schemas/StoryOptionContent"
+        slug: { type: string }
+        title: { type: string }
+        messages: { type: array, items: { $ref: "#/components/schemas/StoryMessageContent" } }
+        options: { type: array, items: { $ref: "#/components/schemas/StoryOptionContent" } }
     ChapterContent:
       type: object
       additionalProperties: false
       required: [slug, title, subtitle, character_slug, available]
-      properties:
-        slug:
-          type: string
-        title:
-          type: string
-        subtitle:
-          type: string
-        character_slug:
-          type: string
-        available:
-          type: boolean
+      properties: { slug: { type: string }, title: { type: string }, subtitle: { type: string }, character_slug: { type: string }, available: { type: boolean } }
     GameContent:
       type: object
       additionalProperties: false
-      required: [version, locale, characters, cards, enemies, relics, events, scenes, chapters]
+      required: [version, protocol, locale, characters, modules, plugins, enemies, encounters, events, scenes, chapters]
       properties:
-        version:
-          type: string
-        locale:
-          type: string
-          enum: [zh-CN, en]
-        characters:
-          type: array
-          items:
-            $ref: "#/components/schemas/GameCharacterContent"
-        cards:
-          type: array
-          items:
-            $ref: "#/components/schemas/GameCardContent"
-        enemies:
-          type: array
-          items:
-            $ref: "#/components/schemas/GameEnemyContent"
-        relics:
-          type: array
-          items:
-            $ref: "#/components/schemas/GameRelicContent"
-        events:
-          type: array
-          items:
-            $ref: "#/components/schemas/GameEventContent"
-        scenes:
-          type: array
-          items:
-            $ref: "#/components/schemas/StorySceneContent"
-        chapters:
-          type: array
-          items:
-            $ref: "#/components/schemas/ChapterContent"
+        version: { type: string }
+        protocol: { type: string, const: action-v1 }
+        locale: { type: string, enum: [zh-CN, en] }
+        characters: { type: array, items: { $ref: "#/components/schemas/GameCharacterContent" } }
+        modules: { type: array, items: { $ref: "#/components/schemas/GameModuleContent" } }
+        plugins: { type: array, items: { $ref: "#/components/schemas/GamePluginContent" } }
+        enemies: { type: array, items: { $ref: "#/components/schemas/GameEnemyContent" } }
+        encounters: { type: array, items: { $ref: "#/components/schemas/GameEncounterContent" } }
+        events: { type: array, items: { $ref: "#/components/schemas/GameEventContent" } }
+        scenes: { type: array, items: { $ref: "#/components/schemas/StorySceneContent" } }
+        chapters: { type: array, items: { $ref: "#/components/schemas/ChapterContent" } }
     PlayerUnlock:
       type: object
       additionalProperties: false
       required: [type, content_slug, created_at]
-      properties:
-        type:
-          type: string
-          enum: [character, card, relic, starter_module]
-        content_slug:
-          type: string
-        created_at:
-          type: string
-          format: date-time
+      properties: { type: { type: string }, content_slug: { type: string }, created_at: { type: string, format: date-time } }
     StoryChoice:
       type: object
       additionalProperties: false
       required: [scene_slug, option_slug, choice_tag, created_at]
-      properties:
-        scene_slug:
-          type: string
-        option_slug:
-          type: string
-        choice_tag:
-          type: string
-        created_at:
-          type: string
-          format: date-time
+      properties: { scene_slug: { type: string }, option_slug: { type: string }, choice_tag: { type: string }, created_at: { type: string, format: date-time } }
     GameProgress:
       type: object
       additionalProperties: false
       required: [current_chapter_slug, highest_noise_level, story_version, version, unlocks, choices]
       properties:
-        current_chapter_slug:
-          type: string
-        highest_noise_level:
-          type: integer
-          minimum: 0
-          maximum: 10
-        story_version:
-          type: integer
-          minimum: 1
-        version:
-          type: integer
-          minimum: 1
-        unlocks:
-          type: array
-          items:
-            $ref: "#/components/schemas/PlayerUnlock"
-        choices:
-          type: array
-          items:
-            $ref: "#/components/schemas/StoryChoice"
+        current_chapter_slug: { type: string }
+        highest_noise_level: { type: integer }
+        story_version: { type: integer }
+        version: { type: integer, format: int64 }
+        unlocks: { type: array, items: { $ref: "#/components/schemas/PlayerUnlock" } }
+        choices: { type: array, items: { $ref: "#/components/schemas/StoryChoice" } }
     GamePlayer:
       type: object
       additionalProperties: false
       required: [id, display_name, language_code]
-      properties:
-        id:
-          type: string
-          format: uuid
-        display_name:
-          type: string
-        language_code:
-          type: [string, "null"]
-    CardInstance:
+      properties: { id: { type: string, format: uuid }, display_name: { type: string }, language_code: { type: [string, "null"] } }
+    ModuleLevel:
       type: object
       additionalProperties: false
-      required: [id, slug]
-      properties:
-        id:
-          type: string
-        slug:
-          type: string
-    CombatPlayerState:
-      type: object
-      additionalProperties: false
-      required: [max_health, health, block, bandwidth, next_bandwidth, distortion, distortion_limit, beacons, weak, vulnerable, discount_signal, distortion_shield_used, first_attack_bonus_used]
-      properties:
-        max_health: {type: integer, minimum: 1}
-        health: {type: integer, minimum: 0}
-        block: {type: integer, minimum: 0}
-        bandwidth: {type: integer, minimum: 0}
-        next_bandwidth: {type: integer}
-        distortion: {type: integer, minimum: 0}
-        distortion_limit: {type: integer, minimum: 1}
-        beacons: {type: integer, minimum: 0, maximum: 3}
-        weak: {type: integer, minimum: 0}
-        vulnerable: {type: integer, minimum: 0}
-        discount_signal: {type: integer, minimum: 0}
-        distortion_shield_used: {type: boolean}
-        first_attack_bonus_used: {type: boolean}
-    CombatEnemyState:
-      type: object
-      additionalProperties: false
-      required: [id, slug, max_health, health, block, strength, weak, vulnerable, intent_index]
-      properties:
-        id: {type: string}
-        slug: {type: string}
-        max_health: {type: integer, minimum: 1}
-        health: {type: integer, minimum: 0}
-        block: {type: integer, minimum: 0}
-        strength: {type: integer, minimum: 0}
-        weak: {type: integer, minimum: 0}
-        vulnerable: {type: integer, minimum: 0}
-        intent_index: {type: integer, minimum: 0}
-    CombatStateV2:
-      type: object
-      additionalProperties: false
-      required: [status, turn, seed, rng_cursor, player, enemies, draw_pile, discard_pile, hand, exhaust_pile, played_types, cards_played, route_completed, next_card_sequence, noise_level]
-      properties:
-        status:
-          type: string
-          enum: [active, won, lost]
-        turn: {type: integer, minimum: 1}
-        seed: {type: string}
-        rng_cursor: {type: integer, minimum: 0}
-        player:
-          $ref: "#/components/schemas/CombatPlayerState"
-        enemies:
-          type: array
-          minItems: 1
-          maxItems: 2
-          items:
-            $ref: "#/components/schemas/CombatEnemyState"
-        draw_pile:
-          type: array
-          items: {$ref: "#/components/schemas/CardInstance"}
-        discard_pile:
-          type: array
-          items: {$ref: "#/components/schemas/CardInstance"}
-        hand:
-          type: array
-          maxItems: 10
-          items: {$ref: "#/components/schemas/CardInstance"}
-        exhaust_pile:
-          type: array
-          items: {$ref: "#/components/schemas/CardInstance"}
-        played_types:
-          type: array
-          items: {type: string}
-        previous_card_type:
-          type: string
-        cards_played: {type: integer, minimum: 0}
-        route_completed: {type: boolean}
-        next_card_sequence: {type: integer, minimum: 1}
-        noise_level: {type: integer, minimum: 0, maximum: 3}
+      required: [slug, level]
+      properties: { slug: { type: string }, level: { type: integer, minimum: 1, maximum: 3 } }
     MapNode:
       type: object
       additionalProperties: false
       required: [id, layer, lane, type, status, next]
       properties:
-        id: {type: string}
-        layer: {type: integer, minimum: 1, maximum: 6}
-        lane: {type: integer, minimum: 0, maximum: 1}
-        type:
-          type: string
-          enum: [combat, elite, event, story, rest, boss]
-        status:
-          type: string
-          enum: [locked, available, current, completed]
-        next:
-          type: array
-          items: {type: string}
-        enemy_slugs:
-          type: array
-          items: {type: string}
-        event_slug:
-          type: string
+        id: { type: string }
+        layer: { type: integer }
+        lane: { type: integer }
+        type: { type: string, enum: [tutorial, combat, elite, event, story, rest, boss] }
+        status: { type: string, enum: [locked, available, current, completed] }
+        next: { type: array, items: { type: string } }
+        encounter_slug: { type: string }
+        event_slug: { type: string }
     RunMap:
       type: object
       additionalProperties: false
       required: [nodes]
-      properties:
-        nodes:
-          type: array
-          items: {$ref: "#/components/schemas/MapNode"}
-        current_node_id:
-          type: string
+      properties: { nodes: { type: array, items: { $ref: "#/components/schemas/MapNode" } }, current_node_id: { type: string } }
+    EncounterState:
+      type: object
+      additionalProperties: false
+      required: [slug, seed, kind, duration_ticks, max_ticks, tutorial]
+      properties: { slug: { type: string }, seed: { type: string }, kind: { type: string }, duration_ticks: { type: integer }, max_ticks: { type: integer }, tutorial: { type: boolean } }
     RewardState:
       type: object
       additionalProperties: false
-      required: [card_choices]
-      properties:
-        card_choices:
-          type: array
-          maxItems: 3
-          items: {type: string}
-        granted_relic:
-          type: string
+      required: [module_choices]
+      properties: { module_choices: { type: array, items: { type: string } }, granted_plugin: { type: string } }
     RunState:
       type: object
       additionalProperties: false
-      required: [phase, chapter_slug, character_slug, noise_level, health, max_health, deck, relics, map, choice_tags, next_card_sequence, rng_cursor]
+      required: [phase, chapter_slug, character_slug, weapon_slug, noise_level, health, max_health, modules, plugins, map, choice_tags, rng_cursor, emergency_reconnect_available]
       properties:
-        phase:
-          type: string
-          enum: [map, combat, reward, event, rest, completed]
-        chapter_slug: {type: string}
-        character_slug: {type: string}
-        noise_level: {type: integer, minimum: 0, maximum: 3}
-        health: {type: integer, minimum: 0}
-        max_health: {type: integer, minimum: 1}
-        deck:
-          type: array
-          minItems: 7
-          items: {$ref: "#/components/schemas/CardInstance"}
-        relics:
-          type: array
-          items: {type: string}
-        map:
-          $ref: "#/components/schemas/RunMap"
-        combat:
-          $ref: "#/components/schemas/CombatStateV2"
-        reward:
-          $ref: "#/components/schemas/RewardState"
-        current_event_slug:
-          type: string
-        choice_tags:
-          type: array
-          items: {type: string}
-        next_card_sequence: {type: integer, minimum: 1}
-        rng_cursor: {type: integer, minimum: 0}
+        phase: { type: string, enum: [map, encounter, reward, event, rest, completed] }
+        chapter_slug: { type: string }
+        character_slug: { type: string }
+        weapon_slug: { type: string }
+        noise_level: { type: integer }
+        health: { type: integer }
+        max_health: { type: integer }
+        modules: { type: array, items: { $ref: "#/components/schemas/ModuleLevel" } }
+        plugins: { type: array, items: { type: string } }
+        map: { $ref: "#/components/schemas/RunMap" }
+        encounter: { $ref: "#/components/schemas/EncounterState" }
+        reward: { $ref: "#/components/schemas/RewardState" }
+        current_event_slug: { type: string }
+        choice_tags: { type: array, items: { type: string } }
+        rng_cursor: { type: integer, format: int64, minimum: 0 }
+        emergency_reconnect_available: { type: boolean }
     GameRun:
       type: object
       additionalProperties: false
       required: [id, content_version, state, status, outcome, version, created_at, updated_at, completed_at]
       properties:
-        id:
-          type: string
-          format: uuid
-        content_version: {type: string}
-        state:
-          $ref: "#/components/schemas/RunState"
-        status:
-          type: string
-          enum: [active, completed, abandoned]
-        outcome:
-          type: [string, "null"]
-          enum: [cleared, failed, abandoned, null]
-        version: {type: integer, minimum: 1}
-        created_at: {type: string, format: date-time}
-        updated_at: {type: string, format: date-time}
-        completed_at: {type: [string, "null"], format: date-time}
+        id: { type: string, format: uuid }
+        content_version: { type: string }
+        state: { $ref: "#/components/schemas/RunState" }
+        status: { type: string, enum: [active, completed, abandoned] }
+        outcome: { type: [string, "null"], enum: [cleared, failed, abandoned, null] }
+        version: { type: integer, format: int64 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
     GameSnapshot:
       type: object
       additionalProperties: false
-      required: [player, progress, active_run, pending_scene_slug]
+      required: [protocol, player, progress, active_run, pending_scene_slug, onboarding_stage]
       properties:
-        player:
-          $ref: "#/components/schemas/GamePlayer"
-        progress:
-          $ref: "#/components/schemas/GameProgress"
-        active_run:
-          oneOf:
-            - $ref: "#/components/schemas/GameRun"
-            - type: "null"
-        pending_scene_slug:
-          type: [string, "null"]
+        protocol: { type: string, const: action-v1 }
+        player: { $ref: "#/components/schemas/GamePlayer" }
+        progress: { $ref: "#/components/schemas/GameProgress" }
+        active_run: { oneOf: [{ $ref: "#/components/schemas/GameRun" }, { type: "null" }] }
+        pending_scene_slug: { type: [string, "null"] }
+        onboarding_stage: { type: string, enum: [intro, tutorial, complete] }
     CreateRunRequest:
       type: object
       additionalProperties: false
       required: [chapter_slug, character_slug, noise_level]
+      properties: { chapter_slug: { type: string }, character_slug: { type: string }, noise_level: { type: integer, minimum: 0, maximum: 3 } }
+    InputTrace:
+      type: object
+      additionalProperties: false
+      required: [encoding, ticks, data]
       properties:
-        chapter_slug: {type: string}
-        character_slug: {type: string}
-        noise_level: {type: integer, minimum: 0, maximum: 3}
-    RunCommandType:
-      type: string
-      enum: [choose_node, play_card, end_turn, choose_card_reward, resolve_event, rest, abandon_run]
+        encoding: { type: string, const: rle8-v1 }
+        ticks: { type: integer, minimum: 1, maximum: 2700 }
+        data: { type: string, maxLength: 8192 }
+        client_digest: { type: string, pattern: "^[0-9a-f]{8}$" }
     RunCommandRequest:
       type: object
       additionalProperties: false
       required: [type, expected_version]
       properties:
-        type:
-          $ref: "#/components/schemas/RunCommandType"
-        expected_version: {type: integer, minimum: 1}
-        node_id: {type: string}
-        card_instance_id: {type: string}
-        target_id: {type: string}
-        choice_slug: {type: string}
-        operation:
-          type: string
-          enum: [heal, remove]
-    CombatEventV2:
+        type: { type: string, enum: [choose_node, complete_encounter, choose_module_reward, resolve_event, rest, abandon_run] }
+        expected_version: { type: integer, format: int64, minimum: 1 }
+        node_id: { type: string }
+        choice_slug: { type: string }
+        module_slug: { type: string }
+        operation: { type: string, enum: [repair, tune] }
+        trace: { $ref: "#/components/schemas/InputTrace" }
+    EncounterResult:
       type: object
-      additionalProperties: false
-      required: [kind]
+      additionalProperties: true
+      required: [won, health, ticks, kills, routes_completed, distortion, emergency_reconnect_used, digest, final]
       properties:
-        kind: {type: string}
-        actor: {type: string}
-        target_id: {type: string}
-        card_slug: {type: string}
-        intent_slug: {type: string}
-        amount: {type: integer}
+        won: { type: boolean }
+        health: { type: integer }
+        ticks: { type: integer }
+        kills: { type: integer }
+        routes_completed: { type: integer }
+        distortion: { type: integer }
+        emergency_reconnect_used: { type: boolean }
+        digest: { type: string }
+        final: { type: object, additionalProperties: true }
     RunEvent:
       type: object
       additionalProperties: false
       required: [kind]
       properties:
-        kind: {type: string}
-        node_id: {type: string}
-        card_slug: {type: string}
-        relic_slug: {type: string}
-        choice_tag: {type: string}
-        amount: {type: integer}
-        combat:
-          $ref: "#/components/schemas/CombatEventV2"
+        kind: { type: string }
+        node_id: { type: string }
+        module_slug: { type: string }
+        plugin_slug: { type: string }
+        choice_tag: { type: string }
+        amount: { type: integer }
+        encounter_result: { $ref: "#/components/schemas/EncounterResult" }
     RunCommandResponse:
       type: object
       additionalProperties: false
       required: [run, events]
-      properties:
-        run:
-          $ref: "#/components/schemas/GameRun"
-        events:
-          type: array
-          items: {$ref: "#/components/schemas/RunEvent"}
+      properties: { run: { $ref: "#/components/schemas/GameRun" }, events: { type: array, items: { $ref: "#/components/schemas/RunEvent" } } }
     StoryChoiceRequest:
       type: object
       additionalProperties: false
       required: [scene_slug, option_slug, expected_version]
-      properties:
-        scene_slug: {type: string}
-        option_slug: {type: string}
-        expected_version: {type: integer, minimum: 1}
+      properties: { scene_slug: { type: string }, option_slug: { type: string }, expected_version: { type: integer, format: int64, minimum: 1 } }
     StoryChoiceResponse:
       type: object
       additionalProperties: false
       required: [progress, pending_scene_slug]
-      properties:
-        progress:
-          $ref: "#/components/schemas/GameProgress"
-        pending_scene_slug:
-          type: [string, "null"]
+      properties: { progress: { $ref: "#/components/schemas/GameProgress" }, pending_scene_slug: { type: [string, "null"] } }

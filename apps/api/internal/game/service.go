@@ -111,6 +111,7 @@ func (service *Service) Start(ctx context.Context, user auth.User, input StartIn
 	state, err := gameRun.NewState(gameRun.StartInput{
 		ChapterSlug: input.ChapterSlug, CharacterSlug: input.CharacterSlug,
 		NoiseLevel: input.NoiseLevel, Seed: seed,
+		EmergencyReconnectAvailable: !currentProgress.StoryFlags["emergency-reconnect-used"],
 	}, service.catalog)
 	if err != nil {
 		return gameRun.GameRun{}, false, err

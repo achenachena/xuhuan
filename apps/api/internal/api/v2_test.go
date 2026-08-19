@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
-	"github.com/achenachena/xuhuan/apps/api/internal/combat"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 	"github.com/achenachena/xuhuan/apps/api/internal/game"
 	"github.com/achenachena/xuhuan/apps/api/internal/player"
@@ -61,7 +60,7 @@ func v2TestRouter(t *testing.T) (http.Handler, *fakeGameService) {
 		snapshot: game.Snapshot{
 			Player: player.Player{ID: "20000000-0000-4000-8000-000000000002", FirstName: &firstName, LastName: &lastName, LanguageCode: &language},
 			Progress: progression.Progress{
-				CurrentChapter: "seventh-dock", HighestNoise: 0, StoryVersion: 1,
+				CurrentChapter: "seventh-dock", HighestNoise: 0, StoryVersion: 2,
 				StoryFlags: map[string]bool{}, Version: 1, Unlocks: []progression.Unlock{{Type: "character", ContentSlug: "nana7mi", CreatedAt: now}},
 			},
 		},
@@ -75,7 +74,7 @@ func v2TestRouter(t *testing.T) (http.Handler, *fakeGameService) {
 
 func TestV2ContentIsLocalizedAndImmutable(t *testing.T) {
 	router, _ := v2TestRouter(t)
-	request := httptest.NewRequest(http.MethodGet, "/v2/content/v1?locale=en", nil)
+	request := httptest.NewRequest(http.MethodGet, "/v2/content/v2?locale=en", nil)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 
@@ -89,7 +88,7 @@ func TestV2ContentIsLocalizedAndImmutable(t *testing.T) {
 		t.Fatalf("Cache-Control = %q", got)
 	}
 	etag := response.Header().Get("ETag")
-	revalidate := httptest.NewRequest(http.MethodGet, "/v2/content/v1?locale=en", nil)
+	revalidate := httptest.NewRequest(http.MethodGet, "/v2/content/v2?locale=en", nil)
 	revalidate.Header.Set("If-None-Match", etag)
 	revalidatedResponse := httptest.NewRecorder()
 	router.ServeHTTP(revalidatedResponse, revalidate)
@@ -122,8 +121,8 @@ func TestV2CommandForwardsVersionAndIdempotencyKey(t *testing.T) {
 	router, service := v2TestRouter(t)
 	runID := "10000000-0000-4000-8000-000000000001"
 	service.result.Run = gameRun.GameRun{
-		ID: runID, ContentVersion: "v1", Status: gameRun.Active, Version: 4,
-		State:     gameRun.State{Phase: gameRun.MapPhase, ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", Health: 64, MaxHealth: 64, Deck: []combat.CardInstance{}, Relics: []string{}, ChoiceTags: []string{}, Map: gameRun.MapState{Nodes: []gameRun.MapNode{}}},
+		ID: runID, ContentVersion: "v2", Status: gameRun.Active, Version: 4,
+		State:     gameRun.State{Phase: gameRun.MapPhase, ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", WeaponSlug: "auto-signal", Health: 64, MaxHealth: 64, Modules: []gameRun.ModuleLevel{}, Plugins: []string{}, ChoiceTags: []string{}, Map: gameRun.MapState{Nodes: []gameRun.MapNode{}}},
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	request := httptest.NewRequest(http.MethodPost, "/v2/runs/"+runID+"/commands", strings.NewReader(`{"type":"choose_node","node_id":"l1-a","expected_version":3}`))
