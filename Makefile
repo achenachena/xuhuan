@@ -74,6 +74,8 @@ e2e:
 	@set -eu; \
 		DEV_TELEGRAM_USER_ID="$$(date +%s)"; \
 		export DEV_TELEGRAM_USER_ID; \
+		export RATE_LIMIT_PLAYER_REQUESTS=1000; \
+		export RATE_LIMIT_IP_REQUESTS=2000; \
 		trap 'docker compose down' EXIT; \
 		docker compose up --build -d api; \
 		npm run test:e2e --workspace @xuhuan/miniapp

@@ -4,6 +4,7 @@ const config: Config = {
   content: [
     "./src/app/**/*.{ts,tsx}",
     "./src/components/**/*.{ts,tsx}",
+    "./src/features/**/*.{ts,tsx}",
     "./src/hooks/**/*.{ts,tsx}",
     "./src/lib/**/*.{ts,tsx}"
   ],
@@ -61,4 +62,3 @@ const config: Config = {
 };
 
 export default config;
-

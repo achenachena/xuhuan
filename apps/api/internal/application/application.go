@@ -12,6 +12,8 @@ import (
 	apihttp "github.com/achenachena/xuhuan/apps/api/internal/api"
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
 	"github.com/achenachena/xuhuan/apps/api/internal/battle"
+	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
+	"github.com/achenachena/xuhuan/apps/api/internal/game"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/config"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/logging"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/observability"
@@ -102,6 +104,16 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 	players := postgres.NewPlayerRepository(database)
 	catalog := postgres.NewCatalogRepository(database)
 	battles := battle.NewService(postgres.NewBattleRepository(database, telemetry.Metrics), players, catalog)
+	contentCatalog, err := gamecontent.Load(gamecontent.CurrentVersion)
+	if err != nil {
+		return cleanup(fmt.Errorf("load game content: %w", err))
+	}
+	gameService := game.NewService(
+		players,
+		postgres.NewProgressionRepository(database),
+		postgres.NewRunRepository(database),
+		contentCatalog,
+	)
 
 	if cfg.RedisURL != "" {
 		runtime.redis, err = ratelimit.NewRedis(cfg.RedisURL, cfg.RedisTimeout)
@@ -133,6 +145,7 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 			Players: players,
 			Catalog: catalog,
 			Battles: battles,
+			Game:    gameService,
 		},
 	})
 	return runtime, nil

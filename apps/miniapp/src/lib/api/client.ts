@@ -7,6 +7,14 @@ export type APIEncounter = components["schemas"]["Encounter"];
 export type APIBattle = components["schemas"]["Battle"];
 export type APIBattleActionResponse = components["schemas"]["BattleActionResponse"];
 export type APIActionKind = components["schemas"]["ActionKind"];
+export type APIGameContent = components["schemas"]["GameContent"];
+export type APIGameSnapshot = components["schemas"]["GameSnapshot"];
+export type APIGameRun = components["schemas"]["GameRun"];
+export type APIRunState = components["schemas"]["RunState"];
+export type APICombatState = components["schemas"]["CombatStateV2"];
+export type APIRunCommand = components["schemas"]["RunCommandRequest"];
+export type APIRunCommandResponse = components["schemas"]["RunCommandResponse"];
+export type APIStoryChoiceResponse = components["schemas"]["StoryChoiceResponse"];
 
 type ErrorEnvelope = components["schemas"]["ErrorEnvelope"];
 
@@ -134,4 +142,37 @@ export const createBattleAction = (
   idempotencyKey: string
 ): Promise<APIBattleActionResponse> => {
   return postJSON(`/v1/battles/${encodeURIComponent(battleId)}/actions`, body, idempotencyKey);
+};
+
+export const getGameContent = (locale: "zh-CN" | "en"): Promise<APIGameContent> => {
+  return requestJSON<APIGameContent>(
+    `/v2/content/v1?locale=${encodeURIComponent(locale)}`,
+    { headers: { "Accept-Language": locale } }
+  );
+};
+
+export const getGame = (): Promise<APIGameSnapshot> => requestJSON<APIGameSnapshot>("/v2/game");
+
+export const createRun = (
+  body: { readonly chapter_slug: string; readonly character_slug: string; readonly noise_level: number },
+  idempotencyKey: string
+): Promise<APIGameRun> => postJSON("/v2/runs", body, idempotencyKey);
+
+export const getRun = (runId: string): Promise<APIGameRun> => {
+  return requestJSON<APIGameRun>(`/v2/runs/${encodeURIComponent(runId)}`);
+};
+
+export const createRunCommand = (
+  runId: string,
+  body: APIRunCommand,
+  idempotencyKey: string
+): Promise<APIRunCommandResponse> => {
+  return postJSON(`/v2/runs/${encodeURIComponent(runId)}/commands`, body, idempotencyKey);
+};
+
+export const createStoryChoice = (
+  body: { readonly scene_slug: string; readonly option_slug: string; readonly expected_version: number },
+  idempotencyKey: string
+): Promise<APIStoryChoiceResponse> => {
+  return postJSON("/v2/story/choices", body, idempotencyKey);
 };
