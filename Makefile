@@ -1,12 +1,11 @@
 SHELL := /bin/sh
 
-.PHONY: help install db-up migrate seed api miniapp up down logs lambda-package test test-go test-frontend test-integration e2e-install e2e
+.PHONY: help install db-up migrate api miniapp up down logs lambda-package test test-go test-frontend test-integration e2e-install e2e
 
 help:
 	@echo "install           Install Node dependencies"
 	@echo "db-up             Start PostgreSQL"
 	@echo "migrate           Apply all PostgreSQL migrations"
-	@echo "seed              Load deterministic character and encounter data"
 	@echo "api               Run the Go API on the host"
 	@echo "miniapp           Run the Next.js Mini App on the host"
 	@echo "up                 Build and start PostgreSQL plus the Go API"
@@ -24,9 +23,6 @@ db-up:
 
 migrate:
 	docker compose run --rm migrate
-
-seed:
-	docker compose run --rm seed
 
 api:
 	cd apps/api && go run ./cmd/api
@@ -57,7 +53,6 @@ test-go:
 	cd apps/api && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/xuhuan-lambda-bootstrap ./cmd/lambda
 
 test-frontend:
-	npm run build --workspace @xuhuan/game-types
 	npm run check:api-types --workspace @xuhuan/miniapp
 	npm run test --workspace @xuhuan/miniapp
 	npm run lint --workspace @xuhuan/miniapp

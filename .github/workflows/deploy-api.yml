@@ -190,7 +190,7 @@ jobs:
             echo "::warning::Lambda account concurrency is $account_concurrency; using the account-wide new-account cap until AWS raises it to at least $required_account_concurrency."
           fi
 
-      - name: Migrate and seed PostgreSQL
+      - name: Check candidate against current schema
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
@@ -198,11 +198,11 @@ jobs:
             --function-name "$LAMBDA_FUNCTION" \
             --qualifier "$RELEASE_VERSION" \
             --cli-binary-format raw-in-base64-out \
-            --payload '{"operation":"migrate-and-seed"}' \
-            "$RUNNER_TEMP/migration-response.json" \
-            > "$RUNNER_TEMP/migration-metadata.json"
-          test -z "$(jq -r '.FunctionError // empty' "$RUNNER_TEMP/migration-metadata.json")"
-          test "$(jq -r .status "$RUNNER_TEMP/migration-response.json")" = "ok"
+            --payload '{"operation":"check"}' \
+            "$RUNNER_TEMP/check-response.json" \
+            > "$RUNNER_TEMP/check-metadata.json"
+          test -z "$(jq -r '.FunctionError // empty' "$RUNNER_TEMP/check-metadata.json")"
+          test "$(jq -r .status "$RUNNER_TEMP/check-response.json")" = "ok"
 
       - name: Promote version to live alias
         env:
@@ -214,14 +214,41 @@ jobs:
             --function-version "$RELEASE_VERSION" \
             --description "$RELEASE_SHA" > /dev/null
 
-      - name: Verify public health and readiness
+      - name: Verify promoted version before migration
         run: |
           version=$(curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/healthz" | jq -r .version)
           test "$version" = "$RELEASE_SHA"
           curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/readyz" > /dev/null
 
+      - name: Apply PostgreSQL migrations
+        id: migration
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          aws lambda invoke \
+            --function-name "$LAMBDA_FUNCTION" \
+            --qualifier "$RELEASE_VERSION" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"operation":"migrate"}' \
+            "$RUNNER_TEMP/migration-response.json" \
+            > "$RUNNER_TEMP/migration-metadata.json"
+          test -z "$(jq -r '.FunctionError // empty' "$RUNNER_TEMP/migration-metadata.json")"
+          test "$(jq -r .status "$RUNNER_TEMP/migration-response.json")" = "ok"
+
+      - name: Verify V2 contract after migration
+        run: |
+          version=$(curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/healthz" | jq -r .version)
+          test "$version" = "$RELEASE_SHA"
+          curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/readyz" > /dev/null
+          content_version=$(curl --fail --show-error --silent --retry 6 --retry-delay 5 "$API_BASE_URL/v2/content/v1?locale=en" | jq -r .version)
+          test "$content_version" = "v1"
+
+      - name: Record forward-only migration boundary
+        if: failure() && steps.migration.outcome == 'success'
+        run: echo "::error::A contract migration completed; keep the promoted schema-compatible version live and fix forward instead of restoring an incompatible V1 binary."
+
       - name: Restore previous live state
-        if: failure() && steps.previous.outputs.version != ''
+        if: failure() && steps.previous.outputs.version != '' && steps.migration.outcome != 'success'
         env:
           PREVIOUS_VERSION: ${{ steps.previous.outputs.version }}
           PREVIOUS_RESERVED_CONCURRENCY: ${{ steps.previous.outputs.reserved_concurrency }}

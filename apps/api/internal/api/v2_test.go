@@ -69,7 +69,7 @@ func v2TestRouter(t *testing.T) (http.Handler, *fakeGameService) {
 	return NewRouter(Dependencies{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Version: "test", MaxBodyBytes: 4096,
 		Readiness: ReadinessFunc(func(context.Context) error { return nil }), Authenticator: authenticator,
-		Services: &Services{Game: service},
+		Game: service,
 	}), service
 }
 

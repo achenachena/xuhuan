@@ -52,7 +52,7 @@ jobs:
       - name: Unit and OpenAPI contract tests
         run: go test -race ./...
       - name: Build API commands
-        run: go build ./cmd/api ./cmd/migrate ./cmd/seed ./cmd/lambda
+        run: go build ./cmd/api ./cmd/migrate ./cmd/lambda
       - name: Build arm64 Lambda bootstrap
         run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/bootstrap ./cmd/lambda
 
@@ -110,8 +110,6 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Build shared presentation types
-        run: npm run build --workspace @xuhuan/game-types
       - name: Verify generated OpenAPI types
         run: npm run check:api-types --workspace @xuhuan/miniapp
       - name: Frontend tests
@@ -177,11 +175,9 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Migrate and seed
+      - name: Migrate
         working-directory: apps/api
-        run: |
-          go run ./cmd/migrate
-          go run ./cmd/seed
+        run: go run ./cmd/migrate
       - name: Start API
         working-directory: apps/api
         run: |
@@ -196,7 +192,7 @@ jobs:
           exit 1
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run persisted battle journey
+      - name: Run persisted roguelite journey
         run: npm run test:e2e --workspace @xuhuan/miniapp
       - name: Upload browser traces on failure
         if: failure()

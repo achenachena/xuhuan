@@ -17,7 +17,7 @@ func TestServeTranslatesFunctionURLRequestAndResponse(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if r.Method != http.MethodPost || r.URL.Path != "/v1/test" || r.URL.RawQuery != "page=2" {
+		if r.Method != http.MethodPost || r.URL.Path != "/adapter-test" || r.URL.RawQuery != "page=2" {
 			t.Fatalf("unexpected request target: %s %s", r.Method, r.URL.String())
 		}
 		if r.Header.Get("X-Test") != "value" || r.Header.Get("Cookie") != "a=1; b=2" {
@@ -34,7 +34,7 @@ func TestServeTranslatesFunctionURLRequestAndResponse(t *testing.T) {
 	})
 
 	response, err := New(handler).Serve(context.Background(), events.LambdaFunctionURLRequest{
-		RawPath:         "/v1/test",
+		RawPath:         "/adapter-test",
 		RawQueryString:  "page=2",
 		Headers:         map[string]string{"Host": "example.lambda-url.us-east-1.on.aws", "x-test": "value"},
 		Cookies:         []string{"a=1", "b=2"},

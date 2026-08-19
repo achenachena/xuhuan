@@ -31,7 +31,7 @@ resource "aws_ssm_parameter" "database_url" {
 
 resource "aws_ssm_parameter" "database_migration_url" {
   name        = "/${var.project_name}/${var.environment}/database-migration-url"
-  description = "Direct PostgreSQL URL used only for migrations and deterministic seed operations."
+  description = "Direct PostgreSQL URL used only for schema migrations."
   type        = "SecureString"
   tier        = "Standard"
   value       = "replace-out-of-band"

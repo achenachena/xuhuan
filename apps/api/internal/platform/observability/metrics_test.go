@@ -23,13 +23,8 @@ func TestRequiredMetricsAreRecorded(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	metrics.HTTPRequest(ctx, "POST", "/v1/battles/{id}/actions", 500, 12*time.Millisecond)
+	metrics.HTTPRequest(ctx, "POST", "/v2/runs/{id}/commands", 500, 12*time.Millisecond)
 	metrics.AuthenticationFailure(ctx, "signature")
-	metrics.BattleStarted(ctx)
-	metrics.BattleCompleted(ctx, "victory")
-	metrics.BattleConflict(ctx, "version")
-	metrics.IdempotencyReplay(ctx, "action")
-	metrics.RewardTransactionFailure(ctx)
 	databaseContext := DatabaseTracer{Metrics: metrics}.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{})
 	DatabaseTracer{Metrics: metrics}.TraceQueryEnd(databaseContext, nil, pgx.TraceQueryEndData{Err: errors.New("query failed")})
 
@@ -45,9 +40,7 @@ func TestRequiredMetricsAreRecorded(t *testing.T) {
 	}
 	for _, name := range []string{
 		"http.server.requests", "http.server.errors", "http.server.duration",
-		"db.client.duration", "db.client.errors", "auth.failures", "battle.starts",
-		"battle.completions", "battle.conflicts", "battle.idempotency_replays",
-		"battle.reward_transaction_failures",
+		"db.client.duration", "db.client.errors", "auth.failures",
 	} {
 		if !names[name] {
 			t.Errorf("metric %q was not collected", name)
@@ -65,7 +58,7 @@ func TestNoopTelemetry(t *testing.T) {
 	if telemetry.Enabled() {
 		t.Fatal("telemetry without an endpoint must be disabled")
 	}
-	telemetry.Metrics.BattleStarted(context.Background())
+	telemetry.Metrics.AuthenticationFailure(context.Background(), "test")
 	if err := telemetry.Shutdown(context.Background()); err != nil {
 		t.Fatalf("Shutdown() error = %v", err)
 	}

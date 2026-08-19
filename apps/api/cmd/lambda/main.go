@@ -50,7 +50,7 @@ func run() error {
 
 	adapter := lambdahttp.New(runtime.Handler)
 	awslambda.Start(func(ctx context.Context, payload json.RawMessage) (any, error) {
-		return handleEvent(ctx, payload, adapter.Serve, runtime.MigrateAndSeed, runtime.Check)
+		return handleEvent(ctx, payload, adapter.Serve, runtime.Migrate, runtime.Check)
 	})
 	return nil
 }
@@ -59,7 +59,7 @@ func handleEvent(
 	ctx context.Context,
 	payload json.RawMessage,
 	serve func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error),
-	migrateAndSeed func(context.Context) error,
+	migrate func(context.Context) error,
 	check func(context.Context) error,
 ) (any, error) {
 	var operation operationEvent
@@ -67,8 +67,8 @@ func handleEvent(
 		return nil, errors.New("decode lambda event")
 	}
 	switch operation.Operation {
-	case "migrate-and-seed":
-		if err := migrateAndSeed(ctx); err != nil {
+	case "migrate":
+		if err := migrate(ctx); err != nil {
 			return nil, err
 		}
 		return operationResponse{Status: "ok", Operation: operation.Operation}, nil

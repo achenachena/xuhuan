@@ -14,11 +14,6 @@ type Player struct {
 	FirstName      *string
 	LastName       *string
 	LanguageCode   *string
-	Level          int
-	Experience     int64
-	Credits        int64
-	Energy         int
-	Version        int64
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

@@ -33,10 +33,8 @@ API 契约见 [OpenAPI 3.1](apps/api/openapi/openapi.yaml)，更完整的信任�
 
 ```text
 apps/
-  api/                 Go API、V1/V2 兼容迁移、内容包和测试
+  api/                 Go V2 API、版本化内容包和测试
   miniapp/             Next.js Telegram Mini App 与静态游戏素材
-packages/
-  game-types/          兼容阶段保留的 V1 展示类型
 docs/                  架构与发布文档
 infra/                 AWS Lambda 与零固定成本基础设施 Terraform
 ```
@@ -77,14 +75,15 @@ npm run generate:api-types --workspace @xuhuan/miniapp
 npm run check:api-types --workspace @xuhuan/miniapp
 ```
 
-## Compatibility rollout
+## Migration status
 
-本次重制使用两阶段发布：
+本次重制已通过两阶段发布门禁：
 
-1. `002_story_roguelite.sql` 会按产品决定清空旧玩家与旧玩法数据，添加 V2 表和 API，但保留空的 V1 表及端点，确保旧 Lambda 版本仍能被别名回滚。
-2. V2 Mini App 在生产通过 `Smoke Production V2` 门禁后，才会另开迁移删除 V1 API、旧战斗目录、旧种子目录和旧数据库表。
+1. `002_story_roguelite.sql` 按产品决定清空旧玩家与旧玩法数据，添加 V2 表和 API，并暂时保留空的 V1 表及端点作为回滚边界。
+2. V2 Mini App 随后通过了受保护的生产冒烟门禁（[run 32222594249](https://github.com/achenachena/xuhuan/actions/runs/32222594249)），覆盖真实 Telegram 签名认证、断线恢复、Boss、剧情选择和噪声解锁。
+3. `003_remove_v1_compatibility.sql` 是 contract 阶段：删除 V1 API、旧战斗/种子/展示代码、旧表和 `players` 的旧玩法字段。
 
-不要在第一阶段提前删除 V1 表；那会破坏 Lambda 版本回滚。
+部署顺序会先将同时兼容 002/003 schema 的新 Lambda 版本提升到 `live`，再执行 003。003 成功后不可回滚到依赖 V1 schema 的旧 Lambda；后续数据库问题必须前向修复。
 
 ## Configuration, security, and cost
 

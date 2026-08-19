@@ -9,21 +9,19 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
-	"github.com/achenachena/xuhuan/apps/api/internal/battle"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 	"github.com/achenachena/xuhuan/apps/api/internal/progression"
-	"github.com/achenachena/xuhuan/apps/api/internal/repository"
 	gameRun "github.com/achenachena/xuhuan/apps/api/internal/run"
 	"github.com/achenachena/xuhuan/apps/api/migrations"
-	seeddata "github.com/achenachena/xuhuan/apps/api/seed"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
+func TestMigrateFromEmptySchema(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
@@ -60,30 +58,79 @@ func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
 	}
 	defer database.Close()
 
+	stageOneMigrations := fstest.MapFS{}
+	for _, name := range []string{"001_initial_schema.sql", "002_story_roguelite.sql"} {
+		contents, err := migrations.Files.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stageOneMigrations[name] = &fstest.MapFile{Data: contents}
+	}
+	if err := database.Migrate(ctx, stageOneMigrations); err != nil {
+		t.Fatalf("apply expand migrations: %v", err)
+	}
+
+	const preservedPlayerID = "11111111-1111-4111-8111-111111111111"
+	const preservedRunID = "22222222-2222-4222-8222-222222222222"
+	fixtureTx, err := database.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixtureStatements := []struct {
+		query string
+		args  []any
+	}{
+		{`INSERT INTO players (id, telegram_user_id, username, language_code) VALUES ($1, 987654321, 'preserved', 'en')`, []any{preservedPlayerID}},
+		{`INSERT INTO player_progress (player_id, story_flags, version) VALUES ($1, '{"preserved": true}'::jsonb, 2)`, []any{preservedPlayerID}},
+		{`INSERT INTO player_unlocks (player_id, unlock_type, content_slug) VALUES ($1, 'character', 'nana7mi')`, []any{preservedPlayerID}},
+		{`INSERT INTO story_choices (
+			player_id, scene_slug, option_slug, choice_tag, expected_version,
+			resulting_version, idempotency_key, request_hash, result_snapshot
+		) VALUES (
+			$1, 'prologue-last-viewer', 'answer', 'answered', 1,
+			2, 'preserved-story-0001', decode(repeat('ab', 32), 'hex'), '{"version": 2}'::jsonb
+		)`, []any{preservedPlayerID}},
+		{`INSERT INTO runs (
+			id, player_id, content_version, chapter_slug, character_slug, noise_level,
+			seed, state, status, outcome, version, start_idempotency_key,
+			start_request_hash, completed_at
+		) VALUES (
+			$2, $1, 'v1', 'seventh-dock', 'nana7mi', 0,
+			'preserved-seed-0000001', '{"phase": "completed"}'::jsonb, 'completed', 'cleared', 2,
+			'preserved-run-0001', decode(repeat('cd', 32), 'hex'), now()
+		)`, []any{preservedPlayerID, preservedRunID}},
+		{`INSERT INTO run_commands (
+			run_id, player_id, sequence, command_type, expected_version,
+			resulting_version, idempotency_key, request_hash, result_snapshot
+		) VALUES (
+			$2, $1, 1, 'choose_node', 1,
+			2, 'preserved-command-0001', decode(repeat('ef', 32), 'hex'), '{"version": 2}'::jsonb
+		)`, []any{preservedPlayerID, preservedRunID}},
+	}
+	for _, statement := range fixtureStatements {
+		if _, err := fixtureTx.Exec(ctx, statement.query, statement.args...); err != nil {
+			_ = fixtureTx.Rollback(ctx)
+			t.Fatalf("insert expand-phase V2 fixtures: %v", err)
+		}
+	}
+	if err := fixtureTx.Commit(ctx); err != nil {
+		t.Fatalf("commit expand-phase V2 fixtures: %v", err)
+	}
+
 	for range 2 {
 		if err := database.Migrate(ctx, migrations.Files); err != nil {
-			t.Fatalf("Migrate() error = %v", err)
-		}
-		if err := database.SeedCatalog(ctx, seeddata.Files); err != nil {
-			t.Fatalf("SeedCatalog() error = %v", err)
+			t.Fatalf("apply contract migrations: %v", err)
 		}
 	}
 
 	expectedCounts := map[string]int{
-		"schema_migrations":   2,
-		"players":             0,
-		"characters":          7,
-		"encounters":          2,
-		"battles":             0,
-		"battle_actions":      0,
-		"idempotency_records": 0,
-		"player_ledger":       0,
-		"admin_audit_events":  0,
-		"player_progress":     0,
-		"player_unlocks":      0,
-		"story_choices":       0,
-		"runs":                0,
-		"run_commands":        0,
+		"schema_migrations": 3,
+		"players":           1,
+		"player_progress":   1,
+		"player_unlocks":    1,
+		"story_choices":     1,
+		"runs":              1,
+		"run_commands":      1,
 	}
 	for table, expected := range expectedCounts {
 		var count int
@@ -95,12 +142,37 @@ func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
 		}
 	}
 
-	var indexes int
-	if err := database.pool.QueryRow(ctx, `SELECT count(*) FROM pg_indexes WHERE schemaname = $1 AND indexname IN ('battles_active_player_idx', 'idempotency_records_expiry_idx')`, schema).Scan(&indexes); err != nil {
+	legacyTables := []string{"characters", "encounters", "battles", "battle_actions", "idempotency_records", "player_ledger", "admin_audit_events"}
+	var legacyTableCount int
+	if err := database.pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema = $1 AND table_name = ANY($2)`, schema, legacyTables).Scan(&legacyTableCount); err != nil {
 		t.Fatal(err)
 	}
-	if indexes != 2 {
-		t.Fatalf("required index count = %d", indexes)
+	if legacyTableCount != 0 {
+		t.Fatalf("legacy table count = %d", legacyTableCount)
+	}
+	legacyColumns := []string{"level", "experience", "credits", "energy", "version"}
+	var legacyColumnCount int
+	if err := database.pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'players' AND column_name = ANY($2)`, schema, legacyColumns).Scan(&legacyColumnCount); err != nil {
+		t.Fatal(err)
+	}
+	if legacyColumnCount != 0 {
+		t.Fatalf("legacy player column count = %d", legacyColumnCount)
+	}
+	var preservedUsername string
+	var preservedFlags map[string]any
+	var preservedRunVersion int64
+	if err := database.pool.QueryRow(ctx, `
+		SELECT players.username, player_progress.story_flags, runs.version
+		FROM players
+		JOIN player_progress ON player_progress.player_id = players.id
+		JOIN runs ON runs.player_id = players.id
+		WHERE players.id = $1 AND runs.id = $2`, preservedPlayerID, preservedRunID).Scan(
+		&preservedUsername, &preservedFlags, &preservedRunVersion,
+	); err != nil {
+		t.Fatalf("read preserved V2 state: %v", err)
+	}
+	if preservedUsername != "preserved" || preservedFlags["preserved"] != true || preservedRunVersion != 2 {
+		t.Fatalf("contract migration changed V2 state: username=%q flags=%v run_version=%d", preservedUsername, preservedFlags, preservedRunVersion)
 	}
 
 	playerRepository := NewPlayerRepository(database)
@@ -116,201 +188,7 @@ func TestMigrateAndSeedFromEmptySchema(t *testing.T) {
 		t.Fatalf("player upsert mismatch: created=%#v updated=%#v", created, updated)
 	}
 
-	catalogRepository := NewCatalogRepository(database)
-	characters, err := catalogRepository.ListCharacters(ctx)
-	if err != nil || len(characters) != 7 {
-		t.Fatalf("ListCharacters() count=%d error=%v", len(characters), err)
-	}
-	encounters, err := catalogRepository.ListEncounters(ctx)
-	if err != nil || len(encounters) != 2 {
-		t.Fatalf("ListEncounters() count=%d error=%v", len(encounters), err)
-	}
-	if _, err := catalogRepository.GetCharacter(ctx, "missing"); !errors.Is(err, repository.ErrNotFound) {
-		t.Fatalf("GetCharacter(missing) error=%v", err)
-	}
-
-	battleService := battle.NewService(NewBattleRepository(database, nil), playerRepository, catalogRepository)
-	user := auth.User{ID: 123456789, Username: "second", FirstName: "开发"}
-
-	started, replayed, err := battleService.Start(ctx, user, battle.StartInput{
-		CharacterSlug: "nana7mi", EncounterSlug: "training-drone", IdempotencyKey: "start-battle-0001",
-	})
-	if err != nil || replayed {
-		t.Fatalf("Start() replayed=%t error=%v", replayed, err)
-	}
-	replayedStart, replayed, err := battleService.Start(ctx, user, battle.StartInput{
-		CharacterSlug: "nana7mi", EncounterSlug: "training-drone", IdempotencyKey: "start-battle-0001",
-	})
-	if err != nil || !replayed || replayedStart.ID != started.ID {
-		t.Fatalf("replayed Start()=%#v replayed=%t error=%v", replayedStart, replayed, err)
-	}
-	if _, _, err := battleService.Start(ctx, user, battle.StartInput{
-		CharacterSlug: "nana7mi", EncounterSlug: "echo-warlord", IdempotencyKey: "start-battle-0001",
-	}); !errors.Is(err, battle.ErrIdempotencyConflict) {
-		t.Fatalf("conflicting Start() error=%v", err)
-	}
-	if _, err := database.pool.Exec(ctx, `
-		UPDATE idempotency_records SET expires_at = now() - interval '1 second'
-		WHERE player_id = $1::uuid AND operation = 'create_battle' AND idempotency_key = 'start-battle-0001'`, created.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := battleService.Start(ctx, user, battle.StartInput{
-		CharacterSlug: "nana7mi", EncounterSlug: "training-drone", IdempotencyKey: "start-battle-0001",
-	}); !errors.Is(err, battle.ErrIdempotencyConflict) {
-		t.Fatalf("expired idempotency key error=%v", err)
-	}
-
-	var energy, energyLedger, battles int
-	if err := database.pool.QueryRow(ctx, "SELECT energy FROM players WHERE id = $1::uuid", created.ID).Scan(&energy); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.pool.QueryRow(ctx, "SELECT count(*) FROM player_ledger WHERE player_id = $1::uuid AND resource_type = 'energy'", created.ID).Scan(&energyLedger); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.pool.QueryRow(ctx, "SELECT count(*) FROM battles WHERE player_id = $1::uuid", created.ID).Scan(&battles); err != nil {
-		t.Fatal(err)
-	}
-	if energy != 110 || energyLedger != 1 || battles != 1 {
-		t.Fatalf("after replay: energy=%d energyLedger=%d battles=%d", energy, energyLedger, battles)
-	}
-
-	otherUser := auth.User{ID: 987654321, FirstName: "Other"}
-	if _, err := battleService.Get(ctx, otherUser, started.ID); !errors.Is(err, repository.ErrNotFound) {
-		t.Fatalf("battle ownership error=%v", err)
-	}
-	if _, _, err := battleService.Act(ctx, user, battle.ActionInput{
-		BattleID: started.ID, Action: battle.LightAttack, ExpectedVersion: 99, IdempotencyKey: "stale-action-0001",
-	}); !errors.Is(err, battle.ErrVersionConflict) {
-		t.Fatalf("stale action error=%v", err)
-	}
-
-	firstAction, replayed, err := battleService.Act(ctx, user, battle.ActionInput{
-		BattleID: started.ID, Action: battle.LightAttack, ExpectedVersion: 1, IdempotencyKey: "battle-action-0001",
-	})
-	if err != nil || replayed || firstAction.Battle.Version != 2 {
-		t.Fatalf("first action=%#v replayed=%t error=%v", firstAction, replayed, err)
-	}
-	replayedAction, replayed, err := battleService.Act(ctx, user, battle.ActionInput{
-		BattleID: started.ID, Action: battle.LightAttack, ExpectedVersion: 1, IdempotencyKey: "battle-action-0001",
-	})
-	if err != nil || !replayed || replayedAction.Battle.Version != firstAction.Battle.Version {
-		t.Fatalf("replayed action=%#v replayed=%t error=%v", replayedAction, replayed, err)
-	}
-	if _, _, err := battleService.Act(ctx, user, battle.ActionInput{
-		BattleID: started.ID, Action: battle.HeavyAttack, ExpectedVersion: 1, IdempotencyKey: "battle-action-0001",
-	}); !errors.Is(err, battle.ErrIdempotencyConflict) {
-		t.Fatalf("conflicting action error=%v", err)
-	}
-
-	if _, err := database.pool.Exec(ctx, `UPDATE battles SET state = jsonb_set(state, '{enemy,current_health}', '1'::jsonb) WHERE id = $1::uuid`, started.ID); err != nil {
-		t.Fatal(err)
-	}
-	completed, replayed, err := battleService.Act(ctx, user, battle.ActionInput{
-		BattleID: started.ID, Action: battle.LightAttack, ExpectedVersion: 2, IdempotencyKey: "battle-action-final-1",
-	})
-	if err != nil || replayed || completed.Battle.Status != battle.Completed || completed.Battle.Outcome == nil || *completed.Battle.Outcome != battle.Victory {
-		t.Fatalf("completion=%#v replayed=%t error=%v", completed, replayed, err)
-	}
-	if _, replayed, err := battleService.Act(ctx, user, battle.ActionInput{
-		BattleID: started.ID, Action: battle.LightAttack, ExpectedVersion: 2, IdempotencyKey: "battle-action-final-1",
-	}); err != nil || !replayed {
-		t.Fatalf("completion replayed=%t error=%v", replayed, err)
-	}
-	if _, _, err := battleService.Act(ctx, user, battle.ActionInput{
-		BattleID: started.ID, Action: battle.LightAttack, ExpectedVersion: 3, IdempotencyKey: "after-complete-01",
-	}); !errors.Is(err, battle.ErrBattleNotActive) {
-		t.Fatalf("post-completion action error=%v", err)
-	}
-
-	var experience, credits int64
-	var actionCount, rewardLedger int
-	if err := database.pool.QueryRow(ctx, "SELECT experience, credits, energy FROM players WHERE id = $1::uuid", created.ID).Scan(&experience, &credits, &energy); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.pool.QueryRow(ctx, "SELECT count(*) FROM battle_actions WHERE battle_id = $1::uuid", started.ID).Scan(&actionCount); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.pool.QueryRow(ctx, "SELECT count(*) FROM player_ledger WHERE source_battle_id = $1::uuid", started.ID).Scan(&rewardLedger); err != nil {
-		t.Fatal(err)
-	}
-	if experience != 36 || credits != 24 || energy != 110 || actionCount != 2 || rewardLedger != 3 {
-		t.Fatalf("completed player xp=%d credits=%d energy=%d actions=%d ledger=%d", experience, credits, energy, actionCount, rewardLedger)
-	}
-
-	concurrentBattle, _, err := battleService.Start(ctx, user, battle.StartInput{
-		CharacterSlug: "nana7mi", EncounterSlug: "training-drone", IdempotencyKey: "start-battle-0002",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.pool.Exec(ctx, `UPDATE battles SET state = jsonb_set(state, '{enemy,current_health}', '1'::jsonb) WHERE id = $1::uuid`, concurrentBattle.ID); err != nil {
-		t.Fatal(err)
-	}
-	concurrentErrors := make([]error, 2)
 	var waitGroup sync.WaitGroup
-	for index := range 2 {
-		waitGroup.Add(1)
-		go func() {
-			defer waitGroup.Done()
-			_, _, concurrentErrors[index] = battleService.Act(context.Background(), user, battle.ActionInput{
-				BattleID: concurrentBattle.ID, Action: battle.LightAttack, ExpectedVersion: 1,
-				IdempotencyKey: fmt.Sprintf("concurrent-final-%d", index),
-			})
-		}()
-	}
-	waitGroup.Wait()
-	successes := 0
-	conflicts := 0
-	for _, err := range concurrentErrors {
-		if err == nil {
-			successes++
-		} else if errors.Is(err, battle.ErrBattleNotActive) || errors.Is(err, battle.ErrVersionConflict) {
-			conflicts++
-		} else {
-			t.Fatalf("unexpected concurrent error=%v", err)
-		}
-	}
-	if successes != 1 || conflicts != 1 {
-		t.Fatalf("concurrent successes=%d conflicts=%d errors=%v", successes, conflicts, concurrentErrors)
-	}
-	if err := database.pool.QueryRow(ctx, "SELECT count(*) FROM player_ledger WHERE source_battle_id = $1::uuid AND resource_type IN ('experience', 'credits')", concurrentBattle.ID).Scan(&rewardLedger); err != nil {
-		t.Fatal(err)
-	}
-	if rewardLedger != 2 {
-		t.Fatalf("concurrent reward ledger count=%d", rewardLedger)
-	}
-
-	rollbackBattle, _, err := battleService.Start(ctx, user, battle.StartInput{
-		CharacterSlug: "nana7mi", EncounterSlug: "training-drone", IdempotencyKey: "start-battle-0003",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.pool.Exec(ctx, `UPDATE battles SET state = jsonb_set(state, '{enemy,current_health}', '1'::jsonb) WHERE id = $1::uuid`, rollbackBattle.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.pool.Exec(ctx, `
-		INSERT INTO player_ledger (player_id, resource_type, delta, reason, source_battle_id, idempotency_key)
-		VALUES ($1::uuid, 'experience', 1, 'battle_victory', $2::uuid, 'rollback-blocker')`, created.ID, rollbackBattle.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := battleService.Act(ctx, user, battle.ActionInput{
-		BattleID: rollbackBattle.ID, Action: battle.LightAttack, ExpectedVersion: 1, IdempotencyKey: "rollback-final-01",
-	}); err == nil {
-		t.Fatal("completion with conflicting ledger unexpectedly succeeded")
-	}
-	var rollbackStatus string
-	var rollbackVersion int64
-	if err := database.pool.QueryRow(ctx, "SELECT status, version FROM battles WHERE id = $1::uuid", rollbackBattle.ID).Scan(&rollbackStatus, &rollbackVersion); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.pool.QueryRow(ctx, "SELECT count(*) FROM battle_actions WHERE battle_id = $1::uuid", rollbackBattle.ID).Scan(&actionCount); err != nil {
-		t.Fatal(err)
-	}
-	if rollbackStatus != "active" || rollbackVersion != 1 || actionCount != 0 {
-		t.Fatalf("rollback status=%s version=%d actions=%d", rollbackStatus, rollbackVersion, actionCount)
-	}
-
 	progressRepository := NewProgressionRepository(database)
 	progress, err := progressRepository.GetOrCreate(ctx, created.ID)
 	if err != nil || progress.Version != 1 || !progression.HasUnlock(progress, "character", "nana7mi") {
