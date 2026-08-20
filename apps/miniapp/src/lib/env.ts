@@ -35,34 +35,24 @@ const envSchema = z.object({
     (value) => !isProduction || value === undefined,
     "Development authentication cannot be enabled in production"
   ),
-  NEXT_PUBLIC_DEFAULT_LANGUAGE: z.enum(["zh-CN", "en"]).default("zh-CN"),
   // Base URL for all audio files (if all files are in the same location)
   NEXT_PUBLIC_AUDIO_BASE_URL: urlOrPathValidator,
   // BGM URL - single BGM for all pages (select, battle, reward)
   NEXT_PUBLIC_AUDIO_BGM: urlOrPathValidator,
   // Individual audio file URLs (override base URL if provided)
-  NEXT_PUBLIC_AUDIO_LIGHT_ATTACK: urlOrPathValidator,
-  NEXT_PUBLIC_AUDIO_HEAVY_ATTACK: urlOrPathValidator,
   NEXT_PUBLIC_AUDIO_SPECIAL_MOVE: urlOrPathValidator,
-  NEXT_PUBLIC_AUDIO_BLOCK: urlOrPathValidator,
   NEXT_PUBLIC_AUDIO_DAMAGE: urlOrPathValidator,
   NEXT_PUBLIC_AUDIO_VICTORY: urlOrPathValidator,
-  NEXT_PUBLIC_AUDIO_DEFEAT: urlOrPathValidator,
-  NEXT_PUBLIC_AUDIO_COMBO: urlOrPathValidator
+  NEXT_PUBLIC_AUDIO_DEFEAT: urlOrPathValidator
 });
 
 export const env = envSchema.parse({
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   NEXT_PUBLIC_DEV_AUTH_TOKEN: process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN,
-  NEXT_PUBLIC_DEFAULT_LANGUAGE: process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE,
   NEXT_PUBLIC_AUDIO_BASE_URL: process.env.NEXT_PUBLIC_AUDIO_BASE_URL,
   NEXT_PUBLIC_AUDIO_BGM: process.env.NEXT_PUBLIC_AUDIO_BGM,
-  NEXT_PUBLIC_AUDIO_LIGHT_ATTACK: process.env.NEXT_PUBLIC_AUDIO_LIGHT_ATTACK,
-  NEXT_PUBLIC_AUDIO_HEAVY_ATTACK: process.env.NEXT_PUBLIC_AUDIO_HEAVY_ATTACK,
   NEXT_PUBLIC_AUDIO_SPECIAL_MOVE: process.env.NEXT_PUBLIC_AUDIO_SPECIAL_MOVE,
-  NEXT_PUBLIC_AUDIO_BLOCK: process.env.NEXT_PUBLIC_AUDIO_BLOCK,
   NEXT_PUBLIC_AUDIO_DAMAGE: process.env.NEXT_PUBLIC_AUDIO_DAMAGE,
   NEXT_PUBLIC_AUDIO_VICTORY: process.env.NEXT_PUBLIC_AUDIO_VICTORY,
-  NEXT_PUBLIC_AUDIO_DEFEAT: process.env.NEXT_PUBLIC_AUDIO_DEFEAT,
-  NEXT_PUBLIC_AUDIO_COMBO: process.env.NEXT_PUBLIC_AUDIO_COMBO
+  NEXT_PUBLIC_AUDIO_DEFEAT: process.env.NEXT_PUBLIC_AUDIO_DEFEAT
 });

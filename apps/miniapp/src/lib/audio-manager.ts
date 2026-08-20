@@ -1,302 +1,114 @@
-/**
- * Audio Manager - Centralized audio management system
- * Handles BGM and sound effects with best practices:
- * - Audio preloading
- * - Volume control
- * - User interaction requirement handling
- * - Sound pool for performance
- * - External URL support (CDN/external storage)
- */
-
 import { env } from "@/lib/env";
 
-type SoundEffectType =
-  | "lightAttack"
-  | "heavyAttack"
-  | "specialMove"
-  | "block"
-  | "damage"
-  | "victory"
-  | "defeat"
-  | "combo";
+export type SoundEffectType = "specialMove" | "damage" | "victory" | "defeat";
 
-type AudioConfig = {
-  readonly bgmVolume: number;
-  readonly sfxVolume: number;
-};
-
-// Audio file mapping configuration
-type AudioFileMap = {
-  readonly selectBgm: string | null; // Character selection BGM (can be null)
-  readonly battleBgm: string | null; // Battle BGM (can be null)
-  readonly lightAttack: string | null;
-  readonly heavyAttack: string | null;
+type AudioFiles = {
+  readonly battleBgm: string | null;
   readonly specialMove: string | null;
-  readonly block: string | null;
   readonly damage: string | null;
   readonly victory: string | null;
   readonly defeat: string | null;
-  readonly combo: string | null;
 };
 
+const soundTypes: readonly SoundEffectType[] = ["specialMove", "damage", "victory", "defeat"];
+
+const withTrailingSlash = (url: string): string => (url.endsWith("/") ? url : `${url}/`);
+
+const resolveAudioURL = (
+  baseURL: string | undefined,
+  override: string | undefined,
+  filename: string,
+): string | null => override ?? (baseURL ? `${withTrailingSlash(baseURL)}${filename}` : null);
+
 class AudioManager {
+  private readonly files: AudioFiles;
+  private readonly soundPool = new Map<SoundEffectType, HTMLAudioElement[]>();
   private bgmAudio: HTMLAudioElement | null = null;
-  private currentBgmUrl: string | null = null;
-  private soundPool: Map<SoundEffectType, HTMLAudioElement[]> = new Map();
-  private readonly config: AudioConfig;
-  private isInitialized = false;
+  private currentBgmURL: string | null = null;
+  private initialized = false;
   private userInteracted = false;
-  private audioFiles: AudioFileMap;
 
   constructor() {
-    this.config = {
-      bgmVolume: 0.5,
-      sfxVolume: 0.7
-    };
-    // Build audio file URL map
-    // Priority: Individual URL > Base URL + filename > null (graceful degradation)
-    const baseUrl = env.NEXT_PUBLIC_AUDIO_BASE_URL; // Can be undefined if not configured
-    const ensureTrailingSlash = (url: string): string => {
-      return url.endsWith("/") ? url : `${url}/`;
-    };
-
-    // Helper to build URL or return null if base URL is not configured
-    const buildUrl = (individualUrl: string | undefined, filename: string): string | null => {
-      // Individual URL has highest priority
-      if (individualUrl) {
-        return individualUrl;
-      }
-      // Use base URL if explicitly configured
-      if (baseUrl) {
-        return `${ensureTrailingSlash(baseUrl)}${filename}`;
-      }
-      // Graceful degradation: no URL configured, return null
-      // This allows the app to run without audio files
-      return null;
-    };
-
-    const getBgmUrl = (filename: string): string | null => {
-      if (env.NEXT_PUBLIC_AUDIO_BGM) {
-        return env.NEXT_PUBLIC_AUDIO_BGM;
-      }
-      return buildUrl(undefined, filename);
-    };
-
-    this.audioFiles = {
-      selectBgm: getBgmUrl("select-bgm.mp3"),
-      battleBgm: getBgmUrl("battle-bgm.mp3"),
-      lightAttack: buildUrl(env.NEXT_PUBLIC_AUDIO_LIGHT_ATTACK, "lightAttack.mp3"),
-      heavyAttack: buildUrl(env.NEXT_PUBLIC_AUDIO_HEAVY_ATTACK, "heavyAttack.mp3"),
-      specialMove: buildUrl(env.NEXT_PUBLIC_AUDIO_SPECIAL_MOVE, "specialMove.mp3"),
-      block: buildUrl(env.NEXT_PUBLIC_AUDIO_BLOCK, "block.mp3"),
-      damage: buildUrl(env.NEXT_PUBLIC_AUDIO_DAMAGE, "damage.mp3"),
-      victory: buildUrl(env.NEXT_PUBLIC_AUDIO_VICTORY, "victory.mp3"),
-      defeat: buildUrl(env.NEXT_PUBLIC_AUDIO_DEFEAT, "defeat.mp3"),
-      combo: buildUrl(env.NEXT_PUBLIC_AUDIO_COMBO, "combo.mp3")
+    const baseURL = env.NEXT_PUBLIC_AUDIO_BASE_URL;
+    this.files = {
+      battleBgm: resolveAudioURL(baseURL, env.NEXT_PUBLIC_AUDIO_BGM, "battle-bgm.mp3"),
+      specialMove: resolveAudioURL(
+        baseURL,
+        env.NEXT_PUBLIC_AUDIO_SPECIAL_MOVE,
+        "specialMove.mp3",
+      ),
+      damage: resolveAudioURL(baseURL, env.NEXT_PUBLIC_AUDIO_DAMAGE, "damage.mp3"),
+      victory: resolveAudioURL(baseURL, env.NEXT_PUBLIC_AUDIO_VICTORY, "victory.mp3"),
+      defeat: resolveAudioURL(baseURL, env.NEXT_PUBLIC_AUDIO_DEFEAT, "defeat.mp3"),
     };
   }
 
-  /**
-   * Initialize audio system after user interaction
-   */
-  initialize(): void {
-    if (this.isInitialized) {
-      return;
-    }
-    this.isInitialized = true;
-    this.preloadSounds();
-  }
-
-  /**
-   * Mark that user has interacted (required for autoplay)
-   */
   markUserInteracted(): void {
-    if (!this.userInteracted) {
-      this.userInteracted = true;
-      this.initialize();
-    }
+    if (this.userInteracted) return;
+    this.userInteracted = true;
+    this.initialize();
   }
 
-  /**
-   * Get audio URL for a sound effect type
-   * Returns null if not configured (graceful degradation)
-   */
-  private getSoundUrl(type: SoundEffectType): string | null {
-    const urlMap: Record<SoundEffectType, string | null> = {
-      lightAttack: this.audioFiles.lightAttack,
-      heavyAttack: this.audioFiles.heavyAttack,
-      specialMove: this.audioFiles.specialMove,
-      block: this.audioFiles.block,
-      damage: this.audioFiles.damage,
-      victory: this.audioFiles.victory,
-      defeat: this.audioFiles.defeat,
-      combo: this.audioFiles.combo
-    };
-    return urlMap[type];
-  }
+  playBattleBGM(loop = true): void {
+    const url = this.files.battleBgm;
+    if (!this.userInteracted || !url) return;
+    if (this.currentBgmURL === url && this.bgmAudio && !this.bgmAudio.paused) return;
 
-  /**
-   * Preload all sound effects (only if URLs are configured)
-   */
-  private preloadSounds(): void {
-    const soundTypes: SoundEffectType[] = [
-      "lightAttack",
-      "heavyAttack",
-      "specialMove",
-      "block",
-      "damage",
-      "victory",
-      "defeat",
-      "combo"
-    ];
-
-    soundTypes.forEach((type) => {
-      const url = this.getSoundUrl(type);
-      // Skip if URL is not configured (graceful degradation)
-      if (!url) {
-        return;
-      }
-
-      const pool: (HTMLAudioElement | null)[] = [];
-      // Create pool of 3 audio instances per sound type for overlapping sounds
-      for (let i = 0; i < 3; i++) {
-        const audio = this.createAudioElement(url);
-        if (audio) {
-          audio.volume = this.config.sfxVolume;
-        }
-        pool.push(audio);
-      }
-      // Only set pool if at least one audio element was created successfully
-      if (pool.some((a) => a !== null)) {
-        this.soundPool.set(type, pool.filter((a): a is HTMLAudioElement => a !== null));
-      }
-    });
-  }
-
-  /**
-   * Create audio element with error handling
-   * Gracefully handles loading failures without breaking the app
-   */
-  private createAudioElement(src: string | null): HTMLAudioElement | null {
-    if (!src) {
-      return null;
-    }
-
-    const audio = new Audio(src);
-    audio.preload = "auto";
-    audio.volume = 0;
-    // Handle errors gracefully - don't throw, just log
-    audio.addEventListener("error", () => {
-      // Silent failure - audio file missing is acceptable
-      console.debug(`Audio file not available: ${src}`);
-    });
-    return audio;
-  }
-
-  /**
-   * Play background music
-   * @param bgmType - Type of BGM: "select" or "battle"
-   * @param loop - Whether to loop the music
-   */
-  playBGM(bgmType: "select" | "battle", loop: boolean = true): void {
-    if (!this.userInteracted) {
-      return;
-    }
-
-    // Get the appropriate BGM URL
-    const bgmUrl = bgmType === "select" ? this.audioFiles.selectBgm : this.audioFiles.battleBgm;
-
-    // Graceful degradation: if URL is not configured, silently skip
-    if (!bgmUrl) {
-      return;
-    }
-
-    // If already playing the same BGM, don't restart it
-    if (this.currentBgmUrl === bgmUrl && this.bgmAudio && !this.bgmAudio.paused) {
-      return;
-    }
-
-    // Stop current BGM if playing a different one
     this.stopBGM();
-
-    const audioElement = this.createAudioElement(bgmUrl);
-    if (!audioElement) {
-      return;
-    }
-
-    this.bgmAudio = audioElement;
-    this.currentBgmUrl = bgmUrl;
-    this.bgmAudio.volume = this.config.bgmVolume;
-    this.bgmAudio.loop = loop;
-
-    const playPromise = this.bgmAudio.play();
-
-    if (playPromise !== undefined) {
-      playPromise.catch((error) => {
-        // Silent failure - audio file missing is acceptable
-        console.debug(`BGM playback failed (${bgmType}):`, error);
+    const audio = this.createAudio(url);
+    if (!audio) return;
+    audio.volume = 0.5;
+    audio.loop = loop;
+    this.bgmAudio = audio;
+    this.currentBgmURL = url;
+    void audio.play().catch(() => {
+      if (this.bgmAudio === audio) {
         this.bgmAudio = null;
-        this.currentBgmUrl = null;
-      });
-    }
+        this.currentBgmURL = null;
+      }
+    });
   }
 
-  /**
-   * Stop background music
-   */
   stopBGM(): void {
-    if (this.bgmAudio) {
-      this.bgmAudio.pause();
-      this.bgmAudio.currentTime = 0;
-      this.bgmAudio = null;
-      this.currentBgmUrl = null;
+    this.bgmAudio?.pause();
+    if (this.bgmAudio) this.bgmAudio.currentTime = 0;
+    this.bgmAudio = null;
+    this.currentBgmURL = null;
+  }
+
+  playSound(type: SoundEffectType): void {
+    if (!this.userInteracted) return;
+    const pool = this.soundPool.get(type);
+    if (!pool?.length) return;
+    const audio = pool.find((candidate) => candidate.paused || candidate.ended) ?? pool[0];
+    if (!audio) return;
+    audio.currentTime = 0;
+    audio.volume = 0.7;
+    void audio.play().catch(() => undefined);
+  }
+
+  private initialize(): void {
+    if (this.initialized) return;
+    this.initialized = true;
+    for (const type of soundTypes) {
+      const url = this.files[type];
+      if (!url) continue;
+      const pool = Array.from({ length: 3 }, () => this.createAudio(url)).filter(
+        (audio): audio is HTMLAudioElement => audio !== null,
+      );
+      if (pool.length > 0) this.soundPool.set(type, pool);
     }
   }
 
-  /**
-   * Play sound effect
-   * Gracefully handles missing audio files (silent failure)
-   */
-  playSound(type: SoundEffectType): void {
-    if (!this.userInteracted) {
-      return;
-    }
-
-    const pool = this.soundPool.get(type);
-    // Graceful degradation: if pool doesn't exist or is empty, silently skip
-    if (!pool || pool.length === 0) {
-      return;
-    }
-
-    // Find an available audio instance (not currently playing)
-    let audio = pool.find((a) => a && (a.paused || a.ended));
-
-    // If all are playing, use the first one (will interrupt)
-    if (!audio) {
-      audio = pool[0];
-    }
-
-    // Skip if audio element is null (failed to load)
-    if (!audio) {
-      return;
-    }
-
-    // Reset and play
-    audio.currentTime = 0;
-    audio.volume = this.config.sfxVolume;
-
-    const playPromise = audio.play();
-
-    if (playPromise !== undefined) {
-      playPromise.catch((error) => {
-        // Silent failure - audio file missing is acceptable
-        console.debug(`Sound effect playback failed (${type}):`, error);
-      });
+  private createAudio(source: string): HTMLAudioElement | null {
+    try {
+      const audio = new Audio(source);
+      audio.preload = "auto";
+      return audio;
+    } catch {
+      return null;
     }
   }
 }
 
-// Singleton instance
 export const audioManager = new AudioManager();
-
-export type { SoundEffectType };

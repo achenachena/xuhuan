@@ -5,7 +5,7 @@ import { audioManager, type SoundEffectType } from "@/lib/audio-manager";
 
 type AudioContextValue = {
   readonly playSound: (type: SoundEffectType) => void;
-  readonly playBGM: (bgmType: "select" | "battle", loop?: boolean) => void;
+  readonly playBattleBGM: (loop?: boolean) => void;
   readonly stopBGM: () => void;
 };
 
@@ -13,7 +13,7 @@ const AudioContext = createContext<AudioContextValue | null>(null);
 
 const audioContextValue: AudioContextValue = {
   playSound: (type) => audioManager.playSound(type),
-  playBGM: (bgmType, loop) => audioManager.playBGM(bgmType, loop),
+  playBattleBGM: (loop) => audioManager.playBattleBGM(loop),
   stopBGM: () => audioManager.stopBGM()
 };
 

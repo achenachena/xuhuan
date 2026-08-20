@@ -18,8 +18,7 @@ export default defineConfig({
       ...process.env,
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080",
       NEXT_PUBLIC_DEV_AUTH_TOKEN:
-        process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN ?? "local-development-token",
-      NEXT_PUBLIC_DEFAULT_LANGUAGE: process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE ?? "zh-CN"
+        process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN ?? "local-development-token"
     }
   },
   projects: [

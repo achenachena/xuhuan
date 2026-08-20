@@ -10,6 +10,11 @@ const authHeaders = {
   "X-Dev-Auth":
     process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN ?? "local-development-token",
 };
+
+// This journey mutates the single development player's PostgreSQL state.
+// Retrying it in the same worker would no longer exercise a new player.
+test.describe.configure({ retries: 0 });
+
 type Content = {
   events: Array<{ slug: string; options: Array<{ slug: string }> }>;
 };
@@ -173,6 +178,14 @@ test("new viewer enters action in one tap, resumes the room, clears the boss, an
   test.setTimeout(150_000);
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
+  await expect(
+    page.getByText("The stream has ended. Current viewers: 1."),
+  ).toBeVisible();
+  // Next.js devtools occupy this corner in development. Dispatch directly to
+  // test the app control without letting framework-only chrome consume it.
+  await page
+    .getByRole("button", { name: "Switch language to Chinese" })
+    .dispatchEvent("click");
   await expect(page.getByText("直播已结束。当前在线人数：1。")).toBeVisible();
   await chooseStory(page);
   const canvas = page.getByRole("img", { name: "动作战斗区域" });

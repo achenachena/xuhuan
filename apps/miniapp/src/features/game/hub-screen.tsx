@@ -25,7 +25,14 @@ export const HubScreen = ({ content, game, locale, busy, onStart }: HubScreenPro
   return (
     <main className="mx-auto min-h-[100dvh] w-full max-w-lg overflow-hidden bg-[#090d18] text-white">
       <div className="relative min-h-[17rem] overflow-hidden border-b border-cyan-300/15 px-5 pb-5 pt-[max(1.2rem,env(safe-area-inset-top))]">
-        <Image src="/game/v1/dock-background.webp" alt="" fill sizes="512px" className="object-cover opacity-40" priority />
+        <Image
+          src="/game/v2/seventh-dock.webp"
+          alt=""
+          fill
+          sizes="512px"
+          className="object-cover opacity-55 [image-rendering:pixelated]"
+          priority
+        />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(168,85,247,.32),transparent_40%),linear-gradient(145deg,rgba(16,35,56,.72),rgba(17,16,31,.5)_55%,rgba(7,16,24,.8))]" />
         <div className="absolute -right-8 bottom-0 h-64 w-64 opacity-75">
           <Image src={character.portrait_url} alt={character.name} fill sizes="256px" className="object-contain object-bottom drop-shadow-[0_0_28px_rgba(103,232,249,.25)]" priority />

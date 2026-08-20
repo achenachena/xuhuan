@@ -26,6 +26,7 @@ vi.mock("@/components/providers/use-locale", () => ({
     translate: (key: string) => key,
     isReady: true,
     language: "zh-CN",
+    setLanguage: vi.fn(),
   }),
 }));
 vi.mock("next/image", () => ({
@@ -81,7 +82,7 @@ const content: APIGameContent = {
       projectile_speed: 0,
       projectile_damage: 0,
       color_theme: "#f43f5e",
-      image_url: "/game/v1/enemy.webp",
+      image_url: "/game/v2/retention-drone.webp",
     },
   ],
   encounters: [

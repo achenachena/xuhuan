@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAudio } from "@/components/providers/audio-provider";
 import {
-  ACTION_HEIGHT,
   ACTION_TPS,
-  ACTION_WIDTH,
   buildActionConfig,
   createActionSimulation,
   TraceRecorder,
-  type ActionConfig,
   type ActionInput,
   type ActionResult,
   type ActionSnapshot,
   type ActionTrace,
 } from "@/features/action/action-engine";
+import {
+  drawActionArena,
+  preloadActionVisuals,
+  type ActionVisuals,
+} from "@/features/action/action-renderer";
 import type { GameLocale } from "@/features/game/game-copy";
 import type { APIGameContent, APIGameRun } from "@/lib/api/client";
 
@@ -85,7 +87,7 @@ export const ActionArena = ({
   const [paused, setPaused] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const config = useMemo(() => buildActionConfig(content, run), [content, run]);
+  const [config] = useState(() => buildActionConfig(content, run));
 
   useEffect(() => {
     completeRef.current = onComplete;
@@ -94,7 +96,7 @@ export const ActionArena = ({
     audioRef.current = audio;
   }, [audio]);
   useEffect(() => {
-    audio.playBGM("battle");
+    audio.playBattleBGM();
     return audio.stopBGM;
   }, [audio]);
 
@@ -105,6 +107,7 @@ export const ActionArena = ({
     let accumulator = 0;
     let simulation: Awaited<ReturnType<typeof createActionSimulation>> | null =
       null;
+    let visuals: ActionVisuals | null = null;
     let previousSnapshot: ActionSnapshot | null = null;
     let currentSnapshot: ActionSnapshot | null = null;
     const recorder = new TraceRecorder();
@@ -129,12 +132,13 @@ export const ActionArena = ({
       const canvas = canvasRef.current;
       if (!canvas || !simulation) return;
       const state = currentSnapshot ?? simulation.snapshot();
-      drawArena(
+      drawActionArena(
         canvas,
         state,
         previousSnapshot,
         Math.min(1, accumulator / (1000 / ACTION_TPS)),
         config,
+        visuals,
       );
     };
 
@@ -172,12 +176,13 @@ export const ActionArena = ({
           setSnapshot(currentSnapshot);
         if (result) {
           void finish(result);
-          drawArena(
+          drawActionArena(
             canvasRef.current,
             currentSnapshot,
             previousSnapshot,
             1,
             config,
+            visuals,
           );
           return;
         }
@@ -186,9 +191,13 @@ export const ActionArena = ({
       frame = requestAnimationFrame(loop);
     };
 
-    void createActionSimulation(config).then((created) => {
+    void Promise.all([
+      createActionSimulation(config),
+      preloadActionVisuals().catch(() => null),
+    ]).then(([created, loadedVisuals]) => {
       if (disposed) return;
       simulation = created;
+      visuals = loadedVisuals;
       currentSnapshot = created.snapshot();
       previousSnapshot = currentSnapshot;
       setSnapshot(currentSnapshot);
@@ -260,19 +269,19 @@ export const ActionArena = ({
     : 0;
 
   return (
-    <main className="relative mx-auto h-[100dvh] w-full max-w-lg overflow-hidden bg-[#040713] text-white [touch-action:none]">
+    <main className="relative mx-auto h-[100dvh] w-full max-w-lg overflow-hidden bg-[#02050e] text-white [touch-action:none]">
       <canvas
         ref={canvasRef}
         role="img"
         aria-label={locale === "en" ? "Action encounter arena" : "动作战斗区域"}
-        className="absolute inset-0 h-full w-full [touch-action:none]"
+        className="absolute inset-0 h-full w-full [image-rendering:pixelated] [touch-action:none]"
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
         onPointerCancel={pointerUp}
       />
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 px-3 pt-[max(.55rem,env(safe-area-inset-top))]">
-        <div className="rounded-2xl border border-white/10 bg-slate-950/75 p-2.5 shadow-xl backdrop-blur-md">
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 px-3 pr-[4.5rem] pt-[max(.55rem,env(safe-area-inset-top))]">
+        <div className="border-2 border-cyan-200/20 bg-[#071225]/88 p-2.5 shadow-[4px_4px_0_rgba(2,6,23,.8)] backdrop-blur-sm">
           <div className="flex items-center gap-2 text-[10px] font-mono tracking-wider text-slate-300">
             <span>{text[locale].hp}</span>
             <strong className="text-emerald-300">
@@ -287,13 +296,13 @@ export const ActionArena = ({
             </span>
           </div>
           <div className="mt-2 grid grid-cols-[1fr_5rem] gap-2">
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-2 overflow-hidden border border-white/10 bg-black/45">
               <div
                 className="h-full bg-gradient-to-r from-cyan-300 to-violet-400"
                 style={{ width: `${progress * 100}%` }}
               />
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-2 overflow-hidden border border-white/10 bg-black/45">
               <div
                 className={`h-full ${snapshot && snapshot.distortion >= 60 ? "bg-fuchsia-400" : "bg-violet-500"}`}
                 style={{ width: `${snapshot?.distortion ?? 0}%` }}
@@ -306,7 +315,7 @@ export const ActionArena = ({
       {hint && (
         <div
           role="status"
-          className="pointer-events-none absolute left-1/2 top-[18%] z-20 w-[82%] -translate-x-1/2 rounded-2xl border border-cyan-300/25 bg-slate-950/82 px-4 py-3 text-center text-sm leading-5 text-cyan-50 shadow-[0_0_30px_rgba(34,211,238,.16)] backdrop-blur"
+          className="pointer-events-none absolute left-1/2 top-[18%] z-20 w-[82%] -translate-x-1/2 border-2 border-cyan-300/30 bg-[#071225]/92 px-4 py-3 text-center font-mono text-xs leading-5 text-cyan-50 shadow-[4px_4px_0_rgba(2,6,23,.8)] backdrop-blur-sm"
         >
           {hint}
         </div>
@@ -324,10 +333,10 @@ export const ActionArena = ({
           onClick={(event) => {
             if (event.detail === 0) skillRef.current = true;
           }}
-          className={`grid h-[5.25rem] w-[5.25rem] place-items-center rounded-full border-2 text-center shadow-2xl transition active:scale-90 disabled:opacity-45 ${snapshot?.routeReady ? "animate-pulse border-amber-200 bg-amber-300 text-slate-950 shadow-amber-300/30" : "border-cyan-200/60 bg-cyan-400/20 text-cyan-50 shadow-cyan-500/20"}`}
+          className={`grid h-[5.25rem] w-[5.25rem] place-items-center border-[3px] text-center font-mono shadow-[6px_6px_0_rgba(2,6,23,.7)] transition [clip-path:polygon(16%_0,84%_0,100%_16%,100%_84%,84%_100%,16%_100%,0_84%,0_16%)] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-45 ${snapshot?.routeReady ? "animate-pulse border-amber-100 bg-amber-300 text-slate-950" : "border-cyan-100/70 bg-[#0b3854]/90 text-cyan-50"}`}
         >
           <span>
-            <strong className="block text-xl">⌁</strong>
+            <strong className="block text-2xl">⇢</strong>
             <small className="block max-w-16 text-[9px] font-bold leading-3">
               {cooldown > 0 ? `${cooldown}s` : text[locale].warp}
             </small>
@@ -340,15 +349,15 @@ export const ActionArena = ({
         aria-hidden="true"
         className="pointer-events-none absolute left-0 top-0 h-24 w-24 opacity-0 transition-opacity duration-100"
       >
-        <div className="absolute inset-0 rounded-full border border-white/20 bg-white/[.06] shadow-[0_0_28px_rgba(34,211,238,.12)]" />
+        <div className="absolute inset-0 border-2 border-cyan-100/20 bg-[#071225]/45 shadow-[4px_4px_0_rgba(2,6,23,.5)] [clip-path:polygon(25%_0,75%_0,100%_25%,100%_75%,75%_100%,25%_100%,0_75%,0_25%)]" />
         <div
           ref={stickKnobRef}
-          className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/70 bg-cyan-300/30"
+          className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 border-2 border-cyan-100/70 bg-cyan-300/30"
         />
       </div>
       {(paused || verifying) && (
         <div className="absolute inset-0 z-40 grid place-items-center bg-slate-950/75 backdrop-blur-sm">
-          <div className="rounded-2xl border border-cyan-300/20 bg-slate-950 px-6 py-4 text-sm text-cyan-100">
+          <div className="border-2 border-cyan-300/25 bg-[#071225] px-6 py-4 font-mono text-xs text-cyan-100 shadow-[5px_5px_0_rgba(2,6,23,.8)]">
             {verifying ? text[locale].verifying : text[locale].paused}
           </div>
         </div>
@@ -409,235 +418,3 @@ const hideStick = (
   if (base) base.style.opacity = "0";
   if (knob) knob.style.transform = "translate3d(-50%,-50%,0)";
 };
-
-const drawArena = (
-  canvas: HTMLCanvasElement | null,
-  snapshot: ActionSnapshot,
-  previous: ActionSnapshot | null,
-  alpha: number,
-  config: ActionConfig,
-) => {
-  if (!canvas) return;
-  const rect = canvas.getBoundingClientRect();
-  const ratio = Math.min(2, window.devicePixelRatio || 1);
-  const width = Math.max(1, Math.round(rect.width * ratio)),
-    height = Math.max(1, Math.round(rect.height * ratio));
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-  const context = canvas.getContext("2d");
-  if (!context) return;
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.fillStyle = "#030610";
-  context.fillRect(0, 0, width, height);
-  const scale = Math.min(width / ACTION_WIDTH, height / ACTION_HEIGHT);
-  const offsetX = (width - ACTION_WIDTH * scale) / 2,
-    offsetY = (height - ACTION_HEIGHT * scale) / 2;
-  context.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-  const player = interpolate(previous?.player, snapshot.player, alpha);
-  const previousEnemies = new Map(
-    (previous?.enemies ?? []).map((enemy) => [enemy.id, enemy]),
-  );
-  const previousProjectiles = new Map(
-    (previous?.projectiles ?? []).map((projectile) => [
-      projectile.id,
-      projectile,
-    ]),
-  );
-  const gradient = context.createRadialGradient(
-    ACTION_WIDTH / 2,
-    2200,
-    100,
-    ACTION_WIDTH / 2,
-    2800,
-    3300,
-  );
-  gradient.addColorStop(0, "#18264a");
-  gradient.addColorStop(0.52, "#0a1024");
-  gradient.addColorStop(1, "#030610");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, ACTION_WIDTH, ACTION_HEIGHT);
-  context.strokeStyle = "rgba(103,232,249,.07)";
-  context.lineWidth = 8;
-  for (let x = 0; x < ACTION_WIDTH; x += 360) {
-    context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, ACTION_HEIGHT);
-    context.stroke();
-  }
-  for (let y = 0; y < ACTION_HEIGHT; y += 360) {
-    context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(ACTION_WIDTH, y);
-    context.stroke();
-  }
-  const pulse = 1 + Math.sin(snapshot.tick / 7) * 0.12;
-  context.beginPath();
-  context.arc(
-    snapshot.activeBeacon.x,
-    snapshot.activeBeacon.y,
-    210 * pulse,
-    0,
-    Math.PI * 2,
-  );
-  context.fillStyle = "rgba(250,204,21,.14)";
-  context.fill();
-  context.lineWidth = 28;
-  context.strokeStyle = "rgba(253,224,71,.9)";
-  context.stroke();
-  context.font = "bold 150px ui-monospace";
-  context.fillStyle = "#fde68a";
-  context.textAlign = "center";
-  context.fillText(
-    String(snapshot.routeStep + 1),
-    snapshot.activeBeacon.x,
-    snapshot.activeBeacon.y + 52,
-  );
-  for (const enemy of snapshot.enemies) {
-    const position = interpolate(
-      previousEnemies.get(enemy.id)?.position,
-      enemy.position,
-      alpha,
-    );
-    const radius = enemy.boss ? 260 : 150;
-    if (enemy.intentTicks > 0) {
-      context.save();
-      context.setLineDash([55, 38]);
-      context.lineWidth = 24;
-      context.strokeStyle = `rgba(251,113,133,${0.3 + (12 - Math.min(12, enemy.intentTicks)) / 18})`;
-      context.beginPath();
-      context.moveTo(position.x, position.y);
-      context.lineTo(enemy.intentTarget.x, enemy.intentTarget.y);
-      context.stroke();
-      context.restore();
-      if (enemy.bossPhase === 3) {
-        context.beginPath();
-        context.arc(position.x, position.y, 440, 0, Math.PI * 2);
-        context.strokeStyle = "rgba(251,113,133,.55)";
-        context.lineWidth = 28;
-        context.stroke();
-      }
-    }
-    context.beginPath();
-    context.arc(position.x, position.y, radius + 90, 0, Math.PI * 2);
-    context.strokeStyle = enemy.boss
-      ? "rgba(244,114,182,.25)"
-      : "rgba(167,139,250,.18)";
-    context.lineWidth = 22;
-    context.stroke();
-    context.beginPath();
-    context.arc(position.x, position.y, radius, 0, Math.PI * 2);
-    context.fillStyle = enemy.boss ? "#be185d" : "#6d28d9";
-    context.fill();
-    context.strokeStyle = enemy.boss ? "#f9a8d4" : "#c4b5fd";
-    context.lineWidth = 18;
-    context.stroke();
-    context.fillStyle = "rgba(2,6,23,.78)";
-    context.fillRect(
-      position.x - radius,
-      position.y - radius - 95,
-      radius * 2,
-      34,
-    );
-    context.fillStyle = enemy.boss ? "#fb7185" : "#a78bfa";
-    context.fillRect(
-      position.x - radius,
-      position.y - radius - 95,
-      radius * 2 * Math.min(1, Math.max(0, enemy.health / enemy.maxHealth)),
-      34,
-    );
-    if (enemy.boss) {
-      context.font = "bold 82px ui-monospace";
-      context.fillStyle = "#fbcfe8";
-      context.fillText(
-        `P${enemy.bossPhase} / ${enemy.bossMimic.toUpperCase()}`,
-        position.x,
-        position.y + radius + 125,
-      );
-    }
-  }
-  if (
-    snapshot.tick % config.buffs.attackInterval < 2 &&
-    snapshot.enemies.length > 0
-  ) {
-    let target = snapshot.enemies[0]!;
-    let nearest = Number.MAX_SAFE_INTEGER;
-    for (const enemy of snapshot.enemies) {
-      const distance =
-        (enemy.position.x - snapshot.player.x) ** 2 +
-        (enemy.position.y - snapshot.player.y) ** 2;
-      if (distance < nearest) {
-        nearest = distance;
-        target = enemy;
-      }
-    }
-    const targetPosition = interpolate(
-      previousEnemies.get(target.id)?.position,
-      target.position,
-      alpha,
-    );
-    context.beginPath();
-    context.moveTo(player.x, player.y);
-    context.lineTo(targetPosition.x, targetPosition.y);
-    context.strokeStyle = "rgba(103,232,249,.85)";
-    context.lineWidth = 26;
-    context.stroke();
-  }
-  for (const bullet of snapshot.projectiles) {
-    const position = interpolate(
-      previousProjectiles.get(bullet.id)?.position,
-      bullet.position,
-      alpha,
-    );
-    context.beginPath();
-    context.arc(
-      position.x,
-      position.y,
-      bullet.grazed ? 48 : 58,
-      0,
-      Math.PI * 2,
-    );
-    context.fillStyle = bullet.grazed ? "#f0abfc" : "#fb7185";
-    context.shadowBlur = 80;
-    context.shadowColor = context.fillStyle;
-    context.fill();
-    context.shadowBlur = 0;
-  }
-  context.beginPath();
-  context.arc(
-    player.x,
-    player.y,
-    snapshot.invulnerable > 0 ? 150 : 125,
-    0,
-    Math.PI * 2,
-  );
-  context.fillStyle = snapshot.invulnerable > 0 ? "#fef3c7" : "#67e8f9";
-  context.fill();
-  context.strokeStyle = snapshot.routeReady ? "#fde047" : "#f0abfc";
-  context.lineWidth = snapshot.routeReady ? 34 : 18;
-  context.stroke();
-  context.font = "bold 120px system-ui";
-  context.fillStyle = "#071018";
-  context.fillText("七", player.x, player.y + 42);
-  if (snapshot.distortion >= 60) {
-    context.fillStyle = `rgba(217,70,239,${0.035 + Math.sin(snapshot.tick) * 0.015})`;
-    context.fillRect(0, 0, ACTION_WIDTH, ACTION_HEIGHT);
-  }
-  if (snapshot.tick < Math.min(config.durationTicks, 150)) {
-    context.fillStyle = `rgba(103,232,249,${0.03 * (1 - snapshot.tick / 150)})`;
-    context.fillRect(0, 0, ACTION_WIDTH, ACTION_HEIGHT);
-  }
-};
-
-const interpolate = (
-  previous: { x: number; y: number } | undefined,
-  current: { x: number; y: number },
-  alpha: number,
-) =>
-  previous
-    ? {
-        x: previous.x + (current.x - previous.x) * alpha,
-        y: previous.y + (current.y - previous.y) * alpha,
-      }
-    : current;
