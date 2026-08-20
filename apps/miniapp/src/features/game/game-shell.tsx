@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+
 import useLocale from "@/components/providers/use-locale";
 import { ActionArena } from "@/features/action/action-arena";
+import { preloadActionVisuals } from "@/features/action/action-renderer";
 import { gameText, type GameLocale } from "@/features/game/game-copy";
 import { HubScreen } from "@/features/game/hub-screen";
 import {
@@ -15,14 +18,15 @@ import { StoryChat } from "@/features/game/story-chat";
 import { useGameController } from "@/features/game/use-game-controller";
 import { APIError } from "@/lib/api/client";
 
-const localeFrom = (language: string): GameLocale =>
-  language.toLowerCase().startsWith("en") ? "en" : "zh-CN";
-
 const GameShell = () => {
   const { language } = useLocale();
-  const locale = localeFrom(language);
+  const locale = language;
   const controller = useGameController(locale);
   const { content, game, loading, busy, error } = controller;
+
+  useEffect(() => {
+    void preloadActionVisuals().catch(() => undefined);
+  }, []);
 
   if (loading && (!content || !game)) {
     return <LoadingScreen locale={locale} />;
@@ -173,7 +177,7 @@ const GameShell = () => {
       {busy && run?.state.phase !== "encounter" && (
         <div
           aria-live="polite"
-          className="pointer-events-none fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex items-center gap-2 rounded-full border border-cyan-300/20 bg-slate-950/85 px-3 py-2 text-[10px] text-cyan-200 shadow-xl backdrop-blur"
+          className="pointer-events-none fixed left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex items-center gap-2 rounded-full border border-cyan-300/20 bg-slate-950/85 px-3 py-2 text-[10px] text-cyan-200 shadow-xl backdrop-blur"
         >
           <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" />
           SYNC

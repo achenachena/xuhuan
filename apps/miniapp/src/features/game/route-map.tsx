@@ -79,12 +79,12 @@ export const RouteMap = ({
   return (
     <main className="mx-auto min-h-[100dvh] w-full max-w-lg bg-[#080d18] text-white">
       <header className="border-b border-white/10 bg-[#101827]/95 px-4 pb-3 pt-[max(0.8rem,env(safe-area-inset-top))] backdrop-blur">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-2 pr-[4.5rem]">
+          <div className="min-w-0">
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300">
               {gameText(locale, "map")}
             </p>
-            <p className="mt-1 text-sm font-semibold">
+            <p className="mt-1 truncate text-sm font-semibold">
               {
                 content.chapters.find(
                   (item) => item.slug === state.chapter_slug,
@@ -96,7 +96,7 @@ export const RouteMap = ({
             type="button"
             disabled={busy}
             onClick={onAbandon}
-            className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-[10px] text-rose-300 disabled:opacity-40"
+            className="shrink-0 rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-[10px] text-rose-300 disabled:opacity-40"
           >
             {gameText(locale, "abandon")}
           </button>

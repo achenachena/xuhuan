@@ -75,7 +75,7 @@ const requestJSON = async <TResponse>(
     cache: "no-store",
     headers: {
       Accept: "application/json",
-      "Accept-Language": "zh-CN",
+      "Accept-Language": "en",
       ...authenticationHeaders,
       ...init.headers
     }

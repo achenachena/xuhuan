@@ -173,6 +173,12 @@ test("new viewer enters action in one tap, resumes the room, clears the boss, an
   test.setTimeout(150_000);
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
+  await expect(
+    page.getByText("The stream has ended. Current viewers: 1."),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Switch language to Chinese" })
+    .click();
   await expect(page.getByText("直播已结束。当前在线人数：1。")).toBeVisible();
   await chooseStory(page);
   const canvas = page.getByRole("img", { name: "动作战斗区域" });
