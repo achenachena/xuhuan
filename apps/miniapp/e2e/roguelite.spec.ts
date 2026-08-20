@@ -190,14 +190,32 @@ test("new viewer enters action in one tap, resumes the room, clears the boss, an
   await chooseStory(page);
   const canvas = page.getByRole("img", { name: "动作战斗区域" });
   await expect(canvas).toBeVisible();
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("canvas has no bounds");
-  await page.mouse.move(box.x + 80, box.y + 380);
+  await page.evaluate(() => {
+    document.documentElement.dataset.telegramHost = "true";
+    document.documentElement.dataset.telegramFullscreen = "false";
+  });
+  const hud = await page.getByTestId("combat-hud").boundingBox();
+  expect(hud?.y).toBeGreaterThanOrEqual(100);
+  const encounterViewport = await page.evaluate(() => ({
+    clientHeight: document.documentElement.clientHeight,
+    scrollHeight: document.documentElement.scrollHeight,
+    bodyPosition: getComputedStyle(document.body).position,
+    touchAction: getComputedStyle(document.documentElement).touchAction,
+  }));
+  expect(encounterViewport.scrollHeight).toBeLessThanOrEqual(
+    encounterViewport.clientHeight,
+  );
+  expect(encounterViewport.bodyPosition).toBe("fixed");
+  expect(encounterViewport.touchAction).toBe("none");
+  const movementStick = page.getByRole("group", { name: "移动盘" });
+  const box = await movementStick.boundingBox();
+  if (!box) throw new Error("movement stick has no bounds");
+  await page.mouse.move(box.x + 72, box.y + box.height - 72);
   await page.mouse.down();
-  await page.mouse.move(box.x + 170, box.y + 300, { steps: 5 });
+  await page.mouse.move(box.x + 128, box.y + box.height - 128, { steps: 5 });
   await page.waitForTimeout(300);
   await page.mouse.up();
-  await page.getByRole("button", { name: "航线跃迁" }).click();
+  await page.getByRole("button", { name: "相位冲刺" }).click();
   const firstGame = await request.get(`${apiURL}/v2/game`, {
     headers: authHeaders,
   });
@@ -222,6 +240,9 @@ test("new viewer enters action in one tap, resumes the room, clears the boss, an
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
+    clientHeight: document.documentElement.clientHeight,
+    scrollHeight: document.documentElement.scrollHeight,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  expect(dimensions.scrollHeight).toBeLessThanOrEqual(dimensions.clientHeight);
 });

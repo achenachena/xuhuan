@@ -82,6 +82,8 @@ export type ActionSnapshot = {
   dashCooldown: number;
   invulnerable: number;
   reconnectFX: number;
+  dashFX: number;
+  anchorPulse: number;
   routeStep: number;
   routeReady: boolean;
   activeBeacon: Vec;
@@ -136,10 +138,22 @@ const directions: readonly Vec[] = [
   { x: 707, y: -707 },
   { x: 924, y: -383 },
 ];
-const beacons: readonly Vec[] = [
-  { x: 760, y: 4300 },
-  { x: 2840, y: 3000 },
-  { x: 1800, y: 1280 },
+const routePatterns: readonly (readonly Vec[])[] = [
+  [
+    { x: 760, y: 4300 },
+    { x: 2840, y: 3000 },
+    { x: 1800, y: 1280 },
+  ],
+  [
+    { x: 2840, y: 4300 },
+    { x: 760, y: 3000 },
+    { x: 1800, y: 1280 },
+  ],
+  [
+    { x: 1800, y: 4100 },
+    { x: 760, y: 2550 },
+    { x: 2840, y: 1450 },
+  ],
 ];
 
 class RandomStream {
@@ -181,6 +195,9 @@ export class ActionSimulation {
   private routes = 0;
   private emergencyUsed = false;
   private reconnectFX = 0;
+  private dashFX = 0;
+  private anchorPulse = 0;
+  private readonly routePattern: number;
   private enemies: EnemyEntity[] = [];
   private projectiles: ProjectileEntity[] = [];
   private finished = false;
@@ -191,6 +208,7 @@ export class ActionSimulation {
     seed: number,
   ) {
     this.random = new RandomStream(seed);
+    this.routePattern = seed % routePatterns.length;
     this.health = config.playerHealth;
     this.shield = config.buffs.startingShield;
   }
@@ -201,6 +219,8 @@ export class ActionSimulation {
     if (this.dashClock > 0) this.dashClock -= 1;
     if (this.invulnerable > 0) this.invulnerable -= 1;
     if (this.reconnectFX > 0) this.reconnectFX -= 1;
+    if (this.dashFX > 0) this.dashFX -= 1;
+    if (this.anchorPulse > 0) this.anchorPulse -= 1;
     this.movePlayer(input);
     this.collectBeacon();
     this.spawnEnemies();
@@ -267,9 +287,11 @@ export class ActionSimulation {
       dashCooldown: this.dashClock,
       invulnerable: this.invulnerable,
       reconnectFX: this.reconnectFX,
+      dashFX: this.dashFX,
+      anchorPulse: this.anchorPulse,
       routeStep: this.routeStep,
       routeReady: this.routeReady,
-      activeBeacon: beacons[this.routeStep] ?? beacons[0],
+      activeBeacon: this.activeBeacon(),
       enemies: this.enemies.map((enemy) => {
         const spec = this.config.enemies[enemy.specIndex]!;
         const phase =
@@ -307,20 +329,53 @@ export class ActionSimulation {
       this.playerY += Math.trunc((vector.y * speed) / 1000);
     }
     if (input.skill && this.dashClock === 0) {
+      const startX = this.playerX;
+      const startY = this.playerY;
       const dashVector = input.magnitude === 0 ? directions[12] : vector;
       this.playerX += Math.trunc(((dashVector?.x ?? 0) * 620) / 1000);
       this.playerY += Math.trunc(((dashVector?.y ?? -1000) * 620) / 1000);
       this.invulnerable = 12;
+      this.dashFX = 10;
       this.dashClock = this.config.buffs.dashCooldown;
-      if (this.routeReady) {
+      const empowered = this.routeReady;
+      const radius = empowered ? 700 : 330;
+      const damage = empowered
+        ? Math.max(12, this.config.buffs.dashDamage)
+        : Math.max(4, Math.trunc(this.config.buffs.dashDamage / 2));
+      const midpointX = Math.trunc((startX + this.playerX) / 2);
+      const midpointY = Math.trunc((startY + this.playerY) / 2);
+      for (const enemy of this.enemies)
+        if (
+          nearTravelPath(
+            enemy.x,
+            enemy.y,
+            startX,
+            startY,
+            midpointX,
+            midpointY,
+            this.playerX,
+            this.playerY,
+            radius,
+          )
+        )
+          enemy.health -= damage;
+      this.projectiles = this.projectiles.filter(
+        (bullet) =>
+          !nearTravelPath(
+            bullet.x,
+            bullet.y,
+            startX,
+            startY,
+            midpointX,
+            midpointY,
+            this.playerX,
+            this.playerY,
+            radius,
+          ),
+      );
+      if (empowered) {
         this.routeReady = false;
         this.routeWarpUsed = true;
-        for (const enemy of this.enemies)
-          if (
-            distanceSquared(this.playerX, this.playerY, enemy.x, enemy.y) <
-            950 ** 2
-          )
-            enemy.health -= Math.max(12, this.config.buffs.dashDamage);
       }
     }
     this.playerX = clamp(this.playerX, 120, ACTION_WIDTH - 120);
@@ -328,14 +383,30 @@ export class ActionSimulation {
   }
 
   private collectBeacon(): void {
-    const beacon = beacons[this.routeStep] ?? beacons[0];
+    const beacon = this.activeBeacon();
     if (
       distanceSquared(this.playerX, this.playerY, beacon.x, beacon.y) >
       370 ** 2
     )
       return;
+    this.anchorPulse = 18;
+    this.projectiles = this.projectiles.filter(
+      (bullet) =>
+        distanceSquared(this.playerX, this.playerY, bullet.x, bullet.y) >
+        720 ** 2,
+    );
+    const pulseDamage = Math.max(
+      2,
+      Math.trunc(this.config.buffs.attackDamage / 2),
+    );
+    for (const enemy of this.enemies)
+      if (
+        distanceSquared(this.playerX, this.playerY, enemy.x, enemy.y) <=
+        620 ** 2
+      )
+        enemy.health -= pulseDamage;
     this.routeStep += 1;
-    if (this.routeStep === beacons.length) {
+    if (this.routeStep === 3) {
       this.routeStep = 0;
       this.routeReady = true;
       this.routes += 1;
@@ -346,6 +417,13 @@ export class ActionSimulation {
           this.health + this.config.buffs.routeHeal,
         );
     }
+  }
+
+  private activeBeacon(): Vec {
+    const pattern =
+      routePatterns[(this.routePattern + this.routes) % routePatterns.length] ??
+      routePatterns[0]!;
+    return pattern[this.routeStep] ?? pattern[0]!;
   }
 
   private spawnEnemies(): void {
@@ -821,6 +899,23 @@ export class TraceRecorder {
 
 const distanceSquared = (ax: number, ay: number, bx: number, by: number) =>
   (ax - bx) ** 2 + (ay - by) ** 2;
+const nearTravelPath = (
+  x: number,
+  y: number,
+  startX: number,
+  startY: number,
+  midpointX: number,
+  midpointY: number,
+  endX: number,
+  endY: number,
+  radius: number,
+) =>
+  Math.min(
+    distanceSquared(x, y, startX, startY),
+    distanceSquared(x, y, midpointX, midpointY),
+    distanceSquared(x, y, endX, endY),
+  ) <=
+  radius ** 2;
 const clamp = (value: number, low: number, high: number) =>
   Math.min(high, Math.max(low, value));
 const bossPhase = (health: number, maxHealth: number) =>

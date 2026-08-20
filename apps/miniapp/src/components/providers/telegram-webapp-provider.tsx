@@ -18,33 +18,77 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
         return;
       }
       applyTelegramTheme(WebApp.themeParams);
-      const swipeAwareWebApp = WebApp as typeof WebApp & {
-        disableVerticalSwipes?: () => void;
-        enableVerticalSwipes?: () => void;
-      };
-      if (WebApp.platform !== "unknown") {
-        document.documentElement.dataset.telegramHost = "true";
+      const root = document.documentElement;
+      const isTelegramHost = WebApp.platform !== "unknown";
+      if (isTelegramHost) {
+        root.dataset.telegramHost = "true";
       }
       WebApp.ready();
       if (!WebApp.isExpanded) {
         WebApp.expand();
       }
-      const swipesDisabled =
-        WebApp.isVersionAtLeast("7.7") &&
-        typeof swipeAwareWebApp.disableVerticalSwipes === "function";
-      if (swipesDisabled) {
-        swipeAwareWebApp.disableVerticalSwipes?.();
+      if (isTelegramHost && WebApp.isVersionAtLeast("6.1")) {
+        WebApp.setHeaderColor("#02050e");
+        WebApp.setBackgroundColor("#02050e");
       }
+
+      const swipesDisabled =
+        isTelegramHost &&
+        WebApp.isVersionAtLeast("7.7") &&
+        typeof WebApp.disableVerticalSwipes === "function";
+      if (swipesDisabled) {
+        WebApp.disableVerticalSwipes();
+      }
+
+      const immersiveMode = isTelegramHost && WebApp.isVersionAtLeast("8.0");
+      if (immersiveMode) {
+        WebApp.lockOrientation();
+        if (!WebApp.isFullscreen) WebApp.requestFullscreen();
+      }
+
+      const syncHostMetrics = () => {
+        const content = WebApp.contentSafeAreaInset;
+        const system = WebApp.safeAreaInset;
+        root.dataset.telegramFullscreen = String(WebApp.isFullscreen);
+        root.style.setProperty(
+          "--xuhuan-tg-content-safe-top",
+          `${Math.max(content?.top ?? 0, system?.top ?? 0)}px`,
+        );
+        root.style.setProperty(
+          "--xuhuan-tg-content-safe-bottom",
+          `${Math.max(content?.bottom ?? 0, system?.bottom ?? 0)}px`,
+        );
+      };
+      syncHostMetrics();
+
       const handleThemeChange = () => {
         applyTelegramTheme(WebApp.themeParams);
       };
       WebApp.onEvent("themeChanged", handleThemeChange);
+      WebApp.onEvent("viewportChanged", syncHostMetrics);
+      if (immersiveMode) {
+        WebApp.onEvent("safeAreaChanged", syncHostMetrics);
+        WebApp.onEvent("contentSafeAreaChanged", syncHostMetrics);
+        WebApp.onEvent("fullscreenChanged", syncHostMetrics);
+        WebApp.onEvent("fullscreenFailed", syncHostMetrics);
+      }
       cleanup = () => {
         WebApp.offEvent("themeChanged", handleThemeChange);
-        if (swipesDisabled) {
-          swipeAwareWebApp.enableVerticalSwipes?.();
+        WebApp.offEvent("viewportChanged", syncHostMetrics);
+        if (immersiveMode) {
+          WebApp.offEvent("safeAreaChanged", syncHostMetrics);
+          WebApp.offEvent("contentSafeAreaChanged", syncHostMetrics);
+          WebApp.offEvent("fullscreenChanged", syncHostMetrics);
+          WebApp.offEvent("fullscreenFailed", syncHostMetrics);
+          WebApp.unlockOrientation();
         }
-        delete document.documentElement.dataset.telegramHost;
+        if (swipesDisabled) {
+          WebApp.enableVerticalSwipes();
+        }
+        delete root.dataset.telegramHost;
+        delete root.dataset.telegramFullscreen;
+        root.style.removeProperty("--xuhuan-tg-content-safe-top");
+        root.style.removeProperty("--xuhuan-tg-content-safe-bottom");
       };
     };
 

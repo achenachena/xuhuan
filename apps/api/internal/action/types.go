@@ -106,6 +106,8 @@ type Snapshot struct {
 	DashCooldown int                  `json:"dash_cooldown"`
 	Invulnerable int                  `json:"invulnerable"`
 	ReconnectFX  int                  `json:"reconnect_fx"`
+	DashFX       int                  `json:"dash_fx"`
+	AnchorPulse  int                  `json:"anchor_pulse"`
 	RouteStep    int                  `json:"route_step"`
 	RouteReady   bool                 `json:"route_ready"`
 	ActiveBeacon Vec                  `json:"active_beacon"`
