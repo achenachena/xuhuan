@@ -177,7 +177,7 @@ const GameShell = () => {
       {busy && run?.state.phase !== "encounter" && (
         <div
           aria-live="polite"
-          className="pointer-events-none fixed left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex items-center gap-2 rounded-full border border-cyan-300/20 bg-slate-950/85 px-3 py-2 text-[10px] text-cyan-200 shadow-xl backdrop-blur"
+          className="pointer-events-none fixed left-3 top-[var(--xuhuan-host-safe-top)] z-50 flex items-center gap-2 rounded-full border border-cyan-300/20 bg-slate-950/85 px-3 py-2 text-[10px] text-cyan-200 shadow-xl backdrop-blur"
         >
           <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" />
           SYNC

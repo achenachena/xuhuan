@@ -17,7 +17,7 @@ export const StoryChat = ({ content, sceneSlug, locale, busy, onChoose }: StoryC
 
   return (
     <section className="mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col bg-[#101827]">
-      <header className="sticky top-0 z-10 border-b border-white/10 bg-[#172231]/95 px-4 pb-3 pt-[max(0.8rem,env(safe-area-inset-top))] backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-white/10 bg-[#172231]/95 px-4 pb-3 pt-[var(--xuhuan-host-safe-top)] backdrop-blur">
         <p className="text-sm font-semibold text-white">{gameText(locale, "backendGroup")}</p>
         <div className="mt-1 flex items-center gap-2 text-xs text-emerald-300">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />

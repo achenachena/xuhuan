@@ -78,7 +78,10 @@ export const RouteMap = ({
 
   return (
     <main className="mx-auto min-h-[100dvh] w-full max-w-lg bg-[#080d18] text-white">
-      <header className="border-b border-white/10 bg-[#101827]/95 px-4 pb-3 pt-[max(0.8rem,env(safe-area-inset-top))] backdrop-blur">
+      <header
+        data-testid="route-map-header"
+        className="border-b border-white/10 bg-[#101827]/95 px-4 pb-3 pt-[var(--xuhuan-host-safe-top)] backdrop-blur"
+      >
         <div className="flex items-center justify-between gap-2 pr-[4.5rem]">
           <div className="min-w-0">
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300">
