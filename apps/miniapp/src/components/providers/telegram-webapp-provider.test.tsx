@@ -4,6 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const webApp = vi.hoisted(() => ({
   themeParams: { bg_color: "#000000" },
   isExpanded: false,
+  platform: "ios",
+  isVersionAtLeast: vi.fn(() => true),
+  disableVerticalSwipes: vi.fn(),
+  enableVerticalSwipes: vi.fn(),
   ready: vi.fn(),
   expand: vi.fn(),
   onEvent: vi.fn(),
@@ -20,11 +24,16 @@ describe("TelegramWebAppProvider", () => {
   beforeEach(() => {
     webApp.ready.mockReset();
     webApp.expand.mockReset();
+    webApp.isVersionAtLeast.mockClear();
+    webApp.disableVerticalSwipes.mockReset();
+    webApp.enableVerticalSwipes.mockReset();
     webApp.onEvent.mockReset();
     webApp.offEvent.mockReset();
     applyTelegramTheme.mockReset();
     webApp.themeParams.bg_color = "#000000";
     webApp.isExpanded = false;
+    webApp.platform = "ios";
+    document.documentElement.removeAttribute("data-telegram-host");
   });
 
   it("initializes, expands, subscribes, and unsubscribes the Mini App", async () => {
@@ -37,10 +46,15 @@ describe("TelegramWebAppProvider", () => {
     await waitFor(() => expect(webApp.ready).toHaveBeenCalledOnce());
     expect(applyTelegramTheme).toHaveBeenCalledWith(webApp.themeParams);
     expect(webApp.expand).toHaveBeenCalledOnce();
+    expect(webApp.isVersionAtLeast).toHaveBeenCalledWith("7.7");
+    expect(webApp.disableVerticalSwipes).toHaveBeenCalledOnce();
+    expect(document.documentElement.dataset.telegramHost).toBe("true");
     expect(webApp.onEvent).toHaveBeenCalledWith("themeChanged", expect.any(Function));
 
     rendered.unmount();
     expect(webApp.offEvent).toHaveBeenCalledWith("themeChanged", expect.any(Function));
+    expect(webApp.enableVerticalSwipes).toHaveBeenCalledOnce();
+    expect(document.documentElement.dataset.telegramHost).toBeUndefined();
   });
 
   it("reapplies Telegram colors when the host theme changes", async () => {

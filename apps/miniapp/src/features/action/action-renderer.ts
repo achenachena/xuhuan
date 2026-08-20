@@ -100,7 +100,11 @@ export const drawActionArena = (
       interpolate(previousProjectiles.get(projectile.id)?.position, projectile.position, alpha),
     );
   }
-  drawPlayer(context, player, snapshot, visuals?.player);
+  const moving = previous
+    ? previous.player.x !== snapshot.player.x ||
+      previous.player.y !== snapshot.player.y
+    : false;
+  drawPlayer(context, player, snapshot, moving, visuals?.player);
   drawScreenEffects(context, snapshot, config);
 };
 
@@ -153,35 +157,53 @@ const drawRouteGuide = (
 
 const drawBeacon = (context: CanvasRenderingContext2D, snapshot: ActionSnapshot) => {
   const beacon = snapshot.activeBeacon;
-  const pulse = 1 + Math.sin(snapshot.tick / 7) * 0.08;
-  const size = 205 * pulse;
+  const pulse = Math.round(Math.sin(snapshot.tick / 7) * 18);
   context.save();
   context.translate(beacon.x, beacon.y);
-  context.rotate(Math.PI / 4);
-  context.fillStyle = "rgba(250,204,21,.13)";
-  context.fillRect(-size, -size, size * 2, size * 2);
-  context.strokeStyle = "rgba(253,224,71,.95)";
-  context.lineWidth = 26;
-  context.strokeRect(-size, -size, size * 2, size * 2);
-  context.strokeStyle = "rgba(103,232,249,.52)";
-  context.lineWidth = 12;
-  context.strokeRect(-size - 58, -size - 58, (size + 58) * 2, (size + 58) * 2);
-  context.restore();
+  context.fillStyle = "rgba(34,211,238,.1)";
+  context.fillRect(-300 - pulse, -300 - pulse, 600 + pulse * 2, 600 + pulse * 2);
 
-  context.fillStyle = "#fde68a";
-  context.font = "bold 148px ui-monospace";
+  // Pixel navigation relay: antenna, signal lamp, screen, chassis and base.
+  context.fillStyle = "#164e63";
+  context.fillRect(-22, -300, 44, 118);
+  context.fillStyle = snapshot.routeReady ? "#fef08a" : "#67e8f9";
+  context.fillRect(-52, -344, 104, 58);
+  context.fillStyle = "#facc15";
+  context.fillRect(-26, -330, 52, 30);
+  context.fillStyle = "#0f172a";
+  context.fillRect(-212, -188, 424, 330);
+  context.fillStyle = "#facc15";
+  context.fillRect(-212, -188, 424, 32);
+  context.fillRect(-212, 110, 424, 32);
+  context.fillRect(-212, -188, 32, 330);
+  context.fillRect(180, -188, 32, 330);
+  context.fillStyle = "#082f49";
+  context.fillRect(-160, -130, 320, 212);
+  context.fillStyle = "#22d3ee";
+  context.fillRect(-126, -94, 252, 20);
+  context.fillRect(-126, 46, 252, 16);
+
+  context.fillStyle = "#e0f2fe";
+  context.font = "bold 132px ui-monospace";
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(String(snapshot.routeStep + 1), beacon.x, beacon.y + 4);
-  for (const [dx, dy] of [
-    [-300, -300],
-    [300, -300],
-    [-300, 300],
-    [300, 300],
-  ] as const) {
-    context.fillStyle = snapshot.routeReady ? "#fde047" : "#22d3ee";
-    context.fillRect(beacon.x + dx - 22, beacon.y + dy - 22, 44, 44);
-  }
+  context.fillText(String(snapshot.routeStep + 1), 0, -10);
+
+  context.fillStyle = "#155e75";
+  context.fillRect(-132, 142, 264, 74);
+  context.fillStyle = "#22d3ee";
+  context.fillRect(-240, 216, 480, 54);
+  context.fillStyle = "#0e7490";
+  context.fillRect(-300, 270, 600, 72);
+  context.fillStyle = "#facc15";
+  context.fillRect(-300, 270, 86, 24);
+  context.fillRect(214, 270, 86, 24);
+
+  context.font = "bold 58px ui-monospace";
+  context.fillStyle = "#cffafe";
+  context.textBaseline = "top";
+  context.fillText(`NAV-${snapshot.routeStep + 1}`, 0, 352);
+  context.restore();
 };
 
 const drawEnemy = (
@@ -323,22 +345,44 @@ const drawPlayer = (
   context: CanvasRenderingContext2D,
   player: Point,
   snapshot: ActionSnapshot,
+  moving: boolean,
   sprite?: HTMLImageElement,
 ) => {
-  const bob = Math.round(Math.sin(snapshot.tick / 6) * 12);
   const width = 500;
   const height = 665;
   const aura = snapshot.invulnerable > 0 ? "rgba(254,243,199,.48)" : "rgba(103,232,249,.25)";
   context.fillStyle = aura;
   context.fillRect(player.x - 210, player.y + 210, 420, 58);
-  context.strokeStyle = snapshot.routeReady ? "#fde047" : aura;
-  context.lineWidth = snapshot.routeReady ? 28 : 16;
-  context.strokeRect(player.x - 245, player.y - 245, 490, 490);
+  if (moving && snapshot.tick % 6 < 3) {
+    context.fillStyle = "rgba(103,232,249,.42)";
+    context.fillRect(player.x - 210, player.y + 250, 82, 28);
+    context.fillRect(player.x + 120, player.y + 250, 58, 28);
+  }
+  if (snapshot.routeReady) drawRouteWings(context, player, snapshot.tick);
   if (sprite) {
-    context.drawImage(sprite, player.x - width / 2, player.y - height / 2 + bob, width, height);
+    context.drawImage(sprite, player.x - width / 2, player.y - height / 2, width, height);
   } else {
     context.fillStyle = "#67e8f9";
     context.fillRect(player.x - 120, player.y - 120, 240, 240);
+  }
+};
+
+const drawRouteWings = (
+  context: CanvasRenderingContext2D,
+  player: Point,
+  tick: number,
+) => {
+  const pulse = tick % 12 < 6 ? 0 : 22;
+  context.fillStyle = "rgba(250,204,21,.22)";
+  context.fillRect(player.x - 360 - pulse, player.y - 122, 96, 244);
+  context.fillRect(player.x + 264 + pulse, player.y - 122, 96, 244);
+  context.fillStyle = "#fde047";
+  for (const side of [-1, 1] as const) {
+    const edge = player.x + side * (292 + pulse);
+    context.fillRect(edge - 22, player.y - 150, 44, 300);
+    context.fillRect(edge - side * 72, player.y - 104, 72, 44);
+    context.fillRect(edge - side * 118, player.y - 22, 118, 44);
+    context.fillRect(edge - side * 72, player.y + 60, 72, 44);
   }
 };
 

@@ -4,6 +4,24 @@
 
 :root {
   color-scheme: dark;
+  --xuhuan-host-safe-top: max(
+    0.75rem,
+    calc(var(--tg-content-safe-area-inset-top, 0px) + 0.75rem),
+    calc(env(safe-area-inset-top) + 0.75rem)
+  );
+  --xuhuan-host-safe-bottom: max(
+    1.25rem,
+    calc(var(--tg-content-safe-area-inset-bottom, 0px) + 1rem),
+    calc(env(safe-area-inset-bottom) + 1rem)
+  );
+}
+
+html[data-telegram-host="true"] {
+  --xuhuan-host-safe-top: max(
+    4.75rem,
+    calc(var(--tg-content-safe-area-inset-top, 0px) + 0.75rem),
+    calc(env(safe-area-inset-top) + 0.75rem)
+  );
 }
 
 html, body {
@@ -12,6 +30,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow-x: hidden;
+  overscroll-behavior: none;
 }
 
 body {

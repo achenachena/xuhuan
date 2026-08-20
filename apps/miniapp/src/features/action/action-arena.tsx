@@ -4,11 +4,16 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAudio } from "@/components/providers/audio-provider";
 import {
+  beginDragControl,
+  moveDragControl,
+  readDragInput,
+  type DragControl,
+} from "@/features/action/action-controls";
+import {
   ACTION_TPS,
   buildActionConfig,
   createActionSimulation,
   TraceRecorder,
-  type ActionInput,
   type ActionResult,
   type ActionSnapshot,
   type ActionTrace,
@@ -28,14 +33,6 @@ type Props = {
   readonly busy: boolean;
   readonly onComplete: (trace: ActionTrace) => Promise<boolean>;
 };
-
-type Stick = {
-  pointerId: number;
-  originX: number;
-  originY: number;
-  x: number;
-  y: number;
-} | null;
 
 const text = {
   "zh-CN": {
@@ -73,9 +70,8 @@ export const ActionArena = ({
 }: Props) => {
   const audio = useAudio();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const stickBaseRef = useRef<HTMLDivElement>(null);
-  const stickKnobRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef<Stick>(null);
+  const stickRef = useRef<DragControl | null>(null);
+  const snapshotRef = useRef<ActionSnapshot | null>(null);
   const skillRef = useRef(false);
   const movedRef = useRef(false);
   const usedSkillRef = useRef(false);
@@ -111,8 +107,6 @@ export const ActionArena = ({
     let previousSnapshot: ActionSnapshot | null = null;
     let currentSnapshot: ActionSnapshot | null = null;
     const recorder = new TraceRecorder();
-    const stickBase = stickBaseRef.current;
-    const stickKnob = stickKnobRef.current;
     movedRef.current = false;
     usedSkillRef.current = false;
 
@@ -149,7 +143,12 @@ export const ActionArena = ({
       if (!document.hidden) accumulator += delta;
       let updates = 0;
       while (accumulator >= 1000 / ACTION_TPS && updates < 5) {
-        const input = readInput(stickRef.current, skillRef);
+        const input = readDragInput(
+          stickRef.current,
+          currentSnapshot?.player ?? simulation.snapshot().player,
+          skillRef.current,
+        );
+        skillRef.current = false;
         if (input.magnitude > 0 && !movedRef.current) {
           movedRef.current = true;
           setMoved(true);
@@ -165,6 +164,7 @@ export const ActionArena = ({
         previousSnapshot = currentSnapshot ?? simulation.snapshot();
         const result = simulation.step(input);
         currentSnapshot = simulation.snapshot();
+        snapshotRef.current = currentSnapshot;
         if (
           previousSnapshot &&
           currentSnapshot.health < previousSnapshot.health
@@ -199,6 +199,7 @@ export const ActionArena = ({
       simulation = created;
       visuals = loadedVisuals;
       currentSnapshot = created.snapshot();
+      snapshotRef.current = currentSnapshot;
       previousSnapshot = currentSnapshot;
       setSnapshot(currentSnapshot);
       frame = requestAnimationFrame(loop);
@@ -206,7 +207,7 @@ export const ActionArena = ({
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
-      hideStick(stickBase, stickKnob);
+      stickRef.current = null;
     };
   }, [attempt, config]);
 
@@ -217,35 +218,34 @@ export const ActionArena = ({
   }, []);
 
   const pointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (busy || verifying) return;
+    if (busy || verifying || !event.isPrimary) return;
+    event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    stickRef.current = {
-      pointerId: event.pointerId,
-      originX: event.clientX,
-      originY: event.clientY,
-      x: event.clientX,
-      y: event.clientY,
-    };
-    showStick(
-      stickBaseRef.current,
-      stickKnobRef.current,
+    const rect = event.currentTarget.getBoundingClientRect();
+    stickRef.current = beginDragControl(
+      event.pointerId,
       event.clientX,
       event.clientY,
+      snapshotRef.current?.player ?? {
+        x: 1800,
+        y: 5200,
+      },
+      rect,
     );
   };
   const pointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (stickRef.current?.pointerId !== event.pointerId) return;
-    stickRef.current = {
-      ...stickRef.current,
-      x: event.clientX,
-      y: event.clientY,
-    };
-    moveStickKnob(stickKnobRef.current, stickRef.current);
+    event.preventDefault();
+    stickRef.current = moveDragControl(
+      stickRef.current,
+      event.clientX,
+      event.clientY,
+    );
   };
   const pointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (stickRef.current?.pointerId !== event.pointerId) return;
+    event.preventDefault();
     stickRef.current = null;
-    hideStick(stickBaseRef.current, stickKnobRef.current);
   };
 
   const tutorial = run.state.encounter?.tutorial;
@@ -269,7 +269,7 @@ export const ActionArena = ({
     : 0;
 
   return (
-    <main className="relative mx-auto h-[100dvh] w-full max-w-lg overflow-hidden bg-[#02050e] text-white [touch-action:none]">
+    <main className="relative mx-auto h-[100dvh] w-full max-w-lg select-none overflow-hidden overscroll-none bg-[#02050e] text-white [touch-action:none] [-webkit-user-select:none]">
       <canvas
         ref={canvasRef}
         role="img"
@@ -279,8 +279,9 @@ export const ActionArena = ({
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
         onPointerCancel={pointerUp}
+        onContextMenu={(event) => event.preventDefault()}
       />
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 px-3 pr-[4.5rem] pt-[max(.55rem,env(safe-area-inset-top))]">
+      <header className="pointer-events-none absolute inset-x-0 top-[var(--xuhuan-host-safe-top)] z-10 px-3 pr-[4.5rem]">
         <div className="border-2 border-cyan-200/20 bg-[#071225]/88 p-2.5 shadow-[4px_4px_0_rgba(2,6,23,.8)] backdrop-blur-sm">
           <div className="flex items-center gap-2 text-[10px] font-mono tracking-wider text-slate-300">
             <span>{text[locale].hp}</span>
@@ -315,12 +316,12 @@ export const ActionArena = ({
       {hint && (
         <div
           role="status"
-          className="pointer-events-none absolute left-1/2 top-[18%] z-20 w-[82%] -translate-x-1/2 border-2 border-cyan-300/30 bg-[#071225]/92 px-4 py-3 text-center font-mono text-xs leading-5 text-cyan-50 shadow-[4px_4px_0_rgba(2,6,23,.8)] backdrop-blur-sm"
+          className="pointer-events-none absolute left-1/2 top-[calc(var(--xuhuan-host-safe-top)+4.75rem)] z-20 w-[82%] -translate-x-1/2 border-2 border-cyan-300/30 bg-[#071225]/92 px-4 py-3 text-center font-mono text-xs leading-5 text-cyan-50 shadow-[4px_4px_0_rgba(2,6,23,.8)] backdrop-blur-sm"
         >
           {hint}
         </div>
       )}
-      <div className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-4 z-20">
+      <div className="absolute bottom-[var(--xuhuan-host-safe-bottom)] right-4 z-20">
         <button
           type="button"
           aria-label={text[locale].warp}
@@ -344,17 +345,6 @@ export const ActionArena = ({
         </button>
       </div>
 
-      <div
-        ref={stickBaseRef}
-        aria-hidden="true"
-        className="pointer-events-none absolute left-0 top-0 h-24 w-24 opacity-0 transition-opacity duration-100"
-      >
-        <div className="absolute inset-0 border-2 border-cyan-100/20 bg-[#071225]/45 shadow-[4px_4px_0_rgba(2,6,23,.5)] [clip-path:polygon(25%_0,75%_0,100%_25%,100%_75%,75%_100%,25%_100%,0_75%,0_25%)]" />
-        <div
-          ref={stickKnobRef}
-          className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 border-2 border-cyan-100/70 bg-cyan-300/30"
-        />
-      </div>
       {(paused || verifying) && (
         <div className="absolute inset-0 z-40 grid place-items-center bg-slate-950/75 backdrop-blur-sm">
           <div className="border-2 border-cyan-300/25 bg-[#071225] px-6 py-4 font-mono text-xs text-cyan-100 shadow-[5px_5px_0_rgba(2,6,23,.8)]">
@@ -364,57 +354,4 @@ export const ActionArena = ({
       )}
     </main>
   );
-};
-
-const readInput = (
-  stick: Stick,
-  skill: React.MutableRefObject<boolean>,
-): ActionInput => {
-  let direction = 0,
-    magnitude = 0;
-  if (stick) {
-    const dx = stick.x - stick.originX,
-      dy = stick.y - stick.originY,
-      distance = Math.hypot(dx, dy);
-    if (distance >= 12) {
-      direction =
-        (Math.round((Math.atan2(dy, dx) / (Math.PI * 2)) * 16) + 16) % 16;
-      magnitude = distance < 28 ? 1 : distance < 56 ? 2 : 3;
-    }
-  }
-  const input = { direction, magnitude, skill: skill.current };
-  skill.current = false;
-  return input;
-};
-
-const showStick = (
-  base: HTMLDivElement | null,
-  knob: HTMLDivElement | null,
-  x: number,
-  y: number,
-) => {
-  if (!base || !knob) return;
-  base.style.transform = `translate3d(${x - 48}px,${y - 48}px,0)`;
-  base.style.opacity = "1";
-  knob.style.transform = "translate3d(-50%,-50%,0)";
-};
-
-const moveStickKnob = (
-  knob: HTMLDivElement | null,
-  stick: Exclude<Stick, null>,
-) => {
-  if (!knob) return;
-  const dx = stick.x - stick.originX,
-    dy = stick.y - stick.originY,
-    distance = Math.max(1, Math.hypot(dx, dy));
-  const radius = Math.min(34, distance);
-  knob.style.transform = `translate3d(calc(-50% + ${(dx / distance) * radius}px),calc(-50% + ${(dy / distance) * radius}px),0)`;
-};
-
-const hideStick = (
-  base: HTMLDivElement | null,
-  knob: HTMLDivElement | null,
-) => {
-  if (base) base.style.opacity = "0";
-  if (knob) knob.style.transform = "translate3d(-50%,-50%,0)";
 };

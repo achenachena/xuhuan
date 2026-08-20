@@ -18,9 +18,22 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
         return;
       }
       applyTelegramTheme(WebApp.themeParams);
+      const swipeAwareWebApp = WebApp as typeof WebApp & {
+        disableVerticalSwipes?: () => void;
+        enableVerticalSwipes?: () => void;
+      };
+      if (WebApp.platform !== "unknown") {
+        document.documentElement.dataset.telegramHost = "true";
+      }
       WebApp.ready();
       if (!WebApp.isExpanded) {
         WebApp.expand();
+      }
+      const swipesDisabled =
+        WebApp.isVersionAtLeast("7.7") &&
+        typeof swipeAwareWebApp.disableVerticalSwipes === "function";
+      if (swipesDisabled) {
+        swipeAwareWebApp.disableVerticalSwipes?.();
       }
       const handleThemeChange = () => {
         applyTelegramTheme(WebApp.themeParams);
@@ -28,6 +41,10 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
       WebApp.onEvent("themeChanged", handleThemeChange);
       cleanup = () => {
         WebApp.offEvent("themeChanged", handleThemeChange);
+        if (swipesDisabled) {
+          swipeAwareWebApp.enableVerticalSwipes?.();
+        }
+        delete document.documentElement.dataset.telegramHost;
       };
     };
 
@@ -44,4 +61,3 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
 };
 
 export default TelegramWebAppProvider;
-
