@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   APIError,
@@ -36,16 +36,20 @@ const initialState: ControllerState = {
 
 export const useGameController = (locale: GameLocale) => {
   const [state, setState] = useState<ControllerState>(initialState);
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
       const [content, game] = await Promise.all([
         getGameContent(locale),
         getGame(),
       ]);
+      if (sequence !== loadSequence.current) return;
       setState({ content, game, loading: false, busy: false, error: null });
     } catch (error) {
+      if (sequence !== loadSequence.current) return;
       setState((current) => ({
         ...current,
         loading: false,
@@ -57,6 +61,9 @@ export const useGameController = (locale: GameLocale) => {
 
   useEffect(() => {
     void load();
+    return () => {
+      loadSequence.current += 1;
+    };
   }, [load]);
 
   const startRun = useCallback(

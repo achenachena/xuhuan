@@ -10,6 +10,11 @@ const authHeaders = {
   "X-Dev-Auth":
     process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN ?? "local-development-token",
 };
+
+// This journey mutates the single development player's PostgreSQL state.
+// Retrying it in the same worker would no longer exercise a new player.
+test.describe.configure({ retries: 0 });
+
 type Content = {
   events: Array<{ slug: string; options: Array<{ slug: string }> }>;
 };
