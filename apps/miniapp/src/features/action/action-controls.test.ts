@@ -1,38 +1,54 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  beginDragControl,
-  moveDragControl,
-  readDragInput,
+  beginJoystickControl,
+  joystickVisual,
+  moveJoystickControl,
+  readJoystickInput,
 } from "@/features/action/action-controls";
 
-const player = { x: 1800, y: 5200 };
-const viewport = { width: 360, height: 640 };
-
-describe("relative drag controls", () => {
-  it("does not move when the finger first touches the arena", () => {
-    const control = beginDragControl(4, 120, 400, player, viewport);
-    expect(readDragInput(control, player, false)).toEqual({
+describe("hold-to-move joystick controls", () => {
+  it("starts still and stops immediately when released", () => {
+    const control = beginJoystickControl(4, 90, 500);
+    expect(readJoystickInput(control, false)).toEqual({
+      direction: 0,
+      magnitude: 0,
+      skill: false,
+    });
+    expect(readJoystickInput(null, false)).toEqual({
       direction: 0,
       magnitude: 0,
       skill: false,
     });
   });
 
-  it("makes the player follow the finger displacement and stop at its target", () => {
-    const started = beginDragControl(4, 120, 400, player, viewport);
-    const dragged = moveDragControl(started, 120, 440);
-    const moving = readDragInput(dragged, player, false);
-    expect(moving.direction).toBe(4);
-    expect(moving.magnitude).toBe(3);
-
-    expect(readDragInput(dragged, { x: 1800, y: 5590 }, false).magnitude).toBe(
-      0,
-    );
+  it("maps thumb deflection directly to direction and speed", () => {
+    const started = beginJoystickControl(4, 90, 500, 50);
+    expect(
+      readJoystickInput(moveJoystickControl(started, 90, 512), false),
+    ).toMatchObject({ direction: 4, magnitude: 1 });
+    expect(
+      readJoystickInput(moveJoystickControl(started, 90, 532), false),
+    ).toMatchObject({ direction: 4, magnitude: 2 });
+    expect(
+      readJoystickInput(moveJoystickControl(started, 90, 558), false),
+    ).toMatchObject({ direction: 4, magnitude: 3 });
   });
 
-  it("preserves a skill press without an active drag", () => {
-    expect(readDragInput(null, player, true)).toEqual({
+  it("clamps the rendered knob to the joystick radius", () => {
+    const control = moveJoystickControl(
+      beginJoystickControl(4, 80, 500, 50),
+      180,
+      500,
+    );
+    expect(joystickVisual(control)).toEqual({
+      origin: { x: 80, y: 500 },
+      knob: { x: 130, y: 500 },
+    });
+  });
+
+  it("preserves a skill press without movement", () => {
+    expect(readJoystickInput(null, true)).toEqual({
       direction: 0,
       magnitude: 0,
       skill: true,

@@ -78,7 +78,8 @@ func TestMovementHazardsRouteAndEmergencyReconnect(t *testing.T) {
 	t.Run("ordered beacons refresh route warp", func(t *testing.T) {
 		sim := newSimulation(testConfig())
 		sim.dashClock = 120
-		for _, beacon := range routeBeacons {
+		for range 3 {
+			beacon := sim.activeBeacon()
 			sim.playerX, sim.playerY = beacon.X, beacon.Y
 			sim.collectBeacon()
 		}
@@ -89,6 +90,30 @@ func TestMovementHazardsRouteAndEmergencyReconnect(t *testing.T) {
 		won, finished := sim.step(InputFrame{Skill: true})
 		if !won || !finished || !sim.routeWarpUsed {
 			t.Fatalf("tutorial did not finish from its taught objective")
+		}
+	})
+
+	t.Run("phase dash cuts bullets and damages enemies on its path", func(t *testing.T) {
+		sim := newSimulation(testConfig())
+		sim.enemies = append(sim.enemies, enemyEntity{id: 1, x: sim.playerX, y: sim.playerY - 300, health: 40})
+		sim.projectiles = append(sim.projectiles, projectileEntity{x: sim.playerX, y: sim.playerY - 260, damage: 10})
+		sim.movePlayer(InputFrame{Direction: 12, Magnitude: 3, Skill: true})
+		if len(sim.projectiles) != 0 || sim.enemies[0].health >= 40 || sim.dashFX == 0 {
+			t.Fatalf("projectiles=%d health=%d dashFX=%d", len(sim.projectiles), sim.enemies[0].health, sim.dashFX)
+		}
+	})
+
+	t.Run("signal anchor purges nearby bullets", func(t *testing.T) {
+		sim := newSimulation(testConfig())
+		beacon := sim.activeBeacon()
+		sim.playerX, sim.playerY = beacon.X, beacon.Y
+		sim.projectiles = append(sim.projectiles,
+			projectileEntity{x: beacon.X + 300, y: beacon.Y, damage: 10},
+			projectileEntity{x: beacon.X + 900, y: beacon.Y, damage: 10},
+		)
+		sim.collectBeacon()
+		if len(sim.projectiles) != 1 || sim.anchorPulse == 0 {
+			t.Fatalf("projectiles=%d anchorPulse=%d", len(sim.projectiles), sim.anchorPulse)
 		}
 	})
 

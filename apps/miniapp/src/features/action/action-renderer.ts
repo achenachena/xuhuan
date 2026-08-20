@@ -16,6 +16,7 @@ export type ActionVisuals = {
   readonly normalEnemy: HTMLImageElement;
   readonly eliteEnemy: HTMLImageElement;
   readonly boss: HTMLImageElement;
+  readonly anchor: HTMLImageElement;
 };
 
 const visualSources = {
@@ -24,6 +25,7 @@ const visualSources = {
   normalEnemy: "/game/v2/retention-drone.webp",
   eliteEnemy: "/game/v2/moderation-hound.webp",
   boss: "/game/v2/optimal-nana.webp",
+  anchor: "/game/v2/signal-anchor.webp",
 } as const;
 
 const eliteSlugs = new Set(["cache-hunter", "moderation-hound"]);
@@ -82,7 +84,8 @@ export const drawActionArena = (
   );
 
   drawRouteGuide(context, player, snapshot);
-  drawBeacon(context, snapshot);
+  drawDashTrail(context, previous?.player, player, snapshot);
+  drawBeacon(context, snapshot, visuals?.anchor);
   for (const enemy of snapshot.enemies) {
     drawEnemy(
       context,
@@ -92,6 +95,7 @@ export const drawActionArena = (
       visuals,
     );
   }
+  drawCombatFeedback(context, snapshot, previous, previousEnemies);
   drawAutoAttack(context, player, snapshot, previousEnemies, alpha, config);
   for (const projectile of snapshot.projectiles) {
     drawProjectile(
@@ -146,8 +150,10 @@ const drawRouteGuide = (
 ) => {
   context.save();
   context.setLineDash([32, 38]);
-  context.lineWidth = 10;
-  context.strokeStyle = snapshot.routeReady ? "rgba(253,224,71,.55)" : "rgba(103,232,249,.18)";
+  context.lineWidth = snapshot.routeReady ? 18 : 10;
+  context.strokeStyle = snapshot.routeReady
+    ? "rgba(244,114,182,.58)"
+    : "rgba(103,232,249,.2)";
   context.beginPath();
   context.moveTo(player.x, player.y);
   context.lineTo(snapshot.activeBeacon.x, snapshot.activeBeacon.y);
@@ -155,55 +161,92 @@ const drawRouteGuide = (
   context.restore();
 };
 
-const drawBeacon = (context: CanvasRenderingContext2D, snapshot: ActionSnapshot) => {
+const drawBeacon = (
+  context: CanvasRenderingContext2D,
+  snapshot: ActionSnapshot,
+  sprite?: HTMLImageElement,
+) => {
   const beacon = snapshot.activeBeacon;
-  const pulse = Math.round(Math.sin(snapshot.tick / 7) * 18);
+  const pulse = Math.round(Math.sin(snapshot.tick / 7) * 20);
+  const colors = ["#22d3ee", "#a78bfa", "#f472b6"] as const;
+  const color = colors[snapshot.routeStep] ?? colors[0];
   context.save();
   context.translate(beacon.x, beacon.y);
-  context.fillStyle = "rgba(34,211,238,.1)";
-  context.fillRect(-300 - pulse, -300 - pulse, 600 + pulse * 2, 600 + pulse * 2);
+  const wave = snapshot.anchorPulse > 0 ? (18 - snapshot.anchorPulse) * 34 : 0;
+  context.globalAlpha = snapshot.anchorPulse > 0 ? 0.52 : 0.18;
+  context.strokeStyle = color;
+  context.lineWidth = snapshot.anchorPulse > 0 ? 34 : 18;
+  context.beginPath();
+  context.arc(0, 0, 360 + pulse + wave, 0, Math.PI * 2);
+  context.stroke();
+  context.globalAlpha = 1;
 
-  // Pixel navigation relay: antenna, signal lamp, screen, chassis and base.
-  context.fillStyle = "#164e63";
-  context.fillRect(-22, -300, 44, 118);
-  context.fillStyle = snapshot.routeReady ? "#fef08a" : "#67e8f9";
-  context.fillRect(-52, -344, 104, 58);
-  context.fillStyle = "#facc15";
-  context.fillRect(-26, -330, 52, 30);
-  context.fillStyle = "#0f172a";
-  context.fillRect(-212, -188, 424, 330);
-  context.fillStyle = "#facc15";
-  context.fillRect(-212, -188, 424, 32);
-  context.fillRect(-212, 110, 424, 32);
-  context.fillRect(-212, -188, 32, 330);
-  context.fillRect(180, -188, 32, 330);
-  context.fillStyle = "#082f49";
-  context.fillRect(-160, -130, 320, 212);
-  context.fillStyle = "#22d3ee";
-  context.fillRect(-126, -94, 252, 20);
-  context.fillRect(-126, 46, 252, 16);
+  if (sprite) {
+    context.drawImage(sprite, -330, -375, 660, 750);
+  } else {
+    context.fillStyle = "#111827";
+    context.fillRect(-190, -190, 380, 380);
+    context.fillStyle = color;
+    context.fillRect(-80, -80, 160, 160);
+  }
 
-  context.fillStyle = "#e0f2fe";
-  context.font = "bold 132px ui-monospace";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText(String(snapshot.routeStep + 1), 0, -10);
-
-  context.fillStyle = "#155e75";
-  context.fillRect(-132, 142, 264, 74);
-  context.fillStyle = "#22d3ee";
-  context.fillRect(-240, 216, 480, 54);
-  context.fillStyle = "#0e7490";
-  context.fillRect(-300, 270, 600, 72);
-  context.fillStyle = "#facc15";
-  context.fillRect(-300, 270, 86, 24);
-  context.fillRect(214, 270, 86, 24);
-
-  context.font = "bold 58px ui-monospace";
-  context.fillStyle = "#cffafe";
-  context.textBaseline = "top";
-  context.fillText(`NAV-${snapshot.routeStep + 1}`, 0, 352);
+  for (let index = 0; index < 3; index += 1) {
+    context.fillStyle = index < snapshot.routeStep ? colors[index]! : "#1e293b";
+    context.fillRect(-96 + index * 72, -420, 48, 26);
+  }
   context.restore();
+};
+
+const drawDashTrail = (
+  context: CanvasRenderingContext2D,
+  previousPlayer: Point | undefined,
+  player: Point,
+  snapshot: ActionSnapshot,
+) => {
+  if (!previousPlayer || snapshot.dashFX <= 0) return;
+  context.save();
+  context.strokeStyle = snapshot.routeReady
+    ? "rgba(244,114,182,.4)"
+    : "rgba(34,211,238,.34)";
+  context.lineWidth = 180 + snapshot.dashFX * 8;
+  context.beginPath();
+  context.moveTo(previousPlayer.x, previousPlayer.y);
+  context.lineTo(player.x, player.y);
+  context.stroke();
+  context.strokeStyle = "rgba(224,242,254,.72)";
+  context.lineWidth = 34;
+  context.stroke();
+  context.restore();
+};
+
+const drawCombatFeedback = (
+  context: CanvasRenderingContext2D,
+  snapshot: ActionSnapshot,
+  previous: ActionSnapshot | null,
+  previousEnemies: Map<number, ActionEnemySnapshot>,
+) => {
+  if (!previous) return;
+  for (const enemy of snapshot.enemies) {
+    const before = previousEnemies.get(enemy.id);
+    if (!before || enemy.health >= before.health) continue;
+    const phase = snapshot.tick % 4;
+    context.fillStyle = "#e0f2fe";
+    context.fillRect(enemy.position.x - 100 - phase * 18, enemy.position.y - 30, 80, 24);
+    context.fillStyle = "#f0abfc";
+    context.fillRect(enemy.position.x + 34 + phase * 14, enemy.position.y + 24, 62, 22);
+  }
+  const alive = new Set(snapshot.enemies.map((enemy) => enemy.id));
+  for (const enemy of previous.enemies) {
+    if (alive.has(enemy.id)) continue;
+    context.strokeStyle = "rgba(34,211,238,.72)";
+    context.lineWidth = 34;
+    context.strokeRect(
+      enemy.position.x - 180,
+      enemy.position.y - 180,
+      360,
+      360,
+    );
+  }
 };
 
 const drawEnemy = (
@@ -352,15 +395,21 @@ const drawPlayer = (
   const height = 665;
   const aura = snapshot.invulnerable > 0 ? "rgba(254,243,199,.48)" : "rgba(103,232,249,.25)";
   context.fillStyle = aura;
-  context.fillRect(player.x - 210, player.y + 210, 420, 58);
+  context.fillRect(player.x - 165, player.y + 280, 330, 34);
   if (moving && snapshot.tick % 6 < 3) {
     context.fillStyle = "rgba(103,232,249,.42)";
-    context.fillRect(player.x - 210, player.y + 250, 82, 28);
-    context.fillRect(player.x + 120, player.y + 250, 58, 28);
+    context.fillRect(player.x - 210, player.y + 292, 82, 24);
+    context.fillRect(player.x + 120, player.y + 292, 58, 24);
   }
   if (snapshot.routeReady) drawRouteWings(context, player, snapshot.tick);
   if (sprite) {
-    context.drawImage(sprite, player.x - width / 2, player.y - height / 2, width, height);
+    context.drawImage(
+      sprite,
+      Math.round(player.x - width / 2),
+      Math.round(player.y - height / 2),
+      width,
+      height,
+    );
   } else {
     context.fillStyle = "#67e8f9";
     context.fillRect(player.x - 120, player.y - 120, 240, 240);
@@ -373,16 +422,19 @@ const drawRouteWings = (
   tick: number,
 ) => {
   const pulse = tick % 12 < 6 ? 0 : 22;
-  context.fillStyle = "rgba(250,204,21,.22)";
+  context.fillStyle = "rgba(244,114,182,.2)";
   context.fillRect(player.x - 360 - pulse, player.y - 122, 96, 244);
   context.fillRect(player.x + 264 + pulse, player.y - 122, 96, 244);
-  context.fillStyle = "#fde047";
+  context.fillStyle = "#67e8f9";
   for (const side of [-1, 1] as const) {
     const edge = player.x + side * (292 + pulse);
     context.fillRect(edge - 22, player.y - 150, 44, 300);
     context.fillRect(edge - side * 72, player.y - 104, 72, 44);
     context.fillRect(edge - side * 118, player.y - 22, 118, 44);
     context.fillRect(edge - side * 72, player.y + 60, 72, 44);
+    context.fillStyle = "#f472b6";
+    context.fillRect(edge - side * 94, player.y - 4, 48, 52);
+    context.fillStyle = "#67e8f9";
   }
 };
 

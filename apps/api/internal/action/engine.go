@@ -18,7 +18,11 @@ var directionVectors = [16]Vec{
 	{-1000, 0}, {-924, -383}, {-707, -707}, {-383, -924}, {0, -1000}, {383, -924}, {707, -707}, {924, -383},
 }
 
-var routeBeacons = [3]Vec{{760, 4300}, {2840, 3000}, {1800, 1280}}
+var routePatterns = [3][3]Vec{
+	{{760, 4300}, {2840, 3000}, {1800, 1280}},
+	{{2840, 4300}, {760, 3000}, {1800, 1280}},
+	{{1800, 4100}, {760, 2550}, {2840, 1450}},
+}
 
 type enemyEntity struct {
 	id, specIndex, x, y, health, fireClock int
@@ -52,6 +56,9 @@ type simulation struct {
 	routes        int
 	emergencyUsed bool
 	reconnectFX   int
+	dashFX        int
+	anchorPulse   int
+	routePattern  int
 	enemies       []enemyEntity
 	projectiles   []projectileEntity
 }
@@ -126,7 +133,8 @@ func newSimulation(config Config) *simulation {
 		config: config, random: randomStream{state: binary.LittleEndian.Uint32(hash[:4])},
 		playerX: ArenaWidth / 2, playerY: 5200, health: config.PlayerHealth,
 		shield: config.Buffs.StartingShield, lastGraze: -1000,
-		enemies: make([]enemyEntity, 0, config.MaxAlive), projectiles: make([]projectileEntity, 0, 64),
+		routePattern: int(binary.LittleEndian.Uint32(hash[:4]) % uint32(len(routePatterns))),
+		enemies:      make([]enemyEntity, 0, config.MaxAlive), projectiles: make([]projectileEntity, 0, 64),
 	}
 }
 
@@ -140,6 +148,12 @@ func (sim *simulation) step(input InputFrame) (bool, bool) {
 	}
 	if sim.reconnectFX > 0 {
 		sim.reconnectFX--
+	}
+	if sim.dashFX > 0 {
+		sim.dashFX--
+	}
+	if sim.anchorPulse > 0 {
+		sim.anchorPulse--
 	}
 	sim.movePlayer(input)
 	sim.collectBeacon()
@@ -183,29 +197,43 @@ func (sim *simulation) step(input InputFrame) (bool, bool) {
 }
 
 func (sim *simulation) movePlayer(input InputFrame) {
+	vector := directionVectors[input.Direction&15]
 	if input.Magnitude > 0 {
-		vector := directionVectors[input.Direction&15]
 		speed := sim.config.Buffs.MoveSpeed * int(input.Magnitude) / 3
 		sim.playerX += vector.X * speed / 1000
 		sim.playerY += vector.Y * speed / 1000
 	}
 	if input.Skill && sim.dashClock == 0 {
-		vector := directionVectors[input.Direction&15]
+		startX, startY := sim.playerX, sim.playerY
 		if input.Magnitude == 0 {
 			vector = directionVectors[12]
 		}
 		sim.playerX += vector.X * 620 / 1000
 		sim.playerY += vector.Y * 620 / 1000
 		sim.invulnerable = 12
+		sim.dashFX = 10
 		sim.dashClock = sim.config.Buffs.DashCooldown
-		if sim.routeReady {
+		empowered := sim.routeReady
+		radius, damage := 330, max(4, sim.config.Buffs.DashDamage/2)
+		if empowered {
+			radius, damage = 700, max(12, sim.config.Buffs.DashDamage)
+		}
+		midpointX, midpointY := (startX+sim.playerX)/2, (startY+sim.playerY)/2
+		for index := range sim.enemies {
+			if nearTravelPath(sim.enemies[index].x, sim.enemies[index].y, startX, startY, midpointX, midpointY, sim.playerX, sim.playerY, radius) {
+				sim.enemies[index].health -= damage
+			}
+		}
+		kept := sim.projectiles[:0]
+		for _, bullet := range sim.projectiles {
+			if !nearTravelPath(bullet.x, bullet.y, startX, startY, midpointX, midpointY, sim.playerX, sim.playerY, radius) {
+				kept = append(kept, bullet)
+			}
+		}
+		sim.projectiles = kept
+		if empowered {
 			sim.routeReady = false
 			sim.routeWarpUsed = true
-			for index := range sim.enemies {
-				if distanceSquared(sim.playerX, sim.playerY, sim.enemies[index].x, sim.enemies[index].y) < 950*950 {
-					sim.enemies[index].health -= max(12, sim.config.Buffs.DashDamage)
-				}
-			}
 		}
 	}
 	sim.playerX = clamp(sim.playerX, playerRadius, ArenaWidth-playerRadius)
@@ -213,12 +241,26 @@ func (sim *simulation) movePlayer(input InputFrame) {
 }
 
 func (sim *simulation) collectBeacon() {
-	beacon := routeBeacons[sim.routeStep]
+	beacon := sim.activeBeacon()
 	if distanceSquared(sim.playerX, sim.playerY, beacon.X, beacon.Y) > (playerRadius+beaconRadius)*(playerRadius+beaconRadius) {
 		return
 	}
+	sim.anchorPulse = 18
+	kept := sim.projectiles[:0]
+	for _, bullet := range sim.projectiles {
+		if distanceSquared(sim.playerX, sim.playerY, bullet.x, bullet.y) > 720*720 {
+			kept = append(kept, bullet)
+		}
+	}
+	sim.projectiles = kept
+	pulseDamage := max(2, sim.config.Buffs.AttackDamage/2)
+	for index := range sim.enemies {
+		if distanceSquared(sim.playerX, sim.playerY, sim.enemies[index].x, sim.enemies[index].y) <= 620*620 {
+			sim.enemies[index].health -= pulseDamage
+		}
+	}
 	sim.routeStep++
-	if sim.routeStep == len(routeBeacons) {
+	if sim.routeStep == 3 {
 		sim.routeStep = 0
 		sim.routeReady = true
 		sim.routes++
@@ -227,6 +269,11 @@ func (sim *simulation) collectBeacon() {
 			sim.health = min(sim.config.PlayerMaxHealth, sim.health+sim.config.Buffs.RouteHeal)
 		}
 	}
+}
+
+func (sim *simulation) activeBeacon() Vec {
+	pattern := routePatterns[(sim.routePattern+sim.routes)%len(routePatterns)]
+	return pattern[sim.routeStep]
 }
 
 func (sim *simulation) spawnEnemies() {
@@ -464,7 +511,7 @@ func (sim *simulation) snapshot() Snapshot {
 	}
 	return Snapshot{Tick: sim.tick, Player: Vec{sim.playerX, sim.playerY}, Health: max(0, sim.health), MaxHealth: sim.config.PlayerMaxHealth,
 		Shield: sim.shield, Distortion: sim.distortion, DashCooldown: sim.dashClock, Invulnerable: sim.invulnerable, ReconnectFX: sim.reconnectFX,
-		RouteStep: sim.routeStep, RouteReady: sim.routeReady, ActiveBeacon: routeBeacons[sim.routeStep], Enemies: enemies, Projectiles: projectiles}
+		DashFX: sim.dashFX, AnchorPulse: sim.anchorPulse, RouteStep: sim.routeStep, RouteReady: sim.routeReady, ActiveBeacon: sim.activeBeacon(), Enemies: enemies, Projectiles: projectiles}
 }
 
 func (sim *simulation) enemyIntent(enemy enemyEntity, spec EnemySpec, phase int) (int, Vec) {
@@ -517,7 +564,15 @@ func integerSqrt(value int) int {
 	return x
 }
 func distanceSquared(ax, ay, bx, by int) int { dx, dy := ax-bx, ay-by; return dx*dx + dy*dy }
-func clamp(value, low, high int) int         { return min(high, max(low, value)) }
+func nearTravelPath(x, y, startX, startY, midpointX, midpointY, endX, endY, radius int) bool {
+	distance := min(
+		distanceSquared(x, y, startX, startY),
+		distanceSquared(x, y, midpointX, midpointY),
+		distanceSquared(x, y, endX, endY),
+	)
+	return distance <= radius*radius
+}
+func clamp(value, low, high int) int { return min(high, max(low, value)) }
 func boolInt(value bool) uint32 {
 	if value {
 		return 1
