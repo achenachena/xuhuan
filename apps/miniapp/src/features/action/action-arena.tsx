@@ -38,7 +38,7 @@ type Props = {
 const text = {
   "zh-CN": {
     move: "按住左下移动盘。松手立刻停下。",
-    beacon: "接通信号锚点可清除附近弹幕。",
+    beacon: "收集记忆碎片可清除附近弹幕。",
     dash: "航线完成。用航线击破穿过敌群。",
     reconnect: "紧急重连成功。仅此一次。",
     verifying: "正在重放本房间……",
@@ -55,7 +55,7 @@ const text = {
   },
   en: {
     move: "Hold the lower-left stick. Release to stop.",
-    beacon: "Sync an anchor to purge nearby bullets.",
+    beacon: "Collect a Memory Fragment to purge nearby bullets.",
     dash: "Route complete. Break through the enemy line.",
     reconnect: "Emergency reconnect. This only works once.",
     verifying: "Replaying the encounter…",

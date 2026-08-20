@@ -16,7 +16,7 @@ export type ActionVisuals = {
   readonly normalEnemy: HTMLImageElement;
   readonly eliteEnemy: HTMLImageElement;
   readonly boss: HTMLImageElement;
-  readonly anchor: HTMLImageElement;
+  readonly memoryFragment: HTMLImageElement;
 };
 
 const visualSources = {
@@ -25,7 +25,7 @@ const visualSources = {
   normalEnemy: "/game/v2/retention-drone.webp",
   eliteEnemy: "/game/v2/moderation-hound.webp",
   boss: "/game/v2/optimal-nana.webp",
-  anchor: "/game/v2/signal-anchor.webp",
+  memoryFragment: "/game/v2/memory-fragment.webp",
 } as const;
 
 const eliteSlugs = new Set(["cache-hunter", "moderation-hound"]);
@@ -85,7 +85,7 @@ export const drawActionArena = (
 
   drawRouteGuide(context, player, snapshot);
   drawDashTrail(context, previous?.player, player, snapshot);
-  drawBeacon(context, snapshot, visuals?.anchor);
+  drawBeacon(context, snapshot, visuals?.memoryFragment);
   for (const enemy of snapshot.enemies) {
     drawEnemy(
       context,
@@ -173,26 +173,26 @@ const drawBeacon = (
   context.save();
   context.translate(beacon.x, beacon.y);
   const wave = snapshot.anchorPulse > 0 ? (18 - snapshot.anchorPulse) * 34 : 0;
-  context.globalAlpha = snapshot.anchorPulse > 0 ? 0.52 : 0.18;
+  context.globalAlpha = snapshot.anchorPulse > 0 ? 0.48 : 0.12;
   context.strokeStyle = color;
-  context.lineWidth = snapshot.anchorPulse > 0 ? 34 : 18;
+  context.lineWidth = snapshot.anchorPulse > 0 ? 28 : 12;
   context.beginPath();
-  context.arc(0, 0, 360 + pulse + wave, 0, Math.PI * 2);
+  context.arc(0, 0, 210 + pulse + wave, 0, Math.PI * 2);
   context.stroke();
   context.globalAlpha = 1;
 
   if (sprite) {
-    context.drawImage(sprite, -330, -375, 660, 750);
+    const size = 360 + pulse;
+    context.drawImage(sprite, -size / 2, -size / 2, size, size);
   } else {
-    context.fillStyle = "#111827";
-    context.fillRect(-190, -190, 380, 380);
     context.fillStyle = color;
-    context.fillRect(-80, -80, 160, 160);
-  }
-
-  for (let index = 0; index < 3; index += 1) {
-    context.fillStyle = index < snapshot.routeStep ? colors[index]! : "#1e293b";
-    context.fillRect(-96 + index * 72, -420, 48, 26);
+    context.beginPath();
+    context.moveTo(0, -120);
+    context.lineTo(82, 0);
+    context.lineTo(0, 120);
+    context.lineTo(-82, 0);
+    context.closePath();
+    context.fill();
   }
   context.restore();
 };

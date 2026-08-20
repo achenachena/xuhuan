@@ -281,7 +281,31 @@ describe("story roguelite page", () => {
     expect(
       await screen.findByRole("img", { name: "频道拓扑" }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("route-map-header")).toHaveClass(
+      "pt-[var(--xuhuan-host-safe-top)]",
+    );
     expect(dependencies.createRun).not.toHaveBeenCalled();
+  });
+
+  it("keeps reward content below the Telegram host controls", async () => {
+    dependencies.getGame.mockResolvedValue(
+      createGame({
+        active_run: createRun({
+          state: {
+            ...baseState,
+            phase: "reward",
+            reward: { module_choices: ["route-needle"] },
+          },
+        }),
+      }),
+    );
+
+    render(<HomePage />);
+
+    expect(await screen.findByText("航线针")).toBeInTheDocument();
+    expect(screen.getByTestId("interstitial-screen")).toHaveClass(
+      "pt-[var(--xuhuan-host-safe-top)]",
+    );
   });
 
   it("submits expected_version and resynchronizes after a conflict", async () => {

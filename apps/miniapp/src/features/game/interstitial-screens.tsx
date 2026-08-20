@@ -254,7 +254,10 @@ const Panel = ({
   readonly eyebrow?: string;
   readonly children: React.ReactNode;
 }) => (
-  <main className="mx-auto min-h-[100dvh] w-full max-w-lg bg-[radial-gradient(circle_at_top,rgba(76,29,149,.25),transparent_44%),#080d18] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(2.5rem,env(safe-area-inset-top))] text-white">
+  <main
+    data-testid="interstitial-screen"
+    className="mx-auto min-h-[100dvh] w-full max-w-lg bg-[radial-gradient(circle_at_top,rgba(76,29,149,.25),transparent_44%),#080d18] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[var(--xuhuan-host-safe-top)] text-white"
+  >
     {eyebrow && (
       <p className="font-mono text-[10px] uppercase tracking-[.2em] text-violet-300">
         {eyebrow}

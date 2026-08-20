@@ -24,7 +24,7 @@ export const HubScreen = ({ content, game, locale, busy, onStart }: HubScreenPro
 
   return (
     <main className="mx-auto min-h-[100dvh] w-full max-w-lg overflow-hidden bg-[#090d18] text-white">
-      <div className="relative min-h-[17rem] overflow-hidden border-b border-cyan-300/15 px-5 pb-5 pt-[max(1.2rem,env(safe-area-inset-top))]">
+      <div className="relative min-h-[17rem] overflow-hidden border-b border-cyan-300/15 px-5 pb-5 pt-[var(--xuhuan-host-safe-top)]">
         <Image
           src="/game/v2/seventh-dock.webp"
           alt=""
