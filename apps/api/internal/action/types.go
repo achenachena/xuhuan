@@ -79,6 +79,7 @@ type Vec struct {
 type EnemySnapshot struct {
 	ID           int    `json:"id"`
 	Slug         string `json:"slug"`
+	Pattern      string `json:"pattern"`
 	Position     Vec    `json:"position"`
 	Health       int    `json:"health"`
 	MaxHealth    int    `json:"max_health"`
@@ -90,10 +91,11 @@ type EnemySnapshot struct {
 }
 
 type ProjectileSnapshot struct {
-	ID       int  `json:"id"`
-	Position Vec  `json:"position"`
-	Velocity Vec  `json:"velocity"`
-	Grazed   bool `json:"grazed"`
+	ID       int    `json:"id"`
+	Pattern  string `json:"pattern"`
+	Position Vec    `json:"position"`
+	Velocity Vec    `json:"velocity"`
+	Grazed   bool   `json:"grazed"`
 }
 
 type Snapshot struct {

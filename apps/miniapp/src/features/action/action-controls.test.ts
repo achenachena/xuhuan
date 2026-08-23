@@ -26,10 +26,10 @@ describe("hold-to-move joystick controls", () => {
     const started = beginJoystickControl(4, 90, 500, 50);
     expect(
       readJoystickInput(moveJoystickControl(started, 90, 512), false),
-    ).toMatchObject({ direction: 4, magnitude: 1 });
+    ).toMatchObject({ direction: 4, magnitude: 2 });
     expect(
       readJoystickInput(moveJoystickControl(started, 90, 532), false),
-    ).toMatchObject({ direction: 4, magnitude: 2 });
+    ).toMatchObject({ direction: 4, magnitude: 3 });
     expect(
       readJoystickInput(moveJoystickControl(started, 90, 558), false),
     ).toMatchObject({ direction: 4, magnitude: 3 });

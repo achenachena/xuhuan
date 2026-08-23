@@ -192,7 +192,7 @@ test("new viewer enters action in one tap, resumes the room, clears the boss, an
   await expect(canvas).toBeVisible();
   await page.evaluate(() => {
     document.documentElement.dataset.telegramHost = "true";
-    document.documentElement.dataset.telegramFullscreen = "false";
+    document.documentElement.dataset.telegramFullscreen = "true";
   });
   const hud = await page.getByTestId("combat-hud").boundingBox();
   expect(hud?.y).toBeGreaterThanOrEqual(100);

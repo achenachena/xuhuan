@@ -161,6 +161,46 @@ func TestEnemyIntentAndBossPhases(t *testing.T) {
 	}
 }
 
+func TestEnemyPatternsProduceDistinctAttacks(t *testing.T) {
+	tests := []struct {
+		pattern     string
+		projectiles int
+		charges     bool
+	}{
+		{pattern: "sweeper", projectiles: 3},
+		{pattern: "mine", projectiles: 8},
+		{pattern: "orbiter", projectiles: 4},
+		{pattern: "sniper", projectiles: 3},
+		{pattern: "charger", charges: true},
+	}
+	for _, test := range tests {
+		t.Run(test.pattern, func(t *testing.T) {
+			config := testConfig()
+			config.Enemies = []EnemySpec{{
+				Slug: test.pattern, Pattern: test.pattern, MaxHealth: 999, Speed: 8,
+				ContactDamage: 4, FireInterval: 40, ProjectileSpeed: 24, ProjectileDamage: 5,
+			}}
+			sim := newSimulation(config)
+			sim.enemies = append(sim.enemies, enemyEntity{
+				id: 1, specIndex: 0, x: 1800, y: 1200, health: 999, fireClock: 39,
+			})
+			before := sim.enemies[0].y
+			sim.updateEnemies()
+			if len(sim.projectiles) != test.projectiles {
+				t.Fatalf("projectiles=%d, want %d", len(sim.projectiles), test.projectiles)
+			}
+			for _, projectile := range sim.projectiles {
+				if projectile.pattern != test.pattern {
+					t.Fatalf("projectile pattern=%q", projectile.pattern)
+				}
+			}
+			if test.charges && sim.enemies[0].y-before < 800 {
+				t.Fatalf("charger advanced only %d units", sim.enemies[0].y-before)
+			}
+		})
+	}
+}
+
 func TestBossConformanceVector(t *testing.T) {
 	config := Config{Seed: "boss-conformance", Kind: "boss", DurationTicks: 2700, MaxTicks: 2700, SpawnInterval: 300, MaxAlive: 4, PlayerHealth: 100, PlayerMaxHealth: 100, EmergencyReconnectAvailable: true,
 		Enemies: []EnemySpec{{Slug: "optimal", Pattern: "boss", MaxHealth: 1050, Speed: 5, ContactDamage: 12, FireInterval: 24, ProjectileSpeed: 34, ProjectileDamage: 8}},
@@ -169,7 +209,7 @@ func TestBossConformanceVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Digest != "47bd08b8" {
+	if result.Digest != "f98b47f4" {
 		t.Fatalf("boss conformance digest = %s", result.Digest)
 	}
 }

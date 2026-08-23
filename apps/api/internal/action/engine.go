@@ -30,6 +30,7 @@ type enemyEntity struct {
 
 type projectileEntity struct {
 	id, x, y, vx, vy, damage int
+	pattern                  string
 	grazed                   bool
 }
 
@@ -312,23 +313,17 @@ func (sim *simulation) updateEnemies() {
 		spec := sim.config.Enemies[enemy.specIndex]
 		dx, dy := sim.playerX-enemy.x, sim.playerY-enemy.y
 		distance := max(1, integerSqrt(dx*dx+dy*dy))
-		if spec.Pattern == "chaser" || spec.Pattern == "swarm" || spec.Pattern == "boss" {
-			enemy.x += dx * spec.Speed / distance
-			enemy.y += dy * spec.Speed / distance
-		}
+		interval := max(20, spec.FireInterval-sim.config.NoiseLevel*3)
+		telegraphing := spec.FireInterval > 0 && interval-enemy.fireClock <= sim.intentWindow()
+		sim.moveEnemy(enemy, spec, dx, dy, distance, telegraphing)
 		if distance < playerRadius+enemyRadius && sim.invulnerable == 0 {
 			sim.damagePlayer(max(1, spec.ContactDamage))
 			sim.invulnerable = 18
 		}
 		enemy.fireClock++
-		interval := max(20, spec.FireInterval-sim.config.NoiseLevel*3)
 		if spec.FireInterval > 0 && enemy.fireClock >= interval && len(sim.projectiles) < MaxProjectiles {
 			enemy.fireClock = 0
-			if spec.Pattern == "boss" {
-				sim.fireBossVolley(enemy, spec, dx, dy, distance, interval)
-			} else {
-				sim.fireProjectile(*enemy, spec, dx, dy, distance)
-			}
+			sim.fireEnemyAttack(enemy, spec, dx, dy, distance, interval)
 		}
 	}
 	alive := sim.enemies[:0]
@@ -340,6 +335,83 @@ func (sim *simulation) updateEnemies() {
 		}
 	}
 	sim.enemies = alive
+}
+
+func (sim *simulation) moveEnemy(enemy *enemyEntity, spec EnemySpec, dx, dy, distance int, telegraphing bool) {
+	moveX, moveY := 0, 0
+	switch spec.Pattern {
+	case "chaser", "swarm", "boss":
+		moveX, moveY = dx*spec.Speed/distance, dy*spec.Speed/distance
+	case "sweeper":
+		direction := 1
+		if ((sim.tick + enemy.id*37) / 105 & 1) != 0 {
+			direction = -1
+		}
+		moveX = direction * spec.Speed
+		moveY = clamp(dy/90, -spec.Speed, spec.Speed)
+	case "mine":
+		if distance > 1450 {
+			moveX, moveY = dx*spec.Speed/distance, dy*spec.Speed/distance
+		}
+	case "orbiter", "sniper":
+		orbitDirection := 1
+		if enemy.id&1 != 0 {
+			orbitDirection = -1
+		}
+		preferred := 1500
+		if spec.Pattern == "sniper" {
+			preferred = 2450
+		}
+		radial := 0
+		if distance > preferred+260 {
+			radial = 1
+		} else if distance < preferred-260 {
+			radial = -1
+		}
+		moveX = dx*spec.Speed*radial/distance + -dy*spec.Speed*orbitDirection/(distance*2)
+		moveY = dy*spec.Speed*radial/distance + dx*spec.Speed*orbitDirection/(distance*2)
+	case "charger":
+		if !telegraphing {
+			moveX, moveY = dx*spec.Speed/distance, dy*spec.Speed/distance
+		}
+	}
+	enemy.x = clamp(enemy.x+moveX, enemyRadius, ArenaWidth-enemyRadius)
+	enemy.y = clamp(enemy.y+moveY, 700, ArenaHeight-enemyRadius)
+}
+
+func (sim *simulation) fireEnemyAttack(enemy *enemyEntity, spec EnemySpec, dx, dy, distance, interval int) {
+	switch spec.Pattern {
+	case "boss":
+		sim.fireBossVolley(enemy, spec, dx, dy, distance, interval)
+	case "mine":
+		speed := max(12, spec.ProjectileSpeed)
+		for index := 0; index < 16; index += 2 {
+			vector := directionVectors[index]
+			sim.fireProjectileVelocity(*enemy, spec, vector.X*speed/1000, vector.Y*speed/1000)
+		}
+	case "orbiter":
+		speed := max(12, spec.ProjectileSpeed)
+		start := (sim.tick / interval * 2) & 15
+		for index := 0; index < 16; index += 4 {
+			vector := directionVectors[(start+index)&15]
+			sim.fireProjectileVelocity(*enemy, spec, vector.X*speed/1000, vector.Y*speed/1000)
+		}
+	case "charger":
+		enemy.x = clamp(enemy.x+dx*860/distance, enemyRadius, ArenaWidth-enemyRadius)
+		enemy.y = clamp(enemy.y+dy*860/distance, 700, ArenaHeight-enemyRadius)
+	case "sweeper", "sniper":
+		speed := max(12, spec.ProjectileSpeed)
+		vx, vy := dx*speed/distance, dy*speed/distance
+		spread := 4
+		if spec.Pattern == "sniper" {
+			spread = 2
+		}
+		sim.fireProjectileVelocity(*enemy, spec, vx, vy)
+		sim.fireProjectileVelocity(*enemy, spec, (vx*10-vy*spread)/10, (vy*10+vx*spread)/10)
+		sim.fireProjectileVelocity(*enemy, spec, (vx*10+vy*spread)/10, (vy*10-vx*spread)/10)
+	default:
+		sim.fireProjectile(*enemy, spec, dx, dy, distance)
+	}
 }
 
 func (sim *simulation) fireProjectile(enemy enemyEntity, spec EnemySpec, dx, dy, distance int) {
@@ -354,7 +426,7 @@ func (sim *simulation) fireProjectileVelocity(enemy enemyEntity, spec EnemySpec,
 	sim.nextBulletID++
 	sim.projectiles = append(sim.projectiles, projectileEntity{
 		id: sim.nextBulletID, x: enemy.x, y: enemy.y,
-		vx: vx, vy: vy, damage: max(1, spec.ProjectileDamage),
+		vx: vx, vy: vy, damage: max(1, spec.ProjectileDamage), pattern: spec.Pattern,
 	})
 }
 
@@ -503,11 +575,11 @@ func (sim *simulation) snapshot() Snapshot {
 			phase, mimic = bossPhase(enemy.health, spec.MaxHealth), sim.bossMimic()
 		}
 		intentTicks, intentTarget := sim.enemyIntent(enemy, spec, phase)
-		enemies = append(enemies, EnemySnapshot{ID: enemy.id, Slug: spec.Slug, Position: Vec{enemy.x, enemy.y}, Health: enemy.health, MaxHealth: spec.MaxHealth, Boss: spec.Pattern == "boss", BossPhase: phase, BossMimic: mimic, IntentTicks: intentTicks, IntentTarget: intentTarget})
+		enemies = append(enemies, EnemySnapshot{ID: enemy.id, Slug: spec.Slug, Pattern: spec.Pattern, Position: Vec{enemy.x, enemy.y}, Health: enemy.health, MaxHealth: spec.MaxHealth, Boss: spec.Pattern == "boss", BossPhase: phase, BossMimic: mimic, IntentTicks: intentTicks, IntentTarget: intentTarget})
 	}
 	projectiles := make([]ProjectileSnapshot, 0, len(sim.projectiles))
 	for _, bullet := range sim.projectiles {
-		projectiles = append(projectiles, ProjectileSnapshot{ID: bullet.id, Position: Vec{bullet.x, bullet.y}, Velocity: Vec{bullet.vx, bullet.vy}, Grazed: bullet.grazed})
+		projectiles = append(projectiles, ProjectileSnapshot{ID: bullet.id, Pattern: bullet.pattern, Position: Vec{bullet.x, bullet.y}, Velocity: Vec{bullet.vx, bullet.vy}, Grazed: bullet.grazed})
 	}
 	return Snapshot{Tick: sim.tick, Player: Vec{sim.playerX, sim.playerY}, Health: max(0, sim.health), MaxHealth: sim.config.PlayerMaxHealth,
 		Shield: sim.shield, Distortion: sim.distortion, DashCooldown: sim.dashClock, Invulnerable: sim.invulnerable, ReconnectFX: sim.reconnectFX,
@@ -520,7 +592,7 @@ func (sim *simulation) enemyIntent(enemy enemyEntity, spec EnemySpec, phase int)
 	}
 	interval := max(20, spec.FireInterval-sim.config.NoiseLevel*3)
 	remaining := interval - enemy.fireClock
-	telegraphWindow := max(6, 12-sim.config.NoiseLevel*2)
+	telegraphWindow := sim.intentWindow()
 	if remaining <= 0 || remaining > telegraphWindow {
 		return 0, Vec{}
 	}
@@ -528,7 +600,19 @@ func (sim *simulation) enemyIntent(enemy enemyEntity, spec EnemySpec, phase int)
 		vector := directionVectors[((sim.tick+remaining)/interval*2)&15]
 		return remaining, Vec{enemy.x + vector.X*3, enemy.y + vector.Y*3}
 	}
+	if spec.Pattern == "mine" {
+		return remaining, Vec{enemy.x, enemy.y}
+	}
+	if spec.Pattern == "orbiter" {
+		start := ((sim.tick + remaining) / interval * 2) & 15
+		vector := directionVectors[start]
+		return remaining, Vec{enemy.x + vector.X*3, enemy.y + vector.Y*3}
+	}
 	return remaining, Vec{sim.playerX, sim.playerY}
+}
+
+func (sim *simulation) intentWindow() int {
+	return max(8, 15-sim.config.NoiseLevel*2)
 }
 
 type randomStream struct{ state uint32 }

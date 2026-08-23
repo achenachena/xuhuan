@@ -4,7 +4,7 @@ import "testing"
 
 func TestActionCatalogIsCompleteAndBilingual(t *testing.T) {
 	catalog := MustLoad(CurrentVersion)
-	if catalog.Version != "v2" || len(catalog.Characters) != 7 || len(catalog.Modules) < 32 || len(catalog.Plugins) != 10 || len(catalog.Enemies) != 7 || len(catalog.Events) != 12 {
+	if catalog.Version != "v2" || len(catalog.Characters) != 7 || len(catalog.Modules) < 32 || len(catalog.Plugins) != 10 || len(catalog.Enemies) != 8 || len(catalog.Events) != 12 {
 		t.Fatalf("unexpected action content counts: characters=%d modules=%d plugins=%d enemies=%d events=%d", len(catalog.Characters), len(catalog.Modules), len(catalog.Plugins), len(catalog.Enemies), len(catalog.Events))
 	}
 	for _, module := range catalog.Modules {
