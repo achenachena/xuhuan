@@ -57,6 +57,7 @@ export type ActionConfig = {
 export type ActionEnemySnapshot = {
   id: number;
   slug: string;
+  pattern: string;
   position: Vec;
   health: number;
   maxHealth: number;
@@ -68,6 +69,7 @@ export type ActionEnemySnapshot = {
 };
 export type ActionProjectileSnapshot = {
   id: number;
+  pattern: string;
   position: Vec;
   velocity: Vec;
   grazed: boolean;
@@ -112,6 +114,7 @@ type EnemyEntity = {
 };
 type ProjectileEntity = {
   id: number;
+  pattern: string;
   x: number;
   y: number;
   vx: number;
@@ -300,6 +303,7 @@ export class ActionSimulation {
         return {
           id: enemy.id,
           slug: spec.slug,
+          pattern: spec.pattern,
           position: { x: enemy.x, y: enemy.y },
           health: enemy.health,
           maxHealth: spec.maxHealth,
@@ -312,6 +316,7 @@ export class ActionSimulation {
       }),
       projectiles: this.projectiles.map((bullet) => ({
         id: bullet.id,
+        pattern: bullet.pattern,
         position: { x: bullet.x, y: bullet.y },
         velocity: { x: bullet.vx, y: bullet.vy },
         grazed: bullet.grazed,
@@ -472,32 +477,26 @@ export class ActionSimulation {
       const dx = this.playerX - enemy.x,
         dy = this.playerY - enemy.y;
       const distance = Math.max(1, Math.floor(Math.sqrt(dx * dx + dy * dy)));
-      if (
-        spec.pattern === "chaser" ||
-        spec.pattern === "swarm" ||
-        spec.pattern === "boss"
-      ) {
-        enemy.x += Math.trunc((dx * spec.speed) / distance);
-        enemy.y += Math.trunc((dy * spec.speed) / distance);
-      }
+      const interval = Math.max(
+        20,
+        spec.fireInterval - this.config.noiseLevel * 3,
+      );
+      const telegraphing =
+        spec.fireInterval > 0 &&
+        interval - enemy.fireClock <= this.intentWindow();
+      this.moveEnemy(enemy, spec, dx, dy, distance, telegraphing);
       if (distance < 270 && this.invulnerable === 0) {
         this.damagePlayer(Math.max(1, spec.contactDamage));
         this.invulnerable = 18;
       }
       enemy.fireClock += 1;
-      const interval = Math.max(
-        20,
-        spec.fireInterval - this.config.noiseLevel * 3,
-      );
       if (
         spec.fireInterval > 0 &&
         enemy.fireClock >= interval &&
         this.projectiles.length < 256
       ) {
         enemy.fireClock = 0;
-        if (spec.pattern === "boss")
-          this.fireBossVolley(enemy, spec, dx, dy, distance, interval);
-        else this.fireProjectile(enemy, spec, dx, dy, distance);
+        this.fireEnemyAttack(enemy, spec, dx, dy, distance, interval);
       }
     }
     const alive: EnemyEntity[] = [];
@@ -506,6 +505,128 @@ export class ActionSimulation {
       else this.kills += 1;
     }
     this.enemies = alive;
+  }
+
+  private moveEnemy(
+    enemy: EnemyEntity,
+    spec: EnemySpec,
+    dx: number,
+    dy: number,
+    distance: number,
+    telegraphing: boolean,
+  ): void {
+    let moveX = 0,
+      moveY = 0;
+    if (
+      spec.pattern === "chaser" ||
+      spec.pattern === "swarm" ||
+      spec.pattern === "boss"
+    ) {
+      moveX = Math.trunc((dx * spec.speed) / distance);
+      moveY = Math.trunc((dy * spec.speed) / distance);
+    } else if (spec.pattern === "sweeper") {
+      const sweepDirection =
+        (Math.trunc((this.tickValue + enemy.id * 37) / 105) & 1) === 0
+          ? 1
+          : -1;
+      moveX = sweepDirection * spec.speed;
+      moveY = clamp(Math.trunc(dy / 90), -spec.speed, spec.speed);
+    } else if (spec.pattern === "mine") {
+      if (distance > 1450) {
+        moveX = Math.trunc((dx * spec.speed) / distance);
+        moveY = Math.trunc((dy * spec.speed) / distance);
+      }
+    } else if (spec.pattern === "orbiter" || spec.pattern === "sniper") {
+      const orbitDirection = (enemy.id & 1) === 0 ? 1 : -1;
+      const preferred = spec.pattern === "sniper" ? 2450 : 1500;
+      const radial = distance > preferred + 260 ? 1 : distance < preferred - 260 ? -1 : 0;
+      moveX =
+        Math.trunc((dx * spec.speed * radial) / distance) +
+        Math.trunc((-dy * spec.speed * orbitDirection) / (distance * 2));
+      moveY =
+        Math.trunc((dy * spec.speed * radial) / distance) +
+        Math.trunc((dx * spec.speed * orbitDirection) / (distance * 2));
+    } else if (spec.pattern === "charger" && !telegraphing) {
+      moveX = Math.trunc((dx * spec.speed) / distance);
+      moveY = Math.trunc((dy * spec.speed) / distance);
+    }
+    enemy.x = clamp(enemy.x + moveX, 150, ACTION_WIDTH - 150);
+    enemy.y = clamp(enemy.y + moveY, 700, ACTION_HEIGHT - 150);
+  }
+
+  private fireEnemyAttack(
+    enemy: EnemyEntity,
+    spec: EnemySpec,
+    dx: number,
+    dy: number,
+    distance: number,
+    interval: number,
+  ): void {
+    if (spec.pattern === "boss") {
+      this.fireBossVolley(enemy, spec, dx, dy, distance, interval);
+      return;
+    }
+    if (spec.pattern === "mine") {
+      for (let index = 0; index < 16; index += 2) {
+        const vector = directions[index]!;
+        const speed = Math.max(12, spec.projectileSpeed);
+        this.fireProjectileVelocity(
+          enemy,
+          spec,
+          Math.trunc((vector.x * speed) / 1000),
+          Math.trunc((vector.y * speed) / 1000),
+        );
+      }
+      return;
+    }
+    if (spec.pattern === "orbiter") {
+      const start = (Math.trunc(this.tickValue / interval) * 2) & 15;
+      for (let index = 0; index < 16; index += 4) {
+        const vector = directions[(start + index) & 15]!;
+        const speed = Math.max(12, spec.projectileSpeed);
+        this.fireProjectileVelocity(
+          enemy,
+          spec,
+          Math.trunc((vector.x * speed) / 1000),
+          Math.trunc((vector.y * speed) / 1000),
+        );
+      }
+      return;
+    }
+    if (spec.pattern === "charger") {
+      enemy.x = clamp(
+        enemy.x + Math.trunc((dx * 860) / distance),
+        150,
+        ACTION_WIDTH - 150,
+      );
+      enemy.y = clamp(
+        enemy.y + Math.trunc((dy * 860) / distance),
+        700,
+        ACTION_HEIGHT - 150,
+      );
+      return;
+    }
+    if (spec.pattern === "sweeper" || spec.pattern === "sniper") {
+      const speed = Math.max(12, spec.projectileSpeed);
+      const vx = Math.trunc((dx * speed) / distance);
+      const vy = Math.trunc((dy * speed) / distance);
+      const spread = spec.pattern === "sniper" ? 2 : 4;
+      this.fireProjectileVelocity(enemy, spec, vx, vy);
+      this.fireProjectileVelocity(
+        enemy,
+        spec,
+        Math.trunc((vx * 10 - vy * spread) / 10),
+        Math.trunc((vy * 10 + vx * spread) / 10),
+      );
+      this.fireProjectileVelocity(
+        enemy,
+        spec,
+        Math.trunc((vx * 10 + vy * spread) / 10),
+        Math.trunc((vy * 10 - vx * spread) / 10),
+      );
+      return;
+    }
+    this.fireProjectile(enemy, spec, dx, dy, distance);
   }
 
   private fireProjectile(
@@ -534,6 +655,7 @@ export class ActionSimulation {
     this.nextBulletId += 1;
     this.projectiles.push({
       id: this.nextBulletId,
+      pattern: spec.pattern,
       x: enemy.x,
       y: enemy.y,
       vx,
@@ -641,7 +763,7 @@ export class ActionSimulation {
       spec.fireInterval - this.config.noiseLevel * 3,
     );
     const remaining = interval - enemy.fireClock;
-    const window = Math.max(6, 12 - this.config.noiseLevel * 2);
+    const window = this.intentWindow();
     if (remaining <= 0 || remaining > window)
       return { ticks: 0, target: { x: 0, y: 0 } };
     if (phase === 1) {
@@ -654,7 +776,21 @@ export class ActionSimulation {
         target: { x: enemy.x + vector.x * 3, y: enemy.y + vector.y * 3 },
       };
     }
+    if (spec.pattern === "mine")
+      return { ticks: remaining, target: { x: enemy.x, y: enemy.y } };
+    if (spec.pattern === "orbiter") {
+      const start = (Math.trunc((this.tickValue + remaining) / interval) * 2) & 15;
+      const vector = directions[start]!;
+      return {
+        ticks: remaining,
+        target: { x: enemy.x + vector.x * 3, y: enemy.y + vector.y * 3 },
+      };
+    }
     return { ticks: remaining, target: { x: this.playerX, y: this.playerY } };
+  }
+
+  private intentWindow(): number {
+    return Math.max(8, 15 - this.config.noiseLevel * 2);
   }
 
   private autoAttack(): void {

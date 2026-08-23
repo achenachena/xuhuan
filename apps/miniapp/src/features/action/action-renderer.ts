@@ -14,6 +14,9 @@ export type ActionVisuals = {
   readonly background: HTMLImageElement;
   readonly player: HTMLImageElement;
   readonly normalEnemy: HTMLImageElement;
+  readonly commentSweeper: HTMLImageElement;
+  readonly bufferMine: HTMLImageElement;
+  readonly echoRelay: HTMLImageElement;
   readonly eliteEnemy: HTMLImageElement;
   readonly boss: HTMLImageElement;
   readonly memoryFragment: HTMLImageElement;
@@ -23,12 +26,22 @@ const visualSources = {
   background: "/game/v2/seventh-dock.webp",
   player: "/game/v2/nana-player.webp",
   normalEnemy: "/game/v2/retention-drone.webp",
+  commentSweeper: "/game/v2/comment-sweeper.webp",
+  bufferMine: "/game/v2/buffer-mine.webp",
+  echoRelay: "/game/v2/echo-relay.webp",
   eliteEnemy: "/game/v2/moderation-hound.webp",
   boss: "/game/v2/optimal-nana.webp",
   memoryFragment: "/game/v2/memory-fragment.webp",
 } as const;
 
 const eliteSlugs = new Set(["cache-hunter", "moderation-hound"]);
+const enemyVisualKeys: Record<string, keyof ActionVisuals> = {
+  "muted-comment": "commentSweeper",
+  "unassigned-ticket": "bufferMine",
+  "echo-relay": "echoRelay",
+  "cache-hunter": "echoRelay",
+  "moderation-hound": "eliteEnemy",
+};
 let visualsPromise: Promise<ActionVisuals> | null = null;
 
 const loadImage = (source: string): Promise<HTMLImageElement> =>
@@ -77,7 +90,11 @@ export const drawActionArena = (
   context.imageSmoothingEnabled = false;
 
   drawBackground(context, snapshot, visuals?.background);
-  const player = interpolate(previous?.player, snapshot.player, alpha);
+  // The server trace still advances at 30 Hz, but the local avatar is rendered
+  // at the newest simulated position. Interpolating it one tick behind made the
+  // character feel detached from the thumb even though the simulation has no
+  // acceleration or momentum.
+  const player = snapshot.player;
   const previousEnemies = new Map((previous?.enemies ?? []).map((enemy) => [enemy.id, enemy]));
   const previousProjectiles = new Map(
     (previous?.projectiles ?? []).map((projectile) => [projectile.id, projectile]),
@@ -258,11 +275,10 @@ const drawEnemy = (
 ) => {
   drawIntent(context, enemy, position);
   const bob = Math.round(Math.sin((tick + enemy.id * 9) / 9) * 18);
-  const sprite = enemy.boss
-    ? visuals?.boss
-    : eliteSlugs.has(enemy.slug)
-      ? visuals?.eliteEnemy
-      : visuals?.normalEnemy;
+  const visualKey = enemy.boss
+    ? "boss"
+    : (enemyVisualKeys[enemy.slug] ?? "normalEnemy");
+  const sprite = visuals?.[visualKey];
   const spriteWidth = enemy.boss ? 900 : eliteSlugs.has(enemy.slug) ? 560 : 500;
   const spriteHeight = enemy.boss ? 1140 : spriteWidth;
 
@@ -290,8 +306,34 @@ const drawIntent = (
 ) => {
   if (enemy.intentTicks <= 0) return;
   context.save();
+  const urgency = 1 - Math.min(1, enemy.intentTicks / 15);
+  if (enemy.pattern === "mine") {
+    context.strokeStyle = `rgba(251,146,60,${0.42 + urgency * 0.42})`;
+    context.lineWidth = 26;
+    context.setLineDash([44, 30]);
+    context.beginPath();
+    context.arc(position.x, position.y, 470 + urgency * 120, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
+    return;
+  }
+  if (enemy.pattern === "orbiter") {
+    context.strokeStyle = `rgba(34,211,238,${0.35 + urgency * 0.42})`;
+    context.lineWidth = 22;
+    context.setLineDash([46, 34]);
+    for (const angle of [0, Math.PI / 2]) {
+      const x = Math.cos(angle) * 1250;
+      const y = Math.sin(angle) * 1250;
+      context.beginPath();
+      context.moveTo(position.x - x, position.y - y);
+      context.lineTo(position.x + x, position.y + y);
+      context.stroke();
+    }
+    context.restore();
+    return;
+  }
   context.setLineDash([56, 34]);
-  context.lineWidth = 24;
+  context.lineWidth = enemy.pattern === "charger" ? 110 : 24;
   context.strokeStyle = `rgba(251,113,133,${0.34 + (12 - Math.min(12, enemy.intentTicks)) / 18})`;
   context.beginPath();
   context.moveTo(position.x, position.y);
@@ -367,10 +409,26 @@ const drawProjectile = (
   projectile: ActionProjectileSnapshot,
   position: Point,
 ) => {
-  const color = projectile.grazed ? "#f0abfc" : "#fb7185";
+  const palette =
+    projectile.pattern === "mine"
+      ? ["#fb923c", "#ffedd5"]
+      : projectile.pattern === "orbiter"
+        ? ["#22d3ee", "#cffafe"]
+        : projectile.pattern === "sweeper"
+          ? ["#f472b6", "#fce7f3"]
+          : projectile.pattern === "sniper"
+            ? ["#a78bfa", "#ede9fe"]
+            : ["#fb7185", "#fff1f2"];
+  const color = projectile.grazed ? "#f0abfc" : palette[0];
   const length = Math.max(1, Math.hypot(projectile.velocity.x, projectile.velocity.y));
-  context.strokeStyle = projectile.grazed ? "rgba(240,171,252,.24)" : "rgba(251,113,133,.26)";
-  context.lineWidth = 32;
+  context.strokeStyle = projectile.grazed
+    ? "rgba(240,171,252,.24)"
+    : projectile.pattern === "orbiter"
+      ? "rgba(34,211,238,.24)"
+      : projectile.pattern === "mine"
+        ? "rgba(251,146,60,.28)"
+        : "rgba(251,113,133,.26)";
+  context.lineWidth = projectile.pattern === "sniper" ? 46 : 32;
   context.beginPath();
   context.moveTo(position.x, position.y);
   context.lineTo(
@@ -378,10 +436,15 @@ const drawProjectile = (
     position.y - (projectile.velocity.y / length) * 110,
   );
   context.stroke();
+  context.save();
+  context.translate(position.x, position.y);
+  if (projectile.pattern === "mine") context.rotate(Math.PI / 4);
   context.fillStyle = color;
-  context.fillRect(position.x - 40, position.y - 40, 80, 80);
-  context.fillStyle = "#fff1f2";
-  context.fillRect(position.x - 16, position.y - 16, 32, 32);
+  const size = projectile.pattern === "sniper" ? 96 : 80;
+  context.fillRect(-size / 2, -size / 2, size, size);
+  context.fillStyle = palette[1];
+  context.fillRect(-16, -16, 32, 32);
+  context.restore();
 };
 
 const drawPlayer = (

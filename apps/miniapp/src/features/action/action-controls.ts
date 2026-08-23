@@ -14,9 +14,12 @@ export type JoystickVisual = {
   readonly knob: Point;
 };
 
-const DEAD_ZONE_RATIO = 0.16;
-const WALK_RATIO = 0.48;
-const RUN_RATIO = 0.78;
+// Keep the neutral zone small and reach full speed early. The trace protocol is
+// intentionally quantized, so wide slow-speed bands feel like momentum even
+// though the simulation stops immediately on release.
+const DEAD_ZONE_RATIO = 0.08;
+const WALK_RATIO = 0.22;
+const RUN_RATIO = 0.58;
 
 export const beginJoystickControl = (
   pointerId: number,

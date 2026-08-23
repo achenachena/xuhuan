@@ -112,6 +112,40 @@ describe("action engine", () => {
     let result = null;
     for (let tick = 0; tick < 2700 && !result; tick += 1)
       result = simulation.step({ direction: 0, magnitude: 1, skill: false });
-    expect(result?.digest).toBe("47bd08b8");
+    expect(result?.digest).toBe("f98b47f4");
+  });
+
+  it.each([
+    ["sweeper", 3],
+    ["mine", 8],
+    ["orbiter", 4],
+    ["sniper", 3],
+    ["charger", 0],
+  ] as const)("runs the %s attack pattern deterministically", async (pattern, expected) => {
+    const simulation = await createActionSimulation({
+      ...config,
+      durationTicks: 60,
+      maxTicks: 60,
+      spawnInterval: 90,
+      enemies: [
+        {
+          slug: pattern,
+          pattern,
+          maxHealth: 999,
+          speed: 8,
+          contactDamage: 4,
+          fireInterval: 20,
+          projectileSpeed: 24,
+          projectileDamage: 5,
+        },
+      ],
+      buffs: { ...config.buffs, attackInterval: 1000 },
+    });
+    for (let tick = 0; tick < 20; tick += 1)
+      simulation.step({ direction: 0, magnitude: 0, skill: false });
+    const snapshot = simulation.snapshot();
+    expect(snapshot.enemies[0]?.pattern).toBe(pattern);
+    expect(snapshot.projectiles).toHaveLength(expected);
+    expect(snapshot.projectiles.every((projectile) => projectile.pattern === pattern)).toBe(true);
   });
 });

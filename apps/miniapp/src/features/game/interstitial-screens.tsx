@@ -12,11 +12,46 @@ type CommonProps = {
   readonly busy: boolean;
 };
 
-const archetypeStyle: Record<string, string> = {
-  route: "border-cyan-300/30 bg-cyan-400/10 text-cyan-50",
-  distortion: "border-fuchsia-300/30 bg-fuchsia-400/10 text-fuchsia-50",
-  echo: "border-sky-300/30 bg-sky-400/10 text-sky-50",
-  glitch: "border-violet-300/30 bg-violet-400/10 text-violet-50",
+type ArchetypeStyle = {
+  readonly accent: string;
+  readonly badge: string;
+  readonly glyph: string;
+};
+
+const archetypeStyle: Record<string, ArchetypeStyle> = {
+  route: {
+    accent: "from-cyan-300 via-sky-400 to-cyan-200",
+    badge: "border-cyan-300/45 bg-cyan-300/10 text-cyan-100",
+    glyph: "⇢",
+  },
+  distortion: {
+    accent: "from-fuchsia-300 via-pink-500 to-fuchsia-300",
+    badge: "border-fuchsia-300/45 bg-fuchsia-300/10 text-fuchsia-100",
+    glyph: "⌁",
+  },
+  echo: {
+    accent: "from-sky-300 via-indigo-400 to-sky-200",
+    badge: "border-sky-300/45 bg-sky-300/10 text-sky-100",
+    glyph: "◇",
+  },
+  glitch: {
+    accent: "from-violet-300 via-purple-500 to-violet-200",
+    badge: "border-violet-300/45 bg-violet-300/10 text-violet-100",
+    glyph: "//",
+  },
+};
+
+const effectLabels: Record<string, { en: string; "zh-CN": string }> = {
+  attack_damage: { en: "ATK", "zh-CN": "攻击" },
+  attack_speed: { en: "FIRE RATE", "zh-CN": "射速" },
+  move_speed: { en: "MOVE", "zh-CN": "移动" },
+  dash_cooldown: { en: "DASH CD", "zh-CN": "冲刺冷却" },
+  dash_damage: { en: "DASH DMG", "zh-CN": "冲刺伤害" },
+  starting_shield: { en: "SHIELD", "zh-CN": "护盾" },
+  overload_bonus: { en: "OVERLOAD", "zh-CN": "过载" },
+  distortion_gain: { en: "GRAZE", "zh-CN": "擦弹失真" },
+  route_heal: { en: "ROUTE HEAL", "zh-CN": "航线治疗" },
+  reflect_damage: { en: "REFLECT", "zh-CN": "反射" },
 };
 
 export const RewardScreen = ({
@@ -38,34 +73,65 @@ export const RewardScreen = ({
       eyebrow={
         plugin
           ? `${gameText(locale, "pluginFound")}: ${plugin.name}`
-          : undefined
+          : locale === "en"
+            ? "MODULE CACHE // CHOOSE ONE"
+            : "模块缓存 // 选择一个"
       }
     >
-      <div className="space-y-3">
-        {reward.module_choices.map((slug) => {
+      <div className="grid gap-3">
+        {reward.module_choices.map((slug, index) => {
           const moduleDefinition = content.modules.find(
             (item) => item.slug === slug,
           );
           if (!moduleDefinition) return null;
           const owned = run.state.modules.find((item) => item.slug === slug);
+          const style =
+            archetypeStyle[moduleDefinition.archetype] ?? archetypeStyle.glitch;
           return (
             <button
               key={slug}
               type="button"
               disabled={busy}
               onClick={() => onChoose(slug)}
-              className={`w-full rounded-2xl border p-4 text-left transition active:scale-[.98] disabled:opacity-50 ${archetypeStyle[moduleDefinition.archetype]}`}
+              className="group relative w-full overflow-hidden border-2 border-slate-600/70 bg-[#071225] p-0 text-left text-slate-50 shadow-[5px_5px_0_rgba(2,6,23,.82)] transition active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50"
             >
-              <span className="float-right rounded-full border border-current/20 px-2 py-1 font-mono text-[9px] uppercase">
-                {moduleDefinition.archetype}{" "}
-                {owned ? `Lv.${owned.level}→${owned.level + 1}` : "NEW"}
+              <span className={`block h-1.5 bg-gradient-to-r ${style.accent}`} />
+              <span className="grid grid-cols-[3.25rem_1fr] gap-3 p-4">
+                <span
+                  className={`grid h-12 w-12 place-items-center border font-mono text-xl font-black ${style.badge}`}
+                >
+                  {style.glyph}
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-start gap-2">
+                    <strong className="min-w-0 flex-1 text-base leading-5 text-white">
+                      {moduleDefinition.name}
+                    </strong>
+                    <span
+                      className={`shrink-0 border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider ${style.badge}`}
+                    >
+                      {owned
+                        ? `LV ${owned.level} → ${owned.level + 1}`
+                        : `${String(index + 1).padStart(2, "0")} / NEW`}
+                    </span>
+                  </span>
+                  <span className="mt-2 block text-xs leading-5 text-slate-300">
+                    {moduleDefinition.description}
+                  </span>
+                  <span className="mt-3 flex flex-wrap gap-1.5">
+                    {moduleDefinition.effects.map((effect, effectIndex) => (
+                      <span
+                        key={`${effect.kind}-${effectIndex}`}
+                        className="border border-white/10 bg-slate-950/70 px-2 py-1 font-mono text-[9px] font-bold tracking-wide text-cyan-100"
+                      >
+                        {effectLabels[effect.kind]?.[locale] ??
+                          effect.kind.toUpperCase()} +
+                        {effect.amount ?? 0}
+                      </span>
+                    ))}
+                  </span>
+                </span>
               </span>
-              <strong className="block pr-24 text-base">
-                {moduleDefinition.name}
-              </strong>
-              <p className="mt-2 text-xs leading-5 text-slate-300">
-                {moduleDefinition.description}
-              </p>
             </button>
           );
         })}
@@ -74,7 +140,7 @@ export const RewardScreen = ({
         type="button"
         disabled={busy}
         onClick={() => onChoose("")}
-        className="mt-4 w-full rounded-xl border border-white/10 py-3 text-xs text-slate-500"
+        className="mt-4 w-full border border-slate-600/60 bg-[#050914] py-3 font-mono text-xs font-bold tracking-[.18em] text-slate-300 active:bg-slate-900 disabled:opacity-50"
       >
         {gameText(locale, "skip")}
       </button>
@@ -256,7 +322,16 @@ const Panel = ({
 }) => (
   <main
     data-testid="interstitial-screen"
-    className="mx-auto min-h-[100dvh] w-full max-w-lg bg-[radial-gradient(circle_at_top,rgba(76,29,149,.25),transparent_44%),#080d18] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[var(--xuhuan-host-safe-top)] text-white"
+    data-game-surface="true"
+    className="mx-auto min-h-[100dvh] w-full max-w-lg px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[var(--xuhuan-host-safe-top)] text-white [forced-color-adjust:none]"
+    style={{
+      backgroundColor: "#080d18",
+      backgroundImage:
+        "radial-gradient(circle at top, rgba(8,145,178,.22), transparent 34%), linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px)",
+      backgroundSize: "auto, 100% 24px",
+      color: "#f8fafc",
+      colorScheme: "dark",
+    }}
   >
     {eyebrow && (
       <p className="font-mono text-[10px] uppercase tracking-[.2em] text-violet-300">

@@ -52,6 +52,7 @@ const text = {
     threat: "威胁",
     uplink: "接入",
     moveControl: "移动盘",
+    wave: "波次",
   },
   en: {
     move: "Hold the lower-left stick. Release to stop.",
@@ -69,8 +70,23 @@ const text = {
     threat: "THREAT",
     uplink: "UPLINK",
     moveControl: "Movement stick",
+    wave: "WAVE",
   },
 } as const;
+
+const syncJoystickVisual = (
+  pad: HTMLDivElement | null,
+  knob: HTMLDivElement | null,
+  control: JoystickControl | null,
+) => {
+  if (!pad || !knob) return;
+  pad.dataset.active = String(Boolean(control));
+  knob.dataset.active = String(Boolean(control));
+  if (!control) return;
+  const visual = joystickVisual(control);
+  knob.style.left = `${visual.knob.x}px`;
+  knob.style.top = `${visual.knob.y}px`;
+};
 
 export const ActionArena = ({
   content,
@@ -82,6 +98,8 @@ export const ActionArena = ({
   const audio = useAudio();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stickRef = useRef<JoystickControl | null>(null);
+  const stickPadRef = useRef<HTMLDivElement>(null);
+  const stickKnobRef = useRef<HTMLDivElement>(null);
   const snapshotRef = useRef<ActionSnapshot | null>(null);
   const skillRef = useRef(false);
   const movedRef = useRef(false);
@@ -89,7 +107,6 @@ export const ActionArena = ({
   const completeRef = useRef(onComplete);
   const audioRef = useRef(audio);
   const [snapshot, setSnapshot] = useState<ActionSnapshot | null>(null);
-  const [joystick, setJoystick] = useState<JoystickControl | null>(null);
   const [moved, setMoved] = useState(false);
   const [usedSkill, setUsedSkill] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -246,13 +263,22 @@ export const ActionArena = ({
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const rect = event.currentTarget.getBoundingClientRect();
-    const control = beginJoystickControl(
-      event.pointerId,
+    const pad = stickPadRef.current?.getBoundingClientRect();
+    const originX = pad ? pad.left + pad.width / 2 - rect.left : 68;
+    const originY = pad
+      ? pad.top + pad.height / 2 - rect.top
+      : rect.height - 68;
+    const control = moveJoystickControl(
+      beginJoystickControl(event.pointerId, originX, originY, 58),
       event.clientX - rect.left,
       event.clientY - rect.top,
     );
     stickRef.current = control;
-    setJoystick(control);
+    syncJoystickVisual(
+      stickPadRef.current,
+      stickKnobRef.current,
+      control,
+    );
   };
   const pointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (stickRef.current?.pointerId !== event.pointerId) return;
@@ -264,13 +290,17 @@ export const ActionArena = ({
       event.clientY - rect.top,
     );
     stickRef.current = control;
-    setJoystick(control);
+    syncJoystickVisual(
+      stickPadRef.current,
+      stickKnobRef.current,
+      control,
+    );
   };
   const pointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     if (stickRef.current?.pointerId !== event.pointerId) return;
     event.preventDefault();
     stickRef.current = null;
-    setJoystick(null);
+    syncJoystickVisual(stickPadRef.current, stickKnobRef.current, null);
   };
 
   const tutorial = run.state.encounter?.tutorial;
@@ -292,7 +322,6 @@ export const ActionArena = ({
   const cooldown = snapshot
     ? Math.max(0, Math.ceil(snapshot.dashCooldown / ACTION_TPS))
     : 0;
-  const stick = joystick ? joystickVisual(joystick) : null;
   const skillLabel = snapshot?.routeReady
     ? text[locale].routeBreak
     : text[locale].dashSkill;
@@ -308,7 +337,7 @@ export const ActionArena = ({
       />
       <header
         data-testid="combat-hud"
-        className="pointer-events-none absolute inset-x-0 top-[var(--xuhuan-host-safe-top)] z-10 px-3 pr-[4.5rem]"
+        className="pointer-events-none absolute inset-x-0 top-[calc(var(--xuhuan-host-safe-top)+.5rem)] z-10 px-3 pr-[4.75rem]"
       >
         <div className="border-2 border-cyan-200/20 bg-[#071225]/88 p-2.5 shadow-[4px_4px_0_rgba(2,6,23,.8)] backdrop-blur-sm">
           <div className="flex items-center gap-2 text-[10px] font-mono tracking-wider text-slate-300">
@@ -325,6 +354,9 @@ export const ActionArena = ({
             </span>
             <span>
               {text[locale].threat} {snapshot?.enemies.length ?? 0}
+            </span>
+            <span className="border-l border-white/10 pl-2 text-cyan-200">
+              {text[locale].wave} {Math.min(3, Math.floor(progress * 3) + 1)}
             </span>
           </div>
           <div className="mt-2 grid grid-cols-[1fr_5.5rem] gap-2 font-mono text-[8px] tracking-wider text-slate-400">
@@ -360,7 +392,7 @@ export const ActionArena = ({
       {hint && (
         <div
           role="status"
-          className="pointer-events-none absolute left-1/2 top-[calc(var(--xuhuan-host-safe-top)+5.5rem)] z-20 w-[82%] -translate-x-1/2 border-2 border-cyan-300/30 bg-[#071225]/92 px-4 py-3 text-center font-mono text-xs leading-5 text-cyan-50 shadow-[4px_4px_0_rgba(2,6,23,.8)] backdrop-blur-sm"
+          className="pointer-events-none absolute left-1/2 top-[calc(var(--xuhuan-host-safe-top)+6rem)] z-20 w-[82%] -translate-x-1/2 border-2 border-cyan-300/30 bg-[#071225]/92 px-4 py-3 text-center font-mono text-xs leading-5 text-cyan-50 shadow-[4px_4px_0_rgba(2,6,23,.8)] backdrop-blur-sm"
         >
           {hint}
         </div>
@@ -377,25 +409,19 @@ export const ActionArena = ({
         onLostPointerCapture={pointerUp}
         onContextMenu={(event) => event.preventDefault()}
       >
-        {!stick && (
-          <div className="pointer-events-none absolute bottom-4 left-4 grid h-[5.75rem] w-[5.75rem] place-items-center rounded-full border-2 border-cyan-200/20 bg-slate-950/30 font-mono text-[9px] tracking-[0.22em] text-cyan-100/55 shadow-[inset_0_0_0_8px_rgba(8,47,73,.2)]">
-            {locale === "en" ? "MOVE" : "移动"}
-          </div>
-        )}
-        {stick && (
-          <div
-            className="pointer-events-none absolute h-[6.5rem] w-[6.5rem] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-200/35 bg-slate-950/45 shadow-[inset_0_0_0_10px_rgba(8,47,73,.35),0_0_24px_rgba(34,211,238,.12)]"
-            style={{ left: stick.origin.x, top: stick.origin.y }}
-          >
-            <div className="absolute inset-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-cyan-100/35" />
-          </div>
-        )}
-        {stick && (
-          <div
-            className="pointer-events-none absolute h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-100/65 bg-cyan-400/25 shadow-[0_0_18px_rgba(34,211,238,.35)]"
-            style={{ left: stick.knob.x, top: stick.knob.y }}
-          />
-        )}
+        <div
+          ref={stickPadRef}
+          data-active="false"
+          className="pointer-events-none absolute bottom-4 left-4 grid h-[6.5rem] w-[6.5rem] place-items-center rounded-full border-2 border-cyan-200/25 bg-slate-950/45 font-mono text-[9px] tracking-[0.22em] text-cyan-100/55 shadow-[inset_0_0_0_10px_rgba(8,47,73,.28)] transition-[border-color,background-color,box-shadow] data-[active=true]:border-cyan-100/55 data-[active=true]:bg-slate-950/70 data-[active=true]:shadow-[inset_0_0_0_10px_rgba(8,47,73,.38),0_0_24px_rgba(34,211,238,.16)]"
+        >
+          {locale === "en" ? "MOVE" : "移动"}
+          <div className="absolute inset-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-cyan-100/35" />
+        </div>
+        <div
+          ref={stickKnobRef}
+          data-active="false"
+          className="pointer-events-none absolute h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-100/75 bg-cyan-400/30 opacity-0 shadow-[0_0_18px_rgba(34,211,238,.4)] transition-opacity data-[active=true]:opacity-100"
+        />
       </div>
 
       <div className="absolute bottom-[var(--xuhuan-host-safe-bottom)] right-4 z-20">

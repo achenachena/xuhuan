@@ -77,7 +77,7 @@ Noise 1–3 changes firing cadence, telegraph time, distortion pressure, route c
 
 ## Versioned content
 
-`apps/api/internal/content/v2/bundle.json` contains seven characters, 32 modules, 10 plugins, 7 enemies, 7 encounter definitions, 12 events, 3 story scenes, and chapter metadata. Startup and CI reject duplicate slugs, missing translations, invalid effects, and broken references.
+`apps/api/internal/content/v2/bundle.json` contains seven characters, 32 modules, 10 plugins, 8 enemies, 7 encounter definitions, 12 events, 3 story scenes, and chapter metadata. Startup and CI reject duplicate slugs, missing translations, unsupported action patterns, invalid effects, and broken references.
 
 `GET /v2/content/v2?locale=...` returns a localized `action-v1` manifest with immutable caching. Runs retain `content_version`, although this forward-only launch resets all card-era data.
 

@@ -291,8 +291,8 @@ func (catalog *Catalog) indexAndValidate() error {
 	}
 	for _, item := range catalog.Enemies {
 		validKind := item.Kind == "normal" || item.Kind == "elite" || item.Kind == "boss"
-		validPattern := item.Pattern == "chaser" || item.Pattern == "swarm" || item.Pattern == "turret" || item.Pattern == "boss"
-		validProjectile := item.FireInterval == 0 || (item.FireInterval >= 20 && item.ProjectileSpeed > 0 && item.ProjectileDamage > 0)
+		validPattern := item.Pattern == "chaser" || item.Pattern == "swarm" || item.Pattern == "turret" || item.Pattern == "sweeper" || item.Pattern == "mine" || item.Pattern == "orbiter" || item.Pattern == "sniper" || item.Pattern == "charger" || item.Pattern == "boss"
+		validProjectile := item.FireInterval == 0 || item.Pattern == "charger" || (item.FireInterval >= 20 && item.ProjectileSpeed > 0 && item.ProjectileDamage > 0)
 		if item.Slug == "" || !validKind || !validPattern || item.MaxHealth <= 0 || item.Speed < 0 || item.ContactDamage < 0 || !validProjectile || validateLocalized(item.Name, item.Description) != nil {
 			return fmt.Errorf("content: enemy %q is invalid", item.Slug)
 		}
