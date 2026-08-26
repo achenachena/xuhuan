@@ -1,20 +1,20 @@
-# 虚环：仅一人在线
+# Xuhuan: Only One Online
 
-《虚环：仅一人在线》是一个面向 Telegram Mini App 的竖屏动作 Roguelite。玩家是收到异常后台消息的“最后一位在线观众”，直接操控仍保留自我意识的数字分身，对抗把角色压缩成标准人设的“留存协议”。每局约 6–8 分钟；路线、模块和战斗会重置，剧情选择、记忆和横向解锁会保留。
+*Xuhuan: Only One Online* is a portrait action roguelite built for Telegram Mini Apps. The player is the "last viewer online" after receiving an anomalous backstage message. They take direct control of a self-aware digital persona and fight the Retention Protocol, a system that compresses each character into the safest, most marketable version of herself.
 
-当前可玩版本包含完整序章与七海第一章《第七码头没有海》。其余六位角色和章节已进入版本化内容目录，后续沿用同一套系统扩展。
+A complete run takes roughly 6–8 minutes. Routes, modules, and encounters reset between runs, while story choices, memories, and horizontal unlocks persist. The current playable release includes the complete prologue and Nana's first chapter, *No Sea at the Seventh Dock*. Six additional characters and chapters already exist in the versioned content catalog and will expand through the same systems.
 
-## 核心玩法
+## Core gameplay
 
-- Telegram 风格后台群聊承载主线、角色陪伴、分支选择和少量黑色幽默。
-- 单指固定摇杆控制移动，松手立即停止，七海自动锁定攻击；唯一主动技能“航线跃迁”承担位移、无敌帧和爆发。
-- 敌人拥有追击、扇形扫射、八向地雷脉冲、环绕交叉弹幕、远距狙击和预警冲锋等不同攻击节奏。
-- 六段分支路线包含约 35–50 秒的普通战斗、事件、精英、休整、固定剧情和三阶段 Boss。
-- 顺序穿过三枚航标完成“航线”，立即刷新跃迁并强化尾流伤害。
-- 擦弹提高“失真”；60 以上进入伤害过载，100 时触发掉血、清弹并回落，形成风险收益选择。
-- 战后安装频道模块，最多六种、每种三级；精英额外掉落永久影响本局的频道插件。
-- 新玩家只需在异常消息中点击一次“保持在线”即可直接进入约 20 秒的可操作教学。
-- 服务端保存唯一 active Run；刷新页面或关闭 Telegram 后会恢复，不以浏览器存档为事实来源。
+- A Telegram-style backstage group chat delivers the main story, companion interactions, branching choices, and occasional dark humor.
+- A fixed single-thumb joystick controls movement and stops immediately on release. Nana automatically targets nearby enemies, while the single active ability, Route Warp, provides mobility, invulnerability frames, and burst damage.
+- Enemies use distinct combat rhythms, including pursuit, cone sweeps, eight-way mine pulses, orbiting crossfire, long-range sniping, and telegraphed charges.
+- A six-stage branching route mixes 35–50 second combat rooms with events, elites, rest stops, authored story scenes, and a three-phase boss.
+- Crossing three ordered beacons completes a Route, instantly refreshes Route Warp, and empowers its damaging wake.
+- Grazing hostile projectiles raises Distortion. At 60, attacks become overclocked; at 100, the player takes damage, clears hostile bullets, and drops back to a safer level. This creates a deliberate risk–reward loop.
+- Post-combat Channel Modules support multiple builds. A run can hold up to six module types at three levels each, while elites grant run-defining Channel Plugins.
+- A new player enters a playable tutorial in about 20 seconds after clicking **Stay Online** once—without choosing a character, route, or difficulty first.
+- The server stores at most one active Run per player. Refreshing the page or closing Telegram resumes that Run; browser storage is never authoritative.
 
 ## Architecture
 
@@ -27,24 +27,25 @@ Telegram Mini App
                  └─ Upstash Redis (distributed rate limits only)
 ```
 
-动作战斗使用 30Hz 固定步长和确定性随机流。浏览器只预测表现并记录量化输入；房间结束后提交一条 `rle8-v1` 压缩轨迹，Go 重放并裁决生命、击杀、奖励和结局。每个写请求携带幂等键和预期版本，PostgreSQL 在事务中锁定 Run、写入不可变命令历史并原子提交。关闭 Telegram 会恢复同一 Run，并从当前房间的相同种子重新开始。
+Action combat runs at a deterministic 30 Hz fixed timestep. The browser predicts presentation and records quantized input only. At the end of a room, it submits one `rle8-v1` compressed trace; Go replays that trace and authoritatively resolves health, kills, rewards, and outcomes.
 
-API 契约见 [OpenAPI 3.1](apps/api/openapi/openapi.yaml)，更完整的信任边界、领域结构和迁移方案见 [architecture.md](docs/architecture.md)。
-动作 V2 的前进式维护窗口顺序见 [action-v2-release.md](docs/action-v2-release.md)。
+Every mutation includes an idempotency key and an expected version. PostgreSQL locks the Run inside a transaction, appends an immutable command record, and atomically commits the resulting snapshot. Closing Telegram resumes the same Run and restarts the current room from the same seed.
+
+See the [OpenAPI 3.1 contract](apps/api/openapi/openapi.yaml) for the HTTP surface, [architecture.md](docs/architecture.md) for trust boundaries and domain design, and [action-v2-release.md](docs/action-v2-release.md) for the forward-only Action V2 release procedure.
 
 ## Repository layout
 
 ```text
 apps/
-  api/                 Go V2 API、版本化内容包和测试
-  miniapp/             Next.js Telegram Mini App 与静态游戏素材
-docs/                  架构与发布文档
-infra/                 AWS Lambda 与零固定成本基础设施 Terraform
+  api/                 Go V2 API, versioned content bundles, and tests
+  miniapp/             Next.js Telegram Mini App and static game assets
+docs/                  Architecture and release documentation
+infra/                 Terraform for AWS Lambda and zero-fixed-cost infrastructure
 ```
 
 ## Run locally
 
-Prerequisites: Docker Compose v2, Node.js 20+, npm 10+, and Go 1.25+（模块会选择仓库测试过的工具链）。本地运行不需要 Telegram bot token；API 仅在 `APP_ENV=development` 时允许显式开发身份。
+Prerequisites: Docker Compose v2, Node.js 20+, npm 10+, and Go 1.25+. The Go module automatically selects the toolchain tested by this repository. Local development does not require a Telegram bot token; the API permits an explicit development identity only when `APP_ENV=development`.
 
 ```sh
 cp env.example .env
@@ -52,13 +53,13 @@ make install
 make up
 ```
 
-在第二个终端运行：
+In a second terminal, run:
 
 ```sh
 make miniapp
 ```
 
-打开 `http://localhost:3000`。`make down` 会停止容器但保留 PostgreSQL volume；只有明确要清空本地数据时才使用 `docker compose down --volumes`。
+Open `http://localhost:3000`. `make down` stops the containers but preserves the PostgreSQL volume. Use `docker compose down --volumes` only when you intentionally want to erase local data.
 
 ## Verification
 
@@ -69,9 +70,9 @@ make e2e-install          # one-time Playwright Chromium install
 make e2e                  # browser → API → PostgreSQL authoritative journey
 ```
 
-合并生产候选版本后，手动运行 GitHub Actions 的 `Smoke Production V2`。该门禁通过 AWS OIDC 临时读取 SSM 中的 bot token，以明确标记的合成 Telegram 身份验证签名认证、断线恢复、Boss、结算剧情和噪声解锁；凭据与原始 `initData` 不会写入日志。
+After merging a production candidate, manually run the `Smoke Production V2` GitHub Actions workflow. The workflow uses AWS OIDC to read the bot token temporarily from SSM, signs a clearly identified synthetic Telegram user, and verifies authentication, disconnect recovery, the boss encounter, story settlement, and noise-level unlocks. Credentials and raw `initData` are never written to logs.
 
-修改 OpenAPI 后重新生成并检查前端类型：
+After changing the OpenAPI contract, regenerate and verify the frontend types:
 
 ```sh
 npm run generate:api-types --workspace @xuhuan/miniapp
@@ -80,20 +81,20 @@ npm run check:api-types --workspace @xuhuan/miniapp
 
 ## Migration status
 
-`004_action_roguelite.sql` 是动作版的前进式 V2 替换：按产品决定清空现有玩家、剧情与 Run 数据，把解锁和命令约束切换为模块、插件和房间轨迹。旧卡牌内容、领域代码、UI 和协议已从主干实现中移除。该迁移执行后不能恢复旧卡牌存档；数据库问题必须前向修复。
+`004_action_roguelite.sql` is the forward-only Action V2 replacement. As an intentional product decision, it clears existing player, story, and Run data, then changes unlock and command constraints to modules, plugins, and room traces. The old card content, domain code, UI, and protocol have been removed from the main implementation. Card-era saves cannot be restored after this migration; database problems must be fixed forward.
 
 ## Configuration, security, and cost
 
-生产 PostgreSQL、Redis 与 Telegram 凭据保存为 AWS SSM standard-tier SecureString，只注入不可变 Lambda 版本。生产构建不得暴露 `DEV_AUTH_*` 或 `NEXT_PUBLIC_DEV_AUTH_TOKEN`。API 验证原始 Telegram `initData` 的签名与时效，不信任 `initDataUnsafe`。
+Production PostgreSQL, Redis, and Telegram credentials are stored as AWS SSM standard-tier `SecureString` parameters and injected only into immutable Lambda versions. Production builds must not expose `DEV_AUTH_*` or `NEXT_PUBLIC_DEV_AUTH_TOKEN`. The API validates the signature and age of raw Telegram `initData`; it does not trust `initDataUnsafe`.
 
-生产拓扑没有 VPC、NAT Gateway、API Gateway、负载均衡器、RDS、ElastiCache、ECS/EKS 或 ECR。Neon 保存 PostgreSQL 真相，Upstash 只保存可丢失的限流计数；免费额度耗尽会导致服务暂停或限流，不会自动升级付费方案。基础设施细节见 [Terraform README](infra/terraform/README.md)。
+The production topology has no VPC, NAT Gateway, API Gateway, load balancer, RDS, ElastiCache, ECS/EKS, or ECR. Neon holds authoritative PostgreSQL data, while Upstash stores only disposable rate-limit counters. Exhausting a free allowance pauses or throttles the service rather than upgrading it to a paid plan automatically. See the [Terraform README](infra/terraform/README.md) for operational details.
 
 ## Fan work and assets
 
-这是一个非商业、非官方的技术演示与同人项目，与角色、团体或平台的权利方没有隶属、认可或合作关系。剧情中的角色均为架空数字分身，故事不陈述现实人物或团体事实；现实梗仅作为彩蛋。角色名称、形象及既有立绘归各自权利方所有，若权利方提出要求会移除相关素材。
+This is a non-commercial, unofficial technical demonstration and fan project. It is not affiliated with, endorsed by, or produced in cooperation with any character, group, platform, or rights holder. All characters in the story are fictional digital personas; the narrative makes no factual claims about real people or organizations, and references to real-world memes appear only as easter eggs. Character names, likenesses, and pre-existing portraits belong to their respective rights holders and will be removed upon a valid request.
 
-- 七位角色立绘：沿用项目原有的远程素材 URL；来源信息保留在版本化内容包中。
-- 第七码头像素背景、七海战斗精灵、留存无人机、禁言清扫器、缓冲地雷、回声中继器、审核猎犬与“最优人格”像素精灵：使用 OpenAI 图像生成工具为本项目生成的原创静态素材，位于 `apps/miniapp/public/game/v2/`。
-- UI、动作特效、敌人名称、剧情和系统设计：本项目原创。
+- The seven character portraits reuse remote assets already referenced by the project. Source information remains in the versioned content bundle.
+- The Seventh Dock background and the Nana, Retention Drone, Comment Sweeper, Buffer Mine, Echo Relay, Moderation Hound, and Optimal Persona pixel sprites are original static assets generated for this project with OpenAI image-generation tooling. They live under `apps/miniapp/public/game/v2/`.
+- The UI, action effects, enemy names, narrative, and game systems are original work created for this project.
 
-本仓库不提供素材再授权，也不允许将同人素材用于商业发行。
+This repository does not grant redistribution rights for third-party fan assets and does not permit their use in a commercial release.
