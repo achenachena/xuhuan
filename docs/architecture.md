@@ -1,4 +1,4 @@
-# 《虚环：仅一人在线》architecture
+# Xuhuan: Only One Online — Architecture
 
 ## Purpose
 
