@@ -12,22 +12,100 @@ const baseMaxHealth = 100
 
 func NewState(input StartInput, catalog *gamecontent.Catalog) (State, error) {
 	chapter, ok := catalog.Chapter(input.ChapterSlug)
-	if !ok || !chapter.Available || chapter.CharacterSlug != input.CharacterSlug || input.NoiseLevel < 0 || input.NoiseLevel > 3 {
+	if !ok || !chapter.Available || (!chapter.Finale && chapter.CharacterSlug != input.CharacterSlug) || input.NoiseLevel < 0 || input.NoiseLevel > 3 {
 		return State{}, ErrContentLocked
 	}
 	character, ok := catalog.Character(input.CharacterSlug)
-	if !ok || !character.Available {
+	if !ok {
 		return State{}, ErrContentLocked
 	}
-	gameMap, cursor, err := generateMap(input.Seed, input.NoiseLevel, catalog)
+	mode := input.Mode
+	if mode == "" {
+		mode = CampaignMode
+	}
+	gameMap, cursor, err := generateMap(input.Seed, mode, chapter, input.NoiseLevel, input.TutorialCompleted, catalog)
 	if err != nil {
 		return State{}, err
 	}
-	state := State{Phase: EncounterPhase, ChapterSlug: input.ChapterSlug, CharacterSlug: input.CharacterSlug, WeaponSlug: "auto-signal", NoiseLevel: input.NoiseLevel, Health: baseMaxHealth, MaxHealth: baseMaxHealth, Modules: []ModuleLevel{}, Plugins: []string{}, Map: gameMap, ChoiceTags: []string{}, RNGCursor: cursor, EmergencyReconnectAvailable: input.EmergencyReconnectAvailable}
-	if err := startEncounter(&state, input.Seed, "signal-handshake", catalog); err != nil {
+	kit, ok := catalog.Kit(character.KitSlug)
+	if !ok {
+		return State{}, ErrContentLocked
+	}
+	modulePool, pluginPool, err := resolveRewardPool(input, catalog, input.CharacterSlug)
+	if err != nil {
 		return State{}, err
 	}
+	modifier := input.NarrativeModifier
+	if modifier.BossVariant == "" {
+		modifier.BossVariant = "balanced"
+	}
+	if modifier.BossVariant != "authentic" && modifier.BossVariant != "balanced" && modifier.BossVariant != "retained" {
+		return State{}, ErrContentLocked
+	}
+	state := State{Phase: MapPhase, ChapterSlug: input.ChapterSlug, CharacterSlug: input.CharacterSlug, CompanionSlugs: slices.Clone(input.CompanionSlugs), SupportAlignment: input.SupportAlignment, WeaponSlug: "auto-signal", NoiseLevel: input.NoiseLevel, Health: kit.BaseStats.MaxHealth, MaxHealth: kit.BaseStats.MaxHealth, Modules: []ModuleLevel{}, Plugins: []string{}, RewardPool: RewardPool{ModuleSlugs: modulePool, PluginSlugs: pluginPool}, NarrativeModifier: modifier, Map: gameMap, ChoiceTags: slices.Clone(input.ChoiceTags), RNGCursor: cursor, EmergencyReconnectAvailable: input.EmergencyReconnectAvailable, RerollsRemaining: 1}
+	if input.StarterModuleSlug != "" {
+		if !slices.Contains(modulePool, input.StarterModuleSlug) {
+			return State{}, ErrContentLocked
+		}
+		module, exists := catalog.Module(input.StarterModuleSlug)
+		if !exists || (module.CharacterSlug != "" && module.CharacterSlug != input.CharacterSlug) {
+			return State{}, ErrContentLocked
+		}
+		state.Modules = append(state.Modules, ModuleLevel{Slug: module.Slug, Level: 1})
+		starterEvents := make([]Event, 0, 1)
+		if err := applyEffects(&state, module.Levels[0].Effects, catalog, &starterEvents); err != nil {
+			return State{}, err
+		}
+	}
+	state.RuntimeConfig, err = resolveRuntime(state, catalog)
+	if err != nil {
+		return State{}, err
+	}
+	if gameMap.CurrentNodeID != "" {
+		node := gameMap.Nodes[nodeIndex(gameMap, gameMap.CurrentNodeID)]
+		if err := startEncounter(&state, input.Seed, node.EncounterSlug, catalog); err != nil {
+			return State{}, err
+		}
+	}
+	normalizeCollections(&state)
 	return state, nil
+}
+
+func resolveRewardPool(input StartInput, catalog *gamecontent.Catalog, characterSlug string) ([]string, []string, error) {
+	moduleSlugs := slices.Clone(input.UnlockedModuleSlugs)
+	pluginSlugs := slices.Clone(input.UnlockedPluginSlugs)
+	if input.UnlockedModuleSlugs == nil {
+		for _, module := range catalog.RewardModules(characterSlug) {
+			moduleSlugs = append(moduleSlugs, module.Slug)
+		}
+	}
+	if input.UnlockedPluginSlugs == nil {
+		for _, plugin := range catalog.Plugins {
+			if plugin.CharacterSlug == "" || plugin.CharacterSlug == characterSlug {
+				pluginSlugs = append(pluginSlugs, plugin.Slug)
+			}
+		}
+	}
+	slices.Sort(moduleSlugs)
+	slices.Sort(pluginSlugs)
+	moduleSlugs = slices.Compact(moduleSlugs)
+	pluginSlugs = slices.Compact(pluginSlugs)
+	if len(moduleSlugs) < 3 {
+		return nil, nil, ErrContentLocked
+	}
+	for _, slug := range moduleSlugs {
+		module, ok := catalog.Module(slug)
+		if !ok || (module.CharacterSlug != "" && module.CharacterSlug != characterSlug) {
+			return nil, nil, ErrContentLocked
+		}
+	}
+	for _, slug := range pluginSlugs {
+		plugin, ok := catalog.Plugin(slug)
+		if !ok || (plugin.CharacterSlug != "" && plugin.CharacterSlug != characterSlug) {
+			return nil, nil, ErrContentLocked
+		}
+	}
+	return moduleSlugs, pluginSlugs, nil
 }
 
 func Apply(current State, seed string, command Command, catalog *gamecontent.Catalog) (Resolution, *Outcome, error) {
@@ -42,6 +120,8 @@ func Apply(current State, seed string, command Command, catalog *gamecontent.Cat
 		err = completeEncounter(&state, command.Trace, catalog, &events)
 	case ChooseModuleReward:
 		err = chooseReward(&state, command.ChoiceSlug, catalog, &events)
+	case RerollModuleReward:
+		err = rerollReward(&state, catalog, &events)
 	case ResolveEvent:
 		err = resolveEvent(&state, command.ChoiceSlug, catalog, &events)
 	case Rest:
@@ -83,6 +163,13 @@ func chooseNode(state *State, seed, id string, catalog *gamecontent.Catalog, eve
 	*events = append(*events, Event{Kind: "node_entered", NodeID: id})
 	switch node.Type {
 	case CombatNode, EliteNode, BossNode:
+		if node.Type == BossNode {
+			if chapter, ok := catalog.Chapter(state.ChapterSlug); ok {
+				if sceneSlug := bossBranchSceneSlug(chapter, catalog); sceneSlug != "" {
+					*events = append(*events, Event{Kind: "story_scene_ready", SceneSlug: sceneSlug, ChapterSlug: chapter.Slug})
+				}
+			}
+		}
 		return startEncounter(state, seed, node.EncounterSlug, catalog)
 	case EventNode, StoryNode:
 		state.Phase = EventPhase
@@ -101,7 +188,7 @@ func startEncounter(state *State, runSeed, slug string, catalog *gamecontent.Cat
 		return fmt.Errorf("run: unknown encounter %q", slug)
 	}
 	state.Phase = EncounterPhase
-	state.Encounter = &EncounterState{Slug: slug, Seed: runSeed + ":" + state.Map.CurrentNodeID, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, Tutorial: definition.Tutorial}
+	state.Encounter = &EncounterState{Slug: slug, Seed: runSeed + ":" + state.Map.CurrentNodeID, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, Tutorial: definition.Tutorial, Objective: action.ObjectiveConfig{Kind: definition.Objective.Kind, Target: definition.Objective.Target}, Risk: definition.Risk, RewardBias: definition.RewardBias, Hazards: append([]string{}, definition.Hazards...)}
 	return nil
 }
 
@@ -118,6 +205,7 @@ func completeEncounter(state *State, trace *action.InputTrace, catalog *gamecont
 		return err
 	}
 	state.Health = min(state.MaxHealth, result.Health)
+	state.Score += result.Score
 	if result.EmergencyReconnectUsed {
 		state.EmergencyReconnectAvailable = false
 		*events = append(*events, Event{Kind: "emergency_reconnect_used"})
@@ -133,314 +221,33 @@ func completeEncounter(state *State, trace *action.InputTrace, catalog *gamecont
 	node := state.Map.Nodes[nodeIndex(state.Map, state.Map.CurrentNodeID)]
 	if node.Type == TutorialNode {
 		*events = append(*events, Event{Kind: "tutorial_completed"})
+		if chapter, ok := catalog.Chapter(state.ChapterSlug); ok && chapter.PreludeSceneSlug != "" {
+			*events = append(*events, Event{Kind: "story_scene_ready", SceneSlug: chapter.PreludeSceneSlug, ChapterSlug: chapter.Slug})
+		}
 	}
 	if node.Type == BossNode {
 		completeCurrentNode(state)
 		state.Phase = CompletedPhase
-		*events = append(*events, Event{Kind: "chapter_cleared"})
+		chapter, _ := catalog.Chapter(state.ChapterSlug)
+		nextCharacter := ""
+		if next, ok := catalog.Chapter(chapter.NextChapterSlug); ok {
+			nextCharacter = next.CharacterSlug
+		}
+		*events = append(*events, Event{Kind: "chapter_cleared", ChapterSlug: chapter.Slug, NextChapterSlug: chapter.NextChapterSlug, NextCharacterSlug: nextCharacter})
 		return nil
 	}
-	reward := RewardState{ModuleChoices: rewardChoices(state, catalog, node.Type == TutorialNode)}
+	reward := RewardState{ModuleChoices: rewardChoices(state, catalog, encounterRewardBias(node, catalog)), Rerolled: false}
 	if node.Type == EliteNode {
 		reward.GrantedPlugin = grantPlugin(state, catalog)
 		if reward.GrantedPlugin != "" {
 			if err := applyEffects(state, mustPlugin(catalog, reward.GrantedPlugin).Effects, catalog, events); err != nil {
 				return err
 			}
+			state.RuntimeConfig, _ = resolveRuntime(*state, catalog)
 			*events = append(*events, Event{Kind: "plugin_granted", PluginSlug: reward.GrantedPlugin})
 		}
 	}
 	state.Reward = &reward
 	state.Phase = RewardPhase
 	return nil
-}
-
-func actionConfig(state State, catalog *gamecontent.Catalog) (action.Config, error) {
-	definition, ok := catalog.Encounter(state.Encounter.Slug)
-	if !ok {
-		return action.Config{}, ErrInvalidCommand
-	}
-	enemies := make([]action.EnemySpec, 0, len(definition.EnemySlugs))
-	for _, slug := range definition.EnemySlugs {
-		enemy, ok := catalog.Enemy(slug)
-		if !ok {
-			return action.Config{}, ErrInvalidCommand
-		}
-		enemies = append(enemies, action.EnemySpec{Slug: enemy.Slug, Pattern: enemy.Pattern, MaxHealth: enemy.MaxHealth, Speed: enemy.Speed, ContactDamage: enemy.ContactDamage, FireInterval: enemy.FireInterval, ProjectileSpeed: enemy.ProjectileSpeed, ProjectileDamage: enemy.ProjectileDamage})
-	}
-	buffs := action.Buffs{AttackDamage: 8, AttackInterval: 12, MoveSpeed: 42, DashCooldown: 240, DashDamage: 14, DistortionGain: 4}
-	for _, owned := range state.Modules {
-		module, ok := catalog.Module(owned.Slug)
-		if !ok {
-			return action.Config{}, ErrInvalidCommand
-		}
-		for range owned.Level {
-			accumulateBuffs(&buffs, module.Effects)
-		}
-	}
-	for _, slug := range state.Plugins {
-		plugin, ok := catalog.Plugin(slug)
-		if !ok {
-			return action.Config{}, ErrInvalidCommand
-		}
-		accumulateBuffs(&buffs, plugin.Effects)
-	}
-	return action.Config{Seed: state.Encounter.Seed, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, SpawnInterval: definition.SpawnInterval, MaxAlive: definition.MaxAlive, PlayerHealth: state.Health, PlayerMaxHealth: state.MaxHealth, NoiseLevel: state.NoiseLevel, EmergencyReconnectAvailable: state.EmergencyReconnectAvailable, Enemies: enemies, Buffs: buffs}, nil
-}
-
-func accumulateBuffs(buffs *action.Buffs, effects []gamecontent.Effect) {
-	for _, effect := range effects {
-		switch effect.Kind {
-		case "attack_damage":
-			buffs.AttackDamage += effect.Amount
-		case "attack_speed":
-			buffs.AttackInterval = max(5, buffs.AttackInterval-effect.Amount)
-		case "move_speed":
-			buffs.MoveSpeed += effect.Amount
-		case "dash_cooldown":
-			buffs.DashCooldown = max(90, buffs.DashCooldown-effect.Amount)
-		case "dash_damage":
-			buffs.DashDamage += effect.Amount
-		case "starting_shield":
-			buffs.StartingShield += effect.Amount
-		case "overload_bonus":
-			buffs.OverloadBonus += effect.Amount
-		case "distortion_gain":
-			buffs.DistortionGain += effect.Amount
-		case "route_heal":
-			buffs.RouteHeal += effect.Amount
-		case "reflect_damage":
-			buffs.ReflectDamage += effect.Amount
-		}
-	}
-}
-
-func chooseReward(state *State, slug string, catalog *gamecontent.Catalog, events *[]Event) error {
-	if state.Phase != RewardPhase || state.Reward == nil {
-		return ErrInvalidCommand
-	}
-	if slug != "" {
-		if !slices.Contains(state.Reward.ModuleChoices, slug) {
-			return ErrInvalidCommand
-		}
-		if err := addOrUpgradeModule(state, slug, catalog, events); err != nil {
-			return err
-		}
-	}
-	state.Reward = nil
-	completeCurrentNode(state)
-	state.Phase = MapPhase
-	return nil
-}
-func addOrUpgradeModule(state *State, slug string, catalog *gamecontent.Catalog, events *[]Event) error {
-	module, ok := catalog.Module(slug)
-	if !ok {
-		return ErrInvalidCommand
-	}
-	for index := range state.Modules {
-		if state.Modules[index].Slug == slug {
-			if state.Modules[index].Level >= 3 {
-				return ErrInvalidCommand
-			}
-			state.Modules[index].Level++
-			if err := applyEffects(state, module.Effects, catalog, events); err != nil {
-				return err
-			}
-			*events = append(*events, Event{Kind: "module_upgraded", ModuleSlug: slug})
-			return nil
-		}
-	}
-	if len(state.Modules) >= 6 {
-		return ErrInvalidCommand
-	}
-	state.Modules = append(state.Modules, ModuleLevel{Slug: slug, Level: 1})
-	if err := applyEffects(state, module.Effects, catalog, events); err != nil {
-		return err
-	}
-	*events = append(*events, Event{Kind: "module_rewarded", ModuleSlug: slug})
-	return nil
-}
-
-func resolveEvent(state *State, choiceSlug string, catalog *gamecontent.Catalog, events *[]Event) error {
-	if state.Phase != EventPhase || state.CurrentEventSlug == "" {
-		return ErrInvalidCommand
-	}
-	definition, ok := catalog.Event(state.CurrentEventSlug)
-	if !ok {
-		return ErrInvalidCommand
-	}
-	index := slices.IndexFunc(definition.Options, func(option gamecontent.EventOption) bool { return option.Slug == choiceSlug })
-	if index < 0 {
-		return ErrInvalidCommand
-	}
-	option := definition.Options[index]
-	if err := applyEffects(state, option.Effects, catalog, events); err != nil {
-		return err
-	}
-	if option.ChoiceTag != "" && !slices.Contains(state.ChoiceTags, option.ChoiceTag) {
-		state.ChoiceTags = append(state.ChoiceTags, option.ChoiceTag)
-		*events = append(*events, Event{Kind: "story_tag", ChoiceTag: option.ChoiceTag})
-	}
-	state.CurrentEventSlug = ""
-	completeCurrentNode(state)
-	state.Phase = MapPhase
-	return nil
-}
-
-func rest(state *State, operation, moduleSlug string, catalog *gamecontent.Catalog, events *[]Event) error {
-	if state.Phase != RestPhase {
-		return ErrInvalidCommand
-	}
-	switch operation {
-	case "repair":
-		healRun(state, max(1, state.MaxHealth*30/100), events)
-	case "tune":
-		index := slices.IndexFunc(state.Modules, func(item ModuleLevel) bool { return item.Slug == moduleSlug })
-		if index < 0 || state.Modules[index].Level >= 3 {
-			return ErrInvalidCommand
-		}
-		module, _ := catalog.Module(moduleSlug)
-		state.Modules[index].Level++
-		if err := applyEffects(state, module.Effects, catalog, events); err != nil {
-			return err
-		}
-		*events = append(*events, Event{Kind: "module_upgraded", ModuleSlug: moduleSlug})
-	default:
-		return ErrInvalidCommand
-	}
-	completeCurrentNode(state)
-	state.Phase = MapPhase
-	return nil
-}
-
-func applyEffects(state *State, effects []gamecontent.Effect, catalog *gamecontent.Catalog, events *[]Event) error {
-	for _, effect := range effects {
-		switch effect.Kind {
-		case "heal_run":
-			healRun(state, effect.Amount, events)
-		case "damage_run":
-			state.Health = max(1, state.Health-effect.Amount)
-			*events = append(*events, Event{Kind: "run_health_changed", Amount: -effect.Amount})
-		case "add_module":
-			if catalog == nil {
-				return ErrInvalidCommand
-			}
-			if err := addOrUpgradeModule(state, effect.Status, catalog, events); err != nil {
-				return err
-			}
-		case "add_plugin":
-			if catalog == nil || slices.Contains(state.Plugins, effect.Status) {
-				return ErrInvalidCommand
-			}
-			plugin, ok := catalog.Plugin(effect.Status)
-			if !ok {
-				return ErrInvalidCommand
-			}
-			state.Plugins = append(state.Plugins, effect.Status)
-			if err := applyEffects(state, plugin.Effects, catalog, events); err != nil {
-				return err
-			}
-			*events = append(*events, Event{Kind: "plugin_granted", PluginSlug: effect.Status})
-		case "max_health":
-			state.MaxHealth += effect.Amount
-			state.Health += effect.Amount
-			*events = append(*events, Event{Kind: "run_health_changed", Amount: effect.Amount})
-		default: /* encounter-only effects are accumulated when an encounter starts */
-		}
-	}
-	return nil
-}
-
-func rewardChoices(state *State, catalog *gamecontent.Catalog, tutorial bool) []string {
-	if tutorial {
-		return []string{"route-needle", "near-miss-cache", "soft-firewall"}
-	}
-	pool := catalog.RewardModules(state.CharacterSlug)
-	available := make([]gamecontent.Module, 0, len(pool))
-	for _, item := range pool {
-		level := 0
-		for _, owned := range state.Modules {
-			if owned.Slug == item.Slug {
-				level = owned.Level
-			}
-		}
-		if level < 3 && (level > 0 || len(state.Modules) < 6) {
-			available = append(available, item)
-		}
-	}
-	stream := randomStream{seed: state.ChapterSlug + ":modules", cursor: state.RNGCursor}
-	choices := make([]string, 0, 3)
-	for len(choices) < 3 && len(available) > 0 {
-		index := stream.Intn(len(available))
-		choices = append(choices, available[index].Slug)
-		available = append(available[:index], available[index+1:]...)
-	}
-	state.RNGCursor = stream.cursor
-	return choices
-}
-func grantPlugin(state *State, catalog *gamecontent.Catalog) string {
-	available := make([]string, 0)
-	for _, item := range catalog.Plugins {
-		if !slices.Contains(state.Plugins, item.Slug) {
-			available = append(available, item.Slug)
-		}
-	}
-	if len(available) == 0 {
-		return ""
-	}
-	stream := randomStream{seed: state.ChapterSlug + ":plugins", cursor: state.RNGCursor}
-	slug := available[stream.Intn(len(available))]
-	state.RNGCursor = stream.cursor
-	state.Plugins = append(state.Plugins, slug)
-	return slug
-}
-func mustPlugin(catalog *gamecontent.Catalog, slug string) gamecontent.Plugin {
-	item, _ := catalog.Plugin(slug)
-	return item
-}
-func healRun(state *State, amount int, events *[]Event) {
-	healed := min(amount, state.MaxHealth-state.Health)
-	state.Health += healed
-	if healed > 0 {
-		*events = append(*events, Event{Kind: "run_health_changed", Amount: healed})
-	}
-}
-func normalizeCollections(state *State) {
-	if state.Modules == nil {
-		state.Modules = []ModuleLevel{}
-	}
-	if state.Plugins == nil {
-		state.Plugins = []string{}
-	}
-	if state.ChoiceTags == nil {
-		state.ChoiceTags = []string{}
-	}
-	if state.Map.Nodes == nil {
-		state.Map.Nodes = []MapNode{}
-	}
-	for index := range state.Map.Nodes {
-		if state.Map.Nodes[index].Next == nil {
-			state.Map.Nodes[index].Next = []string{}
-		}
-	}
-}
-func cloneState(current State) State {
-	next := current
-	next.Modules = slices.Clone(current.Modules)
-	next.Plugins = slices.Clone(current.Plugins)
-	next.ChoiceTags = slices.Clone(current.ChoiceTags)
-	next.Map.Nodes = slices.Clone(current.Map.Nodes)
-	for index := range next.Map.Nodes {
-		next.Map.Nodes[index].Next = slices.Clone(current.Map.Nodes[index].Next)
-	}
-	if current.Encounter != nil {
-		value := *current.Encounter
-		next.Encounter = &value
-	}
-	if current.Reward != nil {
-		value := *current.Reward
-		value.ModuleChoices = slices.Clone(current.Reward.ModuleChoices)
-		next.Reward = &value
-	}
-	return next
 }

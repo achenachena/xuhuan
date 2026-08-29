@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
+	"github.com/achenachena/xuhuan/apps/api/internal/progression"
 	baseRepository "github.com/achenachena/xuhuan/apps/api/internal/repository"
 	gameRun "github.com/achenachena/xuhuan/apps/api/internal/run"
 	"github.com/jackc/pgx/v5"
@@ -50,17 +52,20 @@ func (repository *RunRepository) Create(ctx context.Context, input gameRun.Creat
 		}
 		created = gameRun.GameRun{
 			PlayerID: input.PlayerID, ContentVersion: input.ContentVersion, Seed: input.Seed,
-			State: input.State, Status: gameRun.Active, Version: 1,
+			State: input.State, Status: gameRun.Active, Version: 1, Mode: input.Mode, DailyDate: input.DailyDate,
+		}
+		if created.Mode == "" {
+			created.Mode = gameRun.CampaignMode
 		}
 		err = tx.QueryRow(ctx, `
 			INSERT INTO runs (
 				player_id, content_version, chapter_slug, character_slug, noise_level,
-				seed, state, start_idempotency_key, start_request_hash
-			) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
+				seed, state, start_idempotency_key, start_request_hash,run_mode,daily_date
+			) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9,$10,$11::date)
 			ON CONFLICT (player_id, start_idempotency_key) DO NOTHING
 			RETURNING id::text, created_at, updated_at`,
 			input.PlayerID, input.ContentVersion, input.State.ChapterSlug, input.State.CharacterSlug,
-			input.State.NoiseLevel, input.Seed, stateJSON, input.IdempotencyKey, input.RequestHash[:],
+			input.State.NoiseLevel, input.Seed, stateJSON, input.IdempotencyKey, input.RequestHash[:], created.Mode, input.DailyDate,
 		).Scan(&created.ID, &created.CreatedAt, &created.UpdatedAt)
 		if errors.Is(err, pgx.ErrNoRows) {
 			var concurrentHash []byte
@@ -82,7 +87,7 @@ func (repository *RunRepository) Create(ctx context.Context, input gameRun.Creat
 			replayed = true
 			return nil
 		}
-		if isUniqueViolation(err, "runs_one_active_player_idx") {
+		if isUniqueViolation(err, "runs_one_active_mode_idx") {
 			return gameRun.ErrActiveRunExists
 		}
 		return err
@@ -99,9 +104,9 @@ func (repository *RunRepository) Get(ctx context.Context, playerID, runID string
 	return result, err
 }
 
-func (repository *RunRepository) GetActive(ctx context.Context, playerID string) (*gameRun.GameRun, error) {
+func (repository *RunRepository) GetActive(ctx context.Context, playerID string, mode gameRun.Mode) (*gameRun.GameRun, error) {
 	result, err := scanRun(repository.database.pool.QueryRow(ctx, runSelectSQL+`
-		WHERE r.player_id = $1::uuid AND r.status = 'active'`, playerID))
+		WHERE r.player_id = $1::uuid AND r.status = 'active' AND r.run_mode=$2`, playerID, mode))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -207,14 +212,22 @@ func (repository *RunRepository) Apply(ctx context.Context, input gameRun.ApplyI
 
 func updateProgressFromRunEvents(ctx context.Context, tx pgx.Tx, current gameRun.GameRun, events []gameRun.Event) error {
 	flags := make(map[string]bool)
-	chapterCleared := false
+	var cleared *gameRun.Event
+	trust, authenticity, retention := 0, 0, 0
 	for _, event := range events {
+		if event.Kind == "story_scene_ready" && event.SceneSlug != "" {
+			flags["scene:"+event.SceneSlug+":pending"] = true
+		}
 		if event.ChoiceTag != "" {
 			flags[event.ChoiceTag] = true
 		}
 		if event.Kind == "chapter_cleared" {
-			chapterCleared = true
-			flags["chapter-one-cleared"] = true
+			copy := event
+			cleared = &copy
+			flags["chapter:"+event.ChapterSlug+":cleared"] = true
+			if event.ChapterSlug == "zero-channel" {
+				flags["finale-cleared"] = true
+			}
 		}
 		if event.Kind == "emergency_reconnect_used" {
 			flags["emergency-reconnect-used"] = true
@@ -222,8 +235,47 @@ func updateProgressFromRunEvents(ctx context.Context, tx pgx.Tx, current gameRun
 		if event.Kind == "tutorial_completed" {
 			flags["action-tutorial-completed"] = true
 		}
+		trust += event.Trust
+		authenticity += event.Authenticity
+		retention += event.Retention
 	}
-	if len(flags) == 0 && !chapterCleared {
+	// Daily runs are deliberately isolated from the campaign projection. They
+	// may reuse a chapter and emit the same chapter_cleared event, but must never
+	// unlock chapters, consume the one-time reconnect, or change story metrics.
+	if current.Mode == gameRun.DailyMode {
+		if cleared == nil {
+			return nil
+		}
+		buildJSON, err := json.Marshal(map[string]any{"modules": current.State.Modules, "plugins": current.State.Plugins})
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO daily_results(player_id,daily_date,run_id,character_slug,score,build,streak,completed_at)
+			VALUES(
+				$1::uuid,$2::date,$3::uuid,$4,$5,$6,
+				COALESCE((SELECT previous.streak+1 FROM daily_results previous WHERE previous.player_id=$1::uuid AND previous.daily_date=$2::date-1),1),
+				now()
+			)
+			ON CONFLICT(player_id,daily_date) DO UPDATE SET
+				run_id=CASE WHEN EXCLUDED.score>daily_results.score THEN EXCLUDED.run_id ELSE daily_results.run_id END,
+				character_slug=CASE WHEN EXCLUDED.score>daily_results.score THEN EXCLUDED.character_slug ELSE daily_results.character_slug END,
+				score=GREATEST(daily_results.score,EXCLUDED.score),
+				build=CASE WHEN EXCLUDED.score>daily_results.score THEN EXCLUDED.build ELSE daily_results.build END,
+				completed_at=CASE WHEN EXCLUDED.score>daily_results.score THEN EXCLUDED.completed_at ELSE daily_results.completed_at END`,
+			current.PlayerID, current.DailyDate, current.ID, current.State.CharacterSlug, current.State.Score, buildJSON)
+		return err
+	}
+	nextChapter := ""
+	clearedChapter := ""
+	if cleared != nil {
+		clearedChapter = cleared.ChapterSlug
+		nextChapter = cleared.NextChapterSlug
+		if cleared.NextChapterSlug == "zero-channel" {
+			flags["finale-unlocked"] = true
+		}
+	}
+	if len(flags) == 0 && cleared == nil && trust == 0 && authenticity == 0 && retention == 0 {
 		return nil
 	}
 	flagsJSON, err := json.Marshal(flags)
@@ -231,14 +283,37 @@ func updateProgressFromRunEvents(ctx context.Context, tx pgx.Tx, current gameRun
 		return err
 	}
 	_, err = tx.Exec(ctx, `
-		UPDATE player_progress SET
+		UPDATE player_campaign_progress SET
 			story_flags = story_flags || $2::jsonb,
-			highest_noise_level = CASE WHEN $3
-				THEN GREATEST(highest_noise_level, LEAST(3, $4 + 1))
-				ELSE highest_noise_level END,
+			trust=trust+$3,authenticity=authenticity+$4,retention=retention+$5,
+			current_chapter_slug=CASE
+				WHEN $6<>'' AND current_chapter_slug=$7 THEN $6
+				ELSE current_chapter_slug
+			END,
 			version = version + 1,
 			updated_at = now()
-		WHERE player_id = $1::uuid`, current.PlayerID, flagsJSON, chapterCleared, current.State.NoiseLevel)
+		WHERE player_id = $1::uuid`, current.PlayerID, flagsJSON, trust, authenticity, retention, nextChapter, clearedChapter)
+	if err != nil {
+		return err
+	}
+	if cleared == nil {
+		return nil
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO player_chapter_progress(player_id,chapter_slug,highest_noise_level,clears,best_score) VALUES($1::uuid,$2,LEAST(3,$3+1),1,$4) ON CONFLICT(player_id,chapter_slug) DO UPDATE SET highest_noise_level=GREATEST(player_chapter_progress.highest_noise_level,EXCLUDED.highest_noise_level),clears=player_chapter_progress.clears+1,best_score=GREATEST(player_chapter_progress.best_score,EXCLUDED.best_score),updated_at=now()`, current.PlayerID, cleared.ChapterSlug, current.State.NoiseLevel, current.State.Score); err != nil {
+		return err
+	}
+	if cleared.NextCharacterSlug != "" {
+		catalog, loadErr := gamecontent.Load(current.ContentVersion)
+		if loadErr != nil {
+			return loadErr
+		}
+		if err = grantUnlocks(ctx, tx, current.PlayerID, progression.ChapterClearUnlocks(catalog, cleared.NextCharacterSlug)); err != nil {
+			return err
+		}
+	}
+	if cleared.NextChapterSlug != "" {
+		_, err = tx.Exec(ctx, `INSERT INTO player_chapter_progress(player_id,chapter_slug) VALUES($1::uuid,$2) ON CONFLICT DO NOTHING`, current.PlayerID, cleared.NextChapterSlug)
+	}
 	return err
 }
 
@@ -247,7 +322,7 @@ func scanRun(row rowScanner) (gameRun.GameRun, error) {
 	var stateJSON []byte
 	var outcome *string
 	values := []any{
-		&result.ID, &result.PlayerID, &result.ContentVersion, &result.Seed, &stateJSON,
+		&result.ID, &result.PlayerID, &result.ContentVersion, &result.Seed, &stateJSON, &result.Mode, &result.DailyDate,
 		&result.Status, &outcome, &result.Version, &result.CreatedAt, &result.UpdatedAt, &result.CompletedAt,
 	}
 	if err := row.Scan(values...); err != nil {
@@ -264,13 +339,68 @@ func scanRun(row rowScanner) (gameRun.GameRun, error) {
 }
 
 const runSelectSQL = `SELECT
-	r.id::text, r.player_id::text, r.content_version, r.seed, r.state,
+	r.id::text, r.player_id::text, r.content_version, r.seed, r.state,r.run_mode,r.daily_date::text,
 	r.status, r.outcome, r.version, r.created_at, r.updated_at, r.completed_at
 	FROM runs r `
 
 func isUniqueViolation(err error, constraint string) bool {
 	var pgError *pgconn.PgError
 	return errors.As(err, &pgError) && pgError.Code == "23505" && pgError.ConstraintName == constraint
+}
+
+func (repository *RunRepository) GetDailyResult(ctx context.Context, playerID, date string) (*gameRun.DailyResult, error) {
+	result, err := scanDailyResult(repository.database.pool.QueryRow(ctx, `
+		SELECT daily_date::text,character_slug,score,build,streak,completed_at
+		FROM daily_results WHERE player_id=$1::uuid AND daily_date=$2::date`, playerID, date))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func scanDailyResult(row rowScanner) (gameRun.DailyResult, error) {
+	var result gameRun.DailyResult
+	var buildJSON []byte
+	if err := row.Scan(&result.Date, &result.CharacterSlug, &result.Score, &buildJSON, &result.Streak, &result.CompletedAt); err != nil {
+		return gameRun.DailyResult{}, err
+	}
+	var build struct {
+		Modules []gameRun.ModuleLevel `json:"modules"`
+		Plugins []string              `json:"plugins"`
+	}
+	if err := json.Unmarshal(buildJSON, &build); err != nil {
+		return gameRun.DailyResult{}, err
+	}
+	result.Modules, result.Plugins = build.Modules, build.Plugins
+	if result.Modules == nil {
+		result.Modules = []gameRun.ModuleLevel{}
+	}
+	if result.Plugins == nil {
+		result.Plugins = []string{}
+	}
+	return result, nil
+}
+
+func (repository *RunRepository) GetPublicDailyResult(ctx context.Context, runID string) (gameRun.DailyResult, error) {
+	result, err := scanDailyResult(repository.database.pool.QueryRow(ctx, `
+		SELECT best.daily_date::text,best.character_slug,best.score,best.build,best.streak,best.completed_at
+		FROM runs requested
+		JOIN daily_results best
+			ON best.player_id=requested.player_id AND best.daily_date=requested.daily_date
+		WHERE requested.id=$1::uuid
+			AND requested.run_mode='daily'
+			AND requested.status='completed'
+			AND requested.outcome='cleared'`, runID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return gameRun.DailyResult{}, baseRepository.ErrNotFound
+	}
+	if err != nil {
+		return gameRun.DailyResult{}, err
+	}
+	return result, nil
 }
 
 var _ gameRun.Repository = (*RunRepository)(nil)

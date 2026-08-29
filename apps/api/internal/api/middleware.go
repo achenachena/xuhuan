@@ -101,7 +101,7 @@ func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Idempotency-Key,X-Request-ID,X-Telegram-Init-Data,X-Dev-Auth")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Idempotency-Key,X-Request-ID,X-Telegram-Init-Data")
 			w.Header().Set("Access-Control-Expose-Headers", "X-Request-ID,Idempotency-Replayed")
 			w.Header().Set("Access-Control-Max-Age", "600")
 			if r.Method == http.MethodOptions {

@@ -74,12 +74,7 @@ func TestPlayerRateLimitRunsAfterAuthentication(t *testing.T) {
 	t.Parallel()
 	limiter := &countingLimiter{counts: make(map[string]int64)}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	authenticator, err := auth.NewAuthenticator(nil, auth.DevelopmentConfig{
-		Enabled: true, Environment: "development", Token: "0123456789abcdef", TelegramID: 123,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	authenticator := auth.NewAuthenticator(nil, true)
 	handler := requireAuthentication(authenticator, logger, nil)(
 		playerRateLimitMiddleware(RateLimitConfig{
 			Limiter: limiter, PlayerPolicy: ratelimit.Policy{Limit: 1, Window: time.Minute},
@@ -90,7 +85,6 @@ func TestPlayerRateLimitRunsAfterAuthentication(t *testing.T) {
 
 	for requestNumber := range 2 {
 		request := httptest.NewRequest(http.MethodGet, "/v2/game", nil)
-		request.Header.Set(auth.DevelopmentHeader, "0123456789abcdef")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		want := http.StatusNoContent

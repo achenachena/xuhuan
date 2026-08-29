@@ -18,18 +18,16 @@ import (
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/observability"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/ratelimit"
 	"github.com/achenachena/xuhuan/apps/api/internal/postgres"
-	"github.com/achenachena/xuhuan/apps/api/migrations"
 )
 
 // Runtime owns the long-lived dependencies shared by the local HTTP server and
 // warm Lambda invocations.
 type Runtime struct {
-	Handler              http.Handler
-	Logger               *slog.Logger
-	database             *postgres.Database
-	migrationDatabaseURL string
-	telemetry            *observability.Telemetry
-	redis                *ratelimit.RedisLimiter
+	Handler   http.Handler
+	Logger    *slog.Logger
+	database  *postgres.Database
+	telemetry *observability.Telemetry
+	redis     *ratelimit.RedisLimiter
 }
 
 func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, error) {
@@ -69,9 +67,6 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 		database:  database,
 		telemetry: telemetry,
 	}
-	if cfg.DatabaseMigrationURL != cfg.DatabaseURL {
-		runtime.migrationDatabaseURL = cfg.DatabaseMigrationURL
-	}
 	cleanup := func(cause error) (*Runtime, error) {
 		closeContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -85,19 +80,9 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 			return cleanup(fmt.Errorf("configure Telegram authentication: %w", err))
 		}
 	}
-	authenticator, err := auth.NewAuthenticator(telegramVerifier, auth.DevelopmentConfig{
-		Enabled:      cfg.DevAuthEnabled,
-		Environment:  string(cfg.Environment),
-		Token:        cfg.DevAuthToken,
-		TelegramID:   cfg.DevTelegramUserID,
-		Username:     cfg.DevUsername,
-		FirstName:    cfg.DevFirstName,
-		LastName:     cfg.DevLastName,
-		LanguageCode: cfg.DevLanguageCode,
-	})
-	if err != nil {
-		return cleanup(fmt.Errorf("configure authentication: %w", err))
-	}
+	// Local development uses one fixed synthetic identity without credentials.
+	// Every other environment requires Telegram Mini App initData.
+	authenticator := auth.NewAuthenticator(telegramVerifier, cfg.Environment == config.Development)
 
 	players := postgres.NewPlayerRepository(database)
 	contentCatalog, err := gamecontent.Load(gamecontent.CurrentVersion)
@@ -106,7 +91,7 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 	}
 	gameService := game.NewService(
 		players,
-		postgres.NewProgressionRepository(database),
+		postgres.NewProgressionRepository(database, contentCatalog),
 		postgres.NewRunRepository(database),
 		contentCatalog,
 	)
@@ -140,22 +125,6 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 		Game:           gameService,
 	})
 	return runtime, nil
-}
-
-func (runtime *Runtime) Migrate(ctx context.Context) error {
-	database := runtime.database
-	if runtime.migrationDatabaseURL != "" {
-		directDatabase, err := postgres.Open(ctx, runtime.migrationDatabaseURL)
-		if err != nil {
-			return fmt.Errorf("connect to migration PostgreSQL endpoint: %w", err)
-		}
-		defer directDatabase.Close()
-		database = directDatabase
-	}
-	if err := database.Migrate(ctx, migrations.Files); err != nil {
-		return fmt.Errorf("migrate database: %w", err)
-	}
-	return nil
 }
 
 func (runtime *Runtime) Check(ctx context.Context) error {

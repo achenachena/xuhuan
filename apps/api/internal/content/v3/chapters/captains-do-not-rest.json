@@ -1,0 +1,716 @@
+{
+  "chapter": {
+    "slug": "captains-do-not-rest",
+    "order": 4,
+    "title_key": "chapter.captains-do-not-rest.title",
+    "subtitle_key": "chapter.captains-do-not-rest.subtitle",
+    "character_slug": "bella",
+    "finale": false,
+    "next_chapter_slug": "localization-failed",
+    "boss_encounter_slug": "perfect-captain",
+    "encounter_pool": [
+      "overtime-deck",
+      "formation-drill",
+      "break-room-denied",
+      "cadence-breach"
+    ],
+    "elite_pool": [
+      "duty-inspection"
+    ],
+    "event_pool": [
+      "unsigned-leave-form",
+      "cold-tea",
+      "empty-captains-chair",
+      "automatic-roll-call"
+    ],
+    "midpoint_event_slug": "unsigned-leave-form",
+    "background_url": "/game/v3/backgrounds/captains-do-not-rest.webp",
+    "kit_slug": "bella-cadence",
+    "prelude_scene_slug": "bella-prelude",
+    "midpoint_scene_slug": "bella-midpoint",
+    "epilogue_scene_slug": "bella-epilogue",
+    "available": true,
+    "noise_rules": [
+      {
+        "level": 1,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "level": 2,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "level": 3,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  },
+  "enemies": [
+    {
+      "slug": "schedule-clerk",
+      "chapter_slug": "captains-do-not-rest",
+      "name_key": "enemy.schedule-clerk.name",
+      "description_key": "enemy.schedule-clerk.description",
+      "kind": "normal",
+      "max_health": 52,
+      "speed": 11,
+      "contact_damage": 6,
+      "color_theme": "#ef476f",
+      "image_url": "/game/v3/enemies/interceptor.webp",
+      "movement": {
+        "kind": "strafe",
+        "amount": 11
+      },
+      "attacks": [
+        {
+          "kind": "fan",
+          "interval": 68,
+          "projectile_speed": 23,
+          "damage": 5,
+          "count": 5,
+          "spread": 48,
+          "telegraph_ticks": 20
+        }
+      ],
+      "traits": []
+    },
+    {
+      "slug": "formation-drone",
+      "chapter_slug": "captains-do-not-rest",
+      "name_key": "enemy.formation-drone.name",
+      "description_key": "enemy.formation-drone.description",
+      "kind": "normal",
+      "max_health": 58,
+      "speed": 12,
+      "contact_damage": 6,
+      "color_theme": "#fb7185",
+      "image_url": "/game/v3/enemies/orbit-watcher.webp",
+      "movement": {
+        "kind": "orbit",
+        "amount": 12
+      },
+      "attacks": [
+        {
+          "kind": "aimed",
+          "interval": 58,
+          "projectile_speed": 25,
+          "damage": 5,
+          "count": 2,
+          "spread": 14,
+          "telegraph_ticks": 18
+        }
+      ],
+      "traits": [
+        {
+          "kind": "linked_shield",
+          "amount": 2,
+          "value": "schedule-clerk"
+        }
+      ]
+    },
+    {
+      "slug": "fatigue-deleter",
+      "chapter_slug": "captains-do-not-rest",
+      "name_key": "enemy.fatigue-deleter.name",
+      "description_key": "enemy.fatigue-deleter.description",
+      "kind": "normal",
+      "max_health": 70,
+      "speed": 9,
+      "contact_damage": 8,
+      "color_theme": "#e11d48",
+      "image_url": "/game/v3/enemies/ram-drone.webp",
+      "movement": {
+        "kind": "charge",
+        "amount": 17
+      },
+      "attacks": [
+        {
+          "kind": "beam",
+          "interval": 116,
+          "projectile_speed": 0,
+          "damage": 9,
+          "count": 1,
+          "telegraph_ticks": 46
+        }
+      ],
+      "traits": [
+        {
+          "kind": "armored",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "slug": "duty-supervisor",
+      "chapter_slug": "captains-do-not-rest",
+      "name_key": "enemy.duty-supervisor.name",
+      "description_key": "enemy.duty-supervisor.description",
+      "kind": "elite",
+      "max_health": 255,
+      "speed": 11,
+      "contact_damage": 10,
+      "color_theme": "#be123c",
+      "image_url": "/game/v3/enemies/orbit-watcher.webp",
+      "movement": {
+        "kind": "orbit",
+        "amount": 11
+      },
+      "attacks": [
+        {
+          "kind": "ring",
+          "interval": 54,
+          "projectile_speed": 22,
+          "damage": 6,
+          "count": 12,
+          "spread": 360,
+          "telegraph_ticks": 24
+        },
+        {
+          "kind": "beam",
+          "interval": 140,
+          "projectile_speed": 0,
+          "damage": 11,
+          "count": 2,
+          "spread": 40,
+          "telegraph_ticks": 50
+        }
+      ],
+      "traits": [
+        {
+          "kind": "linked_shield",
+          "amount": 3,
+          "value": "formation-drone"
+        },
+        {
+          "kind": "armored",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "slug": "perfect-captain",
+      "chapter_slug": "captains-do-not-rest",
+      "name_key": "enemy.perfect-captain.name",
+      "description_key": "enemy.perfect-captain.description",
+      "kind": "boss",
+      "max_health": 1020,
+      "speed": 10,
+      "contact_damage": 13,
+      "color_theme": "#f43f5e",
+      "image_url": "/game/v3/bosses/perfect-captain.webp",
+      "movement": {
+        "kind": "charge",
+        "amount": 18
+      },
+      "attacks": [
+        {
+          "kind": "fan",
+          "interval": 36,
+          "projectile_speed": 28,
+          "damage": 7,
+          "count": 7,
+          "spread": 66,
+          "telegraph_ticks": 18
+        },
+        {
+          "kind": "beam",
+          "interval": 112,
+          "projectile_speed": 0,
+          "damage": 12,
+          "count": 3,
+          "spread": 48,
+          "telegraph_ticks": 50
+        },
+        {
+          "kind": "ring",
+          "interval": 84,
+          "projectile_speed": 22,
+          "damage": 7,
+          "count": 14,
+          "spread": 360,
+          "telegraph_ticks": 28
+        }
+      ],
+      "traits": [
+        {
+          "kind": "armored",
+          "amount": 5
+        },
+        {
+          "kind": "linked_shield",
+          "amount": 4,
+          "value": "formation-drone"
+        }
+      ]
+    }
+  ],
+  "encounters": [
+    {
+      "slug": "overtime-deck",
+      "chapter_slug": "captains-do-not-rest",
+      "kind": "normal",
+      "objective": {
+        "kind": "purge",
+        "target": 12
+      },
+      "duration_ticks": 1020,
+      "max_ticks": 1500,
+      "spawn_interval": 126,
+      "max_alive": 8,
+      "enemy_slugs": [
+        "schedule-clerk",
+        "formation-drone"
+      ],
+      "hazards": [],
+      "reward_bias": "surge",
+      "risk": 1
+    },
+    {
+      "slug": "formation-drill",
+      "chapter_slug": "captains-do-not-rest",
+      "kind": "normal",
+      "objective": {
+        "kind": "stabilize",
+        "target": 3
+      },
+      "duration_ticks": 1080,
+      "max_ticks": 1620,
+      "spawn_interval": 138,
+      "max_alive": 8,
+      "enemy_slugs": [
+        "formation-drone",
+        "schedule-clerk"
+      ],
+      "hazards": [
+        "crossfire"
+      ],
+      "reward_bias": "echo",
+      "risk": 2
+    },
+    {
+      "slug": "break-room-denied",
+      "chapter_slug": "captains-do-not-rest",
+      "kind": "normal",
+      "objective": {
+        "kind": "recover",
+        "target": 4
+      },
+      "duration_ticks": 1080,
+      "max_ticks": 1650,
+      "spawn_interval": 136,
+      "max_alive": 8,
+      "enemy_slugs": [
+        "fatigue-deleter",
+        "schedule-clerk"
+      ],
+      "hazards": [
+        "signal_decay"
+      ],
+      "reward_bias": "guard",
+      "risk": 2
+    },
+    {
+      "slug": "cadence-breach",
+      "chapter_slug": "captains-do-not-rest",
+      "kind": "normal",
+      "objective": {
+        "kind": "holdout",
+        "target": 900
+      },
+      "duration_ticks": 900,
+      "max_ticks": 1200,
+      "spawn_interval": 115,
+      "max_alive": 10,
+      "enemy_slugs": [
+        "schedule-clerk",
+        "formation-drone",
+        "fatigue-deleter"
+      ],
+      "hazards": [
+        "narrow_arena"
+      ],
+      "reward_bias": "glitch",
+      "risk": 3
+    },
+    {
+      "slug": "duty-inspection",
+      "chapter_slug": "captains-do-not-rest",
+      "kind": "elite",
+      "objective": {
+        "kind": "elite",
+        "target": 1
+      },
+      "duration_ticks": 1300,
+      "max_ticks": 1800,
+      "spawn_interval": 186,
+      "max_alive": 7,
+      "enemy_slugs": [
+        "duty-supervisor",
+        "formation-drone",
+        "fatigue-deleter"
+      ],
+      "hazards": [
+        "crossfire"
+      ],
+      "reward_bias": "guard",
+      "risk": 3
+    },
+    {
+      "slug": "perfect-captain",
+      "chapter_slug": "captains-do-not-rest",
+      "kind": "boss",
+      "objective": {
+        "kind": "boss",
+        "target": 1
+      },
+      "duration_ticks": 2200,
+      "max_ticks": 2700,
+      "spawn_interval": 300,
+      "max_alive": 6,
+      "enemy_slugs": [
+        "perfect-captain"
+      ],
+      "hazards": [
+        "narrow_arena",
+        "distortion_rain"
+      ],
+      "reward_bias": "balanced",
+      "risk": 3
+    }
+  ],
+  "events": [
+    {
+      "slug": "unsigned-leave-form",
+      "chapter_slug": "captains-do-not-rest",
+      "title_key": "event.unsigned-leave-form.title",
+      "body_key": "event.unsigned-leave-form.body",
+      "options": [
+        {
+          "slug": "sign",
+          "label_key": "event.unsigned-leave-form.sign.label",
+          "result_key": "event.unsigned-leave-form.sign.result",
+          "effects": [
+            {
+              "kind": "add_module",
+              "value": "rest-request"
+            }
+          ],
+          "choice_tag": "bella-approved-rest",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "file",
+          "label_key": "event.unsigned-leave-form.file.label",
+          "result_key": "event.unsigned-leave-form.file.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 14
+            }
+          ],
+          "choice_tag": "bella-filed-rest",
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    },
+    {
+      "slug": "cold-tea",
+      "chapter_slug": "captains-do-not-rest",
+      "title_key": "event.cold-tea.title",
+      "body_key": "event.cold-tea.body",
+      "options": [
+        {
+          "slug": "replace",
+          "label_key": "event.cold-tea.replace.label",
+          "result_key": "event.cold-tea.replace.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 16
+            }
+          ],
+          "metrics": {
+            "trust": 2,
+            "authenticity": 1,
+            "retention": 0
+          }
+        },
+        {
+          "slug": "reheat",
+          "label_key": "event.cold-tea.reheat.label",
+          "result_key": "event.cold-tea.reheat.result",
+          "effects": [
+            {
+              "kind": "add_module",
+              "value": "overtime-step"
+            }
+          ],
+          "metrics": {
+            "trust": 0,
+            "authenticity": 0,
+            "retention": 1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "empty-captains-chair",
+      "chapter_slug": "captains-do-not-rest",
+      "title_key": "event.empty-captains-chair.title",
+      "body_key": "event.empty-captains-chair.body",
+      "options": [
+        {
+          "slug": "sit",
+          "label_key": "event.empty-captains-chair.sit.label",
+          "result_key": "event.empty-captains-chair.sit.result",
+          "effects": [
+            {
+              "kind": "add_plugin",
+              "value": "captain-off-duty"
+            }
+          ],
+          "choice_tag": "bella-left-chair",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "guard",
+          "label_key": "event.empty-captains-chair.guard.label",
+          "result_key": "event.empty-captains-chair.guard.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 15
+            }
+          ],
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    },
+    {
+      "slug": "automatic-roll-call",
+      "chapter_slug": "captains-do-not-rest",
+      "title_key": "event.automatic-roll-call.title",
+      "body_key": "event.automatic-roll-call.body",
+      "options": [
+        {
+          "slug": "answer-tired",
+          "label_key": "event.automatic-roll-call.answer-tired.label",
+          "result_key": "event.automatic-roll-call.answer-tired.result",
+          "effects": [
+            {
+              "kind": "add_module",
+              "value": "human-metronome"
+            }
+          ],
+          "choice_tag": "bella-admitted-fatigue",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "answer-ready",
+          "label_key": "event.automatic-roll-call.answer-ready.label",
+          "result_key": "event.automatic-roll-call.answer-ready.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 13
+            }
+          ],
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "slug": "bella-prelude",
+      "chapter_slug": "captains-do-not-rest",
+      "title_key": "scene.bella-prelude.title",
+      "trigger": {
+        "kind": "chapter_prelude",
+        "chapter_slug": "captains-do-not-rest"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.bella-prelude.message.1"
+        },
+        {
+          "sender": "bella",
+          "kind": "character",
+          "text_key": "scene.bella-prelude.message.2"
+        },
+        {
+          "sender": "bella",
+          "kind": "character",
+          "text_key": "scene.bella-prelude.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "take-watch",
+          "label_key": "scene.bella-prelude.option.take-watch",
+          "tag": "bella-shared-watch",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 1,
+            "retention": 0
+          }
+        }
+      ]
+    },
+    {
+      "slug": "bella-midpoint",
+      "chapter_slug": "captains-do-not-rest",
+      "title_key": "scene.bella-midpoint.title",
+      "trigger": {
+        "kind": "chapter_midpoint",
+        "chapter_slug": "captains-do-not-rest"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.bella-midpoint.message.1"
+        },
+        {
+          "sender": "bella",
+          "kind": "character",
+          "text_key": "scene.bella-midpoint.message.2"
+        }
+      ],
+      "options": [
+        {
+          "slug": "stop-counting",
+          "label_key": "scene.bella-midpoint.option.stop-counting",
+          "tag": "bella-rest-is-duty",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "finish-shift",
+          "label_key": "scene.bella-midpoint.option.finish-shift",
+          "tag": "bella-duty-first",
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    },
+    {
+      "slug": "bella-boss-branch",
+      "chapter_slug": "captains-do-not-rest",
+      "title_key": "scene.bella-boss-branch.title",
+      "trigger": {
+        "kind": "chapter_midpoint",
+        "chapter_slug": "captains-do-not-rest"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.bella-boss-branch.message.1"
+        },
+        {
+          "sender": "bella",
+          "kind": "character",
+          "text_key": "scene.bella-boss-branch.message.2"
+        }
+      ],
+      "options": [
+        {
+          "slug": "break-rhythm",
+          "label_key": "scene.bella-boss-branch.option.break-rhythm",
+          "tag": "bella-broke-rhythm",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 2,
+            "retention": -1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "bella-epilogue",
+      "chapter_slug": "captains-do-not-rest",
+      "title_key": "scene.bella-epilogue.title",
+      "trigger": {
+        "kind": "chapter_cleared",
+        "chapter_slug": "captains-do-not-rest"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.bella-epilogue.message.1"
+        },
+        {
+          "sender": "bella",
+          "kind": "character",
+          "text_key": "scene.bella-epilogue.message.2"
+        },
+        {
+          "sender": "bella",
+          "kind": "character",
+          "text_key": "scene.bella-epilogue.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "end-shift",
+          "label_key": "scene.bella-epilogue.option.end-shift",
+          "tag": "bella-shift-ended",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 1,
+            "retention": 0
+          }
+        }
+      ]
+    }
+  ]
+}

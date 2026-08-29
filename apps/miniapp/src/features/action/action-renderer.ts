@@ -1,63 +1,143 @@
+import type {
+  ActionConfig,
+  ActionEnemySnapshot,
+  ActionProjectileSnapshot,
+  ActionSignalSnapshot,
+  ActionSnapshot,
+  ActionVec,
+  SignalType,
+} from "@/features/action/action-types";
 import {
   ACTION_HEIGHT,
   ACTION_TPS,
   ACTION_WIDTH,
-  type ActionConfig,
-  type ActionEnemySnapshot,
-  type ActionProjectileSnapshot,
-  type ActionSnapshot,
-} from "@/features/action/action-engine";
+} from "@/features/action/action-types";
+import type { APIGameContent, APIGameRun } from "@/lib/api/client";
 
-type Point = { readonly x: number; readonly y: number };
+type ImageMap = ReadonlyMap<string, HTMLImageElement>;
+
+export type ActionVisualSources = {
+  readonly background: string;
+  readonly player: string;
+  readonly enemies: Readonly<Record<string, string>>;
+  readonly signals: Readonly<Record<SignalType, string>>;
+};
 
 export type ActionVisuals = {
-  readonly background: HTMLImageElement;
-  readonly player: HTMLImageElement;
-  readonly normalEnemy: HTMLImageElement;
-  readonly commentSweeper: HTMLImageElement;
-  readonly bufferMine: HTMLImageElement;
-  readonly echoRelay: HTMLImageElement;
-  readonly eliteEnemy: HTMLImageElement;
-  readonly boss: HTMLImageElement;
-  readonly memoryFragment: HTMLImageElement;
+  readonly background: HTMLImageElement | null;
+  readonly player: HTMLImageElement | null;
+  readonly enemies: ImageMap;
+  readonly signals: ReadonlyMap<SignalType, HTMLImageElement>;
 };
 
-const visualSources = {
-  background: "/game/v2/seventh-dock.webp",
-  player: "/game/v2/nana-player.webp",
-  normalEnemy: "/game/v2/retention-drone.webp",
-  commentSweeper: "/game/v2/comment-sweeper.webp",
-  bufferMine: "/game/v2/buffer-mine.webp",
-  echoRelay: "/game/v2/echo-relay.webp",
-  eliteEnemy: "/game/v2/moderation-hound.webp",
-  boss: "/game/v2/optimal-nana.webp",
-  memoryFragment: "/game/v2/memory-fragment.webp",
-} as const;
+const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
+const MAX_CACHED_ACTION_IMAGES = 18;
 
-const eliteSlugs = new Set(["cache-hunter", "moderation-hound"]);
-const enemyVisualKeys: Record<string, keyof ActionVisuals> = {
-  "muted-comment": "commentSweeper",
-  "unassigned-ticket": "bufferMine",
-  "echo-relay": "echoRelay",
-  "cache-hunter": "echoRelay",
-  "moderation-hound": "eliteEnemy",
+const cacheImage = (
+  source: string,
+  image: Promise<HTMLImageElement | null>,
+): void => {
+  // A complete campaign touches every chapter, but a Telegram WebView should
+  // only retain the current encounter and a small warm set. The browser HTTP
+  // cache still makes an evicted image cheap to load again.
+  imageCache.delete(source);
+  imageCache.set(source, image);
+  while (imageCache.size > MAX_CACHED_ACTION_IMAGES) {
+    const oldest = imageCache.keys().next().value;
+    if (typeof oldest !== "string") break;
+    imageCache.delete(oldest);
+  }
 };
-let visualsPromise: Promise<ActionVisuals> | null = null;
 
-const loadImage = (source: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
+const loadImage = (source: string): Promise<HTMLImageElement | null> => {
+  const cached = imageCache.get(source);
+  if (cached) {
+    cacheImage(source, cached);
+    return cached;
+  }
+  const pending = new Promise<HTMLImageElement | null>((resolve) => {
     const image = new Image();
     image.decoding = "async";
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Unable to load action art: ${source}`));
+    image.onerror = () => {
+      imageCache.delete(source);
+      resolve(null);
+    };
     image.src = source;
   });
+  cacheImage(source, pending);
+  return pending;
+};
 
-export const preloadActionVisuals = (): Promise<ActionVisuals> => {
-  visualsPromise ??= Promise.all(
-    Object.entries(visualSources).map(async ([key, source]) => [key, await loadImage(source)] as const),
-  ).then((entries) => Object.fromEntries(entries) as ActionVisuals);
-  return visualsPromise;
+export const resolveActionVisualSources = (
+  content: APIGameContent,
+  run: APIGameRun,
+  config: ActionConfig,
+): ActionVisualSources => {
+  const chapter = content.chapters.find(
+    (candidate) => candidate.slug === run.state.chapter_slug,
+  );
+  const character = content.characters.find(
+    (candidate) => candidate.slug === run.state.character_slug,
+  );
+  return {
+    background:
+      chapter?.background_url ?? "/game/v3/backgrounds/seventh-dock.webp",
+    player: character?.model_url ?? "/game/v3/players/nana7mi.webp",
+    enemies: Object.fromEntries(
+      config.enemies.map((enemy) => [enemy.slug, enemy.imageUrl]),
+    ),
+    signals: {
+      surge: "/game/v3/pickups/surge.webp",
+      guard: "/game/v3/pickups/guard.webp",
+      echo: "/game/v3/pickups/echo.webp",
+    },
+  };
+};
+
+export const preloadActionVisuals = async (
+  sources: ActionVisualSources = {
+    background: "/game/v3/backgrounds/seventh-dock.webp",
+    player: "/game/v3/players/nana7mi.webp",
+    enemies: {},
+    signals: {
+      surge: "/game/v3/pickups/surge.webp",
+      guard: "/game/v3/pickups/guard.webp",
+      echo: "/game/v3/pickups/echo.webp",
+    },
+  },
+): Promise<ActionVisuals> => {
+  const [background, player, enemyEntries, signalEntries] = await Promise.all([
+    loadImage(sources.background),
+    loadImage(sources.player),
+    Promise.all(
+      Object.entries(sources.enemies).map(
+        async ([slug, source]) => [slug, await loadImage(source)] as const,
+      ),
+    ),
+    Promise.all(
+      Object.entries(sources.signals).map(
+        async ([kind, source]) =>
+          [kind as SignalType, await loadImage(source)] as const,
+      ),
+    ),
+  ]);
+  return {
+    background,
+    player,
+    enemies: new Map(
+      enemyEntries.filter(
+        (entry): entry is readonly [string, HTMLImageElement] =>
+          entry[1] !== null,
+      ),
+    ),
+    signals: new Map(
+      signalEntries.filter(
+        (entry): entry is readonly [SignalType, HTMLImageElement] =>
+          entry[1] !== null,
+      ),
+    ),
+  };
 };
 
 export const drawActionArena = (
@@ -67,7 +147,7 @@ export const drawActionArena = (
   alpha: number,
   config: ActionConfig,
   visuals: ActionVisuals | null,
-) => {
+): void => {
   if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
   const ratio = Math.min(2, window.devicePixelRatio || 1);
@@ -77,161 +157,484 @@ export const drawActionArena = (
     canvas.width = width;
     canvas.height = height;
   }
-
   const context = canvas.getContext("2d");
   if (!context) return;
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.fillStyle = "#02050e";
   context.fillRect(0, 0, width, height);
   const scale = Math.min(width / ACTION_WIDTH, height / ACTION_HEIGHT);
-  const offsetX = (width - ACTION_WIDTH * scale) / 2;
-  const offsetY = (height - ACTION_HEIGHT * scale) / 2;
-  context.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+  context.setTransform(
+    scale,
+    0,
+    0,
+    scale,
+    (width - ACTION_WIDTH * scale) / 2,
+    (height - ACTION_HEIGHT * scale) / 2,
+  );
   context.imageSmoothingEnabled = false;
 
-  drawBackground(context, snapshot, visuals?.background);
-  // The server trace still advances at 30 Hz, but the local avatar is rendered
-  // at the newest simulated position. Interpolating it one tick behind made the
-  // character feel detached from the thumb even though the simulation has no
-  // acceleration or momentum.
-  const player = snapshot.player;
-  const previousEnemies = new Map((previous?.enemies ?? []).map((enemy) => [enemy.id, enemy]));
+  drawBackground(context, snapshot, config, visuals?.background ?? null);
+  drawObjectiveZone(context, snapshot);
+  drawSignalGuide(context, snapshot);
+  for (const signal of snapshot.signals) {
+    drawSignal(context, signal, snapshot, visuals?.signals.get(signal.type));
+  }
+  drawKitState(context, snapshot);
+
+  const previousEnemies = new Map(
+    (previous?.enemies ?? []).map((enemy) => [enemy.id, enemy]),
+  );
   const previousProjectiles = new Map(
     (previous?.projectiles ?? []).map((projectile) => [projectile.id, projectile]),
   );
-
-  drawRouteGuide(context, player, snapshot);
-  drawDashTrail(context, previous?.player, player, snapshot);
-  drawBeacon(context, snapshot, visuals?.memoryFragment);
+  const previousFriendlyShots = new Map(
+    (previous?.friendlyShots ?? []).map((shot) => [shot.id, shot]),
+  );
   for (const enemy of snapshot.enemies) {
     drawEnemy(
       context,
       enemy,
       interpolate(previousEnemies.get(enemy.id)?.position, enemy.position, alpha),
       snapshot.tick,
-      visuals,
+      visuals?.enemies.get(enemy.slug),
     );
   }
   drawCombatFeedback(context, snapshot, previous, previousEnemies);
-  drawAutoAttack(context, player, snapshot, previousEnemies, alpha, config);
+  drawAutoAttack(context, snapshot, previousEnemies, alpha, config);
   for (const projectile of snapshot.projectiles) {
     drawProjectile(
       context,
       projectile,
-      interpolate(previousProjectiles.get(projectile.id)?.position, projectile.position, alpha),
+      interpolate(
+        previousProjectiles.get(projectile.id)?.position,
+        projectile.position,
+        alpha,
+      ),
     );
   }
-  const moving = previous
-    ? previous.player.x !== snapshot.player.x ||
-      previous.player.y !== snapshot.player.y
-    : false;
-  drawPlayer(context, player, snapshot, moving, visuals?.player);
+  for (const shot of snapshot.friendlyShots) {
+    drawFriendlyShot(
+      context,
+      interpolate(
+        previousFriendlyShots.get(shot.id)?.position,
+        shot.position,
+        alpha,
+      ),
+      snapshot.tick,
+    );
+  }
+  drawWarpTrail(context, previous?.player, snapshot.player, snapshot);
+  const moving = Boolean(
+    previous &&
+      (previous.player.x !== snapshot.player.x ||
+        previous.player.y !== snapshot.player.y),
+  );
+  drawPlayer(
+    context,
+    snapshot.player,
+    snapshot,
+    moving,
+    visuals?.player ?? null,
+  );
   drawScreenEffects(context, snapshot, config);
 };
 
 const drawBackground = (
   context: CanvasRenderingContext2D,
   snapshot: ActionSnapshot,
-  background?: HTMLImageElement,
-) => {
+  config: ActionConfig,
+  background: HTMLImageElement | null,
+): void => {
   if (background) {
     context.drawImage(background, 0, 0, ACTION_WIDTH, ACTION_HEIGHT);
   } else {
     const fallback = context.createLinearGradient(0, 0, 0, ACTION_HEIGHT);
     fallback.addColorStop(0, "#102652");
-    fallback.addColorStop(0.5, "#080f25");
+    fallback.addColorStop(0.55, "#080f25");
     fallback.addColorStop(1, "#02050e");
     context.fillStyle = fallback;
     context.fillRect(0, 0, ACTION_WIDTH, ACTION_HEIGHT);
   }
-
-  context.fillStyle = "rgba(2,6,23,.18)";
+  context.fillStyle = "rgba(2,6,23,.24)";
   context.fillRect(0, 0, ACTION_WIDTH, ACTION_HEIGHT);
-  const edge = context.createLinearGradient(0, 0, ACTION_WIDTH, 0);
-  edge.addColorStop(0, "rgba(2,6,23,.72)");
-  edge.addColorStop(0.16, "rgba(2,6,23,.04)");
-  edge.addColorStop(0.84, "rgba(2,6,23,.04)");
-  edge.addColorStop(1, "rgba(2,6,23,.72)");
-  context.fillStyle = edge;
+  const vignette = context.createLinearGradient(0, 0, ACTION_WIDTH, 0);
+  vignette.addColorStop(0, "rgba(2,6,23,.76)");
+  vignette.addColorStop(0.2, "rgba(2,6,23,.03)");
+  vignette.addColorStop(0.8, "rgba(2,6,23,.03)");
+  vignette.addColorStop(1, "rgba(2,6,23,.76)");
+  context.fillStyle = vignette;
   context.fillRect(0, 0, ACTION_WIDTH, ACTION_HEIGHT);
-
-  context.fillStyle = "rgba(103,232,249,.035)";
+  context.fillStyle = config.hazards.includes("distortion_rain")
+    ? "rgba(217,70,239,.07)"
+    : "rgba(103,232,249,.035)";
   const scanOffset = (snapshot.tick * 7) % 160;
-  for (let y = scanOffset; y < ACTION_HEIGHT; y += 160) context.fillRect(0, y, ACTION_WIDTH, 9);
+  for (let y = scanOffset; y < ACTION_HEIGHT; y += 160) {
+    context.fillRect(0, y, ACTION_WIDTH, 9);
+  }
+  if (config.hazards.includes("narrow_arena")) {
+    context.fillStyle = "rgba(251,113,133,.11)";
+    context.fillRect(0, 0, 620, ACTION_HEIGHT);
+    context.fillRect(ACTION_WIDTH - 620, 0, 620, ACTION_HEIGHT);
+    context.strokeStyle = "rgba(251,113,133,.44)";
+    context.lineWidth = 18;
+    context.setLineDash([48, 32]);
+    for (const x of [620, ACTION_WIDTH - 620]) {
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x, ACTION_HEIGHT);
+      context.stroke();
+    }
+    context.setLineDash([]);
+  }
 };
 
-const drawRouteGuide = (
+const drawObjectiveZone = (
   context: CanvasRenderingContext2D,
-  player: Point,
   snapshot: ActionSnapshot,
-) => {
+): void => {
+  if (snapshot.objective.kind !== "stabilize") return;
+  const pulse = Math.sin(snapshot.tick / 10) * 35;
   context.save();
-  context.setLineDash([32, 38]);
-  context.lineWidth = snapshot.routeReady ? 18 : 10;
-  context.strokeStyle = snapshot.routeReady
-    ? "rgba(244,114,182,.58)"
-    : "rgba(103,232,249,.2)";
+  context.strokeStyle = "rgba(110,231,183,.7)";
+  context.fillStyle = "rgba(16,185,129,.08)";
+  context.lineWidth = 22;
+  context.setLineDash([42, 28]);
   context.beginPath();
-  context.moveTo(player.x, player.y);
-  context.lineTo(snapshot.activeBeacon.x, snapshot.activeBeacon.y);
+  context.arc(ACTION_WIDTH / 2, ACTION_HEIGHT / 2, 820 + pulse, 0, Math.PI * 2);
+  context.fill();
   context.stroke();
   context.restore();
 };
 
-const drawBeacon = (
+const signalColor: Readonly<Record<SignalType, string>> = {
+  surge: "#67e8f9",
+  guard: "#86efac",
+  echo: "#c4b5fd",
+};
+
+const drawSignalGuide = (
   context: CanvasRenderingContext2D,
   snapshot: ActionSnapshot,
-  sprite?: HTMLImageElement,
-) => {
-  const beacon = snapshot.activeBeacon;
-  const pulse = Math.round(Math.sin(snapshot.tick / 7) * 20);
-  const colors = ["#22d3ee", "#a78bfa", "#f472b6"] as const;
-  const color = colors[snapshot.routeStep] ?? colors[0];
+): void => {
+  if (snapshot.signals.length === 0) return;
+  const nearest = [...snapshot.signals].sort(
+    (left, right) =>
+      distanceSquared(snapshot.player, left.position) -
+      distanceSquared(snapshot.player, right.position),
+  )[0]!;
   context.save();
-  context.translate(beacon.x, beacon.y);
-  const wave = snapshot.anchorPulse > 0 ? (18 - snapshot.anchorPulse) * 34 : 0;
-  context.globalAlpha = snapshot.anchorPulse > 0 ? 0.48 : 0.12;
-  context.strokeStyle = color;
-  context.lineWidth = snapshot.anchorPulse > 0 ? 28 : 12;
+  context.strokeStyle = `${signalColor[nearest.type]}55`;
+  context.lineWidth = 10;
+  context.setLineDash([30, 40]);
   context.beginPath();
-  context.arc(0, 0, 210 + pulse + wave, 0, Math.PI * 2);
+  context.moveTo(snapshot.player.x, snapshot.player.y);
+  context.lineTo(nearest.position.x, nearest.position.y);
   context.stroke();
-  context.globalAlpha = 1;
+  context.restore();
+};
 
+const drawSignal = (
+  context: CanvasRenderingContext2D,
+  signal: ActionSignalSnapshot,
+  snapshot: ActionSnapshot,
+  sprite?: HTMLImageElement,
+): void => {
+  const pulse = Math.round(Math.sin((snapshot.tick + signal.id * 11) / 7) * 20);
+  const color = signalColor[signal.type];
+  context.save();
+  context.translate(signal.position.x, signal.position.y);
+  context.shadowColor = color;
+  context.shadowBlur = 55;
+  context.fillStyle = `${color}24`;
+  context.beginPath();
+  context.arc(0, 0, 245 + pulse, 0, Math.PI * 2);
+  context.fill();
+  context.shadowBlur = 0;
+  context.strokeStyle = `${color}aa`;
+  context.lineWidth = 14;
+  context.setLineDash([38, 25]);
+  context.beginPath();
+  context.arc(0, 0, 215 + pulse, 0, Math.PI * 2);
+  context.stroke();
+  context.setLineDash([]);
   if (sprite) {
-    const size = 360 + pulse;
+    const size = 330 + pulse;
     context.drawImage(sprite, -size / 2, -size / 2, size, size);
   } else {
     context.fillStyle = color;
+    context.rotate(Math.PI / 4);
+    context.fillRect(-82, -82, 164, 164);
+  }
+  context.restore();
+};
+
+const drawKitState = (
+  context: CanvasRenderingContext2D,
+  snapshot: ActionSnapshot,
+): void => {
+  context.save();
+  for (const zone of snapshot.safeZones) {
+    const alpha = Math.min(0.28, zone.ticks / 120);
+    context.fillStyle = `rgba(134,239,172,${alpha})`;
+    context.strokeStyle = `rgba(167,243,208,${Math.min(0.85, alpha * 3)})`;
+    context.lineWidth = 16;
     context.beginPath();
-    context.moveTo(0, -120);
-    context.lineTo(82, 0);
-    context.lineTo(0, 120);
-    context.lineTo(-82, 0);
+    context.arc(zone.position.x, zone.position.y, zone.radius, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  }
+  if (snapshot.signalWaypoints.length > 1) {
+    context.strokeStyle = "rgba(103,232,249,.46)";
+    context.lineWidth = 22;
+    context.setLineDash([42, 28]);
+    context.beginPath();
+    snapshot.signalWaypoints.forEach((point, index) => {
+      if (index === 0) context.moveTo(point.x, point.y);
+      else context.lineTo(point.x, point.y);
+    });
+    context.stroke();
+    context.setLineDash([]);
+  }
+  for (const bloom of snapshot.blooms) {
+    context.save();
+    context.translate(bloom.x, bloom.y);
+    context.fillStyle = "rgba(167,243,208,.34)";
+    context.strokeStyle = "#f0abfc";
+    context.lineWidth = 18;
+    for (let petal = 0; petal < 4; petal += 1) {
+      context.rotate(Math.PI / 2);
+      context.beginPath();
+      context.ellipse(0, -85, 42, 88, 0, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+    }
+    context.fillStyle = "#fef08a";
+    context.fillRect(-28, -28, 56, 56);
+    context.restore();
+  }
+  for (const replay of snapshot.warpReplays) {
+    context.strokeStyle = `rgba(196,181,253,${Math.max(0.2, 1 - replay.triggerTicks / 24)})`;
+    context.lineWidth = 70;
+    context.setLineDash([56, 36]);
+    context.beginPath();
+    context.moveTo(replay.start.x, replay.start.y);
+    context.lineTo(replay.end.x, replay.end.y);
+    context.stroke();
+  }
+  context.restore();
+};
+
+const drawEnemy = (
+  context: CanvasRenderingContext2D,
+  enemy: ActionEnemySnapshot,
+  position: ActionVec,
+  tick: number,
+  sprite?: HTMLImageElement,
+): void => {
+  drawIntent(context, enemy, position);
+  const bob = Math.round(Math.sin((tick + enemy.id * 9) / 9) * 14);
+  const isElite = enemy.kind === "elite";
+  const width = enemy.boss ? 900 : isElite ? 610 : 500;
+  const height = enemy.boss ? 1040 : width;
+  context.fillStyle = enemy.boss
+    ? "rgba(244,63,94,.2)"
+    : isElite
+      ? "rgba(251,191,36,.16)"
+      : "rgba(34,211,238,.13)";
+  context.fillRect(
+    position.x - width * 0.36,
+    position.y + height * 0.25,
+    width * 0.72,
+    52,
+  );
+  if (sprite) {
+    context.drawImage(
+      sprite,
+      Math.round(position.x - width / 2),
+      Math.round(position.y - height / 2 + bob),
+      width,
+      height,
+    );
+  } else {
+    context.fillStyle = enemy.boss ? "#be123c" : isElite ? "#d97706" : "#6d28d9";
+    context.fillRect(position.x - 150, position.y - 150, 300, 300);
+  }
+  drawEnemyHealth(context, enemy, position, width, height, bob);
+  drawTraitAura(context, enemy, position, tick);
+};
+
+const drawIntent = (
+  context: CanvasRenderingContext2D,
+  enemy: ActionEnemySnapshot,
+  position: ActionVec,
+): void => {
+  if (enemy.intentTicks <= 0) return;
+  const urgency = 1 - Math.min(1, enemy.intentTicks / 18);
+  context.save();
+  context.strokeStyle = `rgba(251,113,133,${0.38 + urgency * 0.5})`;
+  context.lineWidth = enemy.movement === "charge" ? 105 : 25;
+  context.setLineDash([54, 32]);
+  if (enemy.attack === "ring" || enemy.attack === "mine") {
+    context.beginPath();
+    context.arc(position.x, position.y, 440 + urgency * 150, 0, Math.PI * 2);
+    context.stroke();
+  } else if (enemy.attack === "fan") {
+    const angle = Math.atan2(
+      enemy.intentTarget.y - position.y,
+      enemy.intentTarget.x - position.x,
+    );
+    context.beginPath();
+    context.moveTo(position.x, position.y);
+    context.arc(position.x, position.y, 1900, angle - 0.32, angle + 0.32);
+    context.closePath();
+    context.stroke();
+  } else {
+    context.beginPath();
+    context.moveTo(position.x, position.y);
+    context.lineTo(enemy.intentTarget.x, enemy.intentTarget.y);
+    context.stroke();
+  }
+  context.restore();
+};
+
+const drawEnemyHealth = (
+  context: CanvasRenderingContext2D,
+  enemy: ActionEnemySnapshot,
+  position: ActionVec,
+  width: number,
+  height: number,
+  bob: number,
+): void => {
+  const barWidth = enemy.boss ? 780 : Math.min(480, width);
+  const y = position.y - height / 2 + bob - 70;
+  context.fillStyle = "rgba(2,6,23,.9)";
+  context.fillRect(position.x - barWidth / 2, y, barWidth, 38);
+  context.fillStyle = enemy.boss
+    ? "#fb7185"
+    : enemy.kind === "elite"
+      ? "#fbbf24"
+      : "#a78bfa";
+  context.fillRect(
+    position.x - barWidth / 2 + 6,
+    y + 6,
+    Math.max(0, (barWidth - 12) * (enemy.health / enemy.maxHealth)),
+    26,
+  );
+};
+
+const drawTraitAura = (
+  context: CanvasRenderingContext2D,
+  enemy: ActionEnemySnapshot,
+  position: ActionVec,
+  tick: number,
+): void => {
+  if (enemy.traits.length === 0) return;
+  context.save();
+  if (enemy.traits.some((trait) => trait.kind === "linked_shield")) {
+    context.strokeStyle = "rgba(125,211,252,.65)";
+    context.lineWidth = 18;
+    context.beginPath();
+    context.arc(position.x, position.y, 275 + Math.sin(tick / 8) * 20, 0, Math.PI * 2);
+    context.stroke();
+  }
+  if (enemy.traits.some((trait) => trait.kind === "distortion_aura")) {
+    context.strokeStyle = "rgba(232,121,249,.42)";
+    context.lineWidth = 12;
+    context.setLineDash([30, 24]);
+    context.beginPath();
+    context.arc(position.x, position.y, 900, 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.restore();
+};
+
+const drawProjectile = (
+  context: CanvasRenderingContext2D,
+  projectile: ActionProjectileSnapshot,
+  position: ActionVec,
+): void => {
+  const angle = Math.atan2(projectile.velocity.y, projectile.velocity.x);
+  context.save();
+  context.translate(position.x, position.y);
+  context.rotate(angle);
+  context.shadowColor = projectile.glitchMarked
+    ? "#67e8f9"
+    : projectile.grazed
+      ? "#e879f9"
+      : "#fb7185";
+  context.shadowBlur = projectile.grazed ? 20 : 36;
+  if (projectile.pattern === "beam") {
+    context.fillStyle = "#fecdd3";
+    context.fillRect(-70, -18, 140, 36);
+  } else if (projectile.pattern === "mine") {
+    context.strokeStyle = "#fdba74";
+    context.lineWidth = 18;
+    context.strokeRect(-56, -56, 112, 112);
+    context.fillStyle = "#fb7185";
+    context.fillRect(-24, -24, 48, 48);
+  } else {
+    context.fillStyle = projectile.glitchMarked
+      ? "#67e8f9"
+      : projectile.grazed
+        ? "#f0abfc"
+        : "#fb7185";
+    context.beginPath();
+    context.moveTo(72, 0);
+    context.lineTo(-42, 48);
+    context.lineTo(-24, 0);
+    context.lineTo(-42, -48);
     context.closePath();
     context.fill();
   }
   context.restore();
 };
 
-const drawDashTrail = (
+const drawFriendlyShot = (
   context: CanvasRenderingContext2D,
-  previousPlayer: Point | undefined,
-  player: Point,
-  snapshot: ActionSnapshot,
-) => {
-  if (!previousPlayer || snapshot.dashFX <= 0) return;
+  position: ActionVec,
+  tick: number,
+): void => {
   context.save();
-  context.strokeStyle = snapshot.routeReady
-    ? "rgba(244,114,182,.4)"
-    : "rgba(34,211,238,.34)";
-  context.lineWidth = 180 + snapshot.dashFX * 8;
+  context.translate(position.x, position.y);
+  context.rotate((tick % 16) * (Math.PI / 8));
+  context.shadowColor = "#67e8f9";
+  context.shadowBlur = 34;
+  context.fillStyle = "#a7f3d0";
+  context.fillRect(-42, -42, 84, 84);
+  context.fillStyle = "#c4b5fd";
+  context.fillRect(-18, -70, 36, 140);
+  context.fillRect(-70, -18, 140, 36);
+  context.restore();
+};
+
+const drawAutoAttack = (
+  context: CanvasRenderingContext2D,
+  snapshot: ActionSnapshot,
+  previousEnemies: ReadonlyMap<number, ActionEnemySnapshot>,
+  alpha: number,
+  config: ActionConfig,
+): void => {
+  if (snapshot.enemies.length === 0) return;
+  const phase = snapshot.tick % Math.max(1, config.runtime.attackInterval);
+  if (phase > 3) return;
+  const target = [...snapshot.enemies].sort(
+    (left, right) =>
+      distanceSquared(snapshot.player, left.position) -
+      distanceSquared(snapshot.player, right.position),
+  )[0]!;
+  const position = interpolate(
+    previousEnemies.get(target.id)?.position,
+    target.position,
+    alpha,
+  );
+  context.save();
+  context.strokeStyle = snapshot.distortion >= 60 ? "#f0abfc" : "#67e8f9";
+  context.lineWidth = 24 + config.runtime.projectileCount * 8;
+  context.shadowColor = context.strokeStyle;
+  context.shadowBlur = 35;
   context.beginPath();
-  context.moveTo(previousPlayer.x, previousPlayer.y);
-  context.lineTo(player.x, player.y);
-  context.stroke();
-  context.strokeStyle = "rgba(224,242,254,.72)";
-  context.lineWidth = 34;
+  context.moveTo(snapshot.player.x, snapshot.player.y - 35);
+  context.lineTo(position.x, position.y);
   context.stroke();
   context.restore();
 };
@@ -240,297 +643,132 @@ const drawCombatFeedback = (
   context: CanvasRenderingContext2D,
   snapshot: ActionSnapshot,
   previous: ActionSnapshot | null,
-  previousEnemies: Map<number, ActionEnemySnapshot>,
-) => {
+  previousEnemies: ReadonlyMap<number, ActionEnemySnapshot>,
+): void => {
   if (!previous) return;
   for (const enemy of snapshot.enemies) {
     const before = previousEnemies.get(enemy.id);
     if (!before || enemy.health >= before.health) continue;
-    const phase = snapshot.tick % 4;
     context.fillStyle = "#e0f2fe";
-    context.fillRect(enemy.position.x - 100 - phase * 18, enemy.position.y - 30, 80, 24);
+    context.fillRect(enemy.position.x - 125, enemy.position.y - 40, 90, 24);
     context.fillStyle = "#f0abfc";
-    context.fillRect(enemy.position.x + 34 + phase * 14, enemy.position.y + 24, 62, 22);
+    context.fillRect(enemy.position.x + 42, enemy.position.y + 22, 68, 22);
   }
   const alive = new Set(snapshot.enemies.map((enemy) => enemy.id));
   for (const enemy of previous.enemies) {
     if (alive.has(enemy.id)) continue;
-    context.strokeStyle = "rgba(34,211,238,.72)";
+    context.strokeStyle = "rgba(103,232,249,.78)";
     context.lineWidth = 34;
     context.strokeRect(
-      enemy.position.x - 180,
-      enemy.position.y - 180,
-      360,
-      360,
+      enemy.position.x - 190,
+      enemy.position.y - 190,
+      380,
+      380,
     );
   }
 };
 
-const drawEnemy = (
+const drawWarpTrail = (
   context: CanvasRenderingContext2D,
-  enemy: ActionEnemySnapshot,
-  position: Point,
-  tick: number,
-  visuals: ActionVisuals | null,
-) => {
-  drawIntent(context, enemy, position);
-  const bob = Math.round(Math.sin((tick + enemy.id * 9) / 9) * 18);
-  const visualKey = enemy.boss
-    ? "boss"
-    : (enemyVisualKeys[enemy.slug] ?? "normalEnemy");
-  const sprite = visuals?.[visualKey];
-  const spriteWidth = enemy.boss ? 900 : eliteSlugs.has(enemy.slug) ? 560 : 500;
-  const spriteHeight = enemy.boss ? 1140 : spriteWidth;
-
-  context.fillStyle = enemy.boss ? "rgba(244,114,182,.2)" : "rgba(34,211,238,.14)";
-  context.fillRect(position.x - spriteWidth * 0.36, position.y + spriteHeight * 0.24, spriteWidth * 0.72, 55);
-  if (sprite) {
-    context.drawImage(
-      sprite,
-      Math.round(position.x - spriteWidth / 2),
-      Math.round(position.y - spriteHeight / 2 + bob),
-      spriteWidth,
-      spriteHeight,
-    );
-  } else {
-    context.fillStyle = enemy.boss ? "#be185d" : "#6d28d9";
-    context.fillRect(position.x - 150, position.y - 150, 300, 300);
-  }
-  drawEnemyHealth(context, enemy, position, spriteWidth, spriteHeight, bob);
-};
-
-const drawIntent = (
-  context: CanvasRenderingContext2D,
-  enemy: ActionEnemySnapshot,
-  position: Point,
-) => {
-  if (enemy.intentTicks <= 0) return;
-  context.save();
-  const urgency = 1 - Math.min(1, enemy.intentTicks / 15);
-  if (enemy.pattern === "mine") {
-    context.strokeStyle = `rgba(251,146,60,${0.42 + urgency * 0.42})`;
-    context.lineWidth = 26;
-    context.setLineDash([44, 30]);
-    context.beginPath();
-    context.arc(position.x, position.y, 470 + urgency * 120, 0, Math.PI * 2);
-    context.stroke();
-    context.restore();
-    return;
-  }
-  if (enemy.pattern === "orbiter") {
-    context.strokeStyle = `rgba(34,211,238,${0.35 + urgency * 0.42})`;
-    context.lineWidth = 22;
-    context.setLineDash([46, 34]);
-    for (const angle of [0, Math.PI / 2]) {
-      const x = Math.cos(angle) * 1250;
-      const y = Math.sin(angle) * 1250;
-      context.beginPath();
-      context.moveTo(position.x - x, position.y - y);
-      context.lineTo(position.x + x, position.y + y);
-      context.stroke();
-    }
-    context.restore();
-    return;
-  }
-  context.setLineDash([56, 34]);
-  context.lineWidth = enemy.pattern === "charger" ? 110 : 24;
-  context.strokeStyle = `rgba(251,113,133,${0.34 + (12 - Math.min(12, enemy.intentTicks)) / 18})`;
-  context.beginPath();
-  context.moveTo(position.x, position.y);
-  context.lineTo(enemy.intentTarget.x, enemy.intentTarget.y);
-  context.stroke();
-  context.restore();
-  if (enemy.bossPhase === 3) {
-    context.strokeStyle = "rgba(251,113,133,.6)";
-    context.lineWidth = 26;
-    context.strokeRect(position.x - 420, position.y - 420, 840, 840);
-  }
-};
-
-const drawEnemyHealth = (
-  context: CanvasRenderingContext2D,
-  enemy: ActionEnemySnapshot,
-  position: Point,
-  spriteWidth: number,
-  spriteHeight: number,
-  bob: number,
-) => {
-  const width = enemy.boss ? 780 : Math.min(480, spriteWidth);
-  const y = position.y - spriteHeight / 2 + bob - 76;
-  context.fillStyle = "rgba(2,6,23,.88)";
-  context.fillRect(position.x - width / 2 - 10, y - 10, width + 20, 50);
-  context.fillStyle = enemy.boss ? "#fb7185" : "#a78bfa";
-  context.fillRect(
-    position.x - width / 2,
-    y,
-    width * Math.min(1, Math.max(0, enemy.health / enemy.maxHealth)),
-    30,
-  );
-  if (!enemy.boss) return;
-  context.font = "bold 76px ui-monospace";
-  context.fillStyle = "#fbcfe8";
-  context.textAlign = "center";
-  context.textBaseline = "top";
-  context.fillText(`P${enemy.bossPhase} // ${enemy.bossMimic.toUpperCase()}`, position.x, y + 64);
-};
-
-const drawAutoAttack = (
-  context: CanvasRenderingContext2D,
-  player: Point,
+  previousPlayer: ActionVec | undefined,
+  player: ActionVec,
   snapshot: ActionSnapshot,
-  previousEnemies: Map<number, ActionEnemySnapshot>,
-  alpha: number,
-  config: ActionConfig,
-) => {
-  if (snapshot.tick % config.buffs.attackInterval >= 2 || snapshot.enemies.length === 0) return;
-  let target = snapshot.enemies[0]!;
-  let nearest = Number.MAX_SAFE_INTEGER;
-  for (const enemy of snapshot.enemies) {
-    const distance = (enemy.position.x - snapshot.player.x) ** 2 + (enemy.position.y - snapshot.player.y) ** 2;
-    if (distance < nearest) {
-      nearest = distance;
-      target = enemy;
-    }
-  }
-  const targetPosition = interpolate(previousEnemies.get(target.id)?.position, target.position, alpha);
-  context.strokeStyle = "rgba(34,211,238,.32)";
-  context.lineWidth = 54;
-  context.beginPath();
-  context.moveTo(player.x, player.y - 25);
-  context.lineTo(targetPosition.x, targetPosition.y);
-  context.stroke();
-  context.strokeStyle = "#cffafe";
-  context.lineWidth = 16;
-  context.stroke();
-};
-
-const drawProjectile = (
-  context: CanvasRenderingContext2D,
-  projectile: ActionProjectileSnapshot,
-  position: Point,
-) => {
-  const palette =
-    projectile.pattern === "mine"
-      ? ["#fb923c", "#ffedd5"]
-      : projectile.pattern === "orbiter"
-        ? ["#22d3ee", "#cffafe"]
-        : projectile.pattern === "sweeper"
-          ? ["#f472b6", "#fce7f3"]
-          : projectile.pattern === "sniper"
-            ? ["#a78bfa", "#ede9fe"]
-            : ["#fb7185", "#fff1f2"];
-  const color = projectile.grazed ? "#f0abfc" : palette[0];
-  const length = Math.max(1, Math.hypot(projectile.velocity.x, projectile.velocity.y));
-  context.strokeStyle = projectile.grazed
-    ? "rgba(240,171,252,.24)"
-    : projectile.pattern === "orbiter"
-      ? "rgba(34,211,238,.24)"
-      : projectile.pattern === "mine"
-        ? "rgba(251,146,60,.28)"
-        : "rgba(251,113,133,.26)";
-  context.lineWidth = projectile.pattern === "sniper" ? 46 : 32;
-  context.beginPath();
-  context.moveTo(position.x, position.y);
-  context.lineTo(
-    position.x - (projectile.velocity.x / length) * 110,
-    position.y - (projectile.velocity.y / length) * 110,
-  );
-  context.stroke();
+): void => {
+  if (!previousPlayer || snapshot.warpFX <= 0) return;
+  const empowered = snapshot.protocol !== "" || snapshot.weave.length === 3;
   context.save();
-  context.translate(position.x, position.y);
-  if (projectile.pattern === "mine") context.rotate(Math.PI / 4);
-  context.fillStyle = color;
-  const size = projectile.pattern === "sniper" ? 96 : 80;
-  context.fillRect(-size / 2, -size / 2, size, size);
-  context.fillStyle = palette[1];
-  context.fillRect(-16, -16, 32, 32);
+  context.strokeStyle = empowered
+    ? "rgba(244,114,182,.5)"
+    : "rgba(34,211,238,.42)";
+  context.lineWidth = 170 + snapshot.warpFX * 8;
+  context.beginPath();
+  context.moveTo(previousPlayer.x, previousPlayer.y);
+  context.lineTo(player.x, player.y);
+  context.stroke();
+  context.strokeStyle = "rgba(224,242,254,.88)";
+  context.lineWidth = 30;
+  context.stroke();
   context.restore();
 };
 
 const drawPlayer = (
   context: CanvasRenderingContext2D,
-  player: Point,
+  player: ActionVec,
   snapshot: ActionSnapshot,
   moving: boolean,
-  sprite?: HTMLImageElement,
-) => {
-  const width = 500;
-  const height = 665;
-  const aura = snapshot.invulnerable > 0 ? "rgba(254,243,199,.48)" : "rgba(103,232,249,.25)";
-  context.fillStyle = aura;
-  context.fillRect(player.x - 165, player.y + 280, 330, 34);
-  if (moving && snapshot.tick % 6 < 3) {
-    context.fillStyle = "rgba(103,232,249,.42)";
-    context.fillRect(player.x - 210, player.y + 292, 82, 24);
-    context.fillRect(player.x + 120, player.y + 292, 58, 24);
-  }
-  if (snapshot.routeReady) drawRouteWings(context, player, snapshot.tick);
+  sprite: HTMLImageElement | null,
+): void => {
+  context.save();
+  context.translate(player.x, player.y);
+  const walkFrame = moving ? Math.floor(snapshot.tick / 4) & 1 : 0;
+  const bob = moving ? (walkFrame === 0 ? -10 : 6) : Math.sin(snapshot.tick / 13) * 4;
+  context.fillStyle = "rgba(34,211,238,.2)";
+  context.fillRect(-190, 180, 380, 52);
   if (sprite) {
-    context.drawImage(
-      sprite,
-      Math.round(player.x - width / 2),
-      Math.round(player.y - height / 2),
-      width,
-      height,
-    );
+    context.drawImage(sprite, -275, -360 + bob, 550, 550);
   } else {
     context.fillStyle = "#67e8f9";
-    context.fillRect(player.x - 120, player.y - 120, 240, 240);
+    context.fillRect(-115, -115 + bob, 230, 230);
   }
-};
-
-const drawRouteWings = (
-  context: CanvasRenderingContext2D,
-  player: Point,
-  tick: number,
-) => {
-  const pulse = tick % 12 < 6 ? 0 : 22;
-  context.fillStyle = "rgba(244,114,182,.2)";
-  context.fillRect(player.x - 360 - pulse, player.y - 122, 96, 244);
-  context.fillRect(player.x + 264 + pulse, player.y - 122, 96, 244);
-  context.fillStyle = "#67e8f9";
-  for (const side of [-1, 1] as const) {
-    const edge = player.x + side * (292 + pulse);
-    context.fillRect(edge - 22, player.y - 150, 44, 300);
-    context.fillRect(edge - side * 72, player.y - 104, 72, 44);
-    context.fillRect(edge - side * 118, player.y - 22, 118, 44);
-    context.fillRect(edge - side * 72, player.y + 60, 72, 44);
-    context.fillStyle = "#f472b6";
-    context.fillRect(edge - side * 94, player.y - 4, 48, 52);
-    context.fillStyle = "#67e8f9";
+  if (snapshot.invulnerable > 0 || snapshot.shield > 0) {
+    context.strokeStyle = snapshot.invulnerable > 0 ? "#f0abfc" : "#7dd3fc";
+    context.globalAlpha = snapshot.invulnerable > 0 ? 0.88 : 0.52;
+    context.lineWidth = 22;
+    context.beginPath();
+    context.arc(0, -45, 255, 0, Math.PI * 2);
+    context.stroke();
   }
+  context.restore();
 };
 
 const drawScreenEffects = (
   context: CanvasRenderingContext2D,
   snapshot: ActionSnapshot,
   config: ActionConfig,
-) => {
+): void => {
   if (snapshot.distortion >= 60) {
-    context.fillStyle = `rgba(217,70,239,${0.035 + Math.sin(snapshot.tick) * 0.012})`;
+    context.fillStyle = `rgba(217,70,239,${0.025 + snapshot.distortion / 2600})`;
     context.fillRect(0, 0, ACTION_WIDTH, ACTION_HEIGHT);
-    for (let index = 0; index < 7; index += 1) {
-      const x = (snapshot.tick * 83 + index * 719) % ACTION_WIDTH;
-      const y = (snapshot.tick * 47 + index * 997) % ACTION_HEIGHT;
-      context.fillStyle = index % 2 === 0 ? "rgba(34,211,238,.16)" : "rgba(244,114,182,.16)";
-      context.fillRect(x, y, 180 + index * 34, 22 + (index % 3) * 14);
-    }
   }
   if (snapshot.reconnectFX > 0) {
-    context.fillStyle = `rgba(103,232,249,${Math.min(0.32, snapshot.reconnectFX / 220)})`;
-    context.fillRect(0, 0, ACTION_WIDTH, ACTION_HEIGHT);
+    context.strokeStyle = `rgba(103,232,249,${snapshot.reconnectFX / 120})`;
+    context.lineWidth = 38;
+    const inset = (90 - snapshot.reconnectFX) * 10;
+    context.strokeRect(inset, inset, ACTION_WIDTH - inset * 2, ACTION_HEIGHT - inset * 2);
   }
-  if (snapshot.tick < Math.min(config.durationTicks, ACTION_TPS * 5)) {
-    const fade = 1 - snapshot.tick / Math.min(config.durationTicks, ACTION_TPS * 5);
-    context.fillStyle = `rgba(103,232,249,${0.05 * fade})`;
+  if (snapshot.signalPulse > 0) {
+    context.strokeStyle = `rgba(167,243,208,${snapshot.signalPulse / 24})`;
+    context.lineWidth = 24;
+    context.beginPath();
+    context.arc(
+      snapshot.player.x,
+      snapshot.player.y,
+      (18 - snapshot.signalPulse) * 45 + 210,
+      0,
+      Math.PI * 2,
+    );
+    context.stroke();
+  }
+  if (config.hazards.includes("crossfire") && snapshot.tick % 90 < 24) {
+    context.fillStyle = "rgba(251,113,133,.04)";
     context.fillRect(0, 0, ACTION_WIDTH, ACTION_HEIGHT);
   }
 };
 
-const interpolate = (previous: Point | undefined, current: Point, alpha: number): Point =>
+const interpolate = (
+  previous: ActionVec | undefined,
+  current: ActionVec,
+  alpha: number,
+): ActionVec =>
   previous
     ? {
-        x: previous.x + (current.x - previous.x) * alpha,
-        y: previous.y + (current.y - previous.y) * alpha,
+        x: Math.round(previous.x + (current.x - previous.x) * alpha),
+        y: Math.round(previous.y + (current.y - previous.y) * alpha),
       }
     : current;
+
+const distanceSquared = (left: ActionVec, right: ActionVec): number =>
+  (left.x - right.x) ** 2 + (left.y - right.y) ** 2;
+
+export const remainingWarpSeconds = (snapshot: ActionSnapshot): number =>
+  Math.max(0, Math.ceil(snapshot.warpCooldown / ACTION_TPS));

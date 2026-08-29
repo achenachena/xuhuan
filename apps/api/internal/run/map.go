@@ -6,56 +6,89 @@ import (
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 )
 
-func generateMap(seed string, noiseLevel int, catalog *gamecontent.Catalog) (MapState, uint64, error) {
-	required := []string{"signal-handshake", "dock-pursuit", "comment-storm", "mixed-signal", "cache-purge", "moderation-sweep", "optimal-persona"}
-	for _, slug := range required {
-		if _, ok := catalog.Encounter(slug); !ok {
-			return MapState{}, 0, fmt.Errorf("run: missing encounter %q", slug)
+func generateMap(seed string, mode Mode, chapter gamecontent.Chapter, noiseLevel int, tutorialCompleted bool, catalog *gamecontent.Catalog) (MapState, uint64, error) {
+	stream := randomStream{seed: seed + ":map:" + chapter.Slug}
+	pick := func(pool []string) (string, error) {
+		if len(pool) == 0 {
+			return "", fmt.Errorf("run: chapter %q has an empty map pool", chapter.Slug)
+		}
+		return pool[stream.Intn(len(pool))], nil
+	}
+	combatA, err := pick(chapter.EncounterPool)
+	if err != nil {
+		return MapState{}, 0, err
+	}
+	combatB, err := pick(chapter.EncounterPool)
+	if err != nil {
+		return MapState{}, 0, err
+	}
+	combatC, err := pick(chapter.EncounterPool)
+	if err != nil {
+		return MapState{}, 0, err
+	}
+	combatD, err := pick(chapter.EncounterPool)
+	if err != nil {
+		return MapState{}, 0, err
+	}
+	elite, err := pick(chapter.ElitePool)
+	if err != nil {
+		return MapState{}, 0, err
+	}
+	event := ""
+	if len(chapter.EventPool) > 0 {
+		event, err = pick(chapter.EventPool)
+		if err != nil {
+			return MapState{}, 0, err
 		}
 	}
-	stream := randomStream{seed: seed + ":map"}
-	elite := []string{"cache-purge", "moderation-sweep"}[stream.Intn(2)]
-	eventSlugs := make([]string, 0, len(catalog.Events))
-	for _, event := range catalog.Events {
-		if event.Slug != "chapter-midpoint" {
-			eventSlugs = append(eventSlugs, event.Slug)
+
+	encounterNode := func(id string, layer, lane int, kind NodeType, status NodeStatus, next []string, slug string) MapNode {
+		definition, _ := catalog.Encounter(slug)
+		return MapNode{ID: id, Layer: layer, Lane: lane, Type: kind, Status: status, Next: next, EncounterSlug: slug, Objective: definition.Objective.Kind, Risk: definition.Risk, RewardBias: definition.RewardBias, EnemySlugs: append([]string{}, definition.EnemySlugs...), Hazards: append([]string{}, definition.Hazards...)}
+	}
+	if mode == DailyMode {
+		nodes := []MapNode{
+			encounterNode("daily-1", 0, 0, CombatNode, CurrentNode, []string{"daily-2"}, combatA),
+			encounterNode("daily-2", 1, 0, EliteNode, LockedNode, []string{"daily-3"}, elite),
+			encounterNode("daily-3", 2, 0, BossNode, LockedNode, nil, chapter.BossEncounterSlug),
 		}
+		return MapState{Nodes: nodes, CurrentNodeID: "daily-1"}, stream.cursor, nil
 	}
-	if len(eventSlugs) < 2 {
-		return MapState{}, 0, fmt.Errorf("run: content needs random events")
-	}
-	event := eventSlugs[stream.Intn(len(eventSlugs))]
+	firstStatus := AvailableNode
 	nodes := []MapNode{
-		{ID: "tutorial", Layer: 0, Lane: 0, Type: TutorialNode, Status: CurrentNode, Next: []string{"l1-a", "l1-b"}, EncounterSlug: "signal-handshake"},
-		{ID: "l1-a", Layer: 1, Lane: 0, Type: CombatNode, Status: LockedNode, Next: []string{"l2-a", "l2-b"}, EncounterSlug: "dock-pursuit"},
-		{ID: "l1-b", Layer: 1, Lane: 1, Type: CombatNode, Status: LockedNode, Next: []string{"l2-a", "l2-b"}, EncounterSlug: "comment-storm"},
+		encounterNode("l1-a", 1, 0, CombatNode, firstStatus, []string{"l2-a", "l2-b"}, combatA),
+		encounterNode("l1-b", 1, 1, CombatNode, firstStatus, []string{"l2-a", "l2-b"}, combatB),
 		{ID: "l2-a", Layer: 2, Lane: 0, Type: EventNode, Status: LockedNode, Next: []string{"l3-a", "l3-b"}, EventSlug: event},
-		{ID: "l2-b", Layer: 2, Lane: 1, Type: CombatNode, Status: LockedNode, Next: []string{"l3-a", "l3-b"}, EncounterSlug: "mixed-signal"},
-		{ID: "l3-a", Layer: 3, Lane: 0, Type: EliteNode, Status: LockedNode, Next: []string{"l4-a"}, EncounterSlug: elite},
+		encounterNode("l2-b", 2, 1, CombatNode, LockedNode, []string{"l3-a", "l3-b"}, combatC),
+		encounterNode("l3-a", 3, 0, EliteNode, LockedNode, []string{"l4-a"}, elite),
 		{ID: "l3-b", Layer: 3, Lane: 1, Type: RestNode, Status: LockedNode, Next: []string{"l4-a"}},
-		{ID: "l4-a", Layer: 4, Lane: 0, Type: CombatNode, Status: LockedNode, Next: []string{"l5-a"}, EncounterSlug: "mixed-signal"},
-		{ID: "l5-a", Layer: 5, Lane: 0, Type: StoryNode, Status: LockedNode, Next: []string{"l6-a"}, EventSlug: "chapter-midpoint"},
-		{ID: "l6-a", Layer: 6, Lane: 0, Type: BossNode, Status: LockedNode, Next: []string{}, EncounterSlug: "optimal-persona"},
+		{ID: "l4-a", Layer: 4, Lane: 0, Type: StoryNode, Status: LockedNode, Next: []string{"l5-a", "l5-b"}, EventSlug: chapter.MidpointEventSlug},
+		encounterNode("l5-a", 5, 0, CombatNode, LockedNode, []string{"l6-a"}, combatD),
+		encounterNode("l5-b", 5, 1, CombatNode, LockedNode, []string{"l6-a"}, combatA),
+		encounterNode("l6-a", 6, 0, BossNode, LockedNode, nil, chapter.BossEncounterSlug),
+	}
+	if event == "" {
+		nodes[2] = encounterNode("l2-a", 2, 0, CombatNode, LockedNode, []string{"l3-a", "l3-b"}, combatB)
+	}
+	if chapter.MidpointEventSlug == "" {
+		nodes[6] = encounterNode("l4-a", 4, 0, CombatNode, LockedNode, []string{"l5-a", "l5-b"}, combatC)
 	}
 	if noiseLevel >= 2 {
-		for index := range nodes {
-			switch nodes[index].ID {
-			case "l1-a":
-				nodes[index].Next = []string{"l2-a"}
-			case "l1-b":
-				nodes[index].Next = []string{"l2-b"}
-			}
-		}
+		nodes[0].Next = []string{"l2-a"}
+		nodes[1].Next = []string{"l2-b"}
 	}
 	if noiseLevel >= 3 {
-		for index := range nodes {
-			if nodes[index].ID == "l3-b" {
-				nodes[index].Type = EliteNode
-				nodes[index].EncounterSlug = "moderation-sweep"
-			}
-		}
+		nodes[5] = encounterNode("l3-b", 3, 1, EliteNode, LockedNode, []string{"l4-a"}, elite)
 	}
-	return MapState{Nodes: nodes, CurrentNodeID: "tutorial"}, stream.cursor, nil
+	if chapter.TutorialEncounterSlug != "" && !tutorialCompleted {
+		tutorial := encounterNode("tutorial", 0, 0, TutorialNode, CurrentNode, []string{"l1-a", "l1-b"}, chapter.TutorialEncounterSlug)
+		nodes = append([]MapNode{tutorial}, nodes...)
+		for index := 1; index <= 2; index++ {
+			nodes[index].Status = LockedNode
+		}
+		return MapState{Nodes: nodes, CurrentNodeID: "tutorial"}, stream.cursor, nil
+	}
+	return MapState{Nodes: nodes}, stream.cursor, nil
 }
 
 func nodeIndex(gameMap MapState, id string) int {

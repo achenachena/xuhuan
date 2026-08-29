@@ -19,11 +19,11 @@ import (
 )
 
 type createRunRequest struct {
-	ChapterSlug   string `json:"chapter_slug"`
-	CharacterSlug string `json:"character_slug"`
-	NoiseLevel    int    `json:"noise_level"`
+	Mode          gameRun.Mode `json:"mode"`
+	ChapterSlug   string       `json:"chapter_slug"`
+	CharacterSlug string       `json:"character_slug"`
+	NoiseLevel    int          `json:"noise_level"`
 }
-
 type runCommandRequest struct {
 	Type            gameRun.CommandType `json:"type"`
 	ExpectedVersion int64               `json:"expected_version"`
@@ -43,6 +43,7 @@ type storyChoiceRequest struct {
 func registerV2Routes(router chi.Router, authenticate func(http.Handler) http.Handler, rateLimit RateLimitConfig, service GameService, logger *slog.Logger) {
 	router.Route("/v2", func(router chi.Router) {
 		router.Get("/content/{version}", getContentHandler(service))
+		router.Get("/daily/results/{id}", getPublicDailyResultHandler(service, logger))
 		router.Group(func(protected chi.Router) {
 			protected.Use(authenticate)
 			protected.Use(playerRateLimitMiddleware(rateLimit))
@@ -110,11 +111,15 @@ func createRunHandler(service GameService, logger *slog.Logger) http.HandlerFunc
 		if !decodeRequest(w, r, &request) {
 			return
 		}
-		if !validSlugValue(request.ChapterSlug) || !validSlugValue(request.CharacterSlug) || request.NoiseLevel < 0 || request.NoiseLevel > 3 {
+		if request.Mode == "" {
+			request.Mode = gameRun.CampaignMode
+		}
+		if (request.Mode != gameRun.CampaignMode && request.Mode != gameRun.DailyMode) || (request.Mode == gameRun.CampaignMode && (!validSlugValue(request.ChapterSlug) || !validSlugValue(request.CharacterSlug))) || request.NoiseLevel < 0 || request.NoiseLevel > 3 {
 			writeError(w, r, http.StatusBadRequest, "invalid_request", "The request is invalid")
 			return
 		}
 		created, replayed, err := service.Start(r.Context(), principal.User, game.StartInput{
+			Mode:        request.Mode,
 			ChapterSlug: request.ChapterSlug, CharacterSlug: request.CharacterSlug,
 			NoiseLevel: request.NoiseLevel, IdempotencyKey: key,
 		})
@@ -124,6 +129,23 @@ func createRunHandler(service GameService, logger *slog.Logger) http.HandlerFunc
 		}
 		w.Header().Set("Idempotency-Replayed", strconv.FormatBool(replayed))
 		writeJSON(w, http.StatusCreated, created)
+	}
+}
+
+func getPublicDailyResultHandler(service GameService, logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		runID := chi.URLParam(r, "id")
+		if !resourceIDPattern.MatchString(runID) {
+			writeError(w, r, http.StatusNotFound, "not_found", "The requested resource was not found")
+			return
+		}
+		result, err := service.GetPublicDailyResult(r.Context(), runID)
+		if err != nil {
+			writeV2Error(w, r, logger, "daily_result_get_failed", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "public, max-age=300, s-maxage=300, stale-while-revalidate=60")
+		writeJSON(w, http.StatusOK, result)
 	}
 }
 
@@ -248,7 +270,6 @@ func writeV2Error(w http.ResponseWriter, r *http.Request, logger *slog.Logger, e
 	case errors.Is(err, gameRun.ErrInvalidCommand),
 		errors.Is(err, action.ErrInvalidTrace),
 		errors.Is(err, action.ErrIncompleteRoom),
-		errors.Is(err, action.ErrDigestMismatch),
 		strings.HasPrefix(err.Error(), "action:"):
 		writeError(w, r, http.StatusBadRequest, "invalid_command", "The command is invalid for the current state")
 	default:

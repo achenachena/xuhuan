@@ -1,0 +1,970 @@
+name: Release Production V3
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Full 40-character commit SHA at the current main HEAD
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release exact SHA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: Production
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      LAMBDA_FUNCTION: ${{ vars.AWS_LAMBDA_FUNCTION }}
+      LAMBDA_ALIAS: ${{ vars.AWS_LAMBDA_ALIAS }}
+      LAMBDA_RESERVED_CONCURRENCY: ${{ vars.AWS_LAMBDA_RESERVED_CONCURRENCY }}
+      DATABASE_URL_PARAMETER: ${{ vars.AWS_DATABASE_URL_PARAMETER }}
+      DATABASE_MIGRATION_URL_PARAMETER: ${{ vars.AWS_DATABASE_MIGRATION_URL_PARAMETER }}
+      REDIS_URL_PARAMETER: ${{ vars.AWS_REDIS_URL_PARAMETER }}
+      TELEGRAM_TOKEN_PARAMETER: ${{ vars.AWS_TELEGRAM_TOKEN_PARAMETER }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      SMOKE_RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Validate release SHA input
+        id: release_clock
+        run: |
+          echo "started_epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+          if test "$GITHUB_REF" != "refs/heads/main"; then
+            echo "::error::Dispatch this workflow from the main branch"
+            exit 1
+          fi
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::release_sha must be a full lowercase 40-character commit SHA"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Verify exact SHA is the current main HEAD
+        run: |
+          actual_sha=$(git rev-parse HEAD)
+          test "$actual_sha" = "$RELEASE_SHA"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          main_sha=$(git rev-parse refs/remotes/origin/main)
+          if test "$RELEASE_SHA" != "$main_sha"; then
+            echo "::error::release_sha is not the current origin/main HEAD ($main_sha)"
+            exit 1
+          fi
+
+      - name: Require successful CI for the exact release SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 90); do
+            payload=$(gh api \
+              --header "Accept: application/vnd.github+json" \
+              "/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=push&per_page=50")
+            run=$(jq --compact-output \
+              --arg sha "$RELEASE_SHA" \
+              '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.run_number) | last // null' \
+              <<< "$payload")
+            if test "$run" != "null"; then
+              status=$(jq -r '.status' <<< "$run")
+              conclusion=$(jq -r '.conclusion // empty' <<< "$run")
+              run_url=$(jq -r '.html_url' <<< "$run")
+              if test "$status" = "completed"; then
+                if test "$conclusion" != "success"; then
+                  echo "::error::CI for $RELEASE_SHA completed with $conclusion: $run_url"
+                  exit 1
+                fi
+                echo "Exact-SHA CI succeeded: $run_url"
+                exit 0
+              fi
+              echo "Waiting for exact-SHA CI ($status): $run_url"
+            else
+              echo "Attempt $attempt/90: waiting for the main push CI run for $RELEASE_SHA"
+            fi
+            sleep 20
+          done
+          echo "::error::Timed out waiting for successful CI on $RELEASE_SHA"
+          exit 1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Validate release candidate
+        run: |
+          npm ci
+          npm run check:english-source
+          npm run check:content-assets
+          node --check apps/miniapp/scripts/production-smoke.mjs
+          node --check apps/miniapp/scripts/production-browser-smoke.mjs
+          grep --fixed-strings --quiet \
+            '/v2/content/v3?locale=' \
+            apps/miniapp/src/lib/api/client.ts
+          if grep --recursive \
+            --include='*.ts' \
+            --include='*.tsx' \
+            --include='*.mjs' \
+            --extended-regexp --quiet \
+            '/v2/content/v2|action-v1' \
+            apps/miniapp/src \
+            apps/miniapp/scripts; then
+            echo "::error::Mini App runtime or production smoke still targets the legacy action contract"
+            exit 1
+          fi
+          test "$(jq '.strings | length' apps/api/internal/content/v3/locales/en.json)" -eq 620
+          test "$(jq '.strings | length' apps/api/internal/content/v3/locales/zh-CN.json)" -eq 620
+          jq --exit-status \
+            --slurpfile zh apps/api/internal/content/v3/locales/zh-CN.json \
+            '(.strings | keys) == ($zh[0].strings | keys)' \
+            apps/api/internal/content/v3/locales/en.json > /dev/null
+          npm run check:api-types --workspace @xuhuan/miniapp
+          npm run test --workspace @xuhuan/miniapp
+          npm run lint --workspace @xuhuan/miniapp
+          npm run typecheck --workspace @xuhuan/miniapp
+          (cd apps/api && go test ./...)
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@57.0.0
+
+      - name: Build production-mode Mini App
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          umask 077
+          vercel pull --yes --environment=production
+          test "$(jq -r '.projectId // empty' .vercel/project.json)" = "$VERCEL_PROJECT_ID"
+          test "$(jq -r '.orgId // empty' .vercel/project.json)" = "$VERCEL_ORG_ID"
+          test "$(jq -r '.settings.rootDirectory // empty' .vercel/project.json)" = "apps/miniapp"
+          if grep --extended-regexp --quiet \
+            '^(DEV_[A-Z0-9_]*|NEXT_PUBLIC_DEV_[A-Z0-9_]*)=' \
+            .vercel/.env.production.local; then
+            echo "::error::Production Vercel environment contains development-only settings"
+            exit 1
+          fi
+          frontend_api_url=$(sed -n \
+            's/^NEXT_PUBLIC_API_URL="\([^"]*\)"$/\1/p' \
+            .vercel/.env.production.local)
+          if test "${frontend_api_url%/}" != "${API_BASE_URL%/}"; then
+            echo "::error::Production Mini App API URL does not match API_BASE_URL"
+            exit 1
+          fi
+          vercel build --prod
+
+      - name: Deploy immutable staged Mini App
+        id: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          staged_url=$(vercel deploy \
+            --prebuilt \
+            --prod \
+            --skip-domain \
+            --yes \
+            --meta "releaseSha=$RELEASE_SHA" \
+            --meta "contentVersion=v3" \
+            --meta "actionProtocol=action-v2")
+          case "$staged_url" in
+            https://*.vercel.app) ;;
+            *) echo "::error::Vercel returned an unexpected deployment URL"; exit 1 ;;
+          esac
+          echo "url=$staged_url" >> "$GITHUB_OUTPUT"
+
+      - name: Verify staged Mini App and release metadata
+        env:
+          STAGED_URL: ${{ steps.frontend.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel inspect "$STAGED_URL" --wait --timeout 5m
+          hostname=${STAGED_URL#https://}
+          curl --fail --show-error --silent \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v13/deployments/$hostname?teamId=$VERCEL_ORG_ID" \
+            --output "$RUNNER_TEMP/vercel-deployment.json"
+          test "$(jq -r '.readyState // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "READY"
+          test "$(jq -r '.target // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "production"
+          test "$(jq -r '.projectId // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "$VERCEL_PROJECT_ID"
+          test "$(jq -r '.meta.releaseSha // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "$RELEASE_SHA"
+          test "$(jq -r '.meta.contentVersion // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "v3"
+          test "$(jq -r '.meta.actionProtocol // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "action-v2"
+          vercel curl / --deployment "$STAGED_URL" -- \
+            --fail --show-error --silent \
+            --output "$RUNNER_TEMP/staged-index.html"
+          grep --fixed-strings --quiet \
+            'CONTENT-V3 / ACTION-V2' \
+            "$RUNNER_TEMP/staged-index.html"
+
+      - name: Build immutable Lambda and migration runner
+        working-directory: apps/api
+        run: |
+          mkdir -p "$RUNNER_TEMP/xuhuan-lambda"
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+            -tags lambda.norpc \
+            -trimpath \
+            -ldflags="-s -w" \
+            -o "$RUNNER_TEMP/xuhuan-lambda/bootstrap" \
+            ./cmd/lambda
+          (cd "$RUNNER_TEMP/xuhuan-lambda" && zip -q lambda.zip bootstrap)
+          go build -trimpath -o "$RUNNER_TEMP/xuhuan-migrate" ./cmd/migrate
+
+      - name: Validate protected production configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          case "$API_BASE_URL" in
+            https://*) ;;
+            *) echo "::error::API_BASE_URL must be a production HTTPS URL"; exit 1 ;;
+          esac
+          test -n "$AWS_REGION"
+          test -n "$AWS_DEPLOY_ROLE_ARN"
+          test -n "$LAMBDA_FUNCTION"
+          test -n "$LAMBDA_ALIAS"
+          test -n "$DATABASE_URL_PARAMETER"
+          test -n "$DATABASE_MIGRATION_URL_PARAMETER"
+          test -n "$REDIS_URL_PARAMETER"
+          test -n "$TELEGRAM_TOKEN_PARAMETER"
+          test -n "$VERCEL_ORG_ID"
+          test -n "$VERCEL_PROJECT_ID"
+          test -n "$VERCEL_TOKEN"
+          test -n "$LAMBDA_RESERVED_CONCURRENCY"
+          test "$LAMBDA_RESERVED_CONCURRENCY" -ge 1
+          test "$LAMBDA_RESERVED_CONCURRENCY" -le 2
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: xuhuan-release-${{ github.run_id }}
+
+      - name: Validate the live database migration boundary
+        timeout-minutes: 2
+        run: |
+          set +x
+          command -v psql > /dev/null
+          database_url=$(aws ssm get-parameter \
+            --name "$DATABASE_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          database_migration_url=$(aws ssm get-parameter \
+            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          for value in "$database_url" "$database_migration_url"; do
+            case "$value" in
+              postgres://*|postgresql://*) ;;
+              *) echo "::error::A database parameter is not a PostgreSQL URL"; exit 1 ;;
+            esac
+            echo "::add-mask::$value"
+          done
+
+          migration_query="SELECT string_agg(version::text || ':' || name, ',' ORDER BY version) FROM schema_migrations"
+          migration_state=$(PGCONNECT_TIMEOUT=10 \
+            PGOPTIONS='-c lock_timeout=5s -c statement_timeout=30s' \
+            psql "$database_migration_url" \
+            --no-psqlrc --set=ON_ERROR_STOP=1 --tuples-only --no-align \
+            --command="$migration_query")
+          runtime_state=$(PGCONNECT_TIMEOUT=10 \
+            PGOPTIONS='-c lock_timeout=5s -c statement_timeout=30s' \
+            psql "$database_url" \
+            --no-psqlrc --set=ON_ERROR_STOP=1 --tuples-only --no-align \
+            --command="$migration_query")
+          expected_v4='1:001_initial_schema.sql,2:002_story_roguelite.sql,3:003_remove_v1_compatibility.sql,4:004_action_roguelite.sql'
+          expected_v5="$expected_v4,5:005_action_v3_prepare.sql"
+          expected_v6="$expected_v5,6:006_remove_action_v2.sql"
+          case "$migration_state" in
+            "$expected_v4"|"$expected_v5"|"$expected_v6") ;;
+            *) echo "::error::Migration URL is not at a supported complete Action V2/V3 boundary"; exit 1 ;;
+          esac
+          if test "$runtime_state" != "$migration_state"; then
+            echo "::error::Runtime and migration database URLs expose different migration histories"
+            exit 1
+          fi
+
+      - name: Validate live Lambda alias and timeout
+        id: live_alias
+        run: |
+          live_alias=$(aws lambda get-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "$LAMBDA_ALIAS" \
+            --output json)
+          version=$(jq -r '.FunctionVersion // empty' <<< "$live_alias")
+          test "$version" != "None"
+          test -n "$version"
+          test "$(jq '.RoutingConfig.AdditionalVersionWeights // {} | length' <<< "$live_alias")" -eq 0
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          reserved_concurrency=$(aws lambda get-function-concurrency \
+            --function-name "$LAMBDA_FUNCTION" \
+            --query ReservedConcurrentExecutions \
+            --output text)
+          case "$reserved_concurrency" in
+            None|0|1|2) ;;
+            *) echo "::error::Live Lambda concurrency is outside the zero-cost release guardrail"; exit 1 ;;
+          esac
+          echo "reserved_concurrency=$reserved_concurrency" >> "$GITHUB_OUTPUT"
+          lambda_config=$(aws lambda get-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" \
+            --output json)
+          lambda_timeout=$(jq -r .Timeout <<< "$lambda_config")
+          test "$lambda_timeout" -ge 1
+          if test "$lambda_timeout" -gt 30; then
+            echo "::error::Lambda timeout exceeds the workflow's 35-second drain window"
+            exit 1
+          fi
+          test "$(jq -r '.Architectures | join(",")' <<< "$lambda_config")" = "arm64"
+          test "$(jq -r .Runtime <<< "$lambda_config")" = "provided.al2023"
+
+      - name: Update unpublished Lambda code and configuration
+        env:
+          LIVE_VERSION: ${{ steps.live_alias.outputs.version }}
+        run: |
+          umask 077
+          database_url=$(aws ssm get-parameter \
+            --name "$DATABASE_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          redis_url=$(aws ssm get-parameter \
+            --name "$REDIS_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          telegram_token=$(aws ssm get-parameter \
+            --name "$TELEGRAM_TOKEN_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+
+          echo "::add-mask::$database_url"
+          echo "::add-mask::$redis_url"
+          echo "::add-mask::$telegram_token"
+
+          case "$database_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database runtime parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          case "$redis_url" in
+            rediss://*) ;;
+            *) echo "::error::Redis parameter must use TLS (rediss://)"; exit 1 ;;
+          esac
+          test -n "$telegram_token"
+          test "$telegram_token" != "replace-out-of-band"
+
+          current_variables=$(aws lambda get-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" \
+            --qualifier "$LIVE_VERSION" \
+            --query Environment.Variables \
+            --output json)
+          jq -n \
+            --argjson current "$current_variables" \
+            --arg version "$RELEASE_SHA" \
+            --arg database_url "$database_url" \
+            --arg redis_url "$redis_url" \
+            --arg telegram_token "$telegram_token" \
+            '{Variables: (($current
+              | del(
+                  .DATABASE_HOST,
+                  .DATABASE_PORT,
+                  .DATABASE_NAME,
+                  .DATABASE_USER,
+                  .DATABASE_PASSWORD,
+                  .DATABASE_SSLMODE,
+                  .DATABASE_MIGRATION_URL,
+                  .TRUST_PROXY
+                )
+              | with_entries(select(
+                  (((.key | startswith("DEV_")) or (.key | startswith("NEXT_PUBLIC_DEV_"))) | not)
+                ))
+            ) + {
+              APP_ENV: "production",
+              APP_VERSION: $version,
+              DATABASE_URL: $database_url,
+              REDIS_URL: $redis_url,
+              REDIS_TIMEOUT: "1s",
+              TELEGRAM_BOT_TOKEN: $telegram_token
+            })}' > "$RUNNER_TEMP/lambda-environment.json"
+          chmod 600 "$RUNNER_TEMP/lambda-environment.json"
+          if ! jq --exit-status \
+            '[.Variables | keys[] | select(startswith("DEV_") or startswith("NEXT_PUBLIC_DEV_"))] | length == 0' \
+            "$RUNNER_TEMP/lambda-environment.json" > /dev/null; then
+            echo "::error::Published Lambda configuration would retain a development setting"
+            exit 1
+          fi
+
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION" \
+            --zip-file "fileb://$RUNNER_TEMP/xuhuan-lambda/lambda.zip" > /dev/null
+          aws lambda wait function-updated-v2 --function-name "$LAMBDA_FUNCTION"
+          aws lambda update-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" \
+            --environment "file://$RUNNER_TEMP/lambda-environment.json" > /dev/null
+          aws lambda wait function-updated-v2 --function-name "$LAMBDA_FUNCTION"
+
+      - name: Publish immutable Lambda candidate
+        id: candidate
+        run: |
+          expected_code_sha=$(openssl dgst -sha256 -binary \
+            "$RUNNER_TEMP/xuhuan-lambda/lambda.zip" | openssl base64 -A)
+          unpublished=$(aws lambda get-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" \
+            --output json)
+          test "$(jq -r '.CodeSha256 // empty' <<< "$unpublished")" = "$expected_code_sha"
+          test "$(jq -r '.Environment.Variables.APP_VERSION // empty' <<< "$unpublished")" = "$RELEASE_SHA"
+          revision_id=$(jq -r '.RevisionId // empty' <<< "$unpublished")
+          test -n "$revision_id"
+          published=$(aws lambda publish-version \
+            --function-name "$LAMBDA_FUNCTION" \
+            --description "$RELEASE_SHA" \
+            --code-sha256 "$expected_code_sha" \
+            --revision-id "$revision_id" \
+            --output json)
+          version=$(jq -r '.Version // empty' <<< "$published")
+          test "$version" != "None"
+          test -n "$version"
+          test "$(jq -r '.CodeSha256 // empty' <<< "$published")" = "$expected_code_sha"
+          test "$(jq -r '.Description // empty' <<< "$published")" = "$RELEASE_SHA"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check immutable candidate dependencies and content
+        env:
+          CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
+          INITIAL_RESERVED_CONCURRENCY: ${{ steps.live_alias.outputs.reserved_concurrency }}
+        run: |
+          candidate_config=$(aws lambda get-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" \
+            --qualifier "$CANDIDATE_VERSION" \
+            --output json)
+          test "$(jq -r .Description <<< "$candidate_config")" = "$RELEASE_SHA"
+          test "$(jq -r .Environment.Variables.APP_VERSION <<< "$candidate_config")" = "$RELEASE_SHA"
+          if test "$INITIAL_RESERVED_CONCURRENCY" = "0"; then
+            echo "::warning::Direct candidate invocation is unavailable while recovery/bootstrap concurrency is zero; local validation, exact configuration checks, and the post-alias API handshake remain mandatory."
+            exit 0
+          fi
+          aws lambda invoke \
+            --function-name "$LAMBDA_FUNCTION" \
+            --qualifier "$CANDIDATE_VERSION" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"operation":"check"}' \
+            "$RUNNER_TEMP/check-response.json" \
+            > "$RUNNER_TEMP/check-metadata.json"
+          test -z "$(jq -r '.FunctionError // empty' "$RUNNER_TEMP/check-metadata.json")"
+          test "$(jq -r .status "$RUNNER_TEMP/check-response.json")" = "ok"
+          test "$(jq -r .operation "$RUNNER_TEMP/check-response.json")" = "check"
+          test "$(jq -r .content_version "$RUNNER_TEMP/check-response.json")" = "v3"
+          test "$(jq -r .protocol "$RUNNER_TEMP/check-response.json")" = "action-v2"
+
+      - name: Require enough time for a bounded cutover
+        env:
+          RELEASE_STARTED_EPOCH: ${{ steps.release_clock.outputs.started_epoch }}
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          main_sha=$(git rev-parse refs/remotes/origin/main)
+          if test "$RELEASE_SHA" != "$main_sha"; then
+            echo "::error::origin/main advanced to $main_sha during preflight; rerun this release for the new HEAD"
+            exit 1
+          fi
+          started_epoch=$RELEASE_STARTED_EPOCH
+          if [[ ! "$started_epoch" =~ ^[0-9]+$ ]]; then
+            echo "::error::Release start time is unavailable"
+            exit 1
+          fi
+          elapsed_seconds=$(($(date +%s) - started_epoch))
+          if test "$elapsed_seconds" -gt 3000; then
+            echo "::error::Preflight exceeded 50 minutes; rerun instead of entering maintenance near the job deadline"
+            exit 1
+          fi
+
+      - name: Promote the exact staged Mini App
+        id: promotion
+        timeout-minutes: 6
+        env:
+          STAGED_URL: ${{ steps.frontend.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
+          INITIAL_RESERVED_CONCURRENCY: ${{ steps.live_alias.outputs.reserved_concurrency }}
+        run: |
+          vercel promote "$STAGED_URL" --yes --timeout=4m
+          promoted=false
+          for attempt in $(seq 1 12); do
+            if vercel curl / -- \
+              --fail --show-error --silent \
+              --output "$RUNNER_TEMP/production-index.html" && \
+              grep --fixed-strings --quiet \
+                'CONTENT-V3 / ACTION-V2' \
+                "$RUNNER_TEMP/production-index.html"; then
+              promoted=true
+              break
+            fi
+            echo "Attempt $attempt/12: waiting for the promoted production domain"
+            sleep 5
+          done
+          if test "$promoted" != "true"; then
+            echo "::error::The linked production domain is not serving the staged V3 artifact"
+            exit 1
+          fi
+
+          hostname=${STAGED_URL#https://}
+          curl --fail --show-error --silent \
+            --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 2 --retry-all-errors \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v13/deployments/$hostname?teamId=$VERCEL_ORG_ID" \
+            --output "$RUNNER_TEMP/promoted-vercel-deployment.json"
+          mapfile -t production_aliases < <(jq -r '.alias[]? // empty' "$RUNNER_TEMP/promoted-vercel-deployment.json")
+          if test "${#production_aliases[@]}" -eq 0; then
+            echo "::error::The promoted deployment has no production alias"
+            exit 1
+          fi
+          publicly_reachable=false
+          candidate_cors_origins=""
+          if test "$INITIAL_RESERVED_CONCURRENCY" = "0"; then
+            candidate_cors_origins=$(aws lambda get-function-configuration \
+              --function-name "$LAMBDA_FUNCTION" \
+              --qualifier "$CANDIDATE_VERSION" \
+              --query Environment.Variables.CORS_ALLOWED_ORIGINS \
+              --output text)
+            test -n "$candidate_cors_origins"
+            test "$candidate_cors_origins" != "None"
+          fi
+          for alias in "${production_aliases[@]}"; do
+            if [[ ! "$alias" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]]; then
+              echo "::error::Vercel returned an invalid production alias"
+              exit 1
+            fi
+            if curl --fail --location --show-error --silent \
+              --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 2 --retry-all-errors \
+              "https://$alias/" \
+              --output "$RUNNER_TEMP/public-production-index.html" && \
+              grep --fixed-strings --quiet \
+                'CONTENT-V3 / ACTION-V2' \
+                "$RUNNER_TEMP/public-production-index.html"; then
+              cors_ready=false
+              if test "$INITIAL_RESERVED_CONCURRENCY" = "0"; then
+                IFS=',' read -r -a allowed_origins <<< "$candidate_cors_origins"
+                for allowed_origin in "${allowed_origins[@]}"; do
+                  allowed_origin=${allowed_origin#"${allowed_origin%%[![:space:]]*}"}
+                  allowed_origin=${allowed_origin%"${allowed_origin##*[![:space:]]}"}
+                  if test "${allowed_origin,,}" = "https://${alias,,}"; then
+                    cors_ready=true
+                    break
+                  fi
+                done
+              else
+                cors_status=$(curl --show-error --silent \
+                  --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 2 --retry-all-errors \
+                  --request OPTIONS \
+                  --header "Origin: https://$alias" \
+                  --header 'Access-Control-Request-Method: GET' \
+                  --dump-header "$RUNNER_TEMP/public-api-cors-headers.txt" \
+                  --output /dev/null \
+                  --write-out '%{http_code}' \
+                  "${API_BASE_URL%/}/healthz")
+                cors_origin=$(tr -d '\r' < "$RUNNER_TEMP/public-api-cors-headers.txt" | \
+                  awk -F ': ' 'tolower($1) == "access-control-allow-origin" { print $2; exit }')
+                if test "$cors_status" = "204" && test "$cors_origin" = "https://$alias"; then
+                  cors_ready=true
+                fi
+              fi
+              if test "$cors_ready" = "true"; then
+                publicly_reachable=true
+                echo "public_origin=https://$alias" >> "$GITHUB_OUTPUT"
+                break
+              fi
+            fi
+          done
+          if test "$publicly_reachable" != "true"; then
+            echo "::error::No production alias exposes V3 publicly and passes the API CORS preflight"
+            exit 1
+          fi
+
+      - name: Enter maintenance window and drain Lambda
+        id: maintenance
+        timeout-minutes: 2
+        run: |
+          echo "started=true" >> "$GITHUB_OUTPUT"
+          aws lambda put-function-concurrency \
+            --function-name "$LAMBDA_FUNCTION" \
+            --reserved-concurrent-executions 0 > /dev/null
+          test "$(aws lambda get-function-concurrency \
+            --function-name "$LAMBDA_FUNCTION" \
+            --query ReservedConcurrentExecutions \
+            --output text)" = "0"
+          sleep 35
+
+      - name: Apply V3 preparation migration
+        id: migrations
+        timeout-minutes: 7
+        working-directory: apps/api
+        run: |
+          database_migration_url=$(aws ssm get-parameter \
+            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          case "$database_migration_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          echo "::add-mask::$database_migration_url"
+          MIGRATION_TARGET_VERSION=5 \
+            DATABASE_URL="$database_migration_url" \
+            "$RUNNER_TEMP/xuhuan-migrate"
+
+      - name: Resolve V3 boundary after a reported migration failure
+        id: migration_boundary
+        if: ${{ always() && steps.maintenance.outputs.started == 'true' && steps.migrations.outcome != 'success' }}
+        timeout-minutes: 2
+        run: |
+          set +x
+          command -v psql > /dev/null
+          database_migration_url=$(aws ssm get-parameter \
+            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          case "$database_migration_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          echo "::add-mask::$database_migration_url"
+          v3_applied=$(PGCONNECT_TIMEOUT=10 \
+            PGOPTIONS='-c lock_timeout=10s -c statement_timeout=30s' \
+            psql "$database_migration_url" \
+            --set=ON_ERROR_STOP=1 \
+            --no-psqlrc \
+            --tuples-only \
+            --no-align \
+            --command='SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 5)')
+          case "$v3_applied" in
+            t) echo "v3_applied=true" >> "$GITHUB_OUTPUT" ;;
+            f) echo "v3_applied=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::Could not determine the V3 migration boundary"; exit 1 ;;
+          esac
+
+      - name: Verify the Lambda runtime database reached V3
+        timeout-minutes: 2
+        run: |
+          set +x
+          command -v psql > /dev/null
+          database_url=$(aws ssm get-parameter \
+            --name "$DATABASE_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          case "$database_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database runtime parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          echo "::add-mask::$database_url"
+          runtime_v3_ready=$(PGCONNECT_TIMEOUT=10 \
+            PGOPTIONS='-c lock_timeout=10s -c statement_timeout=30s' \
+            psql "$database_url" \
+            --no-psqlrc \
+            --set=ON_ERROR_STOP=1 \
+            --tuples-only \
+            --no-align \
+            --command="SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 5) AND to_regclass('player_campaign_progress') IS NOT NULL")
+          if test "$runtime_v3_ready" != "t"; then
+            echo "::error::Lambda runtime DATABASE_URL does not expose the committed V3 schema"
+            exit 1
+          fi
+
+      - name: Switch live alias to the immutable candidate
+        id: alias
+        timeout-minutes: 3
+        env:
+          CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
+          EXPECTED_LIVE_VERSION: ${{ steps.live_alias.outputs.version }}
+        run: |
+          previous_alias=$(aws lambda get-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "$LAMBDA_ALIAS" \
+            --output json)
+          test "$(jq -r '.FunctionVersion // empty' <<< "$previous_alias")" = "$EXPECTED_LIVE_VERSION"
+          test "$(jq '.RoutingConfig.AdditionalVersionWeights // {} | length' <<< "$previous_alias")" -eq 0
+          alias_revision=$(jq -r '.RevisionId // empty' <<< "$previous_alias")
+          test -n "$alias_revision"
+          aws lambda update-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "$LAMBDA_ALIAS" \
+            --function-version "$CANDIDATE_VERSION" \
+            --revision-id "$alias_revision" \
+            --description "$RELEASE_SHA" > /dev/null
+          live_alias=$(aws lambda get-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "$LAMBDA_ALIAS" \
+            --output json)
+          test "$(jq -r '.FunctionVersion // empty' <<< "$live_alias")" = "$CANDIDATE_VERSION"
+          test "$(jq -r '.Description // empty' <<< "$live_alias")" = "$RELEASE_SHA"
+          test "$(jq '.RoutingConfig.AdditionalVersionWeights // {} | length' <<< "$live_alias")" -eq 0
+
+      - name: Restore bounded Lambda concurrency
+        if: ${{ always() && steps.maintenance.outputs.started == 'true' && (steps.alias.outcome == 'success' || (steps.migrations.outcome != 'success' && steps.migration_boundary.outputs.v3_applied == 'false')) }}
+        timeout-minutes: 3
+        run: |
+          unreserved_concurrency=$(aws lambda get-account-settings \
+            --query AccountLimit.UnreservedConcurrentExecutions \
+            --output text)
+          minimum_unreserved_concurrency=100
+          required_unreserved_concurrency=$((LAMBDA_RESERVED_CONCURRENCY + minimum_unreserved_concurrency))
+          if test "$unreserved_concurrency" -ge "$required_unreserved_concurrency"; then
+            aws lambda put-function-concurrency \
+              --function-name "$LAMBDA_FUNCTION" \
+              --reserved-concurrent-executions "$LAMBDA_RESERVED_CONCURRENCY" > /dev/null
+            test "$(aws lambda get-function-concurrency \
+              --function-name "$LAMBDA_FUNCTION" \
+              --query ReservedConcurrentExecutions \
+              --output text)" = "$LAMBDA_RESERVED_CONCURRENCY"
+          else
+            aws lambda delete-function-concurrency \
+              --function-name "$LAMBDA_FUNCTION"
+            test "$(aws lambda get-function-concurrency \
+              --function-name "$LAMBDA_FUNCTION" \
+              --query ReservedConcurrentExecutions \
+              --output text)" = "None"
+            echo "::warning::Lambda unreserved concurrency is $unreserved_concurrency; using the account-wide cap until it reaches $required_unreserved_concurrency."
+          fi
+
+      - name: Verify API handshake
+        timeout-minutes: 10
+        env:
+          PUBLIC_ORIGIN: ${{ steps.promotion.outputs.public_origin }}
+        run: |
+          api_base_url=${API_BASE_URL%/}
+          case "$PUBLIC_ORIGIN" in
+            https://*) ;;
+            *) echo "::error::Verified production Mini App origin is unavailable"; exit 1 ;;
+          esac
+          cors_status=$(curl --show-error --silent \
+            --connect-timeout 5 --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors \
+            --request OPTIONS \
+            --header "Origin: $PUBLIC_ORIGIN" \
+            --header 'Access-Control-Request-Method: GET' \
+            --dump-header "$RUNNER_TEMP/live-api-cors-headers.txt" \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            "$api_base_url/healthz")
+          cors_origin=$(tr -d '\r' < "$RUNNER_TEMP/live-api-cors-headers.txt" | \
+            awk -F ': ' 'tolower($1) == "access-control-allow-origin" { print $2; exit }')
+          if test "$cors_status" != "204" || test "$cors_origin" != "$PUBLIC_ORIGIN"; then
+            echo "::error::The live V3 API does not allow the promoted Mini App origin"
+            exit 1
+          fi
+          health=$(curl --fail --show-error --silent \
+            --connect-timeout 5 --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors \
+            "$api_base_url/healthz")
+          test "$(jq -r .status <<< "$health")" = "ok"
+          test "$(jq -r .version <<< "$health")" = "$RELEASE_SHA"
+          test "$(curl --fail --show-error --silent \
+            --connect-timeout 5 --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors \
+            "$api_base_url/readyz" | jq -r .status)" = "ready"
+          content=$(curl --fail --show-error --silent \
+            --connect-timeout 5 --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors \
+            "$api_base_url/v2/content/v3?locale=en")
+          test "$(jq -r .version <<< "$content")" = "v3"
+          test "$(jq -r .protocol <<< "$content")" = "action-v2"
+          test "$(jq -r .locale <<< "$content")" = "en"
+          test "$(jq '.characters | length' <<< "$content")" -eq 7
+          test "$(jq '.kits | length' <<< "$content")" -eq 7
+          test "$(jq '.modules | length' <<< "$content")" -eq 68
+          test "$(jq '.plugins | length' <<< "$content")" -eq 20
+          test "$(jq '.enemies | length' <<< "$content")" -eq 36
+          test "$(jq '.encounters | length' <<< "$content")" -eq 47
+          test "$(jq '.events | length' <<< "$content")" -eq 28
+          test "$(jq '.scenes | length' <<< "$content")" -eq 34
+          test "$(jq '.chapters | length' <<< "$content")" -eq 8
+          content_zh=$(curl --fail --show-error --silent \
+            --connect-timeout 5 --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors \
+            "$api_base_url/v2/content/v3?locale=zh-CN")
+          test "$(jq -r .version <<< "$content_zh")" = "v3"
+          test "$(jq -r .protocol <<< "$content_zh")" = "action-v2"
+          test "$(jq -r .locale <<< "$content_zh")" = "zh-CN"
+          for collection in characters kits modules plugins enemies encounters events scenes chapters; do
+            test "$(jq --arg key "$collection" '.[$key] | length' <<< "$content_zh")" = \
+              "$(jq --arg key "$collection" '.[$key] | length' <<< "$content")"
+          done
+
+      - name: Run signed production V3 journey
+        id: smoke
+        timeout-minutes: 20
+        working-directory: apps/miniapp
+        env:
+          PUBLIC_ORIGIN: ${{ steps.promotion.outputs.public_origin }}
+        run: |
+          if [[ ! "$SMOKE_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::GitHub run ID is not numeric"
+            exit 1
+          fi
+          smoke_suffix=${SMOKE_RUN_ID: -10}
+          printf -v smoke_suffix '%010s' "$smoke_suffix"
+          smoke_suffix=${smoke_suffix// /0}
+          smoke_telegram_user_id="800000${smoke_suffix}"
+          if [[ ! "$smoke_telegram_user_id" =~ ^8[0-9]{15}$ ]]; then
+            echo "::error::Synthetic Telegram identity derivation failed"
+            exit 1
+          fi
+          echo "::add-mask::$smoke_telegram_user_id"
+
+          command -v psql > /dev/null
+          database_migration_url=$(aws ssm get-parameter \
+            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          case "$database_migration_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          echo "::add-mask::$database_migration_url"
+          identity_available=$(PGCONNECT_TIMEOUT=10 \
+            PGOPTIONS='-c lock_timeout=5s -c statement_timeout=30s' \
+            psql "$database_migration_url" \
+            --no-psqlrc \
+            --set=ON_ERROR_STOP=1 \
+            --tuples-only \
+            --no-align \
+            --command="SELECT NOT EXISTS (SELECT 1 FROM players WHERE telegram_user_id = $smoke_telegram_user_id::bigint)")
+          if test "$identity_available" != "t"; then
+            echo "::error::Synthetic Telegram identity already exists; refusing to overwrite or delete it"
+            exit 1
+          fi
+
+          telegram_token=$(aws ssm get-parameter \
+            --name "$TELEGRAM_TOKEN_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          test -n "$telegram_token"
+          test "$telegram_token" != "replace-out-of-band"
+          echo "::add-mask::$telegram_token"
+          command -v google-chrome > /dev/null
+          init_data_file="$RUNNER_TEMP/xuhuan-telegram-init-data-$GITHUB_RUN_ATTEMPT"
+          if test -e "$init_data_file"; then
+            echo "::error::Synthetic Telegram initData path already exists"
+            exit 1
+          fi
+          cleanup_init_data() {
+            if test -f "$init_data_file"; then
+              rm -- "$init_data_file"
+            fi
+          }
+          trap cleanup_init_data EXIT
+          EXPECTED_SMOKE_TELEGRAM_USER_ID="$smoke_telegram_user_id" \
+            TELEGRAM_INIT_DATA_FILE="$init_data_file" \
+            TELEGRAM_BOT_TOKEN="$telegram_token" \
+            node scripts/production-smoke.mjs
+          MINIAPP_BASE_URL="$PUBLIC_ORIGIN" \
+            TELEGRAM_INIT_DATA_FILE="$init_data_file" \
+            PLAYWRIGHT_CHANNEL=chrome \
+            node scripts/production-browser-smoke.mjs
+
+      - name: Remove synthetic production smoke player
+        if: ${{ always() && steps.smoke.outputs.synthetic_telegram_user_id != '' }}
+        timeout-minutes: 5
+        env:
+          SMOKE_TELEGRAM_USER_ID: ${{ steps.smoke.outputs.synthetic_telegram_user_id }}
+        run: |
+          set +x
+          echo "::add-mask::$SMOKE_TELEGRAM_USER_ID"
+          if [[ ! "$SMOKE_TELEGRAM_USER_ID" =~ ^8[0-9]{15}$ ]]; then
+            echo "::error::Synthetic smoke cleanup received an invalid Telegram user ID"
+            exit 1
+          fi
+          command -v psql > /dev/null
+
+          database_migration_url=$(aws ssm get-parameter \
+            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          case "$database_migration_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          echo "::add-mask::$database_migration_url"
+
+          PGCONNECT_TIMEOUT=10 \
+            PGOPTIONS='-c lock_timeout=5s -c statement_timeout=30s' \
+            psql "$database_migration_url" \
+            --no-psqlrc \
+            --set=ON_ERROR_STOP=1 \
+            --set=smoke_telegram_user_id="$SMOKE_TELEGRAM_USER_ID" \
+            > /dev/null <<'SQL'
+          BEGIN;
+          SET LOCAL lock_timeout = '5s';
+          SET LOCAL statement_timeout = '30s';
+          DELETE FROM players
+          WHERE telegram_user_id = :'smoke_telegram_user_id'::bigint;
+          SELECT NOT EXISTS (
+            SELECT 1 FROM players
+            WHERE telegram_user_id = :'smoke_telegram_user_id'::bigint
+          ) AS cleanup_complete \gset
+          \if :cleanup_complete
+          \else
+            \echo ::error::Synthetic production smoke player cleanup did not complete
+            \quit 1
+          \endif
+          COMMIT;
+          SQL
+
+      - name: Remove legacy Action V2 schema after V3 smoke
+        id: contract
+        timeout-minutes: 7
+        working-directory: apps/api
+        run: |
+          database_migration_url=$(aws ssm get-parameter \
+            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          case "$database_migration_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          echo "::add-mask::$database_migration_url"
+          MIGRATION_TARGET_VERSION=6 \
+            DATABASE_URL="$database_migration_url" \
+            "$RUNNER_TEMP/xuhuan-migrate"
+
+      - name: Record forward-only failure boundary
+        if: ${{ failure() && steps.maintenance.outputs.started == 'true' && (steps.migrations.outcome == 'success' || steps.migration_boundary.outputs.v3_applied != 'false') }}
+        run: |
+          echo "::error::V3 preparation migration 005 committed or could not be proven absent. Do not restore an Action V2 Lambda or frontend; keep the compatible candidate live (or maintenance concurrency at zero if alias switching failed) and fix forward. Migration 006 remains gated until synthetic-state cleanup succeeds and is safe to retry after a contract-step failure."
+
+      - name: Release summary
+        if: success()
+        env:
+          STAGED_URL: ${{ steps.frontend.outputs.url }}
+          CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
+        run: |
+          {
+            echo "### Production V3 release passed"
+            echo "- Commit: $RELEASE_SHA"
+            echo "- Lambda version: $CANDIDATE_VERSION"
+            echo "- Promoted Vercel deployment: $STAGED_URL"
+            echo "- API: v3 content / action-v2 protocol"
+            echo "- Fixed V3 catalog counts and both production locales: validated"
+            echo "- Signed Telegram production journey: passed"
+            echo "- Synthetic production smoke player: removed"
+            echo "- Legacy Action V2 schema cleanup: migration 006 applied"
+          } >> "$GITHUB_STEP_SUMMARY"

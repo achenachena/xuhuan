@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/application"
+	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 	"github.com/achenachena/xuhuan/apps/api/internal/lambdahttp"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/config"
 	"github.com/aws/aws-lambda-go/events"
@@ -20,8 +21,10 @@ type operationEvent struct {
 }
 
 type operationResponse struct {
-	Status    string `json:"status"`
-	Operation string `json:"operation"`
+	Status         string `json:"status"`
+	Operation      string `json:"operation"`
+	ContentVersion string `json:"content_version"`
+	Protocol       string `json:"protocol"`
 }
 
 func main() {
@@ -50,7 +53,7 @@ func run() error {
 
 	adapter := lambdahttp.New(runtime.Handler)
 	awslambda.Start(func(ctx context.Context, payload json.RawMessage) (any, error) {
-		return handleEvent(ctx, payload, adapter.Serve, runtime.Migrate, runtime.Check)
+		return handleEvent(ctx, payload, adapter.Serve, runtime.Check)
 	})
 	return nil
 }
@@ -59,7 +62,6 @@ func handleEvent(
 	ctx context.Context,
 	payload json.RawMessage,
 	serve func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error),
-	migrate func(context.Context) error,
 	check func(context.Context) error,
 ) (any, error) {
 	var operation operationEvent
@@ -67,16 +69,16 @@ func handleEvent(
 		return nil, errors.New("decode lambda event")
 	}
 	switch operation.Operation {
-	case "migrate":
-		if err := migrate(ctx); err != nil {
-			return nil, err
-		}
-		return operationResponse{Status: "ok", Operation: operation.Operation}, nil
 	case "check":
 		if err := check(ctx); err != nil {
 			return nil, err
 		}
-		return operationResponse{Status: "ok", Operation: operation.Operation}, nil
+		return operationResponse{
+			Status:         "ok",
+			Operation:      operation.Operation,
+			ContentVersion: gamecontent.CurrentVersion,
+			Protocol:       gamecontent.CurrentProtocol,
+		}, nil
 	case "":
 		var request events.LambdaFunctionURLRequest
 		if err := json.Unmarshal(payload, &request); err != nil {

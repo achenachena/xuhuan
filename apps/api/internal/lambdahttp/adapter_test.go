@@ -20,15 +20,14 @@ func TestServeTranslatesFunctionURLRequestAndResponse(t *testing.T) {
 		if r.Method != http.MethodPost || r.URL.Path != "/adapter-test" || r.URL.RawQuery != "page=2" {
 			t.Fatalf("unexpected request target: %s %s", r.Method, r.URL.String())
 		}
-		if r.Header.Get("X-Test") != "value" || r.Header.Get("Cookie") != "a=1; b=2" {
+		if r.Header.Get("X-Test") != "value" || r.Header.Get("Cookie") != "" {
 			t.Fatalf("unexpected headers: %#v", r.Header)
 		}
 		if r.RemoteAddr != "203.0.113.10:0" || string(body) != `{"ok":true}` {
 			t.Fatalf("unexpected request metadata: remote=%q body=%q", r.RemoteAddr, body)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Add("Set-Cookie", "session=one")
-		w.Header().Add("Set-Cookie", "mode=game")
+		w.Header().Set("Set-Cookie", "ignored=1")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write([]byte(`{"created":true}`))
 	})
@@ -37,7 +36,7 @@ func TestServeTranslatesFunctionURLRequestAndResponse(t *testing.T) {
 		RawPath:         "/adapter-test",
 		RawQueryString:  "page=2",
 		Headers:         map[string]string{"Host": "example.lambda-url.us-east-1.on.aws", "x-test": "value"},
-		Cookies:         []string{"a=1", "b=2"},
+		Cookies:         []string{"ignored=1"},
 		Body:            base64.StdEncoding.EncodeToString([]byte(`{"ok":true}`)),
 		IsBase64Encoded: true,
 		RequestContext: events.LambdaFunctionURLRequestContext{HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
@@ -50,8 +49,8 @@ func TestServeTranslatesFunctionURLRequestAndResponse(t *testing.T) {
 	if response.StatusCode != http.StatusCreated || response.Body != `{"created":true}` || response.Headers["Content-Type"] != "application/json" {
 		t.Fatalf("unexpected response: %#v", response)
 	}
-	if len(response.Cookies) != 2 || response.Cookies[0] != "session=one" || response.Cookies[1] != "mode=game" {
-		t.Fatalf("unexpected cookies: %#v", response.Cookies)
+	if len(response.Cookies) != 0 {
+		t.Fatalf("cookie transport should remain disabled: %#v", response.Cookies)
 	}
 }
 

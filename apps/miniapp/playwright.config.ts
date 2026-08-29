@@ -16,9 +16,7 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...process.env,
-      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080",
-      NEXT_PUBLIC_DEV_AUTH_TOKEN:
-        process.env.NEXT_PUBLIC_DEV_AUTH_TOKEN ?? "local-development-token"
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080"
     }
   },
   projects: [

@@ -32,24 +32,33 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
         WebApp.setBackgroundColor("#02050e");
       }
 
-      const swipesDisabled =
-        isTelegramHost &&
-        WebApp.isVersionAtLeast("7.7") &&
-        typeof WebApp.disableVerticalSwipes === "function";
-      if (swipesDisabled) {
-        WebApp.disableVerticalSwipes();
-      }
-
       const immersiveMode = isTelegramHost && WebApp.isVersionAtLeast("8.0");
       if (immersiveMode) {
-        WebApp.lockOrientation();
-        if (!WebApp.isFullscreen) WebApp.requestFullscreen();
+        // Some Telegram clients advertise the API version before the native
+        // fullscreen/orientation bridge is actually available. Presentation
+        // enhancement must never abort safe-area synchronization.
+        try {
+          WebApp.lockOrientation();
+          if (!WebApp.isFullscreen) WebApp.requestFullscreen();
+        } catch {
+          // Continue in the host's current presentation mode.
+        }
       }
 
       const syncHostMetrics = () => {
         const content = WebApp.contentSafeAreaInset;
         const system = WebApp.safeAreaInset;
+        const stableHeight = WebApp.viewportStableHeight || window.innerHeight;
+        const viewportHeight = WebApp.viewportHeight || window.innerHeight;
         root.dataset.telegramFullscreen = String(WebApp.isFullscreen);
+        root.style.setProperty(
+          "--xuhuan-stable-height",
+          `${Math.max(1, Math.round(stableHeight))}px`,
+        );
+        root.style.setProperty(
+          "--xuhuan-viewport-height",
+          `${Math.max(1, Math.round(viewportHeight))}px`,
+        );
         root.style.setProperty(
           "--xuhuan-tg-content-safe-top",
           `${Math.max(content?.top ?? 0, system?.top ?? 0)}px`,
@@ -66,6 +75,7 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
       };
       WebApp.onEvent("themeChanged", handleThemeChange);
       WebApp.onEvent("viewportChanged", syncHostMetrics);
+      window.addEventListener("resize", syncHostMetrics, { passive: true });
       if (immersiveMode) {
         WebApp.onEvent("safeAreaChanged", syncHostMetrics);
         WebApp.onEvent("contentSafeAreaChanged", syncHostMetrics);
@@ -75,20 +85,24 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
       cleanup = () => {
         WebApp.offEvent("themeChanged", handleThemeChange);
         WebApp.offEvent("viewportChanged", syncHostMetrics);
+        window.removeEventListener("resize", syncHostMetrics);
         if (immersiveMode) {
           WebApp.offEvent("safeAreaChanged", syncHostMetrics);
           WebApp.offEvent("contentSafeAreaChanged", syncHostMetrics);
           WebApp.offEvent("fullscreenChanged", syncHostMetrics);
           WebApp.offEvent("fullscreenFailed", syncHostMetrics);
-          WebApp.unlockOrientation();
-        }
-        if (swipesDisabled) {
-          WebApp.enableVerticalSwipes();
+          try {
+            WebApp.unlockOrientation();
+          } catch {
+            // The bridge can disappear while Telegram closes the WebView.
+          }
         }
         delete root.dataset.telegramHost;
         delete root.dataset.telegramFullscreen;
         root.style.removeProperty("--xuhuan-tg-content-safe-top");
         root.style.removeProperty("--xuhuan-tg-content-safe-bottom");
+        root.style.removeProperty("--xuhuan-stable-height");
+        root.style.removeProperty("--xuhuan-viewport-height");
       };
     };
 

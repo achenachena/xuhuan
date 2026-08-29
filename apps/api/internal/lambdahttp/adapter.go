@@ -35,10 +35,8 @@ func (adapter *Adapter) Serve(ctx context.Context, event events.LambdaFunctionUR
 	defer result.Body.Close()
 
 	headers := make(map[string]string, len(result.Header))
-	var cookies []string
 	for name, values := range result.Header {
 		if strings.EqualFold(name, "Set-Cookie") {
-			cookies = append(cookies, values...)
 			continue
 		}
 		headers[name] = strings.Join(values, ", ")
@@ -48,7 +46,6 @@ func (adapter *Adapter) Serve(ctx context.Context, event events.LambdaFunctionUR
 		Headers:         headers,
 		Body:            recorder.Body.String(),
 		IsBase64Encoded: false,
-		Cookies:         cookies,
 	}, nil
 }
 
@@ -89,9 +86,6 @@ func requestFromEvent(ctx context.Context, event events.LambdaFunctionURLRequest
 	for name, value := range event.Headers {
 		request.Header.Set(name, value)
 	}
-	if len(event.Cookies) > 0 {
-		request.Header.Set("Cookie", strings.Join(event.Cookies, "; "))
-	}
 	request.Host = requestURL.Host
 	request.RequestURI = requestURL.RequestURI()
 	if sourceIP := event.RequestContext.HTTP.SourceIP; sourceIP != "" {
@@ -107,9 +101,6 @@ func headerBytes(event events.LambdaFunctionURLRequest) int {
 	total := 0
 	for name, value := range event.Headers {
 		total += len(name) + len(value)
-	}
-	for _, cookie := range event.Cookies {
-		total += len(cookie)
 	}
 	return total
 }

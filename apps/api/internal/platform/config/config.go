@@ -35,34 +35,26 @@ const (
 )
 
 type Config struct {
-	Environment          Environment
-	HTTPAddr             string
-	Version              string
-	DatabaseURL          string
-	DatabaseMigrationURL string
-	RedisURL             string
-	RedisTimeout         time.Duration
-	TelegramBotToken     string
-	TelegramAuthMaxAge   time.Duration
-	DevAuthEnabled       bool
-	DevAuthToken         string
-	DevTelegramUserID    int64
-	DevUsername          string
-	DevFirstName         string
-	DevLastName          string
-	DevLanguageCode      string
-	CORSAllowedOrigins   []string
-	RateLimitWindow      time.Duration
-	IPRateLimit          int64
-	PlayerRateLimit      int64
-	OTLPEndpoint         string
-	OTELServiceName      string
-	OTELExportInterval   time.Duration
-	MaxBodyBytes         int64
-	ReadTimeout          time.Duration
-	WriteTimeout         time.Duration
-	IdleTimeout          time.Duration
-	ShutdownTimeout      time.Duration
+	Environment        Environment
+	HTTPAddr           string
+	Version            string
+	DatabaseURL        string
+	RedisURL           string
+	RedisTimeout       time.Duration
+	TelegramBotToken   string
+	TelegramAuthMaxAge time.Duration
+	CORSAllowedOrigins []string
+	RateLimitWindow    time.Duration
+	IPRateLimit        int64
+	PlayerRateLimit    int64
+	OTLPEndpoint       string
+	OTELServiceName    string
+	OTELExportInterval time.Duration
+	MaxBodyBytes       int64
+	ReadTimeout        time.Duration
+	WriteTimeout       time.Duration
+	IdleTimeout        time.Duration
+	ShutdownTimeout    time.Duration
 }
 
 type Lookup func(string) (string, bool)
@@ -102,15 +94,6 @@ func LoadFrom(lookup Lookup) (Config, error) {
 	if err != nil || telegramMaxAge > 7*24*time.Hour {
 		return Config{}, errors.New("TELEGRAM_AUTH_MAX_AGE must be a positive duration no greater than 168h")
 	}
-	devAuthEnabled, err := parseBool(lookup, "DEV_AUTH_ENABLED", false)
-	if err != nil {
-		return Config{}, err
-	}
-	devTelegramUserID, err := parseInt64(lookup, "DEV_TELEGRAM_USER_ID", 0)
-	if err != nil {
-		return Config{}, errors.New("DEV_TELEGRAM_USER_ID must be a signed 64-bit integer")
-	}
-
 	origins, err := parseOrigins(valueOrDefault(lookup, "CORS_ALLOWED_ORIGINS", ""), appEnv)
 	if err != nil {
 		return Config{}, err
@@ -139,10 +122,6 @@ func LoadFrom(lookup Lookup) (Config, error) {
 	if err := validatePostgresURL("DATABASE_URL", databaseURL, appEnv); err != nil {
 		return Config{}, err
 	}
-	databaseMigrationURL := valueOrDefault(lookup, "DATABASE_MIGRATION_URL", databaseURL)
-	if err := validatePostgresURL("DATABASE_MIGRATION_URL", databaseMigrationURL, appEnv); err != nil {
-		return Config{}, err
-	}
 	otlpEndpoint := valueOrDefault(lookup, "OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	if otlpEndpoint != "" {
 		parsedEndpoint, parseErr := url.Parse(otlpEndpoint)
@@ -163,49 +142,30 @@ func LoadFrom(lookup Lookup) (Config, error) {
 	}
 
 	cfg := Config{
-		Environment:          appEnv,
-		HTTPAddr:             valueOrDefault(lookup, "HTTP_ADDR", defaultHTTPAddr),
-		Version:              valueOrDefault(lookup, "APP_VERSION", "development"),
-		DatabaseURL:          databaseURL,
-		DatabaseMigrationURL: databaseMigrationURL,
-		RedisURL:             redisURL,
-		RedisTimeout:         redisTimeout,
-		TelegramBotToken:     valueOrDefault(lookup, "TELEGRAM_BOT_TOKEN", ""),
-		TelegramAuthMaxAge:   telegramMaxAge,
-		DevAuthEnabled:       devAuthEnabled,
-		DevAuthToken:         valueOrDefault(lookup, "DEV_AUTH_TOKEN", ""),
-		DevTelegramUserID:    devTelegramUserID,
-		DevUsername:          valueOrDefault(lookup, "DEV_USERNAME", "dev_player"),
-		DevFirstName:         valueOrDefault(lookup, "DEV_FIRST_NAME", "Development"),
-		DevLastName:          valueOrDefault(lookup, "DEV_LAST_NAME", "Player"),
-		DevLanguageCode:      valueOrDefault(lookup, "DEV_LANGUAGE_CODE", "zh-CN"),
-		CORSAllowedOrigins:   origins,
-		RateLimitWindow:      rateLimitWindow,
-		IPRateLimit:          ipRateLimit,
-		PlayerRateLimit:      playerRateLimit,
-		OTLPEndpoint:         otlpEndpoint,
-		OTELServiceName:      otelServiceName,
-		OTELExportInterval:   otelExportInterval,
-		MaxBodyBytes:         maxBodyBytes,
-		ReadTimeout:          readTimeout,
-		WriteTimeout:         writeTimeout,
-		IdleTimeout:          idleTimeout,
-		ShutdownTimeout:      shutdownTimeout,
+		Environment:        appEnv,
+		HTTPAddr:           valueOrDefault(lookup, "HTTP_ADDR", defaultHTTPAddr),
+		Version:            valueOrDefault(lookup, "APP_VERSION", "development"),
+		DatabaseURL:        databaseURL,
+		RedisURL:           redisURL,
+		RedisTimeout:       redisTimeout,
+		TelegramBotToken:   valueOrDefault(lookup, "TELEGRAM_BOT_TOKEN", ""),
+		TelegramAuthMaxAge: telegramMaxAge,
+		CORSAllowedOrigins: origins,
+		RateLimitWindow:    rateLimitWindow,
+		IPRateLimit:        ipRateLimit,
+		PlayerRateLimit:    playerRateLimit,
+		OTLPEndpoint:       otlpEndpoint,
+		OTELServiceName:    otelServiceName,
+		OTELExportInterval: otelExportInterval,
+		MaxBodyBytes:       maxBodyBytes,
+		ReadTimeout:        readTimeout,
+		WriteTimeout:       writeTimeout,
+		IdleTimeout:        idleTimeout,
+		ShutdownTimeout:    shutdownTimeout,
 	}
 
 	if strings.TrimSpace(cfg.HTTPAddr) == "" {
 		return Config{}, errors.New("HTTP_ADDR must not be empty")
-	}
-	if cfg.DevAuthEnabled {
-		if cfg.Environment != Development {
-			return Config{}, errors.New("DEV_AUTH_ENABLED is allowed only when APP_ENV=development")
-		}
-		if len(cfg.DevAuthToken) < 16 {
-			return Config{}, errors.New("DEV_AUTH_TOKEN must contain at least 16 characters when development auth is enabled")
-		}
-		if cfg.DevTelegramUserID <= 0 {
-			return Config{}, errors.New("DEV_TELEGRAM_USER_ID must be positive when development auth is enabled")
-		}
 	}
 	if cfg.Environment == Production {
 		if cfg.DatabaseURL == "" {
@@ -284,18 +244,6 @@ func parseDuration(lookup Lookup, key string, fallback time.Duration) (time.Dura
 	parsed, err := time.ParseDuration(value)
 	if err != nil || parsed <= 0 {
 		return 0, fmt.Errorf("%s must be a positive Go duration", key)
-	}
-	return parsed, nil
-}
-
-func parseBool(lookup Lookup, key string, fallback bool) (bool, error) {
-	value, ok := lookup(key)
-	if !ok || strings.TrimSpace(value) == "" {
-		return fallback, nil
-	}
-	parsed, err := strconv.ParseBool(value)
-	if err != nil {
-		return false, fmt.Errorf("%s must be true or false", key)
 	}
 	return parsed, nil
 }

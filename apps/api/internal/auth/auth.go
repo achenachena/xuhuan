@@ -2,59 +2,33 @@ package auth
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"net/http"
 )
 
-const (
-	TelegramHeader    = "X-Telegram-Init-Data"
-	DevelopmentHeader = "X-Dev-Auth"
-)
+const TelegramHeader = "X-Telegram-Init-Data"
+
+const localDevelopmentTelegramID int64 = 42_424_242
 
 var (
 	ErrMissingCredentials = errors.New("authentication credentials are missing")
 	ErrInvalidCredentials = errors.New("authentication credentials are invalid")
 )
 
-type Method string
-
-const (
-	MethodTelegram    Method = "telegram"
-	MethodDevelopment Method = "development"
-)
-
 type Principal struct {
-	User   User
-	Method Method
-}
-
-type DevelopmentConfig struct {
-	Enabled      bool
-	Environment  string
-	Token        string
-	TelegramID   int64
-	Username     string
-	FirstName    string
-	LastName     string
-	LanguageCode string
+	User User
 }
 
 type Authenticator struct {
-	telegram    *TelegramVerifier
-	development DevelopmentConfig
+	telegram              *TelegramVerifier
+	allowLocalDevelopment bool
 }
 
-func NewAuthenticator(telegram *TelegramVerifier, development DevelopmentConfig) (*Authenticator, error) {
-	if development.Enabled {
-		if development.Environment != "development" {
-			return nil, errors.New("development authentication is allowed only in the development environment")
-		}
-		if len(development.Token) < 16 || development.TelegramID <= 0 {
-			return nil, errors.New("development authentication requires a strong token and positive Telegram ID")
-		}
+func NewAuthenticator(telegram *TelegramVerifier, allowLocalDevelopment bool) *Authenticator {
+	return &Authenticator{
+		telegram:              telegram,
+		allowLocalDevelopment: allowLocalDevelopment,
 	}
-	return &Authenticator{telegram: telegram, development: development}, nil
 }
 
 func (a *Authenticator) Authenticate(r *http.Request) (Principal, error) {
@@ -66,24 +40,16 @@ func (a *Authenticator) Authenticate(r *http.Request) (Principal, error) {
 		if err != nil {
 			return Principal{}, err
 		}
-		return Principal{User: user, Method: MethodTelegram}, nil
+		return Principal{User: user}, nil
 	}
 
-	if !a.development.Enabled {
+	if !a.allowLocalDevelopment {
 		return Principal{}, ErrMissingCredentials
 	}
-	provided := r.Header.Get(DevelopmentHeader)
-	if len(provided) != len(a.development.Token) || subtle.ConstantTimeCompare([]byte(provided), []byte(a.development.Token)) != 1 {
-		return Principal{}, ErrInvalidCredentials
-	}
 	return Principal{
-		Method: MethodDevelopment,
 		User: User{
-			ID:           a.development.TelegramID,
-			Username:     a.development.Username,
-			FirstName:    a.development.FirstName,
-			LastName:     a.development.LastName,
-			LanguageCode: a.development.LanguageCode,
+			ID:           localDevelopmentTelegramID,
+			LanguageCode: "en",
 		},
 	}, nil
 }

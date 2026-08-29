@@ -32,7 +32,6 @@ resource "aws_lambda_function" "api" {
       TELEGRAM_AUTH_MAX_AGE      = "24h"
       OTEL_SERVICE_NAME          = "xuhuan-api"
       DATABASE_URL               = "replaced-by-deploy-workflow"
-      DATABASE_MIGRATION_URL     = "replaced-by-deploy-workflow"
       REDIS_URL                  = "replaced-by-deploy-workflow"
       REDIS_TIMEOUT              = "1s"
     }
@@ -48,7 +47,7 @@ resource "aws_lambda_function" "api" {
   ]
 
   lifecycle {
-    # Releases are owned by deploy-api.yml after the bootstrap apply. Ignoring
+    # Releases are owned by release-production.yml after the bootstrap apply. Ignoring
     # these fields prevents a later infrastructure plan from rolling back code,
     # live secrets, or the Free Plan concurrency guardrail.
     ignore_changes = [filename, environment, reserved_concurrent_executions]

@@ -1,0 +1,211 @@
+{
+  "version": "action-v2",
+  "vectors": [
+    {
+      "name": "stationary-holdout",
+      "config": {
+        "seed": "deterministic-seed",
+        "kind": "normal",
+        "duration_ticks": 120,
+        "max_ticks": 180,
+        "spawn_interval": 90,
+        "max_alive": 4,
+        "player_health": 80,
+        "player_max_health": 80,
+        "noise_level": 0,
+        "emergency_reconnect_available": true,
+        "objective": { "kind": "holdout", "target": 120 },
+        "hazards": [],
+        "enemies": [
+          {
+            "slug": "dummy",
+            "kind": "normal",
+            "max_health": 40,
+            "speed": 0,
+            "contact_damage": 0,
+            "movement": { "kind": "stationary" },
+            "attacks": [
+              { "kind": "aimed", "interval": 1000, "projectile_speed": 20, "damage": 4 }
+            ],
+            "traits": []
+          }
+        ],
+        "runtime": {
+          "kit": "nana-route",
+          "passive": "nana_route_chain",
+          "resonance": "nana_route_chain",
+          "attack_damage": 8,
+          "attack_interval": 12,
+          "move_speed": 42,
+          "warp_cooldown": 240,
+          "warp_damage": 14,
+          "starting_shield": 0,
+          "overload_bonus": 0,
+          "distortion_gain": 4,
+          "protocol_damage": 0,
+          "protocol_shield": 0,
+          "echo_power": 0,
+          "resonance_power": 0,
+          "projectile_pierce": 0,
+          "projectile_count": 1,
+          "projectile_speed": 100,
+          "graze_radius": 310,
+          "heal_on_protocol": 0,
+          "reflect_damage": 0
+        }
+      },
+      "trace": { "encoding": "rle8-v1", "ticks": 120, "data": "EHg" },
+      "digest": "1b8dd12d"
+    },
+    {
+      "name": "three-phase-boss",
+      "config": {
+        "seed": "boss-conformance",
+        "kind": "boss",
+        "duration_ticks": 2700,
+        "max_ticks": 2700,
+        "spawn_interval": 300,
+        "max_alive": 4,
+        "player_health": 100,
+        "player_max_health": 100,
+        "noise_level": 0,
+        "emergency_reconnect_available": true,
+        "objective": { "kind": "boss", "target": 1 },
+        "hazards": [],
+        "enemies": [
+          {
+            "slug": "optimal",
+            "kind": "boss",
+            "max_health": 1050,
+            "speed": 5,
+            "contact_damage": 12,
+            "movement": { "kind": "chase" },
+            "attacks": [
+              { "kind": "fan", "interval": 24, "projectile_speed": 34, "damage": 8, "count": 3, "spread": 4 },
+              { "kind": "ring", "interval": 22, "projectile_speed": 36, "damage": 8, "count": 8 },
+              { "kind": "spiral", "interval": 20, "projectile_speed": 38, "damage": 9, "count": 8 }
+            ],
+            "traits": []
+          }
+        ],
+        "runtime": {
+          "kit": "nana-route",
+          "passive": "nana_route_chain",
+          "resonance": "nana_route_chain",
+          "attack_damage": 8,
+          "attack_interval": 12,
+          "move_speed": 42,
+          "warp_cooldown": 240,
+          "warp_damage": 14,
+          "starting_shield": 0,
+          "overload_bonus": 0,
+          "distortion_gain": 4,
+          "protocol_damage": 0,
+          "protocol_shield": 0,
+          "echo_power": 0,
+          "resonance_power": 0,
+          "projectile_pierce": 0,
+          "projectile_count": 1,
+          "projectile_speed": 100,
+          "graze_radius": 310,
+          "heal_on_protocol": 0,
+          "reflect_damage": 0
+        }
+      },
+      "trace": { "encoding": "rle8-v1", "ticks": 2700, "data": "EP8Q_xD_EP8Q_xD_EP8Q_xD_EP8Qlg" },
+      "digest": "4f9a23e9"
+    },
+    {
+      "name": "elite-linked-shield-split",
+      "config": {
+        "seed": "elite-conformance",
+        "kind": "elite",
+        "duration_ticks": 1200,
+        "max_ticks": 1500,
+        "spawn_interval": 150,
+        "max_alive": 6,
+        "player_health": 100,
+        "player_max_health": 100,
+        "noise_level": 0,
+        "emergency_reconnect_available": true,
+        "objective": { "kind": "elite", "target": 1 },
+        "hazards": [],
+        "enemies": [
+          {
+            "slug": "linked-elite",
+            "kind": "elite",
+            "max_health": 500,
+            "speed": 0,
+            "contact_damage": 0,
+            "movement": { "kind": "stationary" },
+            "attacks": [
+              { "kind": "aimed", "interval": 1000, "projectile_speed": 20, "damage": 1 }
+            ],
+            "traits": [
+              { "kind": "armored", "amount": 3 },
+              { "kind": "linked_shield", "amount": 3, "value": "protector" },
+              { "kind": "death_split", "amount": 2, "value": "child" }
+            ]
+          },
+          {
+            "slug": "protector",
+            "kind": "normal",
+            "max_health": 80,
+            "speed": 0,
+            "contact_damage": 0,
+            "movement": { "kind": "stationary" },
+            "attacks": [
+              { "kind": "aimed", "interval": 1000, "projectile_speed": 20, "damage": 1 }
+            ],
+            "traits": []
+          },
+          {
+            "slug": "child",
+            "kind": "normal",
+            "max_health": 30,
+            "speed": 0,
+            "contact_damage": 0,
+            "movement": { "kind": "stationary" },
+            "attacks": [
+              { "kind": "aimed", "interval": 1000, "projectile_speed": 20, "damage": 1 }
+            ],
+            "traits": []
+          }
+        ],
+        "runtime": {
+          "kit": "nana-route",
+          "passive": "nana_route_chain",
+          "resonance": "nana_route_chain",
+          "attack_damage": 12,
+          "attack_interval": 10,
+          "move_speed": 42,
+          "warp_cooldown": 240,
+          "warp_damage": 14,
+          "starting_shield": 0,
+          "overload_bonus": 0,
+          "distortion_gain": 4,
+          "protocol_damage": 0,
+          "protocol_shield": 0,
+          "echo_power": 0,
+          "resonance_power": 0,
+          "projectile_pierce": 0,
+          "projectile_count": 1,
+          "projectile_speed": 100,
+          "graze_radius": 310,
+          "heal_on_protocol": 0,
+          "reflect_damage": 0
+        }
+      },
+      "trace": { "encoding": "rle8-v1", "ticks": 1500, "data": "HP8c_xz_HP8c_xzh" },
+      "digest": "9ab57dcb"
+    }
+  ],
+  "boss_variants": {
+    "base_vector": "three-phase-boss",
+    "vectors": [
+      { "variant": "authentic", "digest": "66ab0cd9" },
+      { "variant": "balanced", "digest": "4f9a23e9" },
+      { "variant": "retained", "digest": "0368254d" }
+    ]
+  }
+}

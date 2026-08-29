@@ -33,6 +33,13 @@ const (
 	Quit    Outcome = "abandoned"
 )
 
+type Mode string
+
+const (
+	CampaignMode Mode = "campaign"
+	DailyMode    Mode = "daily"
+)
+
 type Phase string
 
 const (
@@ -74,6 +81,11 @@ type MapNode struct {
 	Next          []string   `json:"next"`
 	EncounterSlug string     `json:"encounter_slug,omitempty"`
 	EventSlug     string     `json:"event_slug,omitempty"`
+	Objective     string     `json:"objective,omitempty"`
+	Risk          int        `json:"risk,omitempty"`
+	RewardBias    string     `json:"reward_bias,omitempty"`
+	EnemySlugs    []string   `json:"enemy_slugs,omitempty"`
+	Hazards       []string   `json:"hazards,omitempty"`
 }
 type MapState struct {
 	Nodes         []MapNode `json:"nodes"`
@@ -84,41 +96,70 @@ type ModuleLevel struct {
 	Level int    `json:"level"`
 }
 type EncounterState struct {
-	Slug          string `json:"slug"`
-	Seed          string `json:"seed"`
-	Kind          string `json:"kind"`
-	DurationTicks int    `json:"duration_ticks"`
-	MaxTicks      int    `json:"max_ticks"`
-	Tutorial      bool   `json:"tutorial"`
+	Slug          string                 `json:"slug"`
+	Seed          string                 `json:"seed"`
+	Kind          string                 `json:"kind"`
+	DurationTicks int                    `json:"duration_ticks"`
+	MaxTicks      int                    `json:"max_ticks"`
+	Tutorial      bool                   `json:"tutorial"`
+	Objective     action.ObjectiveConfig `json:"objective"`
+	Risk          int                    `json:"risk"`
+	RewardBias    string                 `json:"reward_bias"`
+	Hazards       []string               `json:"hazards"`
 }
 type RewardState struct {
 	ModuleChoices []string `json:"module_choices"`
 	GrantedPlugin string   `json:"granted_plugin,omitempty"`
+	Rerolled      bool     `json:"rerolled"`
+}
+
+type RewardPool struct {
+	ModuleSlugs []string `json:"module_slugs"`
+	PluginSlugs []string `json:"plugin_slugs"`
+}
+
+// NarrativeModifier is the authoritative gameplay projection of the latest
+// authored story branch. It is frozen into each command result so reward and
+// Boss behavior remain deterministic across reconnects.
+type NarrativeModifier struct {
+	RewardBias      string `json:"reward_bias,omitempty"`
+	BossVariant     string `json:"boss_variant"`
+	SourceSceneSlug string `json:"source_scene_slug,omitempty"`
+	SourceChoiceTag string `json:"source_choice_tag,omitempty"`
 }
 
 type State struct {
-	Phase                       Phase           `json:"phase"`
-	ChapterSlug                 string          `json:"chapter_slug"`
-	CharacterSlug               string          `json:"character_slug"`
-	WeaponSlug                  string          `json:"weapon_slug"`
-	NoiseLevel                  int             `json:"noise_level"`
-	Health                      int             `json:"health"`
-	MaxHealth                   int             `json:"max_health"`
-	Modules                     []ModuleLevel   `json:"modules"`
-	Plugins                     []string        `json:"plugins"`
-	Map                         MapState        `json:"map"`
-	Encounter                   *EncounterState `json:"encounter,omitempty"`
-	Reward                      *RewardState    `json:"reward,omitempty"`
-	CurrentEventSlug            string          `json:"current_event_slug,omitempty"`
-	ChoiceTags                  []string        `json:"choice_tags"`
-	RNGCursor                   uint64          `json:"rng_cursor"`
-	EmergencyReconnectAvailable bool            `json:"emergency_reconnect_available"`
+	Phase                       Phase                `json:"phase"`
+	ChapterSlug                 string               `json:"chapter_slug"`
+	CharacterSlug               string               `json:"character_slug"`
+	CompanionSlugs              []string             `json:"companion_slugs"`
+	SupportAlignment            string               `json:"support_alignment,omitempty"`
+	WeaponSlug                  string               `json:"weapon_slug"`
+	NoiseLevel                  int                  `json:"noise_level"`
+	Health                      int                  `json:"health"`
+	MaxHealth                   int                  `json:"max_health"`
+	Modules                     []ModuleLevel        `json:"modules"`
+	Plugins                     []string             `json:"plugins"`
+	RewardPool                  RewardPool           `json:"reward_pool"`
+	NarrativeModifier           NarrativeModifier    `json:"narrative_modifier"`
+	Map                         MapState             `json:"map"`
+	Encounter                   *EncounterState      `json:"encounter,omitempty"`
+	Reward                      *RewardState         `json:"reward,omitempty"`
+	CurrentEventSlug            string               `json:"current_event_slug,omitempty"`
+	ChoiceTags                  []string             `json:"choice_tags"`
+	RNGCursor                   uint64               `json:"rng_cursor"`
+	EmergencyReconnectAvailable bool                 `json:"emergency_reconnect_available"`
+	RuntimeConfig               action.RuntimeConfig `json:"runtime_config"`
+	RerollsRemaining            int                  `json:"rerolls_remaining"`
+	Score                       int                  `json:"score"`
 }
 
 type GameRun struct {
 	ID             string     `json:"id"`
 	PlayerID       string     `json:"-"`
 	ContentVersion string     `json:"content_version"`
+	Mode           Mode       `json:"mode"`
+	DailyDate      *string    `json:"daily_date,omitempty"`
 	Seed           string     `json:"-"`
 	State          State      `json:"state"`
 	Status         Status     `json:"status"`
@@ -135,6 +176,7 @@ const (
 	ChooseNode         CommandType = "choose_node"
 	CompleteEncounter  CommandType = "complete_encounter"
 	ChooseModuleReward CommandType = "choose_module_reward"
+	RerollModuleReward CommandType = "reroll_module_reward"
 	ResolveEvent       CommandType = "resolve_event"
 	Rest               CommandType = "rest"
 	AbandonRun         CommandType = "abandon_run"
@@ -149,13 +191,20 @@ type Command struct {
 	Trace      *action.InputTrace `json:"trace,omitempty"`
 }
 type Event struct {
-	Kind            string         `json:"kind"`
-	NodeID          string         `json:"node_id,omitempty"`
-	ModuleSlug      string         `json:"module_slug,omitempty"`
-	PluginSlug      string         `json:"plugin_slug,omitempty"`
-	ChoiceTag       string         `json:"choice_tag,omitempty"`
-	Amount          int            `json:"amount,omitempty"`
-	EncounterResult *action.Result `json:"encounter_result,omitempty"`
+	Kind              string         `json:"kind"`
+	NodeID            string         `json:"node_id,omitempty"`
+	SceneSlug         string         `json:"scene_slug,omitempty"`
+	ModuleSlug        string         `json:"module_slug,omitempty"`
+	PluginSlug        string         `json:"plugin_slug,omitempty"`
+	ChoiceTag         string         `json:"choice_tag,omitempty"`
+	Amount            int            `json:"amount,omitempty"`
+	EncounterResult   *action.Result `json:"encounter_result,omitempty"`
+	Trust             int            `json:"trust,omitempty"`
+	Authenticity      int            `json:"authenticity,omitempty"`
+	Retention         int            `json:"retention,omitempty"`
+	ChapterSlug       string         `json:"chapter_slug,omitempty"`
+	NextChapterSlug   string         `json:"next_chapter_slug,omitempty"`
+	NextCharacterSlug string         `json:"next_character_slug,omitempty"`
 }
 type Resolution struct {
 	State  State   `json:"state"`
@@ -167,6 +216,16 @@ type StartInput struct {
 	NoiseLevel                  int
 	Seed                        string
 	EmergencyReconnectAvailable bool
+	TutorialCompleted           bool
+	CompanionSlugs              []string
+	SupportAlignment            string
+	Mode                        Mode
+	DailyDate                   *string
+	UnlockedModuleSlugs         []string
+	UnlockedPluginSlugs         []string
+	StarterModuleSlug           string
+	NarrativeModifier           NarrativeModifier
+	ChoiceTags                  []string
 }
 type CreateInput struct {
 	PlayerID       string
@@ -175,6 +234,8 @@ type CreateInput struct {
 	State          State
 	IdempotencyKey string
 	RequestHash    [32]byte
+	Mode           Mode
+	DailyDate      *string
 }
 type ApplyInput struct {
 	PlayerID        string
@@ -188,10 +249,21 @@ type CommandResponse struct {
 	Run    GameRun `json:"run"`
 	Events []Event `json:"events"`
 }
+type DailyResult struct {
+	Date          string        `json:"date"`
+	CharacterSlug string        `json:"character_slug"`
+	Score         int           `json:"score"`
+	Modules       []ModuleLevel `json:"modules"`
+	Plugins       []string      `json:"plugins"`
+	Streak        int           `json:"streak"`
+	CompletedAt   time.Time     `json:"-"`
+}
 type Resolver func(GameRun, Command) (Resolution, *Outcome, error)
 type Repository interface {
 	Create(context.Context, CreateInput) (GameRun, bool, error)
 	Get(context.Context, string, string) (GameRun, error)
-	GetActive(context.Context, string) (*GameRun, error)
+	GetActive(context.Context, string, Mode) (*GameRun, error)
 	Apply(context.Context, ApplyInput, Resolver) (CommandResponse, bool, error)
+	GetDailyResult(context.Context, string, string) (*DailyResult, error)
+	GetPublicDailyResult(context.Context, string) (DailyResult, error)
 }

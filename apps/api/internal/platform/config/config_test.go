@@ -75,10 +75,6 @@ func TestLoadFromValidatesDatabaseURLs(t *testing.T) {
 		"production TLS disabled": {
 			"APP_ENV": "production", "DATABASE_URL": "postgres://db.example.com/xuhuan?sslmode=disable",
 		},
-		"unsafe migration URL": {
-			"APP_ENV": "production", "DATABASE_URL": "postgres://pooler.example.com/xuhuan?sslmode=require",
-			"DATABASE_MIGRATION_URL": "postgres://direct.example.com/xuhuan?sslmode=disable",
-		},
 	}
 	for name, values := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -87,34 +83,6 @@ func TestLoadFromValidatesDatabaseURLs(t *testing.T) {
 				t.Fatal("LoadFrom() accepted an unsafe database URL")
 			}
 		})
-	}
-}
-
-func TestLoadFromUsesSeparateMigrationDatabaseURL(t *testing.T) {
-	t.Parallel()
-
-	cfg, err := LoadFrom(lookup(map[string]string{
-		"DATABASE_URL":           "postgres://pooler.example/xuhuan?sslmode=require",
-		"DATABASE_MIGRATION_URL": "postgres://direct.example/xuhuan?sslmode=require",
-	}))
-	if err != nil {
-		t.Fatalf("LoadFrom() error = %v", err)
-	}
-	if cfg.DatabaseURL != "postgres://pooler.example/xuhuan?sslmode=require" {
-		t.Fatalf("DatabaseURL = %q", cfg.DatabaseURL)
-	}
-	if cfg.DatabaseMigrationURL != "postgres://direct.example/xuhuan?sslmode=require" {
-		t.Fatalf("DatabaseMigrationURL = %q", cfg.DatabaseMigrationURL)
-	}
-
-	cfg, err = LoadFrom(lookup(map[string]string{
-		"DATABASE_URL": "postgres://single.example/xuhuan?sslmode=require",
-	}))
-	if err != nil {
-		t.Fatalf("LoadFrom() fallback error = %v", err)
-	}
-	if cfg.DatabaseMigrationURL != cfg.DatabaseURL {
-		t.Fatalf("migration fallback = %q, database = %q", cfg.DatabaseMigrationURL, cfg.DatabaseURL)
 	}
 }
 
@@ -163,36 +131,5 @@ func TestLoadFromNormalizesOriginsAndTimeouts(t *testing.T) {
 	}
 	if cfg.ReadTimeout != 3*time.Second {
 		t.Fatalf("ReadTimeout = %s", cfg.ReadTimeout)
-	}
-}
-
-func TestLoadFromDevelopmentAuthIsExplicitAndDevelopmentOnly(t *testing.T) {
-	t.Parallel()
-
-	_, err := LoadFrom(lookup(map[string]string{
-		"APP_ENV":              "production",
-		"DATABASE_URL":         "postgres://db/xuhuan?sslmode=require",
-		"REDIS_URL":            "rediss://cache.example.com/0",
-		"TELEGRAM_BOT_TOKEN":   "token",
-		"CORS_ALLOWED_ORIGINS": "https://game.example.com",
-		"DEV_AUTH_ENABLED":     "true",
-		"DEV_AUTH_TOKEN":       "0123456789abcdef",
-		"DEV_TELEGRAM_USER_ID": "123456789",
-	}))
-	if err == nil || !strings.Contains(err.Error(), "APP_ENV=development") {
-		t.Fatalf("production development auth error = %v", err)
-	}
-
-	cfg, err := LoadFrom(lookup(map[string]string{
-		"APP_ENV":              "development",
-		"DEV_AUTH_ENABLED":     "true",
-		"DEV_AUTH_TOKEN":       "0123456789abcdef",
-		"DEV_TELEGRAM_USER_ID": "123456789",
-	}))
-	if err != nil {
-		t.Fatalf("development config error = %v", err)
-	}
-	if !cfg.DevAuthEnabled || cfg.DevTelegramUserID != 123456789 {
-		t.Fatalf("development auth config = %#v", cfg)
 	}
 }

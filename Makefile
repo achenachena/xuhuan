@@ -67,10 +67,12 @@ e2e-install:
 
 e2e:
 	@set -eu; \
-		DEV_TELEGRAM_USER_ID="$$(date +%s)"; \
-		export DEV_TELEGRAM_USER_ID; \
-		export RATE_LIMIT_PLAYER_REQUESTS=1000; \
-		export RATE_LIMIT_IP_REQUESTS=2000; \
+		export RATE_LIMIT_PLAYER_REQUESTS=10000; \
+		export RATE_LIMIT_IP_REQUESTS=20000; \
 		trap 'docker compose down' EXIT; \
 		docker compose up --build -d api; \
+		docker compose exec -T postgres psql \
+			--username "$${POSTGRES_USER:-xuhuan}" \
+			--dbname "$${POSTGRES_DB:-xuhuan}" \
+			--command "DELETE FROM players WHERE telegram_user_id = 42424242" > /dev/null; \
 		npm run test:e2e --workspace @xuhuan/miniapp

@@ -1,87 +1,52 @@
 openapi: 3.1.0
 info:
-  title: Xuhuan Action Roguelite API
-  version: 2.0.0
-servers:
-  - url: http://localhost:8080
-tags:
-  - name: Platform
-  - name: Game V2
-  - name: Story V2
+  title: Xuhuan Action API
+  version: 3.0.0
+  description: Server-authoritative Telegram Mini App action roguelite API.
+servers: [{ url: / }]
 paths:
   /healthz:
     get:
       operationId: getHealth
-      tags: [Platform]
       security: []
       responses:
-        "200":
-          description: Process is alive
-          headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }
-          content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } }
+        "200": { description: Healthy, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
   /readyz:
     get:
       operationId: getReadiness
-      tags: [Platform]
       security: []
       responses:
-        "200":
-          description: Dependencies are ready
-          headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }
-          content: { application/json: { schema: { $ref: "#/components/schemas/Readiness" } } }
+        "200": { description: Ready, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/Readiness" } } } }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /v2/content/{version}:
     parameters:
-      - name: version
-        in: path
-        required: true
-        schema: { type: string, pattern: "^v[1-9][0-9]*$" }
-      - name: locale
-        in: query
-        schema: { type: string, enum: [zh-CN, en] }
+      - { name: version, in: path, required: true, schema: { type: string, const: v3 } }
+      - { name: locale, in: query, schema: { type: string, enum: [en, zh-CN] } }
     get:
       operationId: getGameContent
-      tags: [Game V2]
       security: []
       responses:
-        "200":
-          description: Immutable localized action content
-          headers:
-            X-Request-ID: { $ref: "#/components/headers/RequestID" }
-            ETag: { schema: { type: string } }
-          content: { application/json: { schema: { $ref: "#/components/schemas/GameContent" } } }
+        "200": { description: Immutable localized V3 content, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" }, ETag: { schema: { type: string } } }, content: { application/json: { schema: { $ref: "#/components/schemas/GameContent" } } } }
         "304": { description: Cached content is current }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
   /v2/game:
     get:
       operationId: getGameState
-      tags: [Game V2]
-      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
+      security: [{ TelegramInitData: [] }]
       responses:
-        "200":
-          description: Story progress and resumable run
-          headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }
-          content: { application/json: { schema: { $ref: "#/components/schemas/GameSnapshot" } } }
+        "200": { description: "Campaign, daily, and story projection", headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/GameSnapshot" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/InternalError" }
   /v2/runs:
     post:
       operationId: createRun
-      tags: [Game V2]
-      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
+      security: [{ TelegramInitData: [] }]
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
-      requestBody:
-        required: true
-        content: { application/json: { schema: { $ref: "#/components/schemas/CreateRunRequest" } } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CreateRunRequest" } } } }
       responses:
-        "201":
-          description: Run created directly inside the tutorial encounter
-          headers:
-            X-Request-ID: { $ref: "#/components/headers/RequestID" }
-            Idempotency-Replayed: { $ref: "#/components/headers/IdempotencyReplayed" }
-          content: { application/json: { schema: { $ref: "#/components/schemas/GameRun" } } }
+        "201": { description: Created run, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" }, Idempotency-Replayed: { $ref: "#/components/headers/IdempotencyReplayed" } }, content: { application/json: { schema: { $ref: "#/components/schemas/GameRun" } } } }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -92,13 +57,9 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       operationId: getRun
-      tags: [Game V2]
-      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
+      security: [{ TelegramInitData: [] }]
       responses:
-        "200":
-          description: Authoritative run state
-          headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }
-          content: { application/json: { schema: { $ref: "#/components/schemas/GameRun" } } }
+        "200": { description: Authoritative run, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/GameRun" } } } }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -107,19 +68,11 @@ paths:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     post:
       operationId: createRunCommand
-      tags: [Game V2]
-      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
+      security: [{ TelegramInitData: [] }]
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
-      requestBody:
-        required: true
-        content: { application/json: { schema: { $ref: "#/components/schemas/RunCommandRequest" } } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RunCommandRequest" } } } }
       responses:
-        "200":
-          description: Authoritative command result
-          headers:
-            X-Request-ID: { $ref: "#/components/headers/RequestID" }
-            Idempotency-Replayed: { $ref: "#/components/headers/IdempotencyReplayed" }
-          content: { application/json: { schema: { $ref: "#/components/schemas/RunCommandResponse" } } }
+        "200": { description: Applied command, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" }, Idempotency-Replayed: { $ref: "#/components/headers/IdempotencyReplayed" } }, content: { application/json: { schema: { $ref: "#/components/schemas/RunCommandResponse" } } } }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -130,28 +83,27 @@ paths:
   /v2/story/choices:
     post:
       operationId: createStoryChoice
-      tags: [Story V2]
-      security: [{ TelegramInitData: [] }, { DevelopmentAuth: [] }]
+      security: [{ TelegramInitData: [] }]
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
-      requestBody:
-        required: true
-        content: { application/json: { schema: { $ref: "#/components/schemas/StoryChoiceRequest" } } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/StoryChoiceRequest" } } } }
       responses:
-        "200":
-          description: Updated story progress
-          headers:
-            X-Request-ID: { $ref: "#/components/headers/RequestID" }
-            Idempotency-Replayed: { $ref: "#/components/headers/IdempotencyReplayed" }
-          content: { application/json: { schema: { $ref: "#/components/schemas/StoryChoiceResponse" } } }
+        "200": { description: Updated story projection, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" }, Idempotency-Replayed: { $ref: "#/components/headers/IdempotencyReplayed" } }, content: { application/json: { schema: { $ref: "#/components/schemas/StoryChoiceResponse" } } } }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/Conflict" }
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/InternalError" }
+  /v2/daily/results/{id}:
+    get:
+      operationId: getPublicDailyResult
+      security: []
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "200": { description: Public anonymous daily result cached for five minutes, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" }, Cache-Control: { schema: { type: string, example: "public, max-age=300, s-maxage=300, stale-while-revalidate=60" } } }, content: { application/json: { schema: { $ref: "#/components/schemas/DailyResult" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
 components:
   securitySchemes:
     TelegramInitData: { type: apiKey, in: header, name: X-Telegram-Init-Data }
-    DevelopmentAuth: { type: apiKey, in: header, name: X-Dev-Auth }
   headers:
     RequestID: { schema: { type: string, minLength: 1, maxLength: 128 } }
     IdempotencyReplayed: { schema: { type: boolean } }
@@ -162,328 +114,90 @@ components:
     InvalidRequest: { description: Invalid request, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
     Unauthorized: { description: Authentication required, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
     Forbidden: { description: Content locked, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
-    NotFound: { description: Resource not found, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
-    Conflict: { description: "Version, story, or idempotency conflict", headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
-    PayloadTooLarge: { description: Trace payload is too large, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    NotFound: { description: Not found, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    Conflict: { description: Version or idempotency conflict, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    PayloadTooLarge: { description: Payload too large, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
     RateLimited: { description: Too many requests, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
     InternalError: { description: Internal error, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
-    ServiceUnavailable: { description: Dependency unavailable, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    ServiceUnavailable: { description: Unavailable, headers: { X-Request-ID: { $ref: "#/components/headers/RequestID" } }, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
   schemas:
-    Health:
-      type: object
-      additionalProperties: false
-      required: [status, version]
-      properties: { status: { type: string }, version: { type: string } }
-    Readiness:
-      type: object
-      additionalProperties: false
-      required: [status, dependencies]
-      properties:
-        status: { type: string }
-        dependencies: { type: object, additionalProperties: { type: string } }
+    Health: { type: object, additionalProperties: false, required: [status, version], properties: { status: { type: string }, version: { type: string } } }
+    Readiness: { type: object, additionalProperties: false, required: [status, checks], properties: { status: { type: string }, checks: { type: object, additionalProperties: { type: string } } } }
     ErrorEnvelope:
       type: object
       additionalProperties: false
       required: [error]
-      properties:
-        error:
-          type: object
-          additionalProperties: false
-          required: [code, message, request_id]
-          properties: { code: { type: string }, message: { type: string }, request_id: { type: string } }
-    GameEffect:
+      properties: { error: { type: object, additionalProperties: false, required: [code, message, request_id], properties: { code: { type: string }, message: { type: string }, request_id: { type: string } } } }
+    Effect: { type: object, additionalProperties: false, required: [kind], properties: { kind: { type: string }, amount: { type: integer }, value: { type: string } } }
+    StoryMetrics: { type: object, additionalProperties: false, required: [trust, authenticity, retention], properties: { trust: { type: integer }, authenticity: { type: integer }, retention: { type: integer } } }
+    EntityLimits: { type: object, additionalProperties: false, required: [max_enemies, max_enemy_projectiles, max_player_projectiles, max_pickups, max_effects], properties: { max_enemies: { type: integer }, max_enemy_projectiles: { type: integer }, max_player_projectiles: { type: integer }, max_pickups: { type: integer }, max_effects: { type: integer } } }
+    BaseStats: { type: object, additionalProperties: false, required: [max_health, attack_damage, attack_interval, move_speed, warp_cooldown, warp_damage], properties: { max_health: { type: integer }, attack_damage: { type: integer }, attack_interval: { type: integer }, move_speed: { type: integer }, warp_cooldown: { type: integer }, warp_damage: { type: integer } } }
+    CharacterContent:
       type: object
       additionalProperties: false
-      required: [kind]
-      properties: { kind: { type: string }, amount: { type: integer }, status: { type: string } }
-    GameCharacterContent:
+      required: [slug, name, biography, playstyle, color_theme, portrait_url, model_url, kit_slug]
+      properties: { slug: { type: string }, name: { type: string }, biography: { type: string }, playstyle: { type: string }, color_theme: { type: string }, portrait_url: { type: string }, model_url: { type: string }, kit_slug: { type: string } }
+    KitContent: { type: object, additionalProperties: false, required: [slug, character_slug, passive, resonance, base_stats], properties: { slug: { type: string }, character_slug: { type: string }, passive: { type: string }, resonance: { type: string }, base_stats: { $ref: "#/components/schemas/BaseStats" } } }
+    ModuleBehavior: { type: object, additionalProperties: false, required: [kind, amount], properties: { kind: { type: string, enum: [warp_aftershock, graze_guard, protocol_echo, kill_signal] }, amount: { type: integer, minimum: 1 }, every: { type: integer, minimum: 2 } } }
+    ModuleLevelDefinition: { type: object, additionalProperties: false, required: [effects], properties: { effects: { type: array, items: { $ref: "#/components/schemas/Effect" } }, behaviors: { type: array, items: { $ref: "#/components/schemas/ModuleBehavior" } } } }
+    ModuleContent:
       type: object
       additionalProperties: false
-      required: [slug, name, biography, playstyle, color_theme, portrait_url, model_url, available]
-      properties:
-        slug: { type: string }
-        name: { type: string }
-        biography: { type: string }
-        playstyle: { type: string }
-        color_theme: { type: string }
-        portrait_url: { type: string }
-        model_url: { type: string }
-        available: { type: boolean }
-    GameModuleContent:
-      type: object
-      additionalProperties: false
-      required: [slug, character_slug, name, description, archetype, rarity, effects]
-      properties:
-        slug: { type: string }
-        character_slug: { type: [string, "null"] }
-        name: { type: string }
-        description: { type: string }
-        archetype: { type: string, enum: [route, distortion, echo, glitch] }
-        rarity: { type: string }
-        effects: { type: array, items: { $ref: "#/components/schemas/GameEffect" } }
-    GamePluginContent:
-      type: object
-      additionalProperties: false
-      required: [slug, name, description, effects]
-      properties:
-        slug: { type: string }
-        name: { type: string }
-        description: { type: string }
-        effects: { type: array, items: { $ref: "#/components/schemas/GameEffect" } }
-    GameEnemyContent:
-      type: object
-      additionalProperties: false
-      required: [slug, name, description, kind, pattern, max_health, speed, contact_damage, fire_interval, projectile_speed, projectile_damage, color_theme, image_url]
-      properties:
-        slug: { type: string }
-        name: { type: string }
-        description: { type: string }
-        kind: { type: string }
-        pattern: { type: string }
-        max_health: { type: integer }
-        speed: { type: integer }
-        contact_damage: { type: integer }
-        fire_interval: { type: integer }
-        projectile_speed: { type: integer }
-        projectile_damage: { type: integer }
-        color_theme: { type: string }
-        image_url: { type: string }
-    GameEncounterContent:
-      type: object
-      additionalProperties: false
-      required: [slug, kind, duration_ticks, max_ticks, spawn_interval, max_alive, enemy_slugs, tutorial]
-      properties:
-        slug: { type: string }
-        kind: { type: string }
-        duration_ticks: { type: integer }
-        max_ticks: { type: integer }
-        spawn_interval: { type: integer }
-        max_alive: { type: integer }
-        enemy_slugs: { type: array, items: { type: string } }
-        tutorial: { type: boolean }
-    GameEventOptionContent:
-      type: object
-      additionalProperties: false
-      required: [slug, label, result]
-      properties: { slug: { type: string }, label: { type: string }, result: { type: string } }
-    GameEventContent:
-      type: object
-      additionalProperties: false
-      required: [slug, title, body, options]
-      properties:
-        slug: { type: string }
-        title: { type: string }
-        body: { type: string }
-        options: { type: array, items: { $ref: "#/components/schemas/GameEventOptionContent" } }
-    StoryMessageContent:
-      type: object
-      additionalProperties: false
-      required: [sender, kind, text]
-      properties: { sender: { type: string }, kind: { type: string }, text: { type: string } }
-    StoryOptionContent:
-      type: object
-      additionalProperties: false
-      required: [slug, label]
-      properties: { slug: { type: string }, label: { type: string } }
-    StorySceneContent:
-      type: object
-      additionalProperties: false
-      required: [slug, title, messages, options]
-      properties:
-        slug: { type: string }
-        title: { type: string }
-        messages: { type: array, items: { $ref: "#/components/schemas/StoryMessageContent" } }
-        options: { type: array, items: { $ref: "#/components/schemas/StoryOptionContent" } }
-    ChapterContent:
-      type: object
-      additionalProperties: false
-      required: [slug, title, subtitle, character_slug, available]
-      properties: { slug: { type: string }, title: { type: string }, subtitle: { type: string }, character_slug: { type: string }, available: { type: boolean } }
+      required: [slug, character_slug, name, description, archetype, rarity, levels]
+      properties: { slug: { type: string }, character_slug: { type: [string, "null"] }, name: { type: string }, description: { type: string }, archetype: { type: string, enum: [surge, guard, echo, glitch] }, rarity: { type: string, enum: [common, uncommon, rare] }, levels: { type: array, minItems: 3, maxItems: 3, items: { $ref: "#/components/schemas/ModuleLevelDefinition" } } }
+    PluginContent: { type: object, additionalProperties: false, required: [slug, character_slug, name, description, effects], properties: { slug: { type: string }, character_slug: { type: [string, "null"] }, name: { type: string }, description: { type: string }, effects: { type: array, items: { $ref: "#/components/schemas/Effect" } } } }
+    Movement: { type: object, additionalProperties: false, required: [kind], properties: { kind: { type: string, enum: [chase, orbit, strafe, charge, flee, stationary, wander] }, amount: { type: integer } } }
+    Attack: { type: object, additionalProperties: false, required: [kind, interval, projectile_speed, damage], properties: { kind: { type: string, enum: [aimed, fan, ring, spiral, delayed_echo, mine, beam] }, interval: { type: integer }, projectile_speed: { type: integer }, damage: { type: integer }, count: { type: integer }, spread: { type: integer }, telegraph_ticks: { type: integer } } }
+    Trait: { type: object, additionalProperties: false, required: [kind], properties: { kind: { type: string, enum: [linked_shield, steal_signal, death_split, armored, distortion_aura, teleport] }, amount: { type: integer }, value: { type: string } } }
+    EnemyContent: { type: object, additionalProperties: false, required: [slug, chapter_slug, name, description, kind, max_health, speed, contact_damage, color_theme, image_url, movement, attacks, traits], properties: { slug: { type: string }, chapter_slug: { type: [string, "null"] }, name: { type: string }, description: { type: string }, kind: { type: string, enum: [normal, elite, boss] }, max_health: { type: integer }, speed: { type: integer }, contact_damage: { type: integer }, color_theme: { type: string }, image_url: { type: string }, movement: { $ref: "#/components/schemas/Movement" }, attacks: { type: array, items: { $ref: "#/components/schemas/Attack" } }, traits: { type: array, items: { $ref: "#/components/schemas/Trait" } } } }
+    Objective: { type: object, additionalProperties: false, required: [kind, target], properties: { kind: { type: string, enum: [purge, stabilize, recover, holdout, elite, boss] }, target: { type: integer } } }
+    EncounterContent: { type: object, additionalProperties: false, required: [slug, chapter_slug, kind, objective, duration_ticks, max_ticks, spawn_interval, max_alive, enemy_slugs, hazards, reward_bias, tutorial, risk], properties: { slug: { type: string }, chapter_slug: { type: string }, kind: { type: string }, objective: { $ref: "#/components/schemas/Objective" }, duration_ticks: { type: integer }, max_ticks: { type: integer }, spawn_interval: { type: integer }, max_alive: { type: integer }, enemy_slugs: { type: array, items: { type: string } }, hazards: { type: array, items: { type: string } }, reward_bias: { type: string }, tutorial: { type: boolean }, risk: { type: integer } } }
+    EventOptionContent: { type: object, additionalProperties: false, required: [slug, label, result, effects, metrics], properties: { slug: { type: string }, label: { type: string }, result: { type: string }, effects: { type: array, items: { $ref: "#/components/schemas/Effect" } }, metrics: { $ref: "#/components/schemas/StoryMetrics" } } }
+    EventContent: { type: object, additionalProperties: false, required: [slug, chapter_slug, title, body, options], properties: { slug: { type: string }, chapter_slug: { type: string }, title: { type: string }, body: { type: string }, options: { type: array, items: { $ref: "#/components/schemas/EventOptionContent" } } } }
+    StoryTrigger: { type: object, additionalProperties: false, required: [kind], properties: { kind: { type: string }, chapter_slug: { type: string }, ending: { type: string } } }
+    StoryMessageContent: { type: object, additionalProperties: false, required: [sender, kind, text], properties: { sender: { type: string }, kind: { type: string }, text: { type: string } } }
+    StoryOptionContent: { type: object, additionalProperties: false, required: [slug, label, metrics], properties: { slug: { type: string }, label: { type: string }, metrics: { $ref: "#/components/schemas/StoryMetrics" } } }
+    StorySceneContent: { type: object, additionalProperties: false, required: [slug, chapter_slug, title, trigger, messages, options], properties: { slug: { type: string }, chapter_slug: { type: [string, "null"] }, title: { type: string }, trigger: { $ref: "#/components/schemas/StoryTrigger" }, messages: { type: array, items: { $ref: "#/components/schemas/StoryMessageContent" } }, options: { type: array, items: { $ref: "#/components/schemas/StoryOptionContent" } } } }
+    ChapterContent: { type: object, additionalProperties: false, required: [slug, order, title, subtitle, character_slug, finale, available, next_chapter_slug, background_url, kit_slug], properties: { slug: { type: string }, order: { type: integer }, title: { type: string }, subtitle: { type: string }, character_slug: { type: [string, "null"] }, finale: { type: boolean }, available: { type: boolean }, next_chapter_slug: { type: [string, "null"] }, background_url: { type: string }, kit_slug: { type: [string, "null"] } } }
     GameContent:
       type: object
       additionalProperties: false
-      required: [version, protocol, locale, characters, modules, plugins, enemies, encounters, events, scenes, chapters]
+      required: [version, protocol, locale, limits, characters, kits, modules, plugins, enemies, encounters, events, scenes, chapters]
       properties:
-        version: { type: string }
-        protocol: { type: string, const: action-v1 }
-        locale: { type: string, enum: [zh-CN, en] }
-        characters: { type: array, items: { $ref: "#/components/schemas/GameCharacterContent" } }
-        modules: { type: array, items: { $ref: "#/components/schemas/GameModuleContent" } }
-        plugins: { type: array, items: { $ref: "#/components/schemas/GamePluginContent" } }
-        enemies: { type: array, items: { $ref: "#/components/schemas/GameEnemyContent" } }
-        encounters: { type: array, items: { $ref: "#/components/schemas/GameEncounterContent" } }
-        events: { type: array, items: { $ref: "#/components/schemas/GameEventContent" } }
+        version: { type: string, const: v3 }
+        protocol: { type: string, const: action-v2 }
+        locale: { type: string, enum: [en, zh-CN] }
+        limits: { $ref: "#/components/schemas/EntityLimits" }
+        characters: { type: array, items: { $ref: "#/components/schemas/CharacterContent" } }
+        kits: { type: array, items: { $ref: "#/components/schemas/KitContent" } }
+        modules: { type: array, items: { $ref: "#/components/schemas/ModuleContent" } }
+        plugins: { type: array, items: { $ref: "#/components/schemas/PluginContent" } }
+        enemies: { type: array, items: { $ref: "#/components/schemas/EnemyContent" } }
+        encounters: { type: array, items: { $ref: "#/components/schemas/EncounterContent" } }
+        events: { type: array, items: { $ref: "#/components/schemas/EventContent" } }
         scenes: { type: array, items: { $ref: "#/components/schemas/StorySceneContent" } }
         chapters: { type: array, items: { $ref: "#/components/schemas/ChapterContent" } }
-    PlayerUnlock:
-      type: object
-      additionalProperties: false
-      required: [type, content_slug, created_at]
-      properties: { type: { type: string }, content_slug: { type: string }, created_at: { type: string, format: date-time } }
-    StoryChoice:
-      type: object
-      additionalProperties: false
-      required: [scene_slug, option_slug, choice_tag, created_at]
-      properties: { scene_slug: { type: string }, option_slug: { type: string }, choice_tag: { type: string }, created_at: { type: string, format: date-time } }
-    GameProgress:
-      type: object
-      additionalProperties: false
-      required: [current_chapter_slug, highest_noise_level, story_version, version, unlocks, choices]
-      properties:
-        current_chapter_slug: { type: string }
-        highest_noise_level: { type: integer }
-        story_version: { type: integer }
-        version: { type: integer, format: int64 }
-        unlocks: { type: array, items: { $ref: "#/components/schemas/PlayerUnlock" } }
-        choices: { type: array, items: { $ref: "#/components/schemas/StoryChoice" } }
-    GamePlayer:
-      type: object
-      additionalProperties: false
-      required: [id, display_name, language_code]
-      properties: { id: { type: string, format: uuid }, display_name: { type: string }, language_code: { type: [string, "null"] } }
-    ModuleLevel:
-      type: object
-      additionalProperties: false
-      required: [slug, level]
-      properties: { slug: { type: string }, level: { type: integer, minimum: 1, maximum: 3 } }
-    MapNode:
-      type: object
-      additionalProperties: false
-      required: [id, layer, lane, type, status, next]
-      properties:
-        id: { type: string }
-        layer: { type: integer }
-        lane: { type: integer }
-        type: { type: string, enum: [tutorial, combat, elite, event, story, rest, boss] }
-        status: { type: string, enum: [locked, available, current, completed] }
-        next: { type: array, items: { type: string } }
-        encounter_slug: { type: string }
-        event_slug: { type: string }
-    RunMap:
-      type: object
-      additionalProperties: false
-      required: [nodes]
-      properties: { nodes: { type: array, items: { $ref: "#/components/schemas/MapNode" } }, current_node_id: { type: string } }
-    EncounterState:
-      type: object
-      additionalProperties: false
-      required: [slug, seed, kind, duration_ticks, max_ticks, tutorial]
-      properties: { slug: { type: string }, seed: { type: string }, kind: { type: string }, duration_ticks: { type: integer }, max_ticks: { type: integer }, tutorial: { type: boolean } }
-    RewardState:
-      type: object
-      additionalProperties: false
-      required: [module_choices]
-      properties: { module_choices: { type: array, items: { type: string } }, granted_plugin: { type: string } }
-    RunState:
-      type: object
-      additionalProperties: false
-      required: [phase, chapter_slug, character_slug, weapon_slug, noise_level, health, max_health, modules, plugins, map, choice_tags, rng_cursor, emergency_reconnect_available]
-      properties:
-        phase: { type: string, enum: [map, encounter, reward, event, rest, completed] }
-        chapter_slug: { type: string }
-        character_slug: { type: string }
-        weapon_slug: { type: string }
-        noise_level: { type: integer }
-        health: { type: integer }
-        max_health: { type: integer }
-        modules: { type: array, items: { $ref: "#/components/schemas/ModuleLevel" } }
-        plugins: { type: array, items: { type: string } }
-        map: { $ref: "#/components/schemas/RunMap" }
-        encounter: { $ref: "#/components/schemas/EncounterState" }
-        reward: { $ref: "#/components/schemas/RewardState" }
-        current_event_slug: { type: string }
-        choice_tags: { type: array, items: { type: string } }
-        rng_cursor: { type: integer, format: int64, minimum: 0 }
-        emergency_reconnect_available: { type: boolean }
-    GameRun:
-      type: object
-      additionalProperties: false
-      required: [id, content_version, state, status, outcome, version, created_at, updated_at, completed_at]
-      properties:
-        id: { type: string, format: uuid }
-        content_version: { type: string }
-        state: { $ref: "#/components/schemas/RunState" }
-        status: { type: string, enum: [active, completed, abandoned] }
-        outcome: { type: [string, "null"], enum: [cleared, failed, abandoned, null] }
-        version: { type: integer, format: int64 }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
-        completed_at: { type: [string, "null"], format: date-time }
-    GameSnapshot:
-      type: object
-      additionalProperties: false
-      required: [protocol, player, progress, active_run, pending_scene_slug, onboarding_stage]
-      properties:
-        protocol: { type: string, const: action-v1 }
-        player: { $ref: "#/components/schemas/GamePlayer" }
-        progress: { $ref: "#/components/schemas/GameProgress" }
-        active_run: { oneOf: [{ $ref: "#/components/schemas/GameRun" }, { type: "null" }] }
-        pending_scene_slug: { type: [string, "null"] }
-        onboarding_stage: { type: string, enum: [intro, tutorial, complete] }
-    CreateRunRequest:
-      type: object
-      additionalProperties: false
-      required: [chapter_slug, character_slug, noise_level]
-      properties: { chapter_slug: { type: string }, character_slug: { type: string }, noise_level: { type: integer, minimum: 0, maximum: 3 } }
-    InputTrace:
-      type: object
-      additionalProperties: false
-      required: [encoding, ticks, data]
-      properties:
-        encoding: { type: string, const: rle8-v1 }
-        ticks: { type: integer, minimum: 1, maximum: 2700 }
-        data: { type: string, maxLength: 8192 }
-        client_digest: { type: string, pattern: "^[0-9a-f]{8}$" }
-    RunCommandRequest:
-      type: object
-      additionalProperties: false
-      required: [type, expected_version]
-      properties:
-        type: { type: string, enum: [choose_node, complete_encounter, choose_module_reward, resolve_event, rest, abandon_run] }
-        expected_version: { type: integer, format: int64, minimum: 1 }
-        node_id: { type: string }
-        choice_slug: { type: string }
-        module_slug: { type: string }
-        operation: { type: string, enum: [repair, tune] }
-        trace: { $ref: "#/components/schemas/InputTrace" }
-    EncounterResult:
-      type: object
-      additionalProperties: true
-      required: [won, health, ticks, kills, routes_completed, distortion, emergency_reconnect_used, digest, final]
-      properties:
-        won: { type: boolean }
-        health: { type: integer }
-        ticks: { type: integer }
-        kills: { type: integer }
-        routes_completed: { type: integer }
-        distortion: { type: integer }
-        emergency_reconnect_used: { type: boolean }
-        digest: { type: string }
-        final: { type: object, additionalProperties: true }
-    RunEvent:
-      type: object
-      additionalProperties: false
-      required: [kind]
-      properties:
-        kind: { type: string }
-        node_id: { type: string }
-        module_slug: { type: string }
-        plugin_slug: { type: string }
-        choice_tag: { type: string }
-        amount: { type: integer }
-        encounter_result: { $ref: "#/components/schemas/EncounterResult" }
-    RunCommandResponse:
-      type: object
-      additionalProperties: false
-      required: [run, events]
-      properties: { run: { $ref: "#/components/schemas/GameRun" }, events: { type: array, items: { $ref: "#/components/schemas/RunEvent" } } }
-    StoryChoiceRequest:
-      type: object
-      additionalProperties: false
-      required: [scene_slug, option_slug, expected_version]
-      properties: { scene_slug: { type: string }, option_slug: { type: string }, expected_version: { type: integer, format: int64, minimum: 1 } }
-    StoryChoiceResponse:
-      type: object
-      additionalProperties: false
-      required: [progress, pending_scene_slug]
-      properties: { progress: { $ref: "#/components/schemas/GameProgress" }, pending_scene_slug: { type: [string, "null"] } }
+    Unlock: { type: object, additionalProperties: false, required: [type, content_slug, created_at], properties: { type: { type: string }, content_slug: { type: string }, created_at: { type: string, format: date-time } } }
+    StoryChoice: { type: object, additionalProperties: false, required: [scene_slug, option_slug, choice_tag, revision, trust, authenticity, retention, created_at], properties: { scene_slug: { type: string }, option_slug: { type: string }, choice_tag: { type: string }, revision: { type: integer }, trust: { type: integer }, authenticity: { type: integer }, retention: { type: integer }, created_at: { type: string, format: date-time } } }
+    ChapterProgress: { type: object, additionalProperties: false, required: [chapter_slug, highest_noise_level, clears, best_score, updated_at], properties: { chapter_slug: { type: string }, highest_noise_level: { type: integer }, clears: { type: integer }, best_score: { type: integer }, updated_at: { type: string, format: date-time } } }
+    GameProgress: { type: object, additionalProperties: false, required: [current_chapter_slug, highest_noise_level, story_version, version, unlocks, choices, chapters, trust, authenticity, retention, ending, daily_unlocked], properties: { current_chapter_slug: { type: string }, highest_noise_level: { type: integer }, story_version: { type: integer }, version: { type: integer, format: int64 }, unlocks: { type: array, items: { $ref: "#/components/schemas/Unlock" } }, choices: { type: array, items: { $ref: "#/components/schemas/StoryChoice" } }, chapters: { type: array, items: { $ref: "#/components/schemas/ChapterProgress" } }, trust: { type: integer }, authenticity: { type: integer }, retention: { type: integer }, ending: { type: [string, "null"] }, daily_unlocked: { type: boolean } } }
+    ModuleLevel: { type: object, additionalProperties: false, required: [slug, level], properties: { slug: { type: string }, level: { type: integer, minimum: 1, maximum: 3 } } }
+    RuntimeBehavior: { type: object, additionalProperties: false, required: [source_slug, level, kind, amount], properties: { source_slug: { type: string }, level: { type: integer, minimum: 1, maximum: 3 }, kind: { type: string, enum: [warp_aftershock, graze_guard, protocol_echo, kill_signal] }, amount: { type: integer, minimum: 1 }, every: { type: integer, minimum: 2 } } }
+    RuntimeConfig: { type: object, additionalProperties: false, required: [kit, passive, resonance, attack_damage, attack_interval, move_speed, warp_cooldown, warp_damage, starting_shield, overload_bonus, distortion_gain, protocol_damage, protocol_shield, echo_power, resonance_power, projectile_pierce, projectile_count, projectile_speed, graze_radius, heal_on_protocol, reflect_damage, behaviors], properties: { kit: { type: string }, passive: { type: string }, resonance: { type: string }, attack_damage: { type: integer }, attack_interval: { type: integer }, move_speed: { type: integer }, warp_cooldown: { type: integer }, warp_damage: { type: integer }, starting_shield: { type: integer }, overload_bonus: { type: integer }, distortion_gain: { type: integer }, protocol_damage: { type: integer }, protocol_shield: { type: integer }, echo_power: { type: integer }, resonance_power: { type: integer }, projectile_pierce: { type: integer }, projectile_count: { type: integer }, projectile_speed: { type: integer }, graze_radius: { type: integer }, heal_on_protocol: { type: integer }, reflect_damage: { type: integer }, behaviors: { type: array, items: { $ref: "#/components/schemas/RuntimeBehavior" } } } }
+    RewardPool: { type: object, additionalProperties: false, required: [module_slugs, plugin_slugs], properties: { module_slugs: { type: array, items: { type: string } }, plugin_slugs: { type: array, items: { type: string } } } }
+    NarrativeModifier: { type: object, additionalProperties: false, required: [boss_variant], properties: { reward_bias: { type: string, enum: [surge, guard, echo, glitch] }, boss_variant: { type: string, enum: [authentic, balanced, retained] }, source_scene_slug: { type: string }, source_choice_tag: { type: string } } }
+    MapNode: { type: object, additionalProperties: false, required: [id, layer, lane, type, status, next], properties: { id: { type: string }, layer: { type: integer }, lane: { type: integer }, type: { type: string }, status: { type: string }, next: { type: array, items: { type: string } }, encounter_slug: { type: string }, event_slug: { type: string }, objective: { type: string }, risk: { type: integer }, reward_bias: { type: string }, enemy_slugs: { type: array, items: { type: string } }, hazards: { type: array, items: { type: string } } } }
+    RunMap: { type: object, additionalProperties: false, required: [nodes], properties: { nodes: { type: array, items: { $ref: "#/components/schemas/MapNode" } }, current_node_id: { type: string } } }
+    EncounterState: { type: object, additionalProperties: false, required: [slug, seed, kind, duration_ticks, max_ticks, tutorial, objective, risk, reward_bias, hazards], properties: { slug: { type: string }, seed: { type: string }, kind: { type: string }, duration_ticks: { type: integer }, max_ticks: { type: integer }, tutorial: { type: boolean }, objective: { $ref: "#/components/schemas/Objective" }, risk: { type: integer }, reward_bias: { type: string }, hazards: { type: array, items: { type: string } } } }
+    RewardState: { type: object, additionalProperties: false, required: [module_choices, rerolled], properties: { module_choices: { type: array, items: { type: string } }, granted_plugin: { type: string }, rerolled: { type: boolean } } }
+    RunState: { type: object, additionalProperties: false, required: [phase, chapter_slug, character_slug, companion_slugs, weapon_slug, noise_level, health, max_health, modules, plugins, reward_pool, narrative_modifier, map, choice_tags, rng_cursor, emergency_reconnect_available, runtime_config, rerolls_remaining, score], properties: { phase: { type: string }, chapter_slug: { type: string }, character_slug: { type: string }, companion_slugs: { type: array, items: { type: string } }, support_alignment: { type: string, enum: [authentic, balanced, retained] }, weapon_slug: { type: string }, noise_level: { type: integer }, health: { type: integer }, max_health: { type: integer }, modules: { type: array, items: { $ref: "#/components/schemas/ModuleLevel" } }, plugins: { type: array, items: { type: string } }, reward_pool: { $ref: "#/components/schemas/RewardPool" }, narrative_modifier: { $ref: "#/components/schemas/NarrativeModifier" }, map: { $ref: "#/components/schemas/RunMap" }, encounter: { $ref: "#/components/schemas/EncounterState" }, reward: { $ref: "#/components/schemas/RewardState" }, current_event_slug: { type: string }, choice_tags: { type: array, items: { type: string } }, rng_cursor: { type: integer, format: int64, minimum: 0 }, emergency_reconnect_available: { type: boolean }, runtime_config: { $ref: "#/components/schemas/RuntimeConfig" }, rerolls_remaining: { type: integer }, score: { type: integer } } }
+    GameRun: { type: object, additionalProperties: false, required: [id, content_version, mode, state, status, outcome, version, created_at, updated_at, completed_at], properties: { id: { type: string, format: uuid }, content_version: { type: string, const: v3 }, mode: { type: string, enum: [campaign, daily] }, daily_date: { type: string, format: date }, state: { $ref: "#/components/schemas/RunState" }, status: { type: string, enum: [active, completed, abandoned] }, outcome: { type: [string, "null"] }, version: { type: integer, format: int64 }, created_at: { type: string, format: date-time }, updated_at: { type: string, format: date-time }, completed_at: { type: [string, "null"], format: date-time } } }
+    GameSnapshot: { type: object, additionalProperties: false, required: [protocol, content_version, progress, campaign_run, daily_run, daily_result, pending_scene_slug, onboarding_stage], properties: { protocol: { type: string, const: action-v2 }, content_version: { type: string, const: v3 }, progress: { $ref: "#/components/schemas/GameProgress" }, campaign_run: { oneOf: [{ $ref: "#/components/schemas/GameRun" }, { type: "null" }] }, daily_run: { oneOf: [{ $ref: "#/components/schemas/GameRun" }, { type: "null" }] }, daily_result: { oneOf: [{ $ref: "#/components/schemas/DailyResult" }, { type: "null" }] }, pending_scene_slug: { type: [string, "null"] }, onboarding_stage: { type: string } } }
+    InputTrace: { type: object, additionalProperties: false, required: [encoding, ticks, data], properties: { encoding: { type: string, const: rle8-v1 }, ticks: { type: integer, minimum: 1, maximum: 2700 }, data: { type: string }, prediction_digest: { type: string } } }
+    CreateRunRequest: { type: object, additionalProperties: false, required: [mode], properties: { mode: { type: string, enum: [campaign, daily] }, chapter_slug: { type: string }, character_slug: { type: string }, noise_level: { type: integer, minimum: 0, maximum: 3 } } }
+    RunCommandRequest: { type: object, additionalProperties: false, required: [type, expected_version], properties: { type: { type: string, enum: [choose_node, complete_encounter, choose_module_reward, reroll_module_reward, resolve_event, rest, abandon_run] }, expected_version: { type: integer, format: int64, minimum: 1 }, node_id: { type: string }, choice_slug: { type: string }, module_slug: { type: string }, operation: { type: string }, trace: { $ref: "#/components/schemas/InputTrace" } } }
+    RunEvent: { type: object, additionalProperties: true, required: [kind], properties: { kind: { type: string } } }
+    RunCommandResponse: { type: object, additionalProperties: false, required: [run, events], properties: { run: { $ref: "#/components/schemas/GameRun" }, events: { type: array, items: { $ref: "#/components/schemas/RunEvent" } } } }
+    StoryChoiceRequest: { type: object, additionalProperties: false, required: [scene_slug, option_slug, expected_version], properties: { scene_slug: { type: string }, option_slug: { type: string }, expected_version: { type: integer, format: int64, minimum: 1 } } }
+    StoryChoiceResponse: { type: object, additionalProperties: false, required: [progress, pending_scene_slug], properties: { progress: { $ref: "#/components/schemas/GameProgress" }, pending_scene_slug: { type: [string, "null"] } } }
+    DailyResult: { type: object, additionalProperties: false, required: [date, character_slug, score, modules, plugins, streak], properties: { date: { type: string, format: date }, character_slug: { type: string }, score: { type: integer }, modules: { type: array, items: { $ref: "#/components/schemas/ModuleLevel" } }, plugins: { type: array, items: { type: string } }, streak: { type: integer } } }

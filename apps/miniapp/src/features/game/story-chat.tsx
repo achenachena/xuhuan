@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import type { APIGameContent } from "@/lib/api/client";
 import { gameText, type GameLocale } from "@/features/game/game-copy";
 
@@ -16,7 +18,12 @@ export const StoryChat = ({ content, sceneSlug, locale, busy, onChoose }: StoryC
   }
 
   return (
-    <section className="mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col bg-[#101827]">
+    <section
+      data-testid="story-scene"
+      data-scene-slug={scene.slug}
+      data-game-surface="true"
+      className="mx-auto flex min-h-[var(--xuhuan-stable-height,100dvh)] w-full max-w-lg flex-col bg-[#101827]"
+    >
       <header className="sticky top-0 z-10 border-b border-white/10 bg-[#172231]/95 px-4 pb-3 pt-[var(--xuhuan-host-safe-top)] backdrop-blur">
         <p className="text-sm font-semibold text-white">{gameText(locale, "backendGroup")}</p>
         <div className="mt-1 flex items-center gap-2 text-xs text-emerald-300">
@@ -39,8 +46,21 @@ export const StoryChat = ({ content, sceneSlug, locale, busy, onChoose }: StoryC
             </div>
           ) : (
             <div key={`${message.sender}-${index}`} className="flex items-end gap-2">
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-cyan-300 to-violet-500 text-xs font-bold text-slate-950">
-                {message.sender.slice(0, 1).toUpperCase()}
+              <div className="relative h-9 w-9 shrink-0 overflow-hidden border-2 border-cyan-200/35 bg-gradient-to-br from-cyan-300 to-violet-500">
+                {content.characters.find((item) => item.slug === message.sender) ? (
+                  <Image
+                    src={content.characters.find((item) => item.slug === message.sender)!.portrait_url}
+                    alt=""
+                    fill
+                    sizes="36px"
+                    unoptimized
+                    className="object-contain [image-rendering:pixelated]"
+                  />
+                ) : (
+                  <span className="grid h-full w-full place-items-center text-xs font-bold text-slate-950">
+                    {message.sender.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
               </div>
               <div className="max-w-[82%] rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-sm leading-5 text-slate-900 shadow-lg shadow-black/10">
                 <span className="mb-0.5 block text-[10px] font-semibold text-violet-600">{message.sender}</span>
@@ -57,6 +77,7 @@ export const StoryChat = ({ content, sceneSlug, locale, busy, onChoose }: StoryC
           {scene.options.map((option) => (
             <button
               key={option.slug}
+              data-testid={`story-choice-${option.slug}`}
               type="button"
               disabled={busy}
               onClick={() => onChoose(scene.slug, option.slug)}

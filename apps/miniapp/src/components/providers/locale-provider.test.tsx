@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import LanguageToggle from "@/components/language-toggle";
 import LocaleProvider from "@/components/providers/locale-provider";
+import { gameText } from "@/features/game/game-copy";
 
 describe("LocaleProvider", () => {
   beforeEach(() => window.localStorage.clear());
@@ -14,11 +15,17 @@ describe("LocaleProvider", () => {
       </LocaleProvider>,
     );
 
-    const toggle = screen.getByRole("button", { name: "Switch language to Chinese" });
-    expect(toggle).toHaveTextContent("中文");
+    const toggle = screen.getByRole("button", {
+      name: "Switch language to Chinese",
+    });
+    expect(toggle).toHaveTextContent("ZH");
     fireEvent.click(toggle);
 
-    expect(screen.getByRole("button", { name: "切换语言为英文" })).toHaveTextContent("EN");
+    expect(
+      screen.getByRole("button", {
+        name: gameText("zh-CN", "switchToEnglish"),
+      }),
+    ).toHaveTextContent("EN");
     expect(window.localStorage.getItem("xuhuan.locale.v1")).toBe("zh-CN");
     await waitFor(() => expect(document.documentElement.lang).toBe("zh-CN"));
   });

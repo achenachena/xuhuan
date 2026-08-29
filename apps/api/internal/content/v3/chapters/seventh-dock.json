@@ -1,0 +1,664 @@
+{
+  "chapter": {
+    "slug": "seventh-dock",
+    "order": 1,
+    "title_key": "chapter.seventh-dock.title",
+    "subtitle_key": "chapter.seventh-dock.subtitle",
+    "character_slug": "nana7mi",
+    "finale": false,
+    "next_chapter_slug": "always-cheerful",
+    "boss_encounter_slug": "optimal-persona",
+    "tutorial_encounter_slug": "signal-handshake",
+    "encounter_pool": [
+      "dock-pursuit",
+      "comment-storm",
+      "memory-recovery"
+    ],
+    "elite_pool": [
+      "cache-purge"
+    ],
+    "event_pool": [
+      "unsent-voice",
+      "wrong-tide-table",
+      "viewer-zero"
+    ],
+    "midpoint_event_slug": "unsent-voice",
+    "background_url": "/game/v3/backgrounds/seventh-dock.webp",
+    "kit_slug": "nana-route",
+    "prelude_scene_slug": "nana-prelude",
+    "midpoint_scene_slug": "nana-midpoint",
+    "epilogue_scene_slug": "nana-epilogue",
+    "available": true,
+    "noise_rules": [
+      {
+        "level": 1,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "level": 2,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "level": 3,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  },
+  "enemies": [
+    {
+      "slug": "retention-drone",
+      "chapter_slug": "seventh-dock",
+      "name_key": "enemy.retention-drone.name",
+      "description_key": "enemy.retention-drone.description",
+      "kind": "normal",
+      "max_health": 42,
+      "speed": 11,
+      "contact_damage": 6,
+      "color_theme": "#ef476f",
+      "image_url": "/game/v3/enemies/signal-hound.webp",
+      "movement": {
+        "kind": "chase",
+        "amount": 11
+      },
+      "attacks": [
+        {
+          "kind": "aimed",
+          "interval": 72,
+          "projectile_speed": 23,
+          "damage": 5,
+          "count": 1,
+          "telegraph_ticks": 18
+        }
+      ],
+      "traits": []
+    },
+    {
+      "slug": "comment-sweeper",
+      "chapter_slug": "seventh-dock",
+      "name_key": "enemy.comment-sweeper.name",
+      "description_key": "enemy.comment-sweeper.description",
+      "kind": "normal",
+      "max_health": 52,
+      "speed": 12,
+      "contact_damage": 5,
+      "color_theme": "#f472b6",
+      "image_url": "/game/v3/enemies/interceptor.webp",
+      "movement": {
+        "kind": "strafe",
+        "amount": 12
+      },
+      "attacks": [
+        {
+          "kind": "fan",
+          "interval": 64,
+          "projectile_speed": 22,
+          "damage": 5,
+          "count": 5,
+          "spread": 44,
+          "telegraph_ticks": 20
+        }
+      ],
+      "traits": []
+    },
+    {
+      "slug": "buffer-mine",
+      "chapter_slug": "seventh-dock",
+      "name_key": "enemy.buffer-mine.name",
+      "description_key": "enemy.buffer-mine.description",
+      "kind": "normal",
+      "max_health": 58,
+      "speed": 3,
+      "contact_damage": 8,
+      "color_theme": "#fb923c",
+      "image_url": "/game/v3/enemies/glitch-mine.webp",
+      "movement": {
+        "kind": "stationary"
+      },
+      "attacks": [
+        {
+          "kind": "mine",
+          "interval": 78,
+          "projectile_speed": 18,
+          "damage": 6,
+          "count": 8,
+          "telegraph_ticks": 28
+        }
+      ],
+      "traits": [
+        {
+          "kind": "death_split",
+          "amount": 3,
+          "value": "retention-drone"
+        }
+      ]
+    },
+    {
+      "slug": "cache-hunter",
+      "chapter_slug": "seventh-dock",
+      "name_key": "enemy.cache-hunter.name",
+      "description_key": "enemy.cache-hunter.description",
+      "kind": "elite",
+      "max_health": 210,
+      "speed": 14,
+      "contact_damage": 9,
+      "color_theme": "#8338ec",
+      "image_url": "/game/v3/enemies/signal-thief.webp",
+      "movement": {
+        "kind": "flee",
+        "amount": 14
+      },
+      "attacks": [
+        {
+          "kind": "aimed",
+          "interval": 46,
+          "projectile_speed": 34,
+          "damage": 7,
+          "count": 2,
+          "spread": 8,
+          "telegraph_ticks": 28
+        },
+        {
+          "kind": "beam",
+          "interval": 150,
+          "projectile_speed": 0,
+          "damage": 10,
+          "count": 1,
+          "telegraph_ticks": 48
+        }
+      ],
+      "traits": [
+        {
+          "kind": "steal_signal",
+          "amount": 1
+        },
+        {
+          "kind": "teleport",
+          "amount": 180
+        }
+      ]
+    },
+    {
+      "slug": "optimal-nana",
+      "chapter_slug": "seventh-dock",
+      "name_key": "enemy.optimal-nana.name",
+      "description_key": "enemy.optimal-nana.description",
+      "kind": "boss",
+      "max_health": 920,
+      "speed": 8,
+      "contact_damage": 12,
+      "color_theme": "#ff4d9d",
+      "image_url": "/game/v3/bosses/optimal-nana.webp",
+      "movement": {
+        "kind": "orbit",
+        "amount": 8
+      },
+      "attacks": [
+        {
+          "kind": "fan",
+          "interval": 38,
+          "projectile_speed": 28,
+          "damage": 7,
+          "count": 7,
+          "spread": 64,
+          "telegraph_ticks": 20
+        },
+        {
+          "kind": "spiral",
+          "interval": 72,
+          "projectile_speed": 21,
+          "damage": 6,
+          "count": 10,
+          "spread": 360,
+          "telegraph_ticks": 24
+        },
+        {
+          "kind": "delayed_echo",
+          "interval": 126,
+          "projectile_speed": 25,
+          "damage": 8,
+          "count": 5,
+          "spread": 42,
+          "telegraph_ticks": 44
+        }
+      ],
+      "traits": [
+        {
+          "kind": "teleport",
+          "amount": 210
+        },
+        {
+          "kind": "distortion_aura",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "encounters": [
+    {
+      "slug": "signal-handshake",
+      "chapter_slug": "seventh-dock",
+      "kind": "tutorial",
+      "objective": {
+        "kind": "stabilize",
+        "target": 3
+      },
+      "duration_ticks": 750,
+      "max_ticks": 1050,
+      "spawn_interval": 240,
+      "max_alive": 3,
+      "enemy_slugs": [
+        "retention-drone",
+        "comment-sweeper"
+      ],
+      "hazards": [],
+      "reward_bias": "balanced",
+      "tutorial": true,
+      "risk": 1
+    },
+    {
+      "slug": "dock-pursuit",
+      "chapter_slug": "seventh-dock",
+      "kind": "normal",
+      "objective": {
+        "kind": "purge",
+        "target": 10
+      },
+      "duration_ticks": 1000,
+      "max_ticks": 1500,
+      "spawn_interval": 132,
+      "max_alive": 7,
+      "enemy_slugs": [
+        "retention-drone",
+        "comment-sweeper"
+      ],
+      "hazards": [],
+      "reward_bias": "surge",
+      "risk": 1
+    },
+    {
+      "slug": "comment-storm",
+      "chapter_slug": "seventh-dock",
+      "kind": "normal",
+      "objective": {
+        "kind": "stabilize",
+        "target": 3
+      },
+      "duration_ticks": 1050,
+      "max_ticks": 1600,
+      "spawn_interval": 145,
+      "max_alive": 7,
+      "enemy_slugs": [
+        "comment-sweeper",
+        "buffer-mine"
+      ],
+      "hazards": [
+        "crossfire"
+      ],
+      "reward_bias": "guard",
+      "risk": 2
+    },
+    {
+      "slug": "memory-recovery",
+      "chapter_slug": "seventh-dock",
+      "kind": "normal",
+      "objective": {
+        "kind": "recover",
+        "target": 4
+      },
+      "duration_ticks": 1080,
+      "max_ticks": 1650,
+      "spawn_interval": 136,
+      "max_alive": 8,
+      "enemy_slugs": [
+        "retention-drone",
+        "buffer-mine",
+        "comment-sweeper"
+      ],
+      "hazards": [
+        "signal_decay"
+      ],
+      "reward_bias": "echo",
+      "risk": 2
+    },
+    {
+      "slug": "cache-purge",
+      "chapter_slug": "seventh-dock",
+      "kind": "elite",
+      "objective": {
+        "kind": "elite",
+        "target": 1
+      },
+      "duration_ticks": 1250,
+      "max_ticks": 1800,
+      "spawn_interval": 185,
+      "max_alive": 6,
+      "enemy_slugs": [
+        "cache-hunter",
+        "retention-drone",
+        "buffer-mine"
+      ],
+      "hazards": [
+        "narrow_arena"
+      ],
+      "reward_bias": "glitch",
+      "risk": 3
+    },
+    {
+      "slug": "optimal-persona",
+      "chapter_slug": "seventh-dock",
+      "kind": "boss",
+      "objective": {
+        "kind": "boss",
+        "target": 1
+      },
+      "duration_ticks": 2100,
+      "max_ticks": 2700,
+      "spawn_interval": 300,
+      "max_alive": 5,
+      "enemy_slugs": [
+        "optimal-nana"
+      ],
+      "hazards": [
+        "distortion_rain"
+      ],
+      "reward_bias": "balanced",
+      "risk": 3
+    }
+  ],
+  "events": [
+    {
+      "slug": "unsent-voice",
+      "chapter_slug": "seventh-dock",
+      "title_key": "event.unsent-voice.title",
+      "body_key": "event.unsent-voice.body",
+      "options": [
+        {
+          "slug": "keep-trace",
+          "label_key": "event.unsent-voice.keep-trace.label",
+          "result_key": "event.unsent-voice.keep-trace.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 10
+            }
+          ],
+          "choice_tag": "nana-kept-silence",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "recover",
+          "label_key": "event.unsent-voice.recover.label",
+          "result_key": "event.unsent-voice.recover.result",
+          "effects": [
+            {
+              "kind": "add_module",
+              "value": "false-horizon"
+            }
+          ],
+          "choice_tag": "nana-recovered-voice",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 1,
+            "retention": 1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "wrong-tide-table",
+      "chapter_slug": "seventh-dock",
+      "title_key": "event.wrong-tide-table.title",
+      "body_key": "event.wrong-tide-table.body",
+      "options": [
+        {
+          "slug": "follow",
+          "label_key": "event.wrong-tide-table.follow.label",
+          "result_key": "event.wrong-tide-table.follow.result",
+          "effects": [
+            {
+              "kind": "add_module",
+              "value": "harbor-map"
+            }
+          ],
+          "choice_tag": "nana-followed-impossible-map",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "correct",
+          "label_key": "event.wrong-tide-table.correct.label",
+          "result_key": "event.wrong-tide-table.correct.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 12
+            }
+          ],
+          "choice_tag": "nana-corrected-map",
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    },
+    {
+      "slug": "viewer-zero",
+      "chapter_slug": "seventh-dock",
+      "title_key": "event.viewer-zero.title",
+      "body_key": "event.viewer-zero.body",
+      "options": [
+        {
+          "slug": "trace",
+          "label_key": "event.viewer-zero.trace.label",
+          "result_key": "event.viewer-zero.trace.result",
+          "effects": [
+            {
+              "kind": "add_plugin",
+              "value": "compass-without-north"
+            }
+          ],
+          "choice_tag": "traced-viewer-zero",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "ignore",
+          "label_key": "event.viewer-zero.ignore.label",
+          "result_key": "event.viewer-zero.ignore.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 16
+            }
+          ],
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "slug": "nana-prelude",
+      "chapter_slug": "seventh-dock",
+      "title_key": "scene.nana-prelude.title",
+      "trigger": {
+        "kind": "chapter_prelude",
+        "chapter_slug": "seventh-dock"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.nana-prelude.message.1"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.nana-prelude.message.2"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.nana-prelude.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "stay-online",
+          "label_key": "scene.nana-prelude.option.stay-online",
+          "tag": "choose-presence",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 1,
+            "retention": 0
+          }
+        }
+      ]
+    },
+    {
+      "slug": "nana-midpoint",
+      "chapter_slug": "seventh-dock",
+      "title_key": "scene.nana-midpoint.title",
+      "trigger": {
+        "kind": "chapter_midpoint",
+        "chapter_slug": "seventh-dock"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.nana-midpoint.message.1"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.nana-midpoint.message.2"
+        }
+      ],
+      "options": [
+        {
+          "slug": "keep-all",
+          "label_key": "scene.nana-midpoint.option.keep-all",
+          "tag": "nana-contradictions",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "choose-useful",
+          "label_key": "scene.nana-midpoint.option.choose-useful",
+          "tag": "nana-highlight",
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    },
+    {
+      "slug": "nana-boss-branch",
+      "chapter_slug": "seventh-dock",
+      "title_key": "scene.nana-boss-branch.title",
+      "trigger": {
+        "kind": "chapter_midpoint",
+        "chapter_slug": "seventh-dock"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.nana-boss-branch.message.1"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.nana-boss-branch.message.2"
+        }
+      ],
+      "options": [
+        {
+          "slug": "answer",
+          "label_key": "scene.nana-boss-branch.option.answer",
+          "tag": "nana-answer-optimal",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 2,
+            "retention": -1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "nana-epilogue",
+      "chapter_slug": "seventh-dock",
+      "title_key": "scene.nana-epilogue.title",
+      "trigger": {
+        "kind": "chapter_cleared",
+        "chapter_slug": "seventh-dock"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.nana-epilogue.message.1"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.nana-epilogue.message.2"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.nana-epilogue.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "remember",
+          "label_key": "scene.nana-epilogue.option.remember",
+          "tag": "nana-remembered",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 1,
+            "retention": 0
+          }
+        }
+      ]
+    }
+  ]
+}

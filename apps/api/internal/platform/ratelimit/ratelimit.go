@@ -164,6 +164,7 @@ func (limiter *ResilientLimiter) logFallback(ctx context.Context) {
 }
 
 func Key(scope, identifier string) string {
+	// Keep raw IP addresses and Telegram IDs out of Redis keys.
 	sum := sha256.Sum256([]byte(identifier))
 	return "xuhuan:rate:" + scope + ":" + hex.EncodeToString(sum[:])
 }

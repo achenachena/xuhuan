@@ -8,8 +8,11 @@ export type APIRunState = components["schemas"]["RunState"];
 export type APIRunCommand = components["schemas"]["RunCommandRequest"];
 export type APIRunCommandResponse = components["schemas"]["RunCommandResponse"];
 export type APIStoryChoiceResponse = components["schemas"]["StoryChoiceResponse"];
+export type APICreateRunRequest = components["schemas"]["CreateRunRequest"];
+export type APIDailyResult = components["schemas"]["DailyResult"];
 
 type ErrorEnvelope = components["schemas"]["ErrorEnvelope"];
+const requestTimeoutMilliseconds = 20_000;
 
 let cachedWebApp: (typeof import("@twa-dev/sdk"))["default"] | null = null;
 
@@ -50,9 +53,6 @@ const buildAuthenticationHeaders = async (): Promise<HeadersInit> => {
   if (initData) {
     return { "X-Telegram-Init-Data": initData };
   }
-  if (env.NEXT_PUBLIC_DEV_AUTH_TOKEN) {
-    return { "X-Dev-Auth": env.NEXT_PUBLIC_DEV_AUTH_TOKEN };
-  }
   return {};
 };
 
@@ -67,12 +67,16 @@ const parseError = async (response: Response): Promise<APIError> => {
 
 const requestJSON = async <TResponse>(
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  authenticate = true,
 ): Promise<TResponse> => {
-  const authenticationHeaders = await buildAuthenticationHeaders();
+  const authenticationHeaders = authenticate
+    ? await buildAuthenticationHeaders()
+    : {};
   const response = await fetch(resolveURL(path), {
     ...init,
     cache: "no-store",
+    signal: init.signal ?? AbortSignal.timeout(requestTimeoutMilliseconds),
     headers: {
       Accept: "application/json",
       "Accept-Language": "en",
@@ -110,15 +114,19 @@ export const createIdempotencyKey = (): string => {
 
 export const getGameContent = (locale: "zh-CN" | "en"): Promise<APIGameContent> => {
   return requestJSON<APIGameContent>(
-    `/v2/content/v2?locale=${encodeURIComponent(locale)}`,
-    { headers: { "Accept-Language": locale } }
+    `/v2/content/v3?locale=${encodeURIComponent(locale)}`,
+    { headers: { "Accept-Language": locale } },
+    false,
   );
 };
 
-export const getGame = (): Promise<APIGameSnapshot> => requestJSON<APIGameSnapshot>("/v2/game");
+export const getGame = (locale: "zh-CN" | "en" = "en"): Promise<APIGameSnapshot> =>
+  requestJSON<APIGameSnapshot>("/v2/game", {
+    headers: { "Accept-Language": locale },
+  });
 
 export const createRun = (
-  body: { readonly chapter_slug: string; readonly character_slug: string; readonly noise_level: number },
+  body: APICreateRunRequest,
   idempotencyKey: string
 ): Promise<APIGameRun> => postJSON("/v2/runs", body, idempotencyKey);
 

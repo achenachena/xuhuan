@@ -1,12 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  APIGameContent,
-  APIGameRun,
-  APIGameSnapshot,
-} from "@/lib/api/client";
-
 const dependencies = vi.hoisted(() => ({
   getGameContent: vi.fn(),
   getGame: vi.fn(),
@@ -25,7 +19,7 @@ vi.mock("@/components/providers/use-locale", () => ({
   default: () => ({
     translate: (key: string) => key,
     isReady: true,
-    language: "zh-CN",
+    language: "en",
     setLanguage: vi.fn(),
   }),
 }));
@@ -39,168 +33,31 @@ vi.mock("@/features/action/action-arena", () => ({
 
 import HomePage from "@/app/page";
 import { APIError } from "@/lib/api/client";
+import {
+  createV3Game,
+  createV3Run,
+  v3BaseState,
+  v3Content,
+} from "@/test/v3-fixtures";
 
-const content: APIGameContent = {
-  version: "v2",
-  protocol: "action-v1",
-  locale: "zh-CN",
-  characters: [
-    {
-      slug: "nana7mi",
-      name: "七海",
-      biography: "数字分身",
-      playstyle: "航线循环",
-      color_theme: "#67e8f9",
-      portrait_url: "/nana.png",
-      model_url: "/nana.png",
-      available: true,
-    },
-  ],
-  modules: [
-    {
-      slug: "route-needle",
-      character_slug: "nana7mi",
-      name: "航线针",
-      description: "攻击提高",
-      archetype: "route",
-      rarity: "common",
-      effects: [{ kind: "attack_damage", amount: 2 }],
-    },
-  ],
-  plugins: [],
-  enemies: [
-    {
-      slug: "retention-drone",
-      name: "留存无人机",
-      description: "测试敌人",
-      kind: "normal",
-      pattern: "chaser",
-      max_health: 28,
-      speed: 10,
-      contact_damage: 5,
-      fire_interval: 0,
-      projectile_speed: 0,
-      projectile_damage: 0,
-      color_theme: "#f43f5e",
-      image_url: "/game/v2/retention-drone.webp",
-    },
-  ],
-  encounters: [
-    {
-      slug: "signal-handshake",
-      kind: "tutorial",
-      duration_ticks: 1350,
-      max_ticks: 1350,
-      spawn_interval: 240,
-      max_alive: 3,
-      enemy_slugs: ["retention-drone"],
-      tutorial: true,
-    },
-  ],
-  events: [],
-  scenes: [
-    {
-      slug: "prologue-last-viewer",
-      title: "最后一位观众",
-      messages: [
-        { sender: "system", kind: "system", text: "检测到仅一位观众在线。" },
-      ],
-      options: [{ slug: "answer", label: "回复七海" }],
-    },
-  ],
-  chapters: [
-    {
-      slug: "seventh-dock",
-      title: "第七码头没有海",
-      subtitle: "找回非标准的七海",
-      character_slug: "nana7mi",
-      available: true,
-    },
-  ],
-};
-
-const baseState: APIGameRun["state"] = {
-  phase: "map",
-  chapter_slug: "seventh-dock",
-  character_slug: "nana7mi",
-  weapon_slug: "auto-signal",
-  noise_level: 0,
-  health: 64,
-  max_health: 64,
-  modules: [],
-  plugins: [],
-  map: {
-    nodes: [
-      {
-        id: "l1-a",
-        layer: 1,
-        lane: 0,
-        type: "combat",
-        status: "available",
-        next: [],
-        encounter_slug: "signal-handshake",
-      },
-    ],
-  },
-  choice_tags: [],
-  rng_cursor: 1,
-  emergency_reconnect_available: true,
-};
-
-const createRun = (overrides: Partial<APIGameRun> = {}): APIGameRun => ({
-  id: "10000000-0000-4000-8000-000000000001",
-  content_version: "v2",
-  state: baseState,
-  status: "active",
-  outcome: null,
-  version: 1,
-  created_at: "2026-08-18T12:00:00Z",
-  updated_at: "2026-08-18T12:00:00Z",
-  completed_at: null,
-  ...overrides,
-});
-
-const createGame = (
-  overrides: Partial<APIGameSnapshot> = {},
-): APIGameSnapshot => ({
-  protocol: "action-v1",
-  player: {
-    id: "20000000-0000-4000-8000-000000000002",
-    display_name: "Viewer One",
-    language_code: "zh-CN",
-  },
-  progress: {
-    current_chapter_slug: "seventh-dock",
-    highest_noise_level: 0,
-    story_version: 2,
-    version: 1,
-    unlocks: [],
-    choices: [],
-  },
-  active_run: null,
-  pending_scene_slug: null,
-  onboarding_stage: "complete",
-  ...overrides,
-});
-
-describe("story roguelite page", () => {
+describe("Action V3 game shell", () => {
   beforeEach(() => {
     Object.values(dependencies).forEach((mock) => mock.mockReset());
-    dependencies.getGameContent.mockResolvedValue(content);
+    dependencies.getGameContent.mockResolvedValue(v3Content);
   });
 
-  it("plays a pending story scene before showing the run hub", async () => {
+  it("starts the tutorial from the one-tap English prologue", async () => {
     dependencies.getGame.mockResolvedValue(
-      createGame({ pending_scene_slug: "prologue-last-viewer" }),
+      createV3Game({ pending_scene_slug: "prologue-last-viewer" }),
     );
     dependencies.createStoryChoice.mockResolvedValue({
-      progress: createGame().progress,
+      progress: createV3Game().progress,
       pending_scene_slug: null,
     });
     dependencies.createRun.mockResolvedValue(
-      createRun({
+      createV3Run({
         state: {
-          ...baseState,
+          ...v3BaseState,
           phase: "encounter",
           map: {
             nodes: [
@@ -220,9 +77,13 @@ describe("story roguelite page", () => {
             slug: "signal-handshake",
             seed: "seed:tutorial",
             kind: "tutorial",
-            duration_ticks: 1350,
-            max_ticks: 1350,
+            duration_ticks: 600,
+            max_ticks: 900,
             tutorial: true,
+            objective: { kind: "recover", target: 3 },
+            risk: 1,
+            reward_bias: "surge",
+            hazards: [],
           },
         },
       }),
@@ -230,35 +91,45 @@ describe("story roguelite page", () => {
 
     render(<HomePage />);
     expect(
-      await screen.findByText("检测到仅一位观众在线。"),
+      await screen.findByText("The stream has ended. Current viewers: 1."),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "回复七海" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep online" }));
 
     await waitFor(() =>
       expect(dependencies.createStoryChoice).toHaveBeenCalledWith(
         {
           scene_slug: "prologue-last-viewer",
-          option_slug: "answer",
+          option_slug: "stay-online",
           expected_version: 1,
         },
         "11111111-1111-4111-8111-111111111111",
       ),
     );
+    expect(dependencies.createRun).toHaveBeenCalledWith(
+      {
+        mode: "campaign",
+        chapter_slug: "seventh-dock",
+        character_slug: "nana7mi",
+        noise_level: 0,
+      },
+      "11111111-1111-4111-8111-111111111111",
+    );
     expect(await screen.findByTestId("action-arena")).toBeInTheDocument();
   });
 
-  it("starts a run and immediately renders its authoritative map", async () => {
-    dependencies.getGame.mockResolvedValue(createGame());
-    dependencies.createRun.mockResolvedValue(createRun());
+  it("starts a campaign and renders its authoritative route", async () => {
+    dependencies.getGame.mockResolvedValue(createV3Game());
+    dependencies.createRun.mockResolvedValue(createV3Run());
 
     render(<HomePage />);
     fireEvent.click(
-      await screen.findByRole("button", { name: /再次潜入第七码头/ }),
+      await screen.findByRole("button", { name: /Enter this channel/ }),
     );
 
     await waitFor(() =>
       expect(dependencies.createRun).toHaveBeenCalledWith(
         {
+          mode: "campaign",
           chapter_slug: "seventh-dock",
           character_slug: "nana7mi",
           noise_level: 0,
@@ -267,19 +138,64 @@ describe("story roguelite page", () => {
       ),
     );
     expect(
-      await screen.findByRole("img", { name: "频道拓扑" }),
+      await screen.findByRole("img", { name: "Channel topology" }),
     ).toBeInTheDocument();
   });
 
-  it("restores an unfinished run without using browser storage", async () => {
+  it("starts the server-selected daily run without campaign parameters", async () => {
+    const game = createV3Game({
+      progress: { ...createV3Game().progress, daily_unlocked: true },
+    });
+    dependencies.getGame.mockResolvedValue(game);
+    dependencies.createRun.mockResolvedValue(
+      createV3Run({ mode: "daily", daily_date: "2026-08-29" }),
+    );
+
+    render(<HomePage />);
+    const dailyButtons = await screen.findAllByRole("button", {
+      name: "Daily anomaly",
+    });
+    fireEvent.click(dailyButtons.at(-1)!);
+
+    await waitFor(() =>
+      expect(dependencies.createRun).toHaveBeenCalledWith(
+        { mode: "daily" },
+        "11111111-1111-4111-8111-111111111111",
+      ),
+    );
+  });
+
+  it("renders the latest anonymous daily result independently of active runs", async () => {
     dependencies.getGame.mockResolvedValue(
-      createGame({ active_run: createRun() }),
+      createV3Game({
+        progress: { ...createV3Game().progress, daily_unlocked: true },
+        daily_result: {
+          date: "2026-08-29",
+          character_slug: "nana7mi",
+          score: 4242,
+          modules: [{ slug: "route-needle", level: 2 }],
+          plugins: ["archive-lens"],
+          streak: 3,
+        },
+      }),
+    );
+
+    render(<HomePage />);
+
+    expect(await screen.findByText("4242")).toBeInTheDocument();
+    expect(screen.getByText("Clear streak")).toHaveTextContent("Clear streak3");
+    expect(screen.queryByTestId("action-arena")).not.toBeInTheDocument();
+  });
+
+  it("restores a campaign run without treating browser storage as game truth", async () => {
+    dependencies.getGame.mockResolvedValue(
+      createV3Game({ campaign_run: createV3Run() }),
     );
 
     render(<HomePage />);
 
     expect(
-      await screen.findByRole("img", { name: "频道拓扑" }),
+      await screen.findByRole("img", { name: "Channel topology" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("route-map-header")).toHaveClass(
       "pt-[var(--xuhuan-host-safe-top)]",
@@ -287,37 +203,72 @@ describe("story roguelite page", () => {
     expect(dependencies.createRun).not.toHaveBeenCalled();
   });
 
-  it("keeps reward content below the Telegram host controls", async () => {
+  it("shows a required story scene before resuming an active campaign", async () => {
     dependencies.getGame.mockResolvedValue(
-      createGame({
-        active_run: createRun({
-          state: {
-            ...baseState,
-            phase: "reward",
-            reward: { module_choices: ["route-needle"] },
-          },
-        }),
+      createV3Game({
+        campaign_run: createV3Run(),
+        pending_scene_slug: "nana-midpoint",
       }),
     );
 
     render(<HomePage />);
 
-    expect(await screen.findByText("航线针")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "If two memories disagree, neither one has to be deleted.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("img", { name: "Channel topology" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps rewards safe and sends the one-time reroll command", async () => {
+    const run = createV3Run({
+      state: {
+        ...v3BaseState,
+        phase: "reward",
+        reward: {
+          module_choices: ["route-needle", "soft-firewall"],
+          rerolled: false,
+        },
+      },
+    });
+    dependencies.getGame.mockResolvedValue(
+      createV3Game({ campaign_run: run }),
+    );
+    dependencies.createRunCommand.mockResolvedValue({ run, events: [] });
+
+    render(<HomePage />);
+
+    expect(await screen.findByText("Route Needle")).toBeInTheDocument();
     expect(screen.getByTestId("interstitial-screen")).toHaveClass(
       "pt-[var(--xuhuan-host-safe-top)]",
     );
+    fireEvent.click(screen.getByRole("button", { name: /Free reroll/ }));
+    await waitFor(() =>
+      expect(dependencies.createRunCommand).toHaveBeenCalledWith(
+        run.id,
+        { type: "reroll_module_reward", expected_version: 1 },
+        "11111111-1111-4111-8111-111111111111",
+      ),
+    );
   });
 
-  it("submits expected_version and resynchronizes after a conflict", async () => {
-    const run = createRun();
-    dependencies.getGame.mockResolvedValue(createGame({ active_run: run }));
+  it("resynchronizes the campaign slot after an optimistic conflict", async () => {
+    const run = createV3Run();
+    dependencies.getGame.mockResolvedValue(
+      createV3Game({ campaign_run: run }),
+    );
     dependencies.createRunCommand.mockRejectedValueOnce(
       new APIError(409, "version_conflict", "changed"),
     );
-    dependencies.getRun.mockResolvedValue(createRun({ version: 2 }));
+    dependencies.getRun.mockResolvedValue(createV3Run({ version: 2 }));
 
     render(<HomePage />);
-    const node = await screen.findByRole("button", { name: /冲突 available/ });
+    const node = await screen.findByRole("button", {
+      name: /Conflict available/i,
+    });
     fireEvent.click(node);
 
     await waitFor(() =>
@@ -327,11 +278,9 @@ describe("story roguelite page", () => {
         "11111111-1111-4111-8111-111111111111",
       ),
     );
-    await waitFor(() =>
-      expect(dependencies.getRun).toHaveBeenCalledWith(run.id),
-    );
+    await waitFor(() => expect(dependencies.getRun).toHaveBeenCalledWith(run.id));
     expect(
-      screen.queryByText("连接失败；服务器状态没有丢失。"),
+      screen.queryByText("Connection failed; the authoritative run is safe."),
     ).not.toBeInTheDocument();
   });
 });

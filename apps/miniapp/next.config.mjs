@@ -14,10 +14,22 @@ const safeOrigin = (value) => {
 };
 
 const connectSources = new Set(["'self'", "https://*.telegram.org"]);
+const mediaSources = new Set(["'self'", "blob:"]);
 const scriptSources = ["'self'", "'unsafe-inline'"];
 for (const value of [process.env.NEXT_PUBLIC_API_URL]) {
   const origin = safeOrigin(value);
   if (origin) connectSources.add(origin);
+}
+for (const value of [
+  process.env.NEXT_PUBLIC_AUDIO_BASE_URL,
+  process.env.NEXT_PUBLIC_AUDIO_BGM,
+  process.env.NEXT_PUBLIC_AUDIO_SPECIAL_MOVE,
+  process.env.NEXT_PUBLIC_AUDIO_DAMAGE,
+  process.env.NEXT_PUBLIC_AUDIO_VICTORY,
+  process.env.NEXT_PUBLIC_AUDIO_DEFEAT,
+]) {
+  const origin = safeOrigin(value);
+  if (origin) mediaSources.add(origin);
 }
 if (isDevelopment) {
   connectSources.add("http:");
@@ -32,8 +44,8 @@ const contentSecurityPolicy = [
   "font-src 'self' data:",
   "form-action 'none'",
   "frame-ancestors https://telegram.org https://*.telegram.org",
-  "img-src 'self' data: blob: https://lsx1nt3pdo55zsho.public.blob.vercel-storage.com",
-  "media-src 'self' https: blob:",
+  "img-src 'self' data: blob:",
+  `media-src ${[...mediaSources].join(" ")}`,
   "object-src 'none'",
   `script-src ${scriptSources.join(" ")}`,
   "style-src 'self' 'unsafe-inline'",
@@ -46,6 +58,9 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Content-Type-Options", value: "nosniff" }
 ];
+const immutableGameAssetHeaders = [
+  { key: "Cache-Control", value: "public, max-age=31536000, immutable" }
+];
 if (!isDevelopment) {
   securityHeaders.push({
     key: "Strict-Transport-Security",
@@ -56,16 +71,14 @@ if (!isDevelopment) {
 /** @type {import('next').NextConfig} */
 const config = {
   allowedDevOrigins: ["127.0.0.1"],
-  devIndicators: {
-    position: "top-right"
-  },
-  images: {
-    remotePatterns: [
-      new URL("https://lsx1nt3pdo55zsho.public.blob.vercel-storage.com/**")
-    ]
-  },
+  // Telegram owns the viewport corners. The development toolbar would cover
+  // the language control and make local touch testing differ from production.
+  devIndicators: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/game/v3/:path*", headers: immutableGameAssetHeaders }
+    ];
   },
   poweredByHeader: false,
   reactStrictMode: true,
