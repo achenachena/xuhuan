@@ -22,6 +22,8 @@ func TestResponsesMatchOpenAPIContract(t *testing.T) {
 	if err := document.Validate(context.Background()); err != nil {
 		t.Fatalf("validate OpenAPI: %v", err)
 	}
+	v2Router, _ := v2TestRouter(t)
+	productionV2Router, _ := v2TestRouterWithLocalDevelopment(t, false)
 
 	tests := []struct {
 		name   string
@@ -35,12 +37,24 @@ func TestResponsesMatchOpenAPIContract(t *testing.T) {
 			method: http.MethodGet, path: "/healthz", status: http.StatusOK,
 		},
 		{
-			name: "v2 content", router: func() http.Handler { router, _ := v2TestRouter(t); return router }(),
-			method: http.MethodGet, path: "/v2/content/v2?locale=zh-CN", status: http.StatusOK,
+			name: "readiness", router: testRouter(ReadinessFunc(func(context.Context) error { return nil }), nil),
+			method: http.MethodGet, path: "/readyz", status: http.StatusOK,
 		},
 		{
-			name: "game unauthorized", router: func() http.Handler { router, _ := v2TestRouter(t); return router }(),
+			name: "v2 content", router: v2Router,
+			method: http.MethodGet, path: "/v2/content/v3?locale=zh-CN", status: http.StatusOK,
+		},
+		{
+			name: "public daily result", router: v2Router,
+			method: http.MethodGet, path: "/v2/daily/results/10000000-0000-4000-8000-000000000001", status: http.StatusOK,
+		},
+		{
+			name: "game unauthorized", router: productionV2Router,
 			method: http.MethodGet, path: "/v2/game", status: http.StatusUnauthorized,
+		},
+		{
+			name: "game snapshot", router: v2Router,
+			method: http.MethodGet, path: "/v2/game", status: http.StatusOK,
 		},
 	}
 
@@ -62,6 +76,8 @@ func validateContractResponse(t *testing.T, document *openapi3.T, path, method s
 	contractPath := strings.SplitN(path, "?", 2)[0]
 	if strings.HasPrefix(contractPath, "/v2/content/") {
 		contractPath = "/v2/content/{version}"
+	} else if strings.HasPrefix(contractPath, "/v2/daily/results/") {
+		contractPath = "/v2/daily/results/{id}"
 	}
 	pathItem := document.Paths.Find(contractPath)
 	if pathItem == nil {

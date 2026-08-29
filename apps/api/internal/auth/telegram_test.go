@@ -52,7 +52,7 @@ func TestTelegramVerifierAcceptsValidDataAndPreservesInt64ID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
-	if user.ID != 9_007_199_254_740_993 || user.FirstName != "测试" {
+	if user.ID != 9_007_199_254_740_993 || user.LanguageCode != "zh-hans" {
 		t.Fatalf("user = %#v", user)
 	}
 }
@@ -84,32 +84,36 @@ func TestTelegramVerifierRejectsInvalidExpiredAndFutureData(t *testing.T) {
 	}
 }
 
-func TestDevelopmentAuthenticationIsOptInAndCannotBeProduction(t *testing.T) {
+func TestLocalDevelopmentIdentityIsAutomaticAndEnvironmentBound(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewAuthenticator(nil, DevelopmentConfig{Enabled: true, Environment: "production", Token: "0123456789abcdef", TelegramID: 1})
-	if err == nil {
-		t.Fatal("NewAuthenticator() allowed development auth in production")
+	production := NewAuthenticator(nil, false)
+	if _, err := production.Authenticate(httptest.NewRequest("GET", "/", nil)); !errors.Is(err, ErrMissingCredentials) {
+		t.Fatalf("production Authenticate() error = %v", err)
 	}
 
-	disabled, err := NewAuthenticator(nil, DevelopmentConfig{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := disabled.Authenticate(httptest.NewRequest("GET", "/", nil)); !errors.Is(err, ErrMissingCredentials) {
-		t.Fatalf("disabled Authenticate() error = %v", err)
+	development := NewAuthenticator(nil, true)
+	principal, err := development.Authenticate(httptest.NewRequest("GET", "/", nil))
+	if err != nil || principal.User.ID != localDevelopmentTelegramID || principal.User.LanguageCode != "en" {
+		t.Fatalf("principal = %#v, error = %v", principal, err)
 	}
 
-	enabled, err := NewAuthenticator(nil, DevelopmentConfig{
-		Enabled: true, Environment: "development", Token: "0123456789abcdef", TelegramID: 123, Username: "dev",
-	})
-	if err != nil {
-		t.Fatal(err)
+	invalidTelegram := httptest.NewRequest("GET", "/", nil)
+	invalidTelegram.Header.Set(TelegramHeader, "invalid")
+	if _, err := development.Authenticate(invalidTelegram); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("invalid Telegram Authenticate() error = %v", err)
 	}
+}
+
+func TestTelegramIdentityTakesPrecedenceInDevelopment(t *testing.T) {
+	t.Parallel()
+	now := time.Unix(1_800_000_000, 0)
+	authenticator := NewAuthenticator(verifierAt(t, now), true)
 	request := httptest.NewRequest("GET", "/", nil)
-	request.Header.Set(DevelopmentHeader, "0123456789abcdef")
-	principal, err := enabled.Authenticate(request)
-	if err != nil || principal.Method != MethodDevelopment || principal.User.ID != 123 {
+	request.Header.Set(TelegramHeader, signedInitData(t, validValues(now)))
+
+	principal, err := authenticator.Authenticate(request)
+	if err != nil || principal.User.ID != 9_007_199_254_740_993 {
 		t.Fatalf("principal = %#v, error = %v", principal, err)
 	}
 }

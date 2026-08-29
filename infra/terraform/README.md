@@ -54,7 +54,9 @@ Create exactly one production project/database in each provider.
 
 Lambda's pgx pool uses at most four connections per execution environment and
 keeps zero minimum connections, allowing Neon compute to suspend while idle.
-The direct URL is used only by the IAM-invoked migration operation.
+The direct URL is read from Parameter Store by the exact-SHA GitHub production
+workflow and used only by its bounded migration runner. It is never added to
+the Lambda runtime environment.
 
 ### Upstash Redis
 
@@ -95,11 +97,19 @@ Configure the `Production` environment with these non-secret variables:
 - `AWS_REDIS_URL_PARAMETER` from `redis_url_parameter_name`
 - `AWS_TELEGRAM_TOKEN_PARAMETER` from `telegram_token_parameter_name`
 - `API_BASE_URL` from `api_url`
+- `VERCEL_ORG_ID` for the team/account that owns the linked Mini App project
+- `VERCEL_PROJECT_ID` for that Mini App project
+
+Add `VERCEL_TOKEN` as a protected-environment secret scoped to that project and
+team. It is the only long-lived deployment credential consumed by GitHub; AWS
+access remains short-lived through OIDC.
 
 The deploy workflow exchanges GitHub's OIDC token for short-lived AWS
-credentials, reads the SecureStrings, replaces `$LATEST` code and configuration,
-publishes a numbered Lambda version, promotes a schema-compatible binary,
-applies PostgreSQL migrations, and verifies the `live` alias again afterward.
+credentials, verifies the direct and pooled PostgreSQL migration boundary,
+stages and checks an exact-SHA Vercel artifact, reads the SecureStrings, replaces
+`$LATEST` code and configuration, publishes a numbered Lambda version, promotes
+the compatible frontend, applies PostgreSQL migrations, and verifies the `live`
+alias again afterward.
 Contract migrations are a rollback boundary: after a successful destructive
 migration, the workflow does not repoint `live` to an older binary that depends
 on the removed schema. Failures after that point are fixed forward.

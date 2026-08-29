@@ -1,0 +1,712 @@
+{
+  "chapter": {
+    "slug": "loss-hidden",
+    "order": 3,
+    "title_key": "chapter.loss-hidden.title",
+    "subtitle_key": "chapter.loss-hidden.subtitle",
+    "character_slug": "xiangwan",
+    "finale": false,
+    "next_chapter_slug": "captains-do-not-rest",
+    "boss_encounter_slug": "perfect-highlight",
+    "encounter_pool": [
+      "retry-alley",
+      "clip-factory",
+      "rollback-lane",
+      "no-death-montage"
+    ],
+    "elite_pool": [
+      "replay-review"
+    ],
+    "event_pool": [
+      "hidden-scoreboard",
+      "autosaved-shame",
+      "missing-blooper",
+      "spectator-mode"
+    ],
+    "midpoint_event_slug": "missing-blooper",
+    "background_url": "/game/v3/backgrounds/loss-hidden.webp",
+    "kit_slug": "ava-afterimage",
+    "prelude_scene_slug": "ava-prelude",
+    "midpoint_scene_slug": "ava-midpoint",
+    "epilogue_scene_slug": "ava-epilogue",
+    "available": true,
+    "noise_rules": [
+      {
+        "level": 1,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "level": 2,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "level": 3,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  },
+  "enemies": [
+    {
+      "slug": "highlight-crawler",
+      "chapter_slug": "loss-hidden",
+      "name_key": "enemy.highlight-crawler.name",
+      "description_key": "enemy.highlight-crawler.description",
+      "kind": "normal",
+      "max_health": 46,
+      "speed": 14,
+      "contact_damage": 6,
+      "color_theme": "#a78bfa",
+      "image_url": "/game/v3/enemies/signal-hound.webp",
+      "movement": {
+        "kind": "chase",
+        "amount": 14
+      },
+      "attacks": [
+        {
+          "kind": "aimed",
+          "interval": 66,
+          "projectile_speed": 25,
+          "damage": 5,
+          "count": 1,
+          "telegraph_ticks": 16
+        }
+      ],
+      "traits": []
+    },
+    {
+      "slug": "rewind-sprite",
+      "chapter_slug": "loss-hidden",
+      "name_key": "enemy.rewind-sprite.name",
+      "description_key": "enemy.rewind-sprite.description",
+      "kind": "normal",
+      "max_health": 50,
+      "speed": 15,
+      "contact_damage": 5,
+      "color_theme": "#7c3aed",
+      "image_url": "/game/v3/enemies/interceptor.webp",
+      "movement": {
+        "kind": "wander",
+        "amount": 15
+      },
+      "attacks": [
+        {
+          "kind": "delayed_echo",
+          "interval": 76,
+          "projectile_speed": 23,
+          "damage": 5,
+          "count": 3,
+          "spread": 28,
+          "telegraph_ticks": 30
+        }
+      ],
+      "traits": [
+        {
+          "kind": "death_split",
+          "amount": 2,
+          "value": "highlight-crawler"
+        }
+      ]
+    },
+    {
+      "slug": "delete-marker",
+      "chapter_slug": "loss-hidden",
+      "name_key": "enemy.delete-marker.name",
+      "description_key": "enemy.delete-marker.description",
+      "kind": "normal",
+      "max_health": 66,
+      "speed": 10,
+      "contact_damage": 8,
+      "color_theme": "#c084fc",
+      "image_url": "/game/v3/enemies/ram-drone.webp",
+      "movement": {
+        "kind": "charge",
+        "amount": 18
+      },
+      "attacks": [
+        {
+          "kind": "beam",
+          "interval": 112,
+          "projectile_speed": 0,
+          "damage": 9,
+          "count": 1,
+          "telegraph_ticks": 44
+        }
+      ],
+      "traits": [
+        {
+          "kind": "armored",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "slug": "replay-director",
+      "chapter_slug": "loss-hidden",
+      "name_key": "enemy.replay-director.name",
+      "description_key": "enemy.replay-director.description",
+      "kind": "elite",
+      "max_health": 225,
+      "speed": 14,
+      "contact_damage": 9,
+      "color_theme": "#6d28d9",
+      "image_url": "/game/v3/enemies/signal-thief.webp",
+      "movement": {
+        "kind": "flee",
+        "amount": 14
+      },
+      "attacks": [
+        {
+          "kind": "delayed_echo",
+          "interval": 44,
+          "projectile_speed": 28,
+          "damage": 6,
+          "count": 5,
+          "spread": 52,
+          "telegraph_ticks": 28
+        },
+        {
+          "kind": "beam",
+          "interval": 132,
+          "projectile_speed": 0,
+          "damage": 11,
+          "count": 1,
+          "telegraph_ticks": 48
+        }
+      ],
+      "traits": [
+        {
+          "kind": "teleport",
+          "amount": 150
+        },
+        {
+          "kind": "steal_signal",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "slug": "perfect-highlight",
+      "chapter_slug": "loss-hidden",
+      "name_key": "enemy.perfect-highlight.name",
+      "description_key": "enemy.perfect-highlight.description",
+      "kind": "boss",
+      "max_health": 960,
+      "speed": 12,
+      "contact_damage": 12,
+      "color_theme": "#8b5cf6",
+      "image_url": "/game/v3/bosses/perfect-highlight.webp",
+      "movement": {
+        "kind": "charge",
+        "amount": 17
+      },
+      "attacks": [
+        {
+          "kind": "delayed_echo",
+          "interval": 38,
+          "projectile_speed": 28,
+          "damage": 7,
+          "count": 5,
+          "spread": 44,
+          "telegraph_ticks": 24
+        },
+        {
+          "kind": "beam",
+          "interval": 104,
+          "projectile_speed": 0,
+          "damage": 11,
+          "count": 2,
+          "spread": 36,
+          "telegraph_ticks": 46
+        },
+        {
+          "kind": "spiral",
+          "interval": 80,
+          "projectile_speed": 22,
+          "damage": 6,
+          "count": 12,
+          "spread": 360,
+          "telegraph_ticks": 22
+        }
+      ],
+      "traits": [
+        {
+          "kind": "teleport",
+          "amount": 165
+        },
+        {
+          "kind": "death_split",
+          "amount": 2,
+          "value": "rewind-sprite"
+        }
+      ]
+    }
+  ],
+  "encounters": [
+    {
+      "slug": "retry-alley",
+      "chapter_slug": "loss-hidden",
+      "kind": "normal",
+      "objective": {
+        "kind": "purge",
+        "target": 12
+      },
+      "duration_ticks": 980,
+      "max_ticks": 1500,
+      "spawn_interval": 120,
+      "max_alive": 8,
+      "enemy_slugs": [
+        "highlight-crawler",
+        "rewind-sprite"
+      ],
+      "hazards": [],
+      "reward_bias": "surge",
+      "risk": 1
+    },
+    {
+      "slug": "clip-factory",
+      "chapter_slug": "loss-hidden",
+      "kind": "normal",
+      "objective": {
+        "kind": "recover",
+        "target": 4
+      },
+      "duration_ticks": 1060,
+      "max_ticks": 1650,
+      "spawn_interval": 138,
+      "max_alive": 8,
+      "enemy_slugs": [
+        "highlight-crawler",
+        "delete-marker"
+      ],
+      "hazards": [
+        "signal_decay"
+      ],
+      "reward_bias": "echo",
+      "risk": 2
+    },
+    {
+      "slug": "rollback-lane",
+      "chapter_slug": "loss-hidden",
+      "kind": "normal",
+      "objective": {
+        "kind": "stabilize",
+        "target": 3
+      },
+      "duration_ticks": 1050,
+      "max_ticks": 1620,
+      "spawn_interval": 132,
+      "max_alive": 8,
+      "enemy_slugs": [
+        "rewind-sprite",
+        "delete-marker"
+      ],
+      "hazards": [
+        "narrow_arena"
+      ],
+      "reward_bias": "guard",
+      "risk": 2
+    },
+    {
+      "slug": "no-death-montage",
+      "chapter_slug": "loss-hidden",
+      "kind": "normal",
+      "objective": {
+        "kind": "holdout",
+        "target": 900
+      },
+      "duration_ticks": 900,
+      "max_ticks": 1200,
+      "spawn_interval": 112,
+      "max_alive": 10,
+      "enemy_slugs": [
+        "highlight-crawler",
+        "rewind-sprite",
+        "delete-marker"
+      ],
+      "hazards": [
+        "crossfire"
+      ],
+      "reward_bias": "glitch",
+      "risk": 3
+    },
+    {
+      "slug": "replay-review",
+      "chapter_slug": "loss-hidden",
+      "kind": "elite",
+      "objective": {
+        "kind": "elite",
+        "target": 1
+      },
+      "duration_ticks": 1260,
+      "max_ticks": 1800,
+      "spawn_interval": 180,
+      "max_alive": 7,
+      "enemy_slugs": [
+        "replay-director",
+        "highlight-crawler",
+        "rewind-sprite"
+      ],
+      "hazards": [
+        "signal_decay"
+      ],
+      "reward_bias": "echo",
+      "risk": 3
+    },
+    {
+      "slug": "perfect-highlight",
+      "chapter_slug": "loss-hidden",
+      "kind": "boss",
+      "objective": {
+        "kind": "boss",
+        "target": 1
+      },
+      "duration_ticks": 2150,
+      "max_ticks": 2700,
+      "spawn_interval": 300,
+      "max_alive": 6,
+      "enemy_slugs": [
+        "perfect-highlight"
+      ],
+      "hazards": [
+        "narrow_arena",
+        "crossfire"
+      ],
+      "reward_bias": "balanced",
+      "risk": 3
+    }
+  ],
+  "events": [
+    {
+      "slug": "hidden-scoreboard",
+      "chapter_slug": "loss-hidden",
+      "title_key": "event.hidden-scoreboard.title",
+      "body_key": "event.hidden-scoreboard.body",
+      "options": [
+        {
+          "slug": "restore-losses",
+          "label_key": "event.hidden-scoreboard.restore-losses.label",
+          "result_key": "event.hidden-scoreboard.restore-losses.result",
+          "effects": [
+            {
+              "kind": "add_module",
+              "value": "hidden-loss"
+            }
+          ],
+          "choice_tag": "ava-restored-losses",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "keep-clean",
+          "label_key": "event.hidden-scoreboard.keep-clean.label",
+          "result_key": "event.hidden-scoreboard.keep-clean.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 13
+            }
+          ],
+          "choice_tag": "ava-kept-scoreboard-clean",
+          "metrics": {
+            "trust": -1,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    },
+    {
+      "slug": "autosaved-shame",
+      "chapter_slug": "loss-hidden",
+      "title_key": "event.autosaved-shame.title",
+      "body_key": "event.autosaved-shame.body",
+      "options": [
+        {
+          "slug": "load",
+          "label_key": "event.autosaved-shame.load.label",
+          "result_key": "event.autosaved-shame.load.result",
+          "effects": [
+            {
+              "kind": "add_module",
+              "value": "retry-buffer"
+            }
+          ],
+          "metrics": {
+            "trust": 1,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "overwrite",
+          "label_key": "event.autosaved-shame.overwrite.label",
+          "result_key": "event.autosaved-shame.overwrite.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 15
+            }
+          ],
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "missing-blooper",
+      "chapter_slug": "loss-hidden",
+      "title_key": "event.missing-blooper.title",
+      "body_key": "event.missing-blooper.body",
+      "options": [
+        {
+          "slug": "publish",
+          "label_key": "event.missing-blooper.publish.label",
+          "result_key": "event.missing-blooper.publish.result",
+          "effects": [
+            {
+              "kind": "add_plugin",
+              "value": "blooper-reel"
+            }
+          ],
+          "choice_tag": "ava-published-blooper",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "archive",
+          "label_key": "event.missing-blooper.archive.label",
+          "result_key": "event.missing-blooper.archive.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 16
+            }
+          ],
+          "metrics": {
+            "trust": 1,
+            "authenticity": 0,
+            "retention": 1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "spectator-mode",
+      "chapter_slug": "loss-hidden",
+      "title_key": "event.spectator-mode.title",
+      "body_key": "event.spectator-mode.body",
+      "options": [
+        {
+          "slug": "hand-controller",
+          "label_key": "event.spectator-mode.hand-controller.label",
+          "result_key": "event.spectator-mode.hand-controller.result",
+          "effects": [
+            {
+              "kind": "add_module",
+              "value": "ghost-input"
+            }
+          ],
+          "metrics": {
+            "trust": 2,
+            "authenticity": 1,
+            "retention": 0
+          }
+        },
+        {
+          "slug": "watch",
+          "label_key": "event.spectator-mode.watch.label",
+          "result_key": "event.spectator-mode.watch.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 12
+            }
+          ],
+          "metrics": {
+            "trust": 0,
+            "authenticity": 0,
+            "retention": 1
+          }
+        }
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "slug": "ava-prelude",
+      "chapter_slug": "loss-hidden",
+      "title_key": "scene.ava-prelude.title",
+      "trigger": {
+        "kind": "chapter_prelude",
+        "chapter_slug": "loss-hidden"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.ava-prelude.message.1"
+        },
+        {
+          "sender": "xiangwan",
+          "kind": "character",
+          "text_key": "scene.ava-prelude.message.2"
+        },
+        {
+          "sender": "xiangwan",
+          "kind": "character",
+          "text_key": "scene.ava-prelude.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "queue-again",
+          "label_key": "scene.ava-prelude.option.queue-again",
+          "tag": "ava-queued",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 1,
+            "retention": 0
+          }
+        }
+      ]
+    },
+    {
+      "slug": "ava-midpoint",
+      "chapter_slug": "loss-hidden",
+      "title_key": "scene.ava-midpoint.title",
+      "trigger": {
+        "kind": "chapter_midpoint",
+        "chapter_slug": "loss-hidden"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.ava-midpoint.message.1"
+        },
+        {
+          "sender": "xiangwan",
+          "kind": "character",
+          "text_key": "scene.ava-midpoint.message.2"
+        }
+      ],
+      "options": [
+        {
+          "slug": "show-loss",
+          "label_key": "scene.ava-midpoint.option.show-loss",
+          "tag": "ava-loss-visible",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "protect-record",
+          "label_key": "scene.ava-midpoint.option.protect-record",
+          "tag": "ava-record-protected",
+          "metrics": {
+            "trust": 1,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    },
+    {
+      "slug": "ava-boss-branch",
+      "chapter_slug": "loss-hidden",
+      "title_key": "scene.ava-boss-branch.title",
+      "trigger": {
+        "kind": "chapter_midpoint",
+        "chapter_slug": "loss-hidden"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.ava-boss-branch.message.1"
+        },
+        {
+          "sender": "xiangwan",
+          "kind": "character",
+          "text_key": "scene.ava-boss-branch.message.2"
+        }
+      ],
+      "options": [
+        {
+          "slug": "keep-playing",
+          "label_key": "scene.ava-boss-branch.option.keep-playing",
+          "tag": "ava-played-imperfectly",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 2,
+            "retention": -1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "ava-epilogue",
+      "chapter_slug": "loss-hidden",
+      "title_key": "scene.ava-epilogue.title",
+      "trigger": {
+        "kind": "chapter_cleared",
+        "chapter_slug": "loss-hidden"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.ava-epilogue.message.1"
+        },
+        {
+          "sender": "xiangwan",
+          "kind": "character",
+          "text_key": "scene.ava-epilogue.message.2"
+        },
+        {
+          "sender": "xiangwan",
+          "kind": "character",
+          "text_key": "scene.ava-epilogue.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "save-replay",
+          "label_key": "scene.ava-epilogue.option.save-replay",
+          "tag": "ava-replay-saved",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 1,
+            "retention": 0
+          }
+        }
+      ]
+    }
+  ]
+}

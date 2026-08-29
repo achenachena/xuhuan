@@ -14,6 +14,8 @@
     "js-yaml": "4.3.1"
   },
   "scripts": {
+    "check:content-assets": "node scripts/check-content-assets.mjs",
+    "check:english-source": "node scripts/check-english-source.mjs",
     "dev": "npm run dev --workspace @xuhuan/miniapp",
     "lint": "npm run lint --workspace @xuhuan/miniapp",
     "typecheck": "npm run typecheck --workspace @xuhuan/miniapp",

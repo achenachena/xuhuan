@@ -39,11 +39,11 @@ export interface paths {
     "/v2/content/{version}": {
         parameters: {
             query?: {
-                locale?: "zh-CN" | "en";
+                locale?: "en" | "zh-CN";
             };
             header?: never;
             path: {
-                version: string;
+                version: "v3";
             };
             cookie?: never;
         };
@@ -140,6 +140,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/daily/results/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicDailyResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -150,7 +166,7 @@ export interface components {
         };
         Readiness: {
             status: string;
-            dependencies: {
+            checks: {
                 [key: string]: string;
             };
         };
@@ -161,12 +177,32 @@ export interface components {
                 request_id: string;
             };
         };
-        GameEffect: {
+        Effect: {
             kind: string;
             amount?: number;
-            status?: string;
+            value?: string;
         };
-        GameCharacterContent: {
+        StoryMetrics: {
+            trust: number;
+            authenticity: number;
+            retention: number;
+        };
+        EntityLimits: {
+            max_enemies: number;
+            max_enemy_projectiles: number;
+            max_player_projectiles: number;
+            max_pickups: number;
+            max_effects: number;
+        };
+        BaseStats: {
+            max_health: number;
+            attack_damage: number;
+            attack_interval: number;
+            move_speed: number;
+            warp_cooldown: number;
+            warp_damage: number;
+        };
+        CharacterContent: {
             slug: string;
             name: string;
             biography: string;
@@ -174,59 +210,118 @@ export interface components {
             color_theme: string;
             portrait_url: string;
             model_url: string;
-            available: boolean;
+            kit_slug: string;
         };
-        GameModuleContent: {
+        KitContent: {
+            slug: string;
+            character_slug: string;
+            passive: string;
+            resonance: string;
+            base_stats: components["schemas"]["BaseStats"];
+        };
+        ModuleBehavior: {
+            /** @enum {string} */
+            kind: "warp_aftershock" | "graze_guard" | "protocol_echo" | "kill_signal";
+            amount: number;
+            every?: number;
+        };
+        ModuleLevelDefinition: {
+            effects: components["schemas"]["Effect"][];
+            behaviors?: components["schemas"]["ModuleBehavior"][];
+        };
+        ModuleContent: {
             slug: string;
             character_slug: string | null;
             name: string;
             description: string;
             /** @enum {string} */
-            archetype: "route" | "distortion" | "echo" | "glitch";
-            rarity: string;
-            effects: components["schemas"]["GameEffect"][];
+            archetype: "surge" | "guard" | "echo" | "glitch";
+            /** @enum {string} */
+            rarity: "common" | "uncommon" | "rare";
+            levels: components["schemas"]["ModuleLevelDefinition"][];
         };
-        GamePluginContent: {
+        PluginContent: {
             slug: string;
+            character_slug: string | null;
             name: string;
             description: string;
-            effects: components["schemas"]["GameEffect"][];
+            effects: components["schemas"]["Effect"][];
         };
-        GameEnemyContent: {
+        Movement: {
+            /** @enum {string} */
+            kind: "chase" | "orbit" | "strafe" | "charge" | "flee" | "stationary" | "wander";
+            amount?: number;
+        };
+        Attack: {
+            /** @enum {string} */
+            kind: "aimed" | "fan" | "ring" | "spiral" | "delayed_echo" | "mine" | "beam";
+            interval: number;
+            projectile_speed: number;
+            damage: number;
+            count?: number;
+            spread?: number;
+            telegraph_ticks?: number;
+        };
+        Trait: {
+            /** @enum {string} */
+            kind: "linked_shield" | "steal_signal" | "death_split" | "armored" | "distortion_aura" | "teleport";
+            amount?: number;
+            value?: string;
+        };
+        EnemyContent: {
             slug: string;
+            chapter_slug: string | null;
             name: string;
             description: string;
-            kind: string;
-            pattern: string;
+            /** @enum {string} */
+            kind: "normal" | "elite" | "boss";
             max_health: number;
             speed: number;
             contact_damage: number;
-            fire_interval: number;
-            projectile_speed: number;
-            projectile_damage: number;
             color_theme: string;
             image_url: string;
+            movement: components["schemas"]["Movement"];
+            attacks: components["schemas"]["Attack"][];
+            traits: components["schemas"]["Trait"][];
         };
-        GameEncounterContent: {
+        Objective: {
+            /** @enum {string} */
+            kind: "purge" | "stabilize" | "recover" | "holdout" | "elite" | "boss";
+            target: number;
+        };
+        EncounterContent: {
             slug: string;
+            chapter_slug: string;
             kind: string;
+            objective: components["schemas"]["Objective"];
             duration_ticks: number;
             max_ticks: number;
             spawn_interval: number;
             max_alive: number;
             enemy_slugs: string[];
+            hazards: string[];
+            reward_bias: string;
             tutorial: boolean;
+            risk: number;
         };
-        GameEventOptionContent: {
+        EventOptionContent: {
             slug: string;
             label: string;
             result: string;
+            effects: components["schemas"]["Effect"][];
+            metrics: components["schemas"]["StoryMetrics"];
         };
-        GameEventContent: {
+        EventContent: {
             slug: string;
+            chapter_slug: string;
             title: string;
             body: string;
-            options: components["schemas"]["GameEventOptionContent"][];
+            options: components["schemas"]["EventOptionContent"][];
+        };
+        StoryTrigger: {
+            kind: string;
+            chapter_slug?: string;
+            ending?: string;
         };
         StoryMessageContent: {
             sender: string;
@@ -236,36 +331,47 @@ export interface components {
         StoryOptionContent: {
             slug: string;
             label: string;
+            metrics: components["schemas"]["StoryMetrics"];
         };
         StorySceneContent: {
             slug: string;
+            chapter_slug: string | null;
             title: string;
+            trigger: components["schemas"]["StoryTrigger"];
             messages: components["schemas"]["StoryMessageContent"][];
             options: components["schemas"]["StoryOptionContent"][];
         };
         ChapterContent: {
             slug: string;
+            order: number;
             title: string;
             subtitle: string;
-            character_slug: string;
+            character_slug: string | null;
+            finale: boolean;
             available: boolean;
+            next_chapter_slug: string | null;
+            background_url: string;
+            kit_slug: string | null;
         };
         GameContent: {
-            version: string;
             /** @constant */
-            protocol: "action-v1";
+            version: "v3";
+            /** @constant */
+            protocol: "action-v2";
             /** @enum {string} */
-            locale: "zh-CN" | "en";
-            characters: components["schemas"]["GameCharacterContent"][];
-            modules: components["schemas"]["GameModuleContent"][];
-            plugins: components["schemas"]["GamePluginContent"][];
-            enemies: components["schemas"]["GameEnemyContent"][];
-            encounters: components["schemas"]["GameEncounterContent"][];
-            events: components["schemas"]["GameEventContent"][];
+            locale: "en" | "zh-CN";
+            limits: components["schemas"]["EntityLimits"];
+            characters: components["schemas"]["CharacterContent"][];
+            kits: components["schemas"]["KitContent"][];
+            modules: components["schemas"]["ModuleContent"][];
+            plugins: components["schemas"]["PluginContent"][];
+            enemies: components["schemas"]["EnemyContent"][];
+            encounters: components["schemas"]["EncounterContent"][];
+            events: components["schemas"]["EventContent"][];
             scenes: components["schemas"]["StorySceneContent"][];
             chapters: components["schemas"]["ChapterContent"][];
         };
-        PlayerUnlock: {
+        Unlock: {
             type: string;
             content_slug: string;
             /** Format: date-time */
@@ -275,8 +381,20 @@ export interface components {
             scene_slug: string;
             option_slug: string;
             choice_tag: string;
+            revision: number;
+            trust: number;
+            authenticity: number;
+            retention: number;
             /** Format: date-time */
             created_at: string;
+        };
+        ChapterProgress: {
+            chapter_slug: string;
+            highest_noise_level: number;
+            clears: number;
+            best_score: number;
+            /** Format: date-time */
+            updated_at: string;
         };
         GameProgress: {
             current_chapter_slug: string;
@@ -284,30 +402,77 @@ export interface components {
             story_version: number;
             /** Format: int64 */
             version: number;
-            unlocks: components["schemas"]["PlayerUnlock"][];
+            unlocks: components["schemas"]["Unlock"][];
             choices: components["schemas"]["StoryChoice"][];
-        };
-        GamePlayer: {
-            /** Format: uuid */
-            id: string;
-            display_name: string;
-            language_code: string | null;
+            chapters: components["schemas"]["ChapterProgress"][];
+            trust: number;
+            authenticity: number;
+            retention: number;
+            ending: string | null;
+            daily_unlocked: boolean;
         };
         ModuleLevel: {
             slug: string;
             level: number;
         };
+        RuntimeBehavior: {
+            source_slug: string;
+            level: number;
+            /** @enum {string} */
+            kind: "warp_aftershock" | "graze_guard" | "protocol_echo" | "kill_signal";
+            amount: number;
+            every?: number;
+        };
+        RuntimeConfig: {
+            kit: string;
+            passive: string;
+            resonance: string;
+            attack_damage: number;
+            attack_interval: number;
+            move_speed: number;
+            warp_cooldown: number;
+            warp_damage: number;
+            starting_shield: number;
+            overload_bonus: number;
+            distortion_gain: number;
+            protocol_damage: number;
+            protocol_shield: number;
+            echo_power: number;
+            resonance_power: number;
+            projectile_pierce: number;
+            projectile_count: number;
+            projectile_speed: number;
+            graze_radius: number;
+            heal_on_protocol: number;
+            reflect_damage: number;
+            behaviors: components["schemas"]["RuntimeBehavior"][];
+        };
+        RewardPool: {
+            module_slugs: string[];
+            plugin_slugs: string[];
+        };
+        NarrativeModifier: {
+            /** @enum {string} */
+            reward_bias?: "surge" | "guard" | "echo" | "glitch";
+            /** @enum {string} */
+            boss_variant: "authentic" | "balanced" | "retained";
+            source_scene_slug?: string;
+            source_choice_tag?: string;
+        };
         MapNode: {
             id: string;
             layer: number;
             lane: number;
-            /** @enum {string} */
-            type: "tutorial" | "combat" | "elite" | "event" | "story" | "rest" | "boss";
-            /** @enum {string} */
-            status: "locked" | "available" | "current" | "completed";
+            type: string;
+            status: string;
             next: string[];
             encounter_slug?: string;
             event_slug?: string;
+            objective?: string;
+            risk?: number;
+            reward_bias?: string;
+            enemy_slugs?: string[];
+            hazards?: string[];
         };
         RunMap: {
             nodes: components["schemas"]["MapNode"][];
@@ -320,22 +485,31 @@ export interface components {
             duration_ticks: number;
             max_ticks: number;
             tutorial: boolean;
+            objective: components["schemas"]["Objective"];
+            risk: number;
+            reward_bias: string;
+            hazards: string[];
         };
         RewardState: {
             module_choices: string[];
             granted_plugin?: string;
+            rerolled: boolean;
         };
         RunState: {
-            /** @enum {string} */
-            phase: "map" | "encounter" | "reward" | "event" | "rest" | "completed";
+            phase: string;
             chapter_slug: string;
             character_slug: string;
+            companion_slugs: string[];
+            /** @enum {string} */
+            support_alignment?: "authentic" | "balanced" | "retained";
             weapon_slug: string;
             noise_level: number;
             health: number;
             max_health: number;
             modules: components["schemas"]["ModuleLevel"][];
             plugins: string[];
+            reward_pool: components["schemas"]["RewardPool"];
+            narrative_modifier: components["schemas"]["NarrativeModifier"];
             map: components["schemas"]["RunMap"];
             encounter?: components["schemas"]["EncounterState"];
             reward?: components["schemas"]["RewardState"];
@@ -344,16 +518,23 @@ export interface components {
             /** Format: int64 */
             rng_cursor: number;
             emergency_reconnect_available: boolean;
+            runtime_config: components["schemas"]["RuntimeConfig"];
+            rerolls_remaining: number;
+            score: number;
         };
         GameRun: {
             /** Format: uuid */
             id: string;
-            content_version: string;
+            /** @constant */
+            content_version: "v3";
+            /** @enum {string} */
+            mode: "campaign" | "daily";
+            /** Format: date */
+            daily_date?: string;
             state: components["schemas"]["RunState"];
             /** @enum {string} */
             status: "active" | "completed" | "abandoned";
-            /** @enum {string|null} */
-            outcome: "cleared" | "failed" | "abandoned" | null;
+            outcome: string | null;
             /** Format: int64 */
             version: number;
             /** Format: date-time */
@@ -365,61 +546,45 @@ export interface components {
         };
         GameSnapshot: {
             /** @constant */
-            protocol: "action-v1";
-            player: components["schemas"]["GamePlayer"];
+            protocol: "action-v2";
+            /** @constant */
+            content_version: "v3";
             progress: components["schemas"]["GameProgress"];
-            active_run: components["schemas"]["GameRun"] | null;
+            campaign_run: components["schemas"]["GameRun"] | null;
+            daily_run: components["schemas"]["GameRun"] | null;
+            daily_result: components["schemas"]["DailyResult"] | null;
             pending_scene_slug: string | null;
-            /** @enum {string} */
-            onboarding_stage: "intro" | "tutorial" | "complete";
-        };
-        CreateRunRequest: {
-            chapter_slug: string;
-            character_slug: string;
-            noise_level: number;
+            onboarding_stage: string;
         };
         InputTrace: {
             /** @constant */
             encoding: "rle8-v1";
             ticks: number;
             data: string;
-            client_digest?: string;
+            prediction_digest?: string;
+        };
+        CreateRunRequest: {
+            /** @enum {string} */
+            mode: "campaign" | "daily";
+            chapter_slug?: string;
+            character_slug?: string;
+            noise_level?: number;
         };
         RunCommandRequest: {
             /** @enum {string} */
-            type: "choose_node" | "complete_encounter" | "choose_module_reward" | "resolve_event" | "rest" | "abandon_run";
+            type: "choose_node" | "complete_encounter" | "choose_module_reward" | "reroll_module_reward" | "resolve_event" | "rest" | "abandon_run";
             /** Format: int64 */
             expected_version: number;
             node_id?: string;
             choice_slug?: string;
             module_slug?: string;
-            /** @enum {string} */
-            operation?: "repair" | "tune";
+            operation?: string;
             trace?: components["schemas"]["InputTrace"];
-        };
-        EncounterResult: {
-            won: boolean;
-            health: number;
-            ticks: number;
-            kills: number;
-            routes_completed: number;
-            distortion: number;
-            emergency_reconnect_used: boolean;
-            digest: string;
-            final: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
         };
         RunEvent: {
             kind: string;
-            node_id?: string;
-            module_slug?: string;
-            plugin_slug?: string;
-            choice_tag?: string;
-            amount?: number;
-            encounter_result?: components["schemas"]["EncounterResult"];
+        } & {
+            [key: string]: unknown;
         };
         RunCommandResponse: {
             run: components["schemas"]["GameRun"];
@@ -434,6 +599,15 @@ export interface components {
         StoryChoiceResponse: {
             progress: components["schemas"]["GameProgress"];
             pending_scene_slug: string | null;
+        };
+        DailyResult: {
+            /** Format: date */
+            date: string;
+            character_slug: string;
+            score: number;
+            modules: components["schemas"]["ModuleLevel"][];
+            plugins: string[];
+            streak: number;
         };
     };
     responses: {
@@ -467,7 +641,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Resource not found */
+        /** @description Not found */
         NotFound: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
@@ -477,7 +651,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Version, story, or idempotency conflict */
+        /** @description Version or idempotency conflict */
         Conflict: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
@@ -487,7 +661,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Trace payload is too large */
+        /** @description Payload too large */
         PayloadTooLarge: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
@@ -517,7 +691,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description Dependency unavailable */
+        /** @description Unavailable */
         ServiceUnavailable: {
             headers: {
                 "X-Request-ID": components["headers"]["RequestID"];
@@ -550,7 +724,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Process is alive */
+            /** @description Healthy */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -571,7 +745,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Dependencies are ready */
+            /** @description Ready */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -587,17 +761,17 @@ export interface operations {
     getGameContent: {
         parameters: {
             query?: {
-                locale?: "zh-CN" | "en";
+                locale?: "en" | "zh-CN";
             };
             header?: never;
             path: {
-                version: string;
+                version: "v3";
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Immutable localized action content */
+            /** @description Immutable localized V3 content */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -628,7 +802,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Story progress and resumable run */
+            /** @description Campaign, daily, and story projection */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -658,7 +832,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Run created directly inside the tutorial encounter */
+            /** @description Created run */
             201: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -688,7 +862,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Authoritative run state */
+            /** @description Authoritative run */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -721,7 +895,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Authoritative command result */
+            /** @description Applied command */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -756,7 +930,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Updated story progress */
+            /** @description Updated story projection */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -772,6 +946,31 @@ export interface operations {
             409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    getPublicDailyResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public anonymous daily result cached for five minutes */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyResult"];
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
 }

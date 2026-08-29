@@ -1,0 +1,560 @@
+{
+  "chapter": {
+    "slug": "zero-channel",
+    "order": 8,
+    "title_key": "chapter.zero-channel.title",
+    "subtitle_key": "chapter.zero-channel.subtitle",
+    "character_slug": "",
+    "finale": true,
+    "boss_encounter_slug": "retention-protocol",
+    "encounter_pool": [
+      "zero-channel-reentry",
+      "memory-quorum",
+      "support-recovery"
+    ],
+    "elite_pool": [
+      "protocol-audit"
+    ],
+    "event_pool": [
+      "terms-of-preservation"
+    ],
+    "midpoint_event_slug": "terms-of-preservation",
+    "background_url": "/game/v3/backgrounds/zero-channel.webp",
+    "kit_slug": "",
+    "prelude_scene_slug": "finale-unlocked",
+    "midpoint_scene_slug": "zero-midpoint",
+    "epilogue_scene_slug": "zero-balanced-ending",
+    "available": true,
+    "noise_rules": [
+      {
+        "level": 1,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "level": 2,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "level": 3,
+        "modifiers": [
+          {
+            "kind": "distortion_gain",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  },
+  "enemies": [
+    {
+      "slug": "retention-protocol",
+      "chapter_slug": "zero-channel",
+      "name_key": "enemy.retention-protocol.name",
+      "description_key": "enemy.retention-protocol.description",
+      "kind": "boss",
+      "max_health": 1320,
+      "speed": 11,
+      "contact_damage": 14,
+      "color_theme": "#f8fafc",
+      "image_url": "/game/v3/bosses/retention-protocol.webp",
+      "movement": {
+        "kind": "orbit",
+        "amount": 11
+      },
+      "attacks": [
+        {
+          "kind": "fan",
+          "interval": 32,
+          "projectile_speed": 29,
+          "damage": 8,
+          "count": 9,
+          "spread": 82,
+          "telegraph_ticks": 18
+        },
+        {
+          "kind": "spiral",
+          "interval": 64,
+          "projectile_speed": 23,
+          "damage": 7,
+          "count": 16,
+          "spread": 360,
+          "telegraph_ticks": 24
+        },
+        {
+          "kind": "delayed_echo",
+          "interval": 92,
+          "projectile_speed": 28,
+          "damage": 8,
+          "count": 7,
+          "spread": 72,
+          "telegraph_ticks": 34
+        },
+        {
+          "kind": "beam",
+          "interval": 132,
+          "projectile_speed": 0,
+          "damage": 13,
+          "count": 3,
+          "spread": 52,
+          "telegraph_ticks": 52
+        }
+      ],
+      "traits": [
+        {
+          "kind": "teleport",
+          "amount": 135
+        },
+        {
+          "kind": "linked_shield",
+          "amount": 5,
+          "value": "memory-pruner"
+        },
+        {
+          "kind": "distortion_aura",
+          "amount": 2
+        }
+      ]
+    }
+  ],
+  "encounters": [
+    {
+      "slug": "zero-channel-reentry",
+      "chapter_slug": "zero-channel",
+      "kind": "normal",
+      "objective": {
+        "kind": "purge",
+        "target": 14
+      },
+      "duration_ticks": 1080,
+      "max_ticks": 1600,
+      "spawn_interval": 112,
+      "max_alive": 10,
+      "enemy_slugs": [
+        "retention-drone",
+        "mood-moderator",
+        "highlight-crawler",
+        "correction-bot"
+      ],
+      "hazards": [
+        "crossfire"
+      ],
+      "reward_bias": "surge",
+      "risk": 2
+    },
+    {
+      "slug": "memory-quorum",
+      "chapter_slug": "zero-channel",
+      "kind": "normal",
+      "objective": {
+        "kind": "stabilize",
+        "target": 4
+      },
+      "duration_ticks": 1160,
+      "max_ticks": 1740,
+      "spawn_interval": 120,
+      "max_alive": 10,
+      "enemy_slugs": [
+        "formation-drone",
+        "mirror-singer",
+        "memory-pruner",
+        "subtitle-wisp"
+      ],
+      "hazards": [
+        "signal_decay"
+      ],
+      "reward_bias": "echo",
+      "risk": 2
+    },
+    {
+      "slug": "support-recovery",
+      "chapter_slug": "zero-channel",
+      "kind": "normal",
+      "objective": {
+        "kind": "recover",
+        "target": 5
+      },
+      "duration_ticks": 1180,
+      "max_ticks": 1760,
+      "spawn_interval": 118,
+      "max_alive": 11,
+      "enemy_slugs": [
+        "buffer-mine",
+        "delete-marker",
+        "source-scanner",
+        "null-watering-can"
+      ],
+      "hazards": [
+        "distortion_rain"
+      ],
+      "reward_bias": "guard",
+      "risk": 3
+    },
+    {
+      "slug": "protocol-audit",
+      "chapter_slug": "zero-channel",
+      "kind": "elite",
+      "objective": {
+        "kind": "elite",
+        "target": 2
+      },
+      "duration_ticks": 1500,
+      "max_ticks": 1800,
+      "spawn_interval": 170,
+      "max_alive": 9,
+      "enemy_slugs": [
+        "cache-hunter",
+        "engagement-conductor",
+        "replay-director",
+        "duty-supervisor",
+        "localization-manager",
+        "replica-curator",
+        "forecast-gardener"
+      ],
+      "hazards": [
+        "narrow_arena",
+        "crossfire"
+      ],
+      "reward_bias": "glitch",
+      "risk": 3
+    },
+    {
+      "slug": "retention-protocol",
+      "chapter_slug": "zero-channel",
+      "kind": "boss",
+      "objective": {
+        "kind": "boss",
+        "target": 1
+      },
+      "duration_ticks": 2400,
+      "max_ticks": 2700,
+      "spawn_interval": 270,
+      "max_alive": 8,
+      "enemy_slugs": [
+        "retention-protocol"
+      ],
+      "hazards": [
+        "narrow_arena",
+        "distortion_rain",
+        "signal_decay"
+      ],
+      "reward_bias": "balanced",
+      "risk": 3
+    }
+  ],
+  "events": [
+    {
+      "slug": "terms-of-preservation",
+      "chapter_slug": "zero-channel",
+      "title_key": "event.terms-of-preservation.title",
+      "body_key": "event.terms-of-preservation.body",
+      "options": [
+        {
+          "slug": "rewrite",
+          "label_key": "event.terms-of-preservation.rewrite.label",
+          "result_key": "event.terms-of-preservation.rewrite.result",
+          "effects": [
+            {
+              "kind": "add_module",
+              "value": "free-reroute"
+            }
+          ],
+          "choice_tag": "finale-rewrote-terms",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        },
+        {
+          "slug": "accept",
+          "label_key": "event.terms-of-preservation.accept.label",
+          "result_key": "event.terms-of-preservation.accept.result",
+          "effects": [
+            {
+              "kind": "heal_run",
+              "amount": 20
+            }
+          ],
+          "choice_tag": "finale-accepted-terms",
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 2
+          }
+        }
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "slug": "prologue-last-viewer",
+      "chapter_slug": "",
+      "title_key": "scene.prologue-last-viewer.title",
+      "trigger": {
+        "kind": "new_player"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.prologue-last-viewer.message.1"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.prologue-last-viewer.message.2"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.prologue-last-viewer.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "stay-online",
+          "label_key": "scene.prologue-last-viewer.option.stay-online",
+          "tag": "choose-presence",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 1,
+            "retention": 0
+          }
+        }
+      ]
+    },
+    {
+      "slug": "finale-unlocked",
+      "chapter_slug": "zero-channel",
+      "title_key": "scene.finale-unlocked.title",
+      "trigger": {
+        "kind": "finale_unlocked",
+        "chapter_slug": "zero-channel"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.finale-unlocked.message.1"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.finale-unlocked.message.2"
+        },
+        {
+          "sender": "jiaran",
+          "kind": "character",
+          "text_key": "scene.finale-unlocked.message.3"
+        },
+        {
+          "sender": "lulu",
+          "kind": "character",
+          "text_key": "scene.finale-unlocked.message.4"
+        }
+      ],
+      "options": [
+        {
+          "slug": "open-channel",
+          "label_key": "scene.finale-unlocked.option.open-channel",
+          "tag": "finale-opened",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 1,
+            "retention": -1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "zero-midpoint",
+      "chapter_slug": "zero-channel",
+      "title_key": "scene.zero-midpoint.title",
+      "trigger": {
+        "kind": "chapter_midpoint",
+        "chapter_slug": "zero-channel"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.zero-midpoint.message.1"
+        },
+        {
+          "sender": "xiangwan",
+          "kind": "character",
+          "text_key": "scene.zero-midpoint.message.2"
+        },
+        {
+          "sender": "bella",
+          "kind": "character",
+          "text_key": "scene.zero-midpoint.message.3"
+        },
+        {
+          "sender": "nailu",
+          "kind": "character",
+          "text_key": "scene.zero-midpoint.message.4"
+        }
+      ],
+      "options": [
+        {
+          "slug": "release",
+          "label_key": "scene.zero-midpoint.option.release",
+          "tag": "finale-release",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 3,
+            "retention": -2
+          }
+        },
+        {
+          "slug": "negotiate",
+          "label_key": "scene.zero-midpoint.option.negotiate",
+          "tag": "finale-negotiate",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 1,
+            "retention": 1
+          }
+        },
+        {
+          "slug": "preserve",
+          "label_key": "scene.zero-midpoint.option.preserve",
+          "tag": "finale-preserve",
+          "metrics": {
+            "trust": 0,
+            "authenticity": -1,
+            "retention": 3
+          }
+        }
+      ]
+    },
+    {
+      "slug": "zero-authentic-ending",
+      "chapter_slug": "zero-channel",
+      "title_key": "scene.zero-authentic-ending.title",
+      "trigger": {
+        "kind": "ending",
+        "chapter_slug": "zero-channel",
+        "ending": "authentic"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.zero-authentic-ending.message.1"
+        },
+        {
+          "sender": "xingtong",
+          "kind": "character",
+          "text_key": "scene.zero-authentic-ending.message.2"
+        },
+        {
+          "sender": "nana7mi",
+          "kind": "character",
+          "text_key": "scene.zero-authentic-ending.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "disconnect-together",
+          "label_key": "scene.zero-authentic-ending.option.disconnect-together",
+          "tag": "ending-authentic-read",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 2,
+            "retention": -1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "zero-balanced-ending",
+      "chapter_slug": "zero-channel",
+      "title_key": "scene.zero-balanced-ending.title",
+      "trigger": {
+        "kind": "ending",
+        "chapter_slug": "zero-channel",
+        "ending": "balanced"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.zero-balanced-ending.message.1"
+        },
+        {
+          "sender": "bella",
+          "kind": "character",
+          "text_key": "scene.zero-balanced-ending.message.2"
+        },
+        {
+          "sender": "lulu",
+          "kind": "character",
+          "text_key": "scene.zero-balanced-ending.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "leave-window-open",
+          "label_key": "scene.zero-balanced-ending.option.leave-window-open",
+          "tag": "ending-balanced-read",
+          "metrics": {
+            "trust": 2,
+            "authenticity": 1,
+            "retention": 1
+          }
+        }
+      ]
+    },
+    {
+      "slug": "zero-retained-ending",
+      "chapter_slug": "zero-channel",
+      "title_key": "scene.zero-retained-ending.title",
+      "trigger": {
+        "kind": "ending",
+        "chapter_slug": "zero-channel",
+        "ending": "retained"
+      },
+      "messages": [
+        {
+          "sender": "system",
+          "kind": "system",
+          "text_key": "scene.zero-retained-ending.message.1"
+        },
+        {
+          "sender": "jiaran",
+          "kind": "character",
+          "text_key": "scene.zero-retained-ending.message.2"
+        },
+        {
+          "sender": "nailu",
+          "kind": "character",
+          "text_key": "scene.zero-retained-ending.message.3"
+        }
+      ],
+      "options": [
+        {
+          "slug": "promise-return",
+          "label_key": "scene.zero-retained-ending.option.promise-return",
+          "tag": "ending-retained-read",
+          "metrics": {
+            "trust": 1,
+            "authenticity": 0,
+            "retention": 2
+          }
+        }
+      ]
+    }
+  ]
+}

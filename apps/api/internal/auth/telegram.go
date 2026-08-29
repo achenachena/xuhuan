@@ -29,9 +29,6 @@ const (
 
 type User struct {
 	ID           int64
-	Username     string
-	FirstName    string
-	LastName     string
 	LanguageCode string
 }
 
@@ -137,9 +134,7 @@ func exactlyOne(values url.Values, key string) (string, error) {
 func parseUser(value string) (User, error) {
 	var raw struct {
 		ID           json.Number `json:"id"`
-		Username     string      `json:"username"`
 		FirstName    string      `json:"first_name"`
-		LastName     string      `json:"last_name"`
 		LanguageCode string      `json:"language_code"`
 	}
 	decoder := json.NewDecoder(strings.NewReader(value))
@@ -155,14 +150,11 @@ func parseUser(value string) (User, error) {
 	if err != nil || id <= 0 || raw.FirstName == "" {
 		return User{}, ErrMalformedUser
 	}
-	if len(raw.Username) > 64 || len(raw.FirstName) > 256 || len(raw.LastName) > 256 || len(raw.LanguageCode) > 32 {
+	if len(raw.FirstName) > 256 || len(raw.LanguageCode) > 32 {
 		return User{}, ErrMalformedUser
 	}
 	return User{
 		ID:           id,
-		Username:     raw.Username,
-		FirstName:    raw.FirstName,
-		LastName:     raw.LastName,
 		LanguageCode: raw.LanguageCode,
 	}, nil
 }

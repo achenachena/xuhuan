@@ -221,31 +221,27 @@ func TestPanicResponseDoesNotLogRecoveredValue(t *testing.T) {
 func TestAuthenticationMiddleware(t *testing.T) {
 	t.Parallel()
 
-	authenticator, err := auth.NewAuthenticator(nil, auth.DevelopmentConfig{
-		Enabled: true, Environment: "development", Token: "0123456789abcdef", TelegramID: 123,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	router := newRouter(Dependencies{
-		Logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Version:       "test",
-		MaxBodyBytes:  1024,
-		Readiness:     ReadinessFunc(func(context.Context) error { return nil }),
-		Authenticator: authenticator,
-	}, func(router chi.Router, authenticate func(http.Handler) http.Handler) {
-		router.With(authenticate).Get("/v2/protected", func(w http.ResponseWriter, r *http.Request) {
-			principal, ok := auth.PrincipalFromContext(r.Context())
-			if !ok {
-				t.Fatal("principal missing from context")
-			}
-			writeJSON(w, http.StatusOK, map[string]int64{"telegram_id": principal.User.ID})
+	buildRouter := func(authenticator *auth.Authenticator) http.Handler {
+		return newRouter(Dependencies{
+			Logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
+			Version:       "test",
+			MaxBodyBytes:  1024,
+			Readiness:     ReadinessFunc(func(context.Context) error { return nil }),
+			Authenticator: authenticator,
+		}, func(router chi.Router, authenticate func(http.Handler) http.Handler) {
+			router.With(authenticate).Get("/v2/protected", func(w http.ResponseWriter, r *http.Request) {
+				principal, ok := auth.PrincipalFromContext(r.Context())
+				if !ok {
+					t.Fatal("principal missing from context")
+				}
+				writeJSON(w, http.StatusOK, map[string]int64{"telegram_id": principal.User.ID})
+			})
 		})
-	})
+	}
 
 	unauthorized := httptest.NewRequest(http.MethodGet, "/v2/protected", nil)
 	unauthorizedResponse := httptest.NewRecorder()
-	router.ServeHTTP(unauthorizedResponse, unauthorized)
+	buildRouter(auth.NewAuthenticator(nil, false)).ServeHTTP(unauthorizedResponse, unauthorized)
 	if unauthorizedResponse.Code != http.StatusUnauthorized || !strings.Contains(unauthorizedResponse.Body.String(), `"code":"unauthorized"`) {
 		t.Fatalf("unauthorized response = %d %s", unauthorizedResponse.Code, unauthorizedResponse.Body.String())
 	}
@@ -254,10 +250,9 @@ func TestAuthenticationMiddleware(t *testing.T) {
 	}
 
 	authorized := httptest.NewRequest(http.MethodGet, "/v2/protected", nil)
-	authorized.Header.Set(auth.DevelopmentHeader, "0123456789abcdef")
 	authorizedResponse := httptest.NewRecorder()
-	router.ServeHTTP(authorizedResponse, authorized)
-	if authorizedResponse.Code != http.StatusOK || !strings.Contains(authorizedResponse.Body.String(), `"telegram_id":123`) {
+	buildRouter(auth.NewAuthenticator(nil, true)).ServeHTTP(authorizedResponse, authorized)
+	if authorizedResponse.Code != http.StatusOK || !strings.Contains(authorizedResponse.Body.String(), `"telegram_id":`) {
 		t.Fatalf("authorized response = %d %s", authorizedResponse.Code, authorizedResponse.Body.String())
 	}
 }

@@ -1,0 +1,14 @@
+{
+  "version": "action-v2",
+  "trace": {
+    "encoding": "rle8-v1",
+    "ticks": 900,
+    "data": "PBo4GTQFMDI4MjwfMDI4GTwpMBk0BDgZPAQwGTQpODIwMjQfODIwGTwFNBpEATwaOBk0BTAyODI8HzAw"
+  },
+  "vectors": [
+    {"name": "nana-waypoint-chain", "passive": "nana_route_chain", "digest": "3cfb5553"},
+    {"name": "ava-delayed-replay", "passive": "ava_afterimage", "digest": "4a0b955b"},
+    {"name": "lulu-glitch-conversion", "passive": "lulu_convert_projectiles", "digest": "dbd95ca7"},
+    {"name": "nailu-bloom-zones", "passive": "nailu_memory_bloom", "digest": "810f54c4"}
+  ]
+}

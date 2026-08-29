@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   beginJoystickControl,
   joystickVisual,
+  isWarpArmed,
   moveJoystickControl,
   readJoystickInput,
+  releasedWarpDirection,
 } from "@/features/action/action-controls";
 
 describe("hold-to-move joystick controls", () => {
@@ -35,7 +37,7 @@ describe("hold-to-move joystick controls", () => {
     ).toMatchObject({ direction: 4, magnitude: 3 });
   });
 
-  it("clamps the rendered knob to the joystick radius", () => {
+  it("clamps the rendered knob to the outer warp radius", () => {
     const control = moveJoystickControl(
       beginJoystickControl(4, 80, 500, 50),
       180,
@@ -43,15 +45,27 @@ describe("hold-to-move joystick controls", () => {
     );
     expect(joystickVisual(control)).toEqual({
       origin: { x: 80, y: 500 },
-      knob: { x: 130, y: 500 },
+      knob: { x: 157.5, y: 500 },
+      warpArmed: true,
     });
   });
 
-  it("preserves a skill press without movement", () => {
-    expect(readJoystickInput(null, true)).toEqual({
-      direction: 0,
-      magnitude: 0,
+  it("preserves the release direction for a warp frame", () => {
+    expect(readJoystickInput(null, true, 7)).toEqual({
+      direction: 7,
+      magnitude: 3,
       skill: true,
     });
+  });
+
+  it("only arms warp beyond the deliberate outer ring", () => {
+    const started = beginJoystickControl(4, 80, 500, 50);
+    const running = moveJoystickControl(started, 145, 500);
+    const armed = moveJoystickControl(started, 160, 500);
+
+    expect(isWarpArmed(running)).toBe(false);
+    expect(releasedWarpDirection(running)).toBeNull();
+    expect(isWarpArmed(armed)).toBe(true);
+    expect(releasedWarpDirection(armed)).toBe(0);
   });
 });

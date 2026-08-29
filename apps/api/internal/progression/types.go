@@ -22,23 +22,41 @@ type Unlock struct {
 }
 
 type Choice struct {
-	SceneSlug  string    `json:"scene_slug"`
-	OptionSlug string    `json:"option_slug"`
-	ChoiceTag  string    `json:"choice_tag"`
-	CreatedAt  time.Time `json:"created_at"`
+	SceneSlug    string    `json:"scene_slug"`
+	OptionSlug   string    `json:"option_slug"`
+	ChoiceTag    string    `json:"choice_tag"`
+	Revision     int       `json:"revision"`
+	Trust        int       `json:"trust"`
+	Authenticity int       `json:"authenticity"`
+	Retention    int       `json:"retention"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type ChapterProgress struct {
+	ChapterSlug  string    `json:"chapter_slug"`
+	HighestNoise int       `json:"highest_noise_level"`
+	Clears       int       `json:"clears"`
+	BestScore    int       `json:"best_score"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type Progress struct {
-	PlayerID       string          `json:"-"`
-	CurrentChapter string          `json:"current_chapter_slug"`
-	HighestNoise   int             `json:"highest_noise_level"`
-	StoryVersion   int             `json:"story_version"`
-	StoryFlags     map[string]bool `json:"story_flags"`
-	Version        int64           `json:"version"`
-	Unlocks        []Unlock        `json:"unlocks"`
-	Choices        []Choice        `json:"choices"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
+	PlayerID       string            `json:"-"`
+	CurrentChapter string            `json:"current_chapter_slug"`
+	HighestNoise   int               `json:"highest_noise_level"`
+	StoryVersion   int               `json:"story_version"`
+	StoryFlags     map[string]bool   `json:"story_flags"`
+	Version        int64             `json:"version"`
+	Unlocks        []Unlock          `json:"unlocks"`
+	Choices        []Choice          `json:"choices"`
+	Chapters       []ChapterProgress `json:"chapters"`
+	Trust          int               `json:"trust"`
+	Authenticity   int               `json:"authenticity"`
+	Retention      int               `json:"retention"`
+	Ending         string            `json:"ending,omitempty"`
+	DailyUnlocked  bool              `json:"daily_unlocked"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
 }
 
 type ChooseInput struct {

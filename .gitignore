@@ -19,7 +19,6 @@ playwright-report
 .env.development.local
 .env.test.local
 .env.production.local
-.env.admin
 
 # Deployment
 .vercel
@@ -63,7 +62,7 @@ Thumbs.db
 .cursorrules
 CLAUDE.md
 
-# Character assets (should be uploaded to Vercel Blob, not committed)
+# Binary asset guard; reviewed static assets under public/ are committed
 *.png
 *.jpg
 *.jpeg
@@ -75,7 +74,7 @@ CLAUDE.md
 !**/public/**/*.gif
 !**/public/**/*.webp
 
-# Audio files (should be hosted externally, not committed)
+# Local audio files remain untracked; production audio uses configured URLs
 *.mp3
 *.ogg
 *.wav

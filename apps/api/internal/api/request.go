@@ -50,8 +50,14 @@ func validSlugValue(value string) bool {
 }
 
 func responseLanguage(r *http.Request) string {
-	if strings.HasPrefix(strings.ToLower(r.Header.Get("Accept-Language")), "en") {
-		return "en"
+	for _, preference := range strings.Split(strings.ToLower(r.Header.Get("Accept-Language")), ",") {
+		tag := strings.TrimSpace(strings.SplitN(preference, ";", 2)[0])
+		if tag == "zh" || strings.HasPrefix(tag, "zh-") {
+			return "zh-CN"
+		}
+		if tag == "en" || strings.HasPrefix(tag, "en-") {
+			return "en"
+		}
 	}
-	return "zh-CN"
+	return "en"
 }

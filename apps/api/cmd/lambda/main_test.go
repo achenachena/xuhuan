@@ -10,29 +10,25 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-func TestHandleEventDispatchesMaintenanceOperations(t *testing.T) {
-	migrations := 0
+func TestHandleEventDispatchesHealthCheck(t *testing.T) {
 	checks := 0
 	serve := func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 		t.Fatal("HTTP adapter should not run for a maintenance operation")
 		return events.LambdaFunctionURLResponse{}, nil
 	}
-	migrate := func(context.Context) error { migrations++; return nil }
 	check := func(context.Context) error { checks++; return nil }
 
-	for _, operation := range []string{"migrate", "check"} {
-		payload, _ := json.Marshal(operationEvent{Operation: operation})
-		response, err := handleEvent(context.Background(), payload, serve, migrate, check)
-		if err != nil {
-			t.Fatal(err)
-		}
-		operationResult, ok := response.(operationResponse)
-		if !ok || operationResult.Status != "ok" || operationResult.Operation != operation {
-			t.Fatalf("unexpected response: %#v", response)
-		}
+	payload, _ := json.Marshal(operationEvent{Operation: "check"})
+	response, err := handleEvent(context.Background(), payload, serve, check)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if migrations != 1 || checks != 1 {
-		t.Fatalf("unexpected operation counts: migrations=%d checks=%d", migrations, checks)
+	operationResult, ok := response.(operationResponse)
+	if !ok || operationResult.Status != "ok" || operationResult.Operation != "check" || operationResult.ContentVersion != "v3" || operationResult.Protocol != "action-v2" {
+		t.Fatalf("unexpected response: %#v", response)
+	}
+	if checks != 1 {
+		t.Fatalf("unexpected check count: %d", checks)
 	}
 }
 
@@ -50,7 +46,7 @@ func TestHandleEventDispatchesFunctionURLRequest(t *testing.T) {
 		}
 		return events.LambdaFunctionURLResponse{StatusCode: http.StatusOK}, nil
 	}
-	response, err := handleEvent(context.Background(), payload, serve, func(context.Context) error { return nil }, func(context.Context) error { return nil })
+	response, err := handleEvent(context.Background(), payload, serve, func(context.Context) error { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +63,6 @@ func TestHandleEventRejectsUnknownOperation(t *testing.T) {
 		func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 			return events.LambdaFunctionURLResponse{}, nil
 		},
-		func(context.Context) error { return nil },
 		func(context.Context) error { return nil },
 	)
 	if err == nil || !strings.Contains(err.Error(), "unsupported Lambda operation") {

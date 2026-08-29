@@ -18,4 +18,5 @@ type GameService interface {
 	GetRun(context.Context, auth.User, string) (gameRun.GameRun, error)
 	Command(context.Context, auth.User, game.CommandInput) (gameRun.CommandResponse, bool, error)
 	ChooseStory(context.Context, auth.User, game.StoryChoiceInput) (progression.Progress, bool, error)
+	GetPublicDailyResult(context.Context, string) (gameRun.DailyResult, error)
 }
