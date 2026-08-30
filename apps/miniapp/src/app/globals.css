@@ -22,7 +22,7 @@
 
 html[data-telegram-host="true"] {
   --xuhuan-host-safe-top: max(
-    12.5rem,
+    6rem,
     calc(var(--xuhuan-tg-content-safe-top, 0px) + 0.75rem),
     calc(var(--tg-content-safe-area-inset-top, 0px) + 0.75rem),
     calc(env(safe-area-inset-top) + 0.75rem)
@@ -31,7 +31,7 @@ html[data-telegram-host="true"] {
 
 html[data-telegram-host="true"][data-telegram-fullscreen="true"] {
   --xuhuan-host-safe-top: max(
-    12.5rem,
+    6rem,
     calc(var(--xuhuan-tg-content-safe-top, 0px) + 0.75rem),
     calc(var(--tg-content-safe-area-inset-top, 0px) + 0.75rem),
     calc(env(safe-area-inset-top) + 0.75rem)

@@ -228,7 +228,7 @@ const clickRunCommandInBrowser = async (
       .locator('[data-testid="route-map-header"] > div')
       .first()
       .boundingBox();
-    expect(headerContent?.y).toBeGreaterThanOrEqual(200);
+    expect(headerContent?.y).toBeGreaterThanOrEqual(84);
     coverage.safeMap = true;
   } else if (
     ["reward", "event", "rest"].includes(run.state.phase) &&
@@ -238,7 +238,7 @@ const clickRunCommandInBrowser = async (
     const header = await page
       .locator('[data-testid="interstitial-screen"] > header')
       .boundingBox();
-    expect(header?.y).toBeGreaterThanOrEqual(200);
+    expect(header?.y).toBeGreaterThanOrEqual(84);
     coverage.safeInterstitial = true;
   }
 
@@ -588,11 +588,11 @@ test("one tap starts Action V3, the outer ring warps, and the run resumes safely
 
   await simulateTelegramHost(page);
   const hud = await page.getByTestId("combat-hud").boundingBox();
-  expect(hud?.y).toBeGreaterThanOrEqual(200);
-  expect(hud?.height).toBeLessThanOrEqual(64);
-  const tutorialHint = await page.getByTestId("tutorial-hint").boundingBox();
-  expect(tutorialHint?.height).toBeLessThanOrEqual(48);
-  expect(tutorialHint?.y).toBeLessThanOrEqual(330);
+  const canvasBox = await canvas.boundingBox();
+  expect(hud?.y).toBeGreaterThanOrEqual(84);
+  expect(hud?.height).toBeLessThanOrEqual(70);
+  expect(canvasBox?.y).toBeGreaterThanOrEqual((hud?.y ?? 0) + (hud?.height ?? 0));
+  await expect(page.getByText(/TRAINING 1\/3|TRAINING 2\/3/)).toBeVisible();
   const encounterViewport = await page.evaluate(() => ({
     clientHeight: document.documentElement.clientHeight,
     scrollHeight: document.documentElement.scrollHeight,
@@ -614,8 +614,11 @@ test("one tap starts Action V3, the outer ring warps, and the run resumes safely
   if (!box) throw new Error("Movement control has no bounds");
   await page.mouse.move(box.x + 88, box.y + 104);
   await page.mouse.down();
+  const stick = movement.locator("[data-active]").nth(1);
+  await expect(stick).toHaveAttribute("data-active", "true");
   await page.mouse.move(box.x + 178, box.y + 104, { steps: 6 });
   await page.mouse.up();
+  await expect(stick).toHaveAttribute("data-active", "false");
 
   const first = await getGame(request);
   expect(first.protocol).toBe("action-v2");

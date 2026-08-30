@@ -17,6 +17,10 @@ export class TraceRecorder {
     );
   }
 
+  padNeutralTo(ticks: number): void {
+    while (this.controls.length < ticks) this.controls.push(0);
+  }
+
   encode(): ActionTrace {
     const bytes: number[] = [];
     for (let index = 0; index < this.controls.length; ) {

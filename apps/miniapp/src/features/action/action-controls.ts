@@ -16,11 +16,12 @@ export type JoystickVisual = {
   readonly warpArmed: boolean;
 };
 
-// Movement is deliberately binary: outside a small neutral zone the player is
-// at full speed. Variable speed bands made a fixed joystick feel like it was
-// accelerating even though the authoritative simulation has no velocity.
-const DEAD_ZONE_RATIO = 0.05;
-const WARP_RADIUS_RATIO = 1.55;
+// Movement is deliberately binary. Once the thumb leaves a generous dead zone,
+// the character moves at full speed; releasing emits a neutral frame on the
+// very next simulation tick. Variable speed bands felt like acceleration on a
+// small WebView even though the simulation itself has no retained velocity.
+const DEAD_ZONE_RATIO = 0.2;
+const WARP_RADIUS_RATIO = 1.7;
 
 export const beginJoystickControl = (
   pointerId: number,
@@ -60,7 +61,7 @@ export const readJoystickInput = (
   const dx = control.pointer.x - control.origin.x;
   const dy = control.pointer.y - control.origin.y;
   const distance = Math.hypot(dx, dy);
-  const ratio = Math.min(1, distance / control.radius);
+  const ratio = distance / control.radius;
   if (ratio < DEAD_ZONE_RATIO)
     return { direction: 0, magnitude: 0, skill };
 
