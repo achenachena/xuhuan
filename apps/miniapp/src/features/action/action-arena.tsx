@@ -434,14 +434,6 @@ export const ActionArena = ({
       data-locale={locale}
       className="fixed inset-0 mx-auto h-[100dvh] w-full max-w-lg select-none overflow-hidden overscroll-none bg-[#02050e] text-white [touch-action:none] [-webkit-user-select:none]"
     >
-      <canvas
-        ref={canvasRef}
-        role="img"
-        aria-label={text("combatArena")}
-        className="absolute inset-x-0 bottom-0 top-[calc(var(--xuhuan-host-safe-top)+4.25rem)] w-full [image-rendering:pixelated] [touch-action:none]"
-        onContextMenu={(event) => event.preventDefault()}
-      />
-
       <ActionHUD
         snapshot={snapshot}
         locale={locale}
@@ -454,43 +446,56 @@ export const ActionArena = ({
       />
 
       <div
-        ref={controlSurfaceRef}
-        role="group"
-        aria-label={text("movementControl")}
-        className="absolute inset-x-0 bottom-0 top-[calc(var(--xuhuan-host-safe-top)+4.25rem)] z-20 [touch-action:none]"
-        onPointerDown={pointerDown}
-        onPointerMove={pointerMove}
-        onPointerUp={(event) => endPointer(event, true)}
-        onPointerCancel={(event) => endPointer(event, false)}
-        onLostPointerCapture={(event) => endPointer(event, false)}
-        onContextMenu={(event) => event.preventDefault()}
+        data-testid="action-playfield"
+        className="absolute inset-x-0 bottom-0 top-[calc(var(--xuhuan-host-safe-top)+4.25rem)] min-h-0 overflow-hidden"
       >
-        <div
-          ref={stickWarpRingRef}
-          aria-hidden="true"
-          data-active="false"
-          data-warp="false"
-          className="pointer-events-none absolute h-[8.9rem] w-[8.9rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-fuchsia-200/40 bg-fuchsia-500/[.03] opacity-0 shadow-[0_0_24px_rgba(217,70,239,.1)] data-[active=true]:opacity-100 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-500/[.08]"
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label={text("combatArena")}
+          className="absolute inset-0 h-full w-full [image-rendering:pixelated] [touch-action:none]"
+          onContextMenu={(event) => event.preventDefault()}
         />
+
         <div
-          ref={stickPadRef}
-          data-active="false"
-          data-warp="false"
-          className="pointer-events-none absolute grid h-[5.25rem] w-[5.25rem] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-cyan-100/45 bg-slate-950/82 font-mono text-[7px] tracking-[.12em] text-cyan-50/75 opacity-0 shadow-[inset_0_0_0_7px_rgba(8,47,73,.28)] data-[active=true]:opacity-100 data-[active=true]:border-cyan-50/80 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-950/82 data-[warp=true]:shadow-[inset_0_0_0_7px_rgba(8,47,73,.36),0_0_24px_rgba(217,70,239,.55)]"
+          ref={controlSurfaceRef}
+          role="group"
+          aria-label={text("movementControl")}
+          className="absolute inset-0 z-20 [touch-action:none]"
+          onPointerDown={pointerDown}
+          onPointerMove={pointerMove}
+          onPointerUp={(event) => endPointer(event, true)}
+          onPointerCancel={(event) => endPointer(event, false)}
+          onLostPointerCapture={(event) => endPointer(event, false)}
+          onContextMenu={(event) => event.preventDefault()}
         >
-          {cooldown > 0
-            ? `${cooldown}s`
-            : protocolReady
-              ? warpLabel
-              : text("moveWarp")}
-          <div className="absolute inset-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-cyan-100/45" />
+          <div
+            ref={stickWarpRingRef}
+            aria-hidden="true"
+            data-active="false"
+            data-warp="false"
+            className="pointer-events-none absolute h-[8.9rem] w-[8.9rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-fuchsia-200/40 bg-fuchsia-500/[.03] opacity-0 shadow-[0_0_24px_rgba(217,70,239,.1)] data-[active=true]:opacity-100 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-500/[.08]"
+          />
+          <div
+            ref={stickPadRef}
+            data-active="false"
+            data-warp="false"
+            className="pointer-events-none absolute grid h-[5.25rem] w-[5.25rem] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-cyan-100/45 bg-slate-950/82 font-mono text-[7px] tracking-[.12em] text-cyan-50/75 opacity-0 shadow-[inset_0_0_0_7px_rgba(8,47,73,.28)] data-[active=true]:opacity-100 data-[active=true]:border-cyan-50/80 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-950/82 data-[warp=true]:shadow-[inset_0_0_0_7px_rgba(8,47,73,.36),0_0_24px_rgba(217,70,239,.55)]"
+          >
+            {cooldown > 0
+              ? `${cooldown}s`
+              : protocolReady
+                ? warpLabel
+                : text("moveWarp")}
+            <div className="absolute inset-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-cyan-100/45" />
+          </div>
+          <div
+            ref={stickKnobRef}
+            data-active="false"
+            data-warp="false"
+            className="pointer-events-none absolute h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-50 bg-cyan-400/45 opacity-0 shadow-[0_0_16px_rgba(34,211,238,.5)] transition-[opacity,background-color,border-color,box-shadow] data-[active=true]:opacity-100 data-[warp=true]:border-fuchsia-50 data-[warp=true]:bg-fuchsia-400/65 data-[warp=true]:shadow-[0_0_26px_rgba(217,70,239,.8)]"
+          />
         </div>
-        <div
-          ref={stickKnobRef}
-          data-active="false"
-          data-warp="false"
-          className="pointer-events-none absolute h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-50 bg-cyan-400/45 opacity-0 shadow-[0_0_16px_rgba(34,211,238,.5)] transition-[opacity,background-color,border-color,box-shadow] data-[active=true]:opacity-100 data-[warp=true]:border-fuchsia-50 data-[warp=true]:bg-fuchsia-400/65 data-[warp=true]:shadow-[0_0_26px_rgba(217,70,239,.8)]"
-        />
       </div>
 
       {paused ? (
