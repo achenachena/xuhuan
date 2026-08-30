@@ -1,8 +1,6 @@
 package action
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 )
 
@@ -220,15 +218,13 @@ func normalizeEnemy(spec *EnemySpec) {
 }
 
 func newSimulation(config Config) *simulation {
-	// SHA-256 maps the same authored seed to the same 32-bit simulation seed in
-	// Go and the browser. It is deterministic game state, not authentication.
-	hash := sha256.Sum256([]byte(config.Seed))
+	seed := seedFromString(config.Seed)
 	return &simulation{
-		config: config, random: randomStream{state: binary.LittleEndian.Uint32(hash[:4])},
+		config: config, random: randomStream{state: seed},
 		playerX: ArenaWidth / 2, playerY: 5200, health: config.PlayerHealth,
 		shield: config.Runtime.StartingShield, lastGraze: -1000,
 		warpReadyTick: -1000, lastSignalTick: -1000,
-		routePattern:    int(binary.LittleEndian.Uint32(hash[:4]) % uint32(len(routePatterns))),
+		routePattern:    int(seed % uint32(len(routePatterns))),
 		weave:           make([]SignalType, 0, 3),
 		signalWaypoints: make([]Vec, 0, 3),
 		delayedWarps:    make([]delayedWarpEntity, 0, 4),

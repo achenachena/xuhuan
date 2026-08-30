@@ -1,24 +1,24 @@
 package run
 
-import (
-	"crypto/sha256"
-	"encoding/binary"
-)
-
 type randomStream struct {
-	seed   string
-	cursor uint64
+	seed        string
+	cursor      uint64
+	seedValue   uint64
+	initialized bool
 }
 
 func (stream *randomStream) Uint64() uint64 {
-	// Hashing (seed, cursor) gives map/reward generation a stable random stream
-	// across processes without storing mutable RNG state or exposing a token.
-	input := make([]byte, len(stream.seed)+8)
-	copy(input, stream.seed)
-	binary.BigEndian.PutUint64(input[len(stream.seed):], stream.cursor)
-	digest := sha256.Sum256(input)
+	if !stream.initialized {
+		stream.seedValue = foldSeed(stream.seed)
+		stream.initialized = true
+	}
+	// SplitMix64 supports direct cursor-based replay, so only the small cursor
+	// needs to be persisted with a Run.
+	value := stream.seedValue + (stream.cursor+1)*0x9e3779b97f4a7c15
 	stream.cursor++
-	return binary.BigEndian.Uint64(digest[:8])
+	value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9
+	value = (value ^ (value >> 27)) * 0x94d049bb133111eb
+	return value ^ (value >> 31)
 }
 
 func (stream *randomStream) Intn(limit int) int {
@@ -29,4 +29,13 @@ func (stream *randomStream) Intn(limit int) int {
 		return 0
 	}
 	return int(stream.Uint64() % uint64(limit))
+}
+
+func foldSeed(value string) uint64 {
+	seed := uint64(14695981039346656037)
+	for index := 0; index < len(value); index++ {
+		seed ^= uint64(value[index])
+		seed *= 1099511628211
+	}
+	return seed
 }

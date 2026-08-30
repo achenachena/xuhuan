@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"testing/fstest"
 	"time"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
@@ -59,90 +58,18 @@ func TestMigrateFromEmptySchema(t *testing.T) {
 	}
 	defer database.Close()
 
-	legacyActionMigrations := fstest.MapFS{}
-	for _, name := range []string{"001_initial_schema.sql", "002_story_roguelite.sql", "003_remove_v1_compatibility.sql", "004_action_roguelite.sql"} {
-		contents, err := migrations.Files.ReadFile(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		legacyActionMigrations[name] = &fstest.MapFile{Data: contents}
-	}
-	if err := database.Migrate(ctx, legacyActionMigrations); err != nil {
-		t.Fatalf("apply Action V2 migrations: %v", err)
-	}
-
-	const preservedPlayerID = "11111111-1111-4111-8111-111111111111"
-	const preservedRunID = "22222222-2222-4222-8222-222222222222"
-	fixtureTx, err := database.pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fixtureStatements := []struct {
-		query string
-		args  []any
-	}{
-		{`INSERT INTO players (id, telegram_user_id, username, language_code) VALUES ($1, 987654321, 'preserved', 'en')`, []any{preservedPlayerID}},
-		{`INSERT INTO player_progress (player_id, story_flags, version) VALUES ($1, '{"preserved": true}'::jsonb, 2)`, []any{preservedPlayerID}},
-		{`INSERT INTO player_unlocks (player_id, unlock_type, content_slug) VALUES ($1, 'character', 'nana7mi')`, []any{preservedPlayerID}},
-		{`INSERT INTO story_choices (
-			player_id, scene_slug, option_slug, choice_tag, expected_version,
-			resulting_version, idempotency_key, request_hash, result_snapshot
-		) VALUES (
-			$1, 'prologue-last-viewer', 'answer', 'answered', 1,
-			2, 'preserved-story-0001', decode(repeat('ab', 32), 'hex'), '{"version": 2}'::jsonb
-		)`, []any{preservedPlayerID}},
-		{`INSERT INTO runs (
-			id, player_id, content_version, chapter_slug, character_slug, noise_level,
-			seed, state, status, outcome, version, start_idempotency_key,
-			start_request_hash, completed_at
-		) VALUES (
-			$2, $1, 'v1', 'seventh-dock', 'nana7mi', 0,
-			'preserved-seed-0000001', '{"phase": "completed"}'::jsonb, 'completed', 'cleared', 2,
-			'preserved-run-0001', decode(repeat('cd', 32), 'hex'), now()
-		)`, []any{preservedPlayerID, preservedRunID}},
-		{`INSERT INTO run_commands (
-			run_id, player_id, sequence, command_type, expected_version,
-			resulting_version, idempotency_key, request_hash, result_snapshot, command_payload
-		) VALUES (
-			$2, $1, 1, 'choose_node', 1,
-			2, 'preserved-command-0001', decode(repeat('ef', 32), 'hex'), '{"version": 2}'::jsonb,
-			'{"type":"choose_node","node_id":"l1-a"}'::jsonb
-		)`, []any{preservedPlayerID, preservedRunID}},
-	}
-	for _, statement := range fixtureStatements {
-		if _, err := fixtureTx.Exec(ctx, statement.query, statement.args...); err != nil {
-			_ = fixtureTx.Rollback(ctx)
-			t.Fatalf("insert expand-phase V2 fixtures: %v", err)
-		}
-	}
-	if err := fixtureTx.Commit(ctx); err != nil {
-		t.Fatalf("commit expand-phase V2 fixtures: %v", err)
-	}
-
-	if err := database.MigrateTo(ctx, migrations.Files, 5); err != nil {
-		t.Fatalf("apply Action V3 prepare migration: %v", err)
-	}
-	var preparedPlayers int
-	var rollbackTable *string
-	if err := database.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM players),to_regclass('player_progress')::text`).Scan(&preparedPlayers, &rollbackTable); err != nil {
-		t.Fatal(err)
-	}
-	if preparedPlayers != 1 || rollbackTable == nil {
-		t.Fatalf("prepare boundary lost identity or rollback schema: players=%d rollback=%v", preparedPlayers, rollbackTable)
-	}
-	assertActionV3PlayerCascade(ctx, t, database)
 	for range 2 {
-		if err := database.MigrateTo(ctx, migrations.Files, 6); err != nil {
-			t.Fatalf("apply Action V3 contract migration: %v", err)
+		if err := database.Migrate(ctx, migrations.Files); err != nil {
+			t.Fatalf("apply current migrations: %v", err)
 		}
 	}
 
 	expectedCounts := map[string]int{
 		"schema_migrations":        6,
-		"players":                  1,
-		"player_campaign_progress": 1,
+		"players":                  0,
+		"player_campaign_progress": 0,
 		"player_chapter_progress":  0,
-		"player_unlocks":           1,
+		"player_unlocks":           0,
 		"story_choices":            0,
 		"runs":                     0,
 		"run_commands":             0,
@@ -157,30 +84,7 @@ func TestMigrateFromEmptySchema(t *testing.T) {
 		}
 	}
 
-	legacyTables := []string{"characters", "encounters", "battles", "battle_actions", "idempotency_records", "player_ledger", "admin_audit_events", "player_progress"}
-	var legacyTableCount int
-	if err := database.pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema = $1 AND table_name = ANY($2)`, schema, legacyTables).Scan(&legacyTableCount); err != nil {
-		t.Fatal(err)
-	}
-	if legacyTableCount != 0 {
-		t.Fatalf("legacy table count = %d", legacyTableCount)
-	}
-	legacyColumns := []string{"level", "experience", "credits", "energy", "version", "username", "first_name", "last_name"}
-	var legacyColumnCount int
-	if err := database.pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'players' AND column_name = ANY($2)`, schema, legacyColumns).Scan(&legacyColumnCount); err != nil {
-		t.Fatal(err)
-	}
-	if legacyColumnCount != 0 {
-		t.Fatalf("legacy player column count = %d", legacyColumnCount)
-	}
-	var preservedTelegramID int64
-	var preservedLanguage string
-	if err := database.pool.QueryRow(ctx, `SELECT telegram_user_id,language_code FROM players WHERE id=$1::uuid`, preservedPlayerID).Scan(&preservedTelegramID, &preservedLanguage); err != nil {
-		t.Fatalf("read identity preserved by Action V3 reset: %v", err)
-	}
-	if preservedTelegramID != 987654321 || preservedLanguage != "en" {
-		t.Fatalf("preserved identity=%d/%q", preservedTelegramID, preservedLanguage)
-	}
+	assertActionV3PlayerCascade(ctx, t, database)
 	playerRepository := NewPlayerRepository(database)
 	created, err := playerRepository.GetOrCreate(ctx, auth.User{ID: 123456789, LanguageCode: "en"})
 	if err != nil {

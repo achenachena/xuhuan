@@ -6,8 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -39,12 +37,5 @@ func run() error {
 		return err
 	}
 	defer database.Close()
-	target := int64(0)
-	if raw := strings.TrimSpace(os.Getenv("MIGRATION_TARGET_VERSION")); raw != "" {
-		target, err = strconv.ParseInt(raw, 10, 64)
-		if err != nil || target <= 0 {
-			return errors.New("MIGRATION_TARGET_VERSION must be a positive integer")
-		}
-	}
-	return database.MigrateTo(ctx, migrations.Files, target)
+	return database.Migrate(ctx, migrations.Files)
 }

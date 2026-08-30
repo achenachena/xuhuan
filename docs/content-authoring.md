@@ -196,7 +196,7 @@ V3 URLs are rooted at `/game/v3/` and served by the Mini App. Put players, enemi
 
 ## Authoring workflow
 
-1. Decide whether the change is compatible with unreleased V3. After V3 is live, create a new content version instead of mutating replay inputs in place.
+1. Confirm that the change targets the current V3 catalog. The project does not ship retired content bundles; a release that changes deterministic encounter inputs restarts the current room from its server seed.
 2. Add or update shared and chapter-owned definitions with stable slugs.
 3. Add every locale key to English and `zh-CN`; keep code and docs English.
 4. Add local assets, register them in `manifest.json#assets`, and verify their presentation.

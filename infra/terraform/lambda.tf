@@ -52,8 +52,8 @@ resource "aws_lambda_function" "api" {
     ignore_changes = [filename, environment, reserved_concurrent_executions]
 
     precondition {
-      condition     = var.lambda_memory_size <= 512 && var.lambda_reserved_concurrency <= 2
-      error_message = "The Free Plan topology caps Lambda at 512 MB and requests at most two reserved concurrent executions."
+      condition     = var.lambda_memory_size <= 512
+      error_message = "The Free Plan topology caps Lambda at 512 MB."
     }
   }
 }

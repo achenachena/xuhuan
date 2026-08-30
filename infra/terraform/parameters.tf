@@ -3,7 +3,7 @@
 # parameter once and injects it into the Lambda environment, avoiding paid VPC
 # interface endpoints for SSM at runtime.
 resource "aws_ssm_parameter" "telegram_bot_token" {
-  name        = "/${var.project_name}/${var.environment}/telegram-bot-token"
+  name        = "/${var.project_name}/${local.environment}/telegram-bot-token"
   description = "Replace out of band before enabling the API Lambda."
   type        = "SecureString"
   tier        = "Standard"
@@ -18,7 +18,7 @@ resource "aws_ssm_parameter" "telegram_bot_token" {
 # creates these standard-tier SecureString placeholders. Keeping only
 # placeholders in state avoids committing Neon or Upstash credentials.
 resource "aws_ssm_parameter" "database_url" {
-  name        = "/${var.project_name}/${var.environment}/database-url"
+  name        = "/${var.project_name}/${local.environment}/database-url"
   description = "Pooled PostgreSQL URL used by the serverless API runtime."
   type        = "SecureString"
   tier        = "Standard"
@@ -30,7 +30,7 @@ resource "aws_ssm_parameter" "database_url" {
 }
 
 resource "aws_ssm_parameter" "database_migration_url" {
-  name        = "/${var.project_name}/${var.environment}/database-migration-url"
+  name        = "/${var.project_name}/${local.environment}/database-migration-url"
   description = "Direct PostgreSQL URL used only for schema migrations."
   type        = "SecureString"
   tier        = "Standard"
@@ -42,7 +42,7 @@ resource "aws_ssm_parameter" "database_migration_url" {
 }
 
 resource "aws_ssm_parameter" "redis_url" {
-  name        = "/${var.project_name}/${var.environment}/redis-url"
+  name        = "/${var.project_name}/${local.environment}/redis-url"
   description = "TLS Redis URL used by the distributed rate limiter."
   type        = "SecureString"
   tier        = "Standard"

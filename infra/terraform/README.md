@@ -54,9 +54,8 @@ Create exactly one production project/database in each provider.
 
 Lambda's pgx pool uses at most four connections per execution environment and
 keeps zero minimum connections, allowing Neon compute to suspend while idle.
-The direct URL is read from Parameter Store by the exact-SHA GitHub production
-workflow and used only by its bounded migration runner. It is never added to
-the Lambda runtime environment.
+The direct URL is read from Parameter Store for schema validation and synthetic
+smoke cleanup. It is never added to the Lambda runtime environment.
 
 ### Upstash Redis
 
@@ -90,7 +89,6 @@ Configure the `Production` environment with these non-secret variables:
 - `AWS_DEPLOY_ROLE_ARN` from `github_deploy_role_arn`
 - `AWS_LAMBDA_FUNCTION` from `lambda_function_name`
 - `AWS_LAMBDA_ALIAS` from `lambda_alias_name`
-- `AWS_LAMBDA_RESERVED_CONCURRENCY` from `lambda_reserved_concurrency`
 - `AWS_DATABASE_URL_PARAMETER` from `database_url_parameter_name`
 - `AWS_DATABASE_MIGRATION_URL_PARAMETER` from
   `database_migration_url_parameter_name`
@@ -105,21 +103,15 @@ team. It is the only long-lived deployment credential consumed by GitHub; AWS
 access remains short-lived through OIDC.
 
 The deploy workflow exchanges GitHub's OIDC token for short-lived AWS
-credentials, verifies the direct and pooled PostgreSQL migration boundary,
+credentials, verifies the complete current schema through both PostgreSQL URLs,
 stages and checks an exact-SHA Vercel artifact, reads the SecureStrings, replaces
 `$LATEST` code and configuration, publishes a numbered Lambda version, promotes
-the compatible frontend, applies PostgreSQL migrations, and verifies the `live`
-alias again afterward.
-Contract migrations are a rollback boundary: after a successful destructive
-migration, the workflow does not repoint `live` to an older binary that depends
-on the removed schema. Failures after that point are fixed forward.
+the frontend, switches the `live` alias, and runs production smoke tests.
 
 ## Cost and operational guardrails
 
-- Keep one production environment; do not run staging concurrently.
-- Lambda memory is capped at 512 MB and requested reserved concurrency at two.
-  A new AWS account may temporarily use its reduced account-wide concurrency
-  cap until AWS permits the per-function reservation.
+- Keep the single production environment; this module no longer carries an unused staging variant.
+- Lambda memory is capped at 512 MB. Existing concurrency configuration remains an account-level operational setting rather than release-workflow logic.
 - Keep CloudWatch retention at three days and do not enable additional paid tracing
   collectors, custom domains, API Gateway, provisioned concurrency, VPC
   endpoints, or extra alarms without a cost review.
@@ -130,6 +122,6 @@ on the removed schema. Failures after that point are fixed forward.
 - Rotate exposed database, Redis, or Telegram credentials immediately, update
   the SSM value, and publish a new immutable Lambda version.
 
-SQS, EventBridge, custom domains, replicas, high availability, and separate
-staging infrastructure remain deferred until a concrete feature justifies both
+SQS, EventBridge, custom domains, replicas, high availability, and a separate
+staging environment remain out of scope until a concrete feature justifies both
 their complexity and their cost.

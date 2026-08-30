@@ -4,17 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
 
-	"github.com/achenachena/xuhuan/apps/api/migrations"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestMigrationTimeoutsLeaveAReleaseBoundaryMargin(t *testing.T) {
+func TestMigrationTimeoutsAreNested(t *testing.T) {
 	t.Parallel()
 
 	if migrationLockTimeout <= 0 || migrationLockTimeout >= migrationStatementTimeout {
@@ -50,42 +48,6 @@ func TestReadMigrationsSortsAndValidates(t *testing.T) {
 	}
 	if migrations[0].version != 1 || migrations[1].version != 2 {
 		t.Fatalf("migrations = %#v", migrations)
-	}
-}
-
-func TestMigrateToRejectsUnknownTargetBeforeConnecting(t *testing.T) {
-	t.Parallel()
-	database := &Database{}
-	err := database.MigrateTo(context.Background(), fstest.MapFS{"001_first.sql": {Data: []byte("SELECT 1")}}, 2)
-	if err == nil || !strings.Contains(err.Error(), "target 2") {
-		t.Fatalf("error=%v", err)
-	}
-}
-
-func TestActionV3MigrationPreservesIdentityAndRemovesLegacyOnlyAfterValidation(t *testing.T) {
-	t.Parallel()
-	prepare, err := migrations.Files.ReadFile("005_action_v3_prepare.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	contract, err := migrations.Files.ReadFile("006_remove_action_v2.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	prepareSQL, contractSQL := string(prepare), string(contract)
-	if strings.Contains(prepareSQL, "TRUNCATE TABLE players") || strings.Contains(prepareSQL, "DROP TABLE IF EXISTS player_progress") {
-		t.Fatal("prepare migration must preserve identity and the short rollback schema")
-	}
-	for _, table := range []string{"run_commands", "runs", "story_choices", "player_unlocks", "player_progress"} {
-		if !strings.Contains(prepareSQL, table) {
-			t.Fatalf("prepare migration does not reset %s", table)
-		}
-	}
-	if !strings.Contains(prepareSQL, "pg_trigger_depth() > 1") {
-		t.Fatal("prepare migration must allow immutable history to leave through a player/run cascade")
-	}
-	if !strings.Contains(contractSQL, "DROP TABLE IF EXISTS player_progress") {
-		t.Fatal("contract migration does not remove the Action V2 progression table")
 	}
 }
 
@@ -149,7 +111,10 @@ func TestMigrationTransactionAppliesTimeoutsAndRollsBackFailedDDL(t *testing.T) 
 			SELECT 1 / 0
 		`)},
 	}
-	if err := database.MigrateTo(ctx, files, 1); err != nil {
+	first := fstest.MapFS{
+		"001_timeout_probe.sql": files["001_timeout_probe.sql"],
+	}
+	if err := database.Migrate(ctx, first); err != nil {
 		t.Fatalf("apply timeout probe migration: %v", err)
 	}
 	var lockSeconds, statementSeconds int
@@ -160,7 +125,7 @@ func TestMigrationTransactionAppliesTimeoutsAndRollsBackFailedDDL(t *testing.T) 
 		t.Fatalf("database migration timeouts = %ds/%ds, want %s/%s", lockSeconds, statementSeconds, migrationLockTimeout, migrationStatementTimeout)
 	}
 
-	if err := database.MigrateTo(ctx, files, 2); err == nil {
+	if err := database.Migrate(ctx, files); err == nil {
 		t.Fatal("failed migration unexpectedly succeeded")
 	}
 	var failedTable *string
