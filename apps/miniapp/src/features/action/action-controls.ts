@@ -54,9 +54,9 @@ export const moveDragControl = (
       DRAG_ACTIVATION_PX,
 });
 
-// Movement follows only displacement received since the previous simulation
-// tick. Consuming that displacement makes a stationary or released finger
-// produce a neutral frame immediately, with no hidden target or velocity.
+// The pointer-down position is an anchored steering origin. Holding the
+// pointer away from it produces the same input every simulation Tick; releasing
+// removes the control and therefore stops on the next Tick without velocity.
 export const readDragInput = (control: DragControl | null): ActionInput => {
   if (!control?.dragged) return neutralInput();
   const dx = control.pointer.x - control.origin.x;
@@ -70,16 +70,6 @@ export const readDragInput = (control: DragControl | null): ActionInput => {
     skill: false,
   };
 };
-
-export const consumeDragInput = (
-  control: DragControl | null,
-): DragControl | null =>
-  control
-    ? {
-        ...control,
-        origin: control.pointer,
-      }
-    : null;
 
 export const releasedTapWarpDirection = (
   control: DragControl,

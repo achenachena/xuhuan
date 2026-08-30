@@ -480,6 +480,23 @@ describe("action-v2 engine", () => {
     expect(trace.data.length).toBeLessThan(40);
   });
 
+  it("encodes every trace with the strict base64url alphabet expected by Go", () => {
+    const recorder = new TraceRecorder();
+    recorder.push({ direction: 0, magnitude: 0, skill: false });
+    for (let repeat = 0; repeat < 252; repeat += 1) {
+      recorder.push({ direction: 14, magnitude: 3, skill: false });
+    }
+    const trace = recorder.encode();
+
+    // The RLE bytes are [0, 1, 62, 252], whose ordinary Base64 is
+    // "AAE+/A==". The strict browser wire representation must be URL-safe.
+    expect(trace).toEqual({
+      encoding: "rle8-v1",
+      ticks: 253,
+      data: "AAE-_A",
+    });
+  });
+
   it("stops on the first neutral tick with no hidden velocity", () => {
     const config = toConfig(fixture.vectors[0]!.config);
     const simulation = new ActionSimulation(config, 1234);

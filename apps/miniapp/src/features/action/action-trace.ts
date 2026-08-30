@@ -3,7 +3,10 @@ import type { ActionInput, ActionTrace } from "@/features/action/action-types";
 const encodeBase64URL = (bytes: readonly number[]): string => {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/=+$/, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 };
 
 export class TraceRecorder {

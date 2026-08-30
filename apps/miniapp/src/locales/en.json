@@ -118,7 +118,7 @@
   "effectHealOnProtocol": "WEAVE HEAL",
   "effectReflectDamage": "REFLECT",
   "effectRerollCharge": "REROLL",
-  "tutorialMove": "Drag anywhere to move. Stop dragging to stop instantly.",
+  "tutorialMove": "Hold and drag to keep moving. Release to stop instantly.",
   "tutorialSignal": "Collect 3 memory crystals.",
   "tutorialWarp": "Tap the arena to Warp toward that point.",
   "tutorialStageMove": "TRAINING 1/3 · DRAG TO MOVE",

@@ -96,6 +96,17 @@ func TestTraceAcceptsBase64URLFromBrowserAndSmokeClients(t *testing.T) {
 	}
 }
 
+func TestTraceAcceptsBrowserRunsContainingBothBase64URLSubstitutions(t *testing.T) {
+	trace := InputTrace{Encoding: TraceEncodingRLE, Ticks: 253, Data: "AAE-_A"}
+	frames, err := DecodeTrace(trace, 253)
+	if err != nil || len(frames) != 253 {
+		t.Fatalf("frames=%d error=%v", len(frames), err)
+	}
+	if frames[0] != (InputFrame{}) || frames[1] != (InputFrame{Direction: 14, Magnitude: 3}) || frames[252] != frames[1] {
+		t.Fatalf("unexpected decoded frames: first=%#v second=%#v last=%#v", frames[0], frames[1], frames[252])
+	}
+}
+
 func TestTraceRejectsNonCanonicalEncodingAndRuns(t *testing.T) {
 	standardBase64 := InputTrace{Encoding: TraceEncodingRLE, Ticks: 1, Data: base64.StdEncoding.EncodeToString([]byte{0x10, 1})}
 	if _, err := DecodeTrace(standardBase64, 10); err != ErrInvalidTrace {

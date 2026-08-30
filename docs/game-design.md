@@ -40,7 +40,7 @@ After Zero Channel, Authenticity at least three points above Retention selects t
 
 The action arena uses a 360 by 640 logical portrait space at a deterministic 30 Ticks per second. Rendering may interpolate at display rate, but replay advances only fixed Ticks.
 
-- Dragging anywhere in the arena supplies one of 16 directions and a quantized magnitude for the next simulation Tick only. A stationary or released pointer produces no movement on the following Tick.
+- Dragging anywhere in the arena creates an anchored steering origin and supplies one of 16 directions plus a quantized magnitude for as long as the pointer is held. Releasing removes the input immediately, so no velocity survives into the following Tick.
 - Automatic attacks select the nearest live enemy.
 - Tapping the arena activates Warp toward the tapped point. Warp moves 62 logical units, grants 12 invulnerable Ticks, damages enemies along the path, and clears projectiles near that path.
 - The browser records direction, magnitude, and Warp state into `rle8-v1`; the server replays the same inputs and alone determines the authoritative result.

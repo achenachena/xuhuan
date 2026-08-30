@@ -118,7 +118,7 @@
   "effectHealOnProtocol": "编织治疗",
   "effectReflectDamage": "反射",
   "effectRerollCharge": "重抽",
-  "tutorialMove": "在任意位置拖动角色；停止拖动后角色立刻停下。",
+  "tutorialMove": "按住并拖向一个方向即可持续移动；松手立刻停下。",
   "tutorialSignal": "收集 3 个记忆结晶。",
   "tutorialWarp": "轻点场地，向点击位置跃迁。",
   "tutorialStageMove": "教学 1/3 · 拖动移动",
