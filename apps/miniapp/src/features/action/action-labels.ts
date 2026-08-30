@@ -26,6 +26,26 @@ export const objectiveStatusLabel = (
   }
 };
 
+export const objectiveInstruction = (
+  snapshot: ActionSnapshot,
+  locale: GameLocale,
+): string => {
+  switch (snapshot.objective.kind) {
+    case "purge":
+      return gameText(locale, "objectivePurgeHelp");
+    case "stabilize":
+      return gameText(locale, "objectiveStabilizeHelp");
+    case "recover":
+      return gameText(locale, "objectiveRecoverHelp");
+    case "holdout":
+      return gameText(locale, "objectiveHoldoutHelp");
+    case "elite":
+      return gameText(locale, "objectiveEliteHelp");
+    case "boss":
+      return gameText(locale, "objectiveBossHelp");
+  }
+};
+
 export const protocolLabel = (
   protocol: SignalProtocol,
   locale: GameLocale,

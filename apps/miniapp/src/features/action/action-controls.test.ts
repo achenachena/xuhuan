@@ -24,11 +24,11 @@ describe("hold-to-move joystick controls", () => {
     });
   });
 
-  it("uses full speed immediately outside the neutral zone", () => {
+  it("maps thumb distance directly to stop or full speed", () => {
     const started = beginJoystickControl(4, 90, 500, 50);
     expect(
       readJoystickInput(moveJoystickControl(started, 90, 504), false),
-    ).toMatchObject({ direction: 4, magnitude: 3 });
+    ).toMatchObject({ direction: 0, magnitude: 0 });
     expect(
       readJoystickInput(moveJoystickControl(started, 90, 512), false),
     ).toMatchObject({ direction: 4, magnitude: 3 });
@@ -48,7 +48,7 @@ describe("hold-to-move joystick controls", () => {
     );
     expect(joystickVisual(control)).toEqual({
       origin: { x: 80, y: 500 },
-      knob: { x: 157.5, y: 500 },
+      knob: { x: 165, y: 500 },
       warpArmed: true,
     });
   });
@@ -63,8 +63,8 @@ describe("hold-to-move joystick controls", () => {
 
   it("only arms warp beyond the deliberate outer ring", () => {
     const started = beginJoystickControl(4, 80, 500, 50);
-    const running = moveJoystickControl(started, 145, 500);
-    const armed = moveJoystickControl(started, 160, 500);
+    const running = moveJoystickControl(started, 160, 500);
+    const armed = moveJoystickControl(started, 170, 500);
 
     expect(isWarpArmed(running)).toBe(false);
     expect(releasedWarpDirection(running)).toBeNull();

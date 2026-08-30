@@ -470,6 +470,16 @@ describe("action-v2 engine", () => {
     expect(trace).toEqual(vector.trace);
   });
 
+  it("pads a completed prediction with compact neutral replay headroom", () => {
+    const recorder = new TraceRecorder();
+    recorder.push({ direction: 4, magnitude: 3, skill: false });
+    recorder.padNeutralTo(2700);
+    const trace = recorder.encode();
+
+    expect(trace.ticks).toBe(2700);
+    expect(trace.data.length).toBeLessThan(40);
+  });
+
   it("stops on the first neutral tick with no hidden velocity", () => {
     const config = toConfig(fixture.vectors[0]!.config);
     const simulation = new ActionSimulation(config, 1234);

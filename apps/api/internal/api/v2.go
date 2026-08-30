@@ -267,10 +267,11 @@ func writeV2Error(w http.ResponseWriter, r *http.Request, logger *slog.Logger, e
 		writeError(w, r, http.StatusForbidden, "content_locked", "The requested chapter, character, or noise level is locked")
 	case errors.Is(err, progression.ErrChoiceAlreadyMade), errors.Is(err, progression.ErrSceneNotPending):
 		writeError(w, r, http.StatusConflict, "story_conflict", "The story choice is no longer pending")
-	case errors.Is(err, gameRun.ErrInvalidCommand),
-		errors.Is(err, action.ErrInvalidTrace),
-		errors.Is(err, action.ErrIncompleteRoom),
-		strings.HasPrefix(err.Error(), "action:"):
+	case errors.Is(err, action.ErrInvalidTrace):
+		writeError(w, r, http.StatusBadRequest, "invalid_trace", "The encounter input trace is invalid")
+	case errors.Is(err, action.ErrIncompleteRoom):
+		writeError(w, r, http.StatusBadRequest, "incomplete_encounter", "The encounter trace ended before the authoritative room result")
+	case errors.Is(err, gameRun.ErrInvalidCommand), strings.HasPrefix(err.Error(), "action:"):
 		writeError(w, r, http.StatusBadRequest, "invalid_command", "The command is invalid for the current state")
 	default:
 		logger.ErrorContext(r.Context(), event, "request_id", requestIDFromContext(r.Context()), "error_class", "internal")

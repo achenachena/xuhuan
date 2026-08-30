@@ -1,4 +1,8 @@
-import { objectiveStatusLabel, protocolLabel } from "@/features/action/action-labels";
+import {
+  objectiveInstruction,
+  objectiveStatusLabel,
+  protocolLabel,
+} from "@/features/action/action-labels";
 import { objectiveProgressRatio } from "@/features/action/action-objectives";
 import type { ActionSnapshot, SignalType } from "@/features/action/action-types";
 import { gameText, type GameLocale } from "@/features/game/game-copy";
@@ -8,6 +12,10 @@ type Props = {
   readonly locale: GameLocale;
   readonly fallbackHealth: number;
   readonly fallbackMaxHealth: number;
+  readonly tutorial: boolean;
+  readonly moved: boolean;
+  readonly usedWarp: boolean;
+  readonly guidanceOverride?: string;
 };
 
 const signalTone: Readonly<Record<SignalType, string>> = {
@@ -21,6 +29,10 @@ export const ActionHUD = ({
   locale,
   fallbackHealth,
   fallbackMaxHealth,
+  tutorial,
+  moved,
+  usedWarp,
+  guidanceOverride,
 }: Props) => {
   const health = snapshot?.health ?? fallbackHealth;
   const maxHealth = snapshot?.maxHealth ?? fallbackMaxHealth;
@@ -30,23 +42,41 @@ export const ActionHUD = ({
     : 0;
   const protocol = snapshot?.protocol ?? "";
   const distortion = snapshot?.distortion ?? 0;
+  const tutorialReady = Boolean(snapshot?.protocol);
+  const tutorialStatus = !moved
+    ? gameText(locale, "tutorialStageMove")
+    : !tutorialReady
+      ? `${gameText(locale, "tutorialStageSignals")} ${snapshot?.weave.length ?? 0}/3`
+      : gameText(locale, "tutorialStageWarp");
+  const status = tutorial
+    ? tutorialStatus
+    : snapshot
+      ? objectiveStatusLabel(snapshot, locale)
+      : gameText(locale, "connectingShort");
+  const guidance =
+    guidanceOverride ??
+    (tutorial
+      ? !moved
+        ? gameText(locale, "tutorialMove")
+        : tutorialReady && !usedWarp
+          ? gameText(locale, "tutorialWarp")
+          : gameText(locale, "tutorialSignal")
+      : snapshot
+        ? objectiveInstruction(snapshot, locale)
+        : gameText(locale, "connectingShort"));
 
   return (
     <header
       data-testid="combat-hud"
-      className="pointer-events-none absolute inset-x-0 top-[calc(var(--xuhuan-host-safe-top)+.25rem)] z-10 px-2 pr-12"
+      className="pointer-events-none absolute inset-x-0 top-[var(--xuhuan-host-safe-top)] z-30 h-[4.25rem] px-2 pr-12"
     >
-      <div className="border-b border-cyan-100/25 bg-gradient-to-b from-[#020611]/90 via-[#020611]/72 to-[#020611]/15 px-2 pb-3 pt-1.5 font-mono text-[8px] tracking-[.1em] text-slate-300 drop-shadow-[0_3px_5px_rgba(2,6,23,.9)]">
+      <div className="h-full border-b border-cyan-100/30 bg-[#020611] px-2 py-1.5 font-mono text-[8px] tracking-[.08em] text-slate-300 shadow-[0_4px_0_rgba(2,6,23,.8)]">
         <div className="flex items-center gap-2">
           <span className="text-emerald-200">♥ {health}</span>
           {(snapshot?.shield ?? 0) > 0 ? (
             <span className="text-sky-200">◇ {snapshot?.shield}</span>
           ) : null}
-          <span className="ml-auto truncate text-cyan-50">
-            {snapshot
-              ? objectiveStatusLabel(snapshot, locale)
-              : gameText(locale, "connectingShort")}
-          </span>
+          <strong className="ml-auto truncate text-cyan-50">{status}</strong>
         </div>
         <div className="mt-1 grid grid-cols-[1fr_1fr] gap-1.5">
           <div className="h-1.5 overflow-hidden bg-black/65">
@@ -62,7 +92,7 @@ export const ActionHUD = ({
             />
           </div>
         </div>
-        <div className="mt-1.5 flex items-center gap-1.5">
+        <div className="mt-1 flex items-center gap-1.5">
           {(snapshot?.weave ?? []).map((signal, index) => (
             <span
               key={`${signal}-${index}`}
@@ -84,6 +114,9 @@ export const ActionHUD = ({
             {snapshot?.score ?? 0}
           </span>
         </div>
+        <p className="mt-1 truncate text-[7px] normal-case tracking-normal text-slate-200">
+          {guidance}
+        </p>
       </div>
     </header>
   );

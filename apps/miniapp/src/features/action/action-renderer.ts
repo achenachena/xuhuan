@@ -227,16 +227,10 @@ export const drawActionArena = (
   }
   drawWarpTrail(context, previous?.player, snapshot.player, snapshot);
   drawWarpAim(context, snapshot, warpAimDirection);
-  const moving = Boolean(
-    previous &&
-      (previous.player.x !== snapshot.player.x ||
-        previous.player.y !== snapshot.player.y),
-  );
   drawPlayer(
     context,
     snapshot.player,
     snapshot,
-    moving,
     visuals?.player ?? null,
   );
   drawScreenEffects(context, snapshot, config);
@@ -796,22 +790,19 @@ const drawPlayer = (
   context: CanvasRenderingContext2D,
   player: ActionVec,
   snapshot: ActionSnapshot,
-  moving: boolean,
   sprite: HTMLImageElement | null,
 ): void => {
   context.save();
   context.translate(player.x, player.y);
-  const walkFrame = moving ? Math.floor(snapshot.tick / 4) & 1 : 0;
-  // Keep the character grounded. Large idle/movement bobbing read as physics
-  // inertia on a small phone even though the simulation has no velocity.
-  const bob = moving ? (walkFrame === 0 ? -3 : 2) : 0;
+  // The combat sprite stays grounded. Position interpolation and walk bobbing
+  // both made direct touch movement read as delayed or inertial in Telegram.
   context.fillStyle = "rgba(34,211,238,.2)";
   context.fillRect(-190, 180, 380, 52);
   if (sprite) {
-    context.drawImage(sprite, -275, -360 + bob, 550, 550);
+    context.drawImage(sprite, -275, -360, 550, 550);
   } else {
     context.fillStyle = "#67e8f9";
-    context.fillRect(-115, -115 + bob, 230, 230);
+    context.fillRect(-115, -115, 230, 230);
   }
   if (snapshot.invulnerable > 0 || snapshot.shield > 0) {
     context.strokeStyle = snapshot.invulnerable > 0 ? "#f0abfc" : "#7dd3fc";

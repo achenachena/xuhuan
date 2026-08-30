@@ -50,22 +50,33 @@ type Props = {
 
 const syncJoystickVisual = (
   pad: HTMLDivElement | null,
+  ring: HTMLDivElement | null,
   knob: HTMLDivElement | null,
   control: JoystickControl | null,
 ): void => {
-  if (!pad || !knob) return;
+  if (!pad || !ring || !knob) return;
   const active = Boolean(control);
   const armed = Boolean(control && isWarpArmed(control));
   pad.dataset.active = String(active);
+  ring.dataset.active = String(active);
   knob.dataset.active = String(active);
   pad.dataset.warp = String(armed);
+  ring.dataset.warp = String(armed);
   knob.dataset.warp = String(armed);
   if (!control) {
+    pad.style.removeProperty("left");
+    pad.style.removeProperty("top");
+    ring.style.removeProperty("left");
+    ring.style.removeProperty("top");
     knob.style.removeProperty("left");
     knob.style.removeProperty("top");
     return;
   }
   const visual = joystickVisual(control);
+  pad.style.left = `${visual.origin.x}px`;
+  pad.style.top = `${visual.origin.y}px`;
+  ring.style.left = `${visual.origin.x}px`;
+  ring.style.top = `${visual.origin.y}px`;
   knob.style.left = `${visual.knob.x}px`;
   knob.style.top = `${visual.knob.y}px`;
 };
@@ -84,6 +95,7 @@ export const ActionArena = ({
   const controlSurfaceRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef<JoystickControl | null>(null);
   const stickPadRef = useRef<HTMLDivElement>(null);
+  const stickWarpRingRef = useRef<HTMLDivElement>(null);
   const stickKnobRef = useRef<HTMLDivElement>(null);
   const snapshotRef = useRef<ActionSnapshot | null>(null);
   const skillRef = useRef(false);
@@ -173,6 +185,12 @@ export const ActionArena = ({
       if (submitting) return;
       submitting = true;
       audioRef.current.playSound(result.won ? "victory" : "defeat");
+      // A real touch trace normally ends as soon as the prediction reaches its
+      // objective. Pad with neutral input so the Go replay can safely absorb a
+      // one-tick prediction difference instead of rejecting a short room. Go
+      // stops at its own authoritative finish tick, so this cannot change an
+      // already matching result and compresses to only a few RLE pairs.
+      recorder.padNeutralTo(config.maxTicks);
       const trace = recorder.encode();
       pendingTraceRef.current = trace;
       void submitCompletedTrace(trace);
@@ -280,9 +298,27 @@ export const ActionArena = ({
   }, [config, submitCompletedTrace, visualSources]);
 
   useEffect(() => {
-    const onVisibility = (): void => setPaused(document.hidden);
+    const releaseControl = (): void => {
+      stickRef.current = null;
+      skillRef.current = false;
+      warpArmedRef.current = false;
+      syncJoystickVisual(
+        stickPadRef.current,
+        stickWarpRingRef.current,
+        stickKnobRef.current,
+        null,
+      );
+    };
+    const onVisibility = (): void => {
+      setPaused(document.hidden);
+      if (document.hidden) releaseControl();
+    };
     document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", releaseControl);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", releaseControl);
+    };
   }, []);
 
   useEffect(() => {
@@ -317,18 +353,20 @@ export const ActionArena = ({
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const rect = event.currentTarget.getBoundingClientRect();
-    const pad = stickPadRef.current?.getBoundingClientRect();
-    const originX = pad ? pad.left + pad.width / 2 - rect.left : 70;
-    const originY = pad ? pad.top + pad.height / 2 - rect.top : rect.height - 70;
-    const radius = pad ? pad.width * 0.48 : 46;
-    const control = moveJoystickControl(
-      beginJoystickControl(event.pointerId, originX, originY, radius),
+    const control = beginJoystickControl(
+      event.pointerId,
       event.clientX - rect.left,
       event.clientY - rect.top,
+      42,
     );
     stickRef.current = control;
     warpArmedRef.current = isWarpArmed(control);
-    syncJoystickVisual(stickPadRef.current, stickKnobRef.current, control);
+    syncJoystickVisual(
+      stickPadRef.current,
+      stickWarpRingRef.current,
+      stickKnobRef.current,
+      control,
+    );
   };
 
   const pointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
@@ -344,14 +382,22 @@ export const ActionArena = ({
     if (armed && !warpArmedRef.current) haptic("light");
     warpArmedRef.current = armed;
     stickRef.current = control;
-    syncJoystickVisual(stickPadRef.current, stickKnobRef.current, control);
+    syncJoystickVisual(
+      stickPadRef.current,
+      stickWarpRingRef.current,
+      stickKnobRef.current,
+      control,
+    );
   };
 
-  const pointerUp = (event: React.PointerEvent<HTMLDivElement>): void => {
+  const endPointer = (
+    event: React.PointerEvent<HTMLDivElement>,
+    releaseWarp: boolean,
+  ): void => {
     const control = stickRef.current;
     if (control?.pointerId !== event.pointerId) return;
     event.preventDefault();
-    const direction = releasedWarpDirection(control);
+    const direction = releaseWarp ? releasedWarpDirection(control) : null;
     if (direction !== null && (snapshotRef.current?.warpCooldown ?? 1) === 0) {
       skillDirectionRef.current = direction;
       skillRef.current = true;
@@ -359,27 +405,29 @@ export const ActionArena = ({
     }
     stickRef.current = null;
     warpArmedRef.current = false;
-    syncJoystickVisual(stickPadRef.current, stickKnobRef.current, null);
+    syncJoystickVisual(
+      stickPadRef.current,
+      stickWarpRingRef.current,
+      stickKnobRef.current,
+      null,
+    );
   };
 
   const tutorial = run.state.encounter?.tutorial;
   const protocolReady = Boolean(snapshot?.protocol);
-  const hint =
+  const guidance =
     (snapshot?.reconnectFX ?? 0) > 0
       ? text("emergencyReconnect")
-      : !tutorial
-        ? null
-        : !moved
-          ? text("tutorialMove")
-          : protocolReady
-            ? usedWarp
-              ? null
-              : text("tutorialWarp")
-            : text("tutorialSignal");
+      : undefined;
   const cooldown = snapshot ? remainingWarpSeconds(snapshot) : 0;
   const warpLabel = snapshot
     ? protocolLabel(snapshot.protocol, locale)
     : text("warp");
+  const traceWasRejected =
+    submissionError instanceof APIError &&
+    ["invalid_command", "invalid_trace", "incomplete_encounter"].includes(
+      submissionError.code,
+    );
 
   return (
     <main
@@ -390,7 +438,7 @@ export const ActionArena = ({
         ref={canvasRef}
         role="img"
         aria-label={text("combatArena")}
-        className="absolute inset-0 h-full w-full [image-rendering:pixelated] [touch-action:none]"
+        className="absolute inset-x-0 bottom-0 top-[calc(var(--xuhuan-host-safe-top)+4.25rem)] w-full [image-rendering:pixelated] [touch-action:none]"
         onContextMenu={(event) => event.preventDefault()}
       />
 
@@ -399,39 +447,36 @@ export const ActionArena = ({
         locale={locale}
         fallbackHealth={run.state.health}
         fallbackMaxHealth={run.state.max_health}
+        tutorial={Boolean(tutorial)}
+        moved={moved}
+        usedWarp={usedWarp}
+        guidanceOverride={guidance}
       />
-
-      {hint && (
-        <div
-          role="status"
-          data-testid="tutorial-hint"
-          className="pointer-events-none absolute left-1/2 top-[calc(var(--xuhuan-host-safe-top)+4.25rem)] z-20 max-w-[88%] -translate-x-1/2 truncate whitespace-nowrap border-l-2 border-cyan-200/60 bg-[#040b18]/72 px-3 py-1.5 text-center font-mono text-[9px] leading-4 text-cyan-50 shadow-[2px_2px_0_rgba(2,6,23,.72)] backdrop-blur-[2px]"
-        >
-          {hint}
-        </div>
-      )}
 
       <div
         ref={controlSurfaceRef}
         role="group"
         aria-label={text("movementControl")}
-        className="absolute bottom-[var(--xuhuan-host-safe-bottom)] left-0 z-20 h-40 w-40 [touch-action:none]"
+        className="absolute inset-x-0 bottom-0 top-[calc(var(--xuhuan-host-safe-top)+4.25rem)] z-20 [touch-action:none]"
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
-        onPointerUp={pointerUp}
-        onPointerCancel={pointerUp}
-        onLostPointerCapture={pointerUp}
+        onPointerUp={(event) => endPointer(event, true)}
+        onPointerCancel={(event) => endPointer(event, false)}
+        onLostPointerCapture={(event) => endPointer(event, false)}
         onContextMenu={(event) => event.preventDefault()}
       >
         <div
+          ref={stickWarpRingRef}
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-2 left-2 h-32 w-32 rounded-full border-2 border-dashed border-fuchsia-200/35 bg-fuchsia-500/[.04] shadow-[0_0_24px_rgba(217,70,239,.1),inset_0_0_20px_rgba(34,211,238,.07)]"
+          data-active="false"
+          data-warp="false"
+          className="pointer-events-none absolute h-[8.9rem] w-[8.9rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-fuchsia-200/40 bg-fuchsia-500/[.03] opacity-0 shadow-[0_0_24px_rgba(217,70,239,.1)] data-[active=true]:opacity-100 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-500/[.08]"
         />
         <div
           ref={stickPadRef}
           data-active="false"
           data-warp="false"
-          className="pointer-events-none absolute bottom-8 left-8 grid h-20 w-20 place-items-center rounded-full border-2 border-cyan-100/45 bg-slate-950/76 font-mono text-[7px] tracking-[.12em] text-cyan-50/75 shadow-[inset_0_0_0_7px_rgba(8,47,73,.28)] transition-[border-color,background-color,box-shadow] data-[active=true]:border-cyan-50/80 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-950/75 data-[warp=true]:shadow-[inset_0_0_0_7px_rgba(8,47,73,.36),0_0_24px_rgba(217,70,239,.55)]"
+          className="pointer-events-none absolute grid h-[5.25rem] w-[5.25rem] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-cyan-100/45 bg-slate-950/82 font-mono text-[7px] tracking-[.12em] text-cyan-50/75 opacity-0 shadow-[inset_0_0_0_7px_rgba(8,47,73,.28)] data-[active=true]:opacity-100 data-[active=true]:border-cyan-50/80 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-950/82 data-[warp=true]:shadow-[inset_0_0_0_7px_rgba(8,47,73,.36),0_0_24px_rgba(217,70,239,.55)]"
         >
           {cooldown > 0
             ? `${cooldown}s`
@@ -463,12 +508,10 @@ export const ActionArena = ({
       {submissionFailed ? (
         <div className="absolute inset-x-3 bottom-[calc(var(--xuhuan-host-safe-bottom)+.75rem)] z-40 border-l-2 border-rose-300/70 bg-[#100814]/94 px-4 py-3 font-mono text-[10px] text-rose-50 shadow-xl backdrop-blur-sm">
           <p className="leading-4">
-            {submissionError instanceof APIError && submissionError.code === "invalid_command"
-              ? text("traceRejected")
-              : text("traceUploadFailed")}
+            {traceWasRejected ? text("traceRejected") : text("traceUploadFailed")}
           </p>
           <div className="mt-2 flex gap-2">
-            {submissionError instanceof APIError && submissionError.code === "invalid_command" ? (
+            {traceWasRejected ? (
               <button
                 type="button"
                 className="min-h-10 flex-1 border border-rose-200 bg-rose-200 px-3 py-2 font-bold text-slate-950"
