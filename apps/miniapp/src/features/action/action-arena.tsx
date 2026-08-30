@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAudio } from "@/components/providers/audio-provider";
 import {
   beginDragControl,
-  consumeDragInput,
   dragReticle,
   moveDragControl,
   readDragInput,
@@ -218,9 +217,6 @@ export const ActionArena = ({
         const input = skillRef.current
           ? warpInput(skillDirectionRef.current)
           : readDragInput(dragRef.current);
-        if (!skillRef.current) {
-          dragRef.current = consumeDragInput(dragRef.current);
-        }
         skillRef.current = false;
         if (input.magnitude > 0 && !movedRef.current) {
           movedRef.current = true;

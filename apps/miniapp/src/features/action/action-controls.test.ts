@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   beginDragControl,
-  consumeDragInput,
   dragReticle,
   moveDragControl,
   readDragInput,
@@ -11,21 +10,17 @@ import {
 } from "@/features/action/action-controls";
 
 describe("direct drag controls", () => {
-  it("starts still and stops on the first consumed tick", () => {
+  it("keeps moving while held and stops immediately when released", () => {
     const started = beginDragControl(4, 90, 500, { x: 900, y: 5000 });
     const dragged = moveDragControl(started, 102, 500, { x: 1020, y: 5000 });
 
-    expect(readDragInput(dragged)).toEqual({
+    const heldInput = {
       direction: 0,
       magnitude: 3,
       skill: false,
-    });
-    const consumed = consumeDragInput(dragged);
-    expect(readDragInput(consumed)).toEqual({
-      direction: 0,
-      magnitude: 0,
-      skill: false,
-    });
+    };
+    expect(readDragInput(dragged)).toEqual(heldInput);
+    expect(readDragInput(dragged)).toEqual(heldInput);
     expect(readDragInput(null)).toEqual({
       direction: 0,
       magnitude: 0,
