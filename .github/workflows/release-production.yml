@@ -529,7 +529,20 @@ jobs:
             --header "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v13/deployments/$hostname?teamId=$VERCEL_ORG_ID" \
             --output "$RUNNER_TEMP/promoted-vercel-deployment.json"
-          mapfile -t production_aliases < <(jq -r '.alias[]? // empty' "$RUNNER_TEMP/promoted-vercel-deployment.json")
+          test "$(jq -r '.target // empty' "$RUNNER_TEMP/promoted-vercel-deployment.json")" = "production"
+          test "$(jq -r '.readyState // empty' "$RUNNER_TEMP/promoted-vercel-deployment.json")" = "READY"
+          test "$(jq -r '.projectId // empty' "$RUNNER_TEMP/promoted-vercel-deployment.json")" = "$VERCEL_PROJECT_ID"
+          test "$(jq -r '.meta.releaseSha // empty' "$RUNNER_TEMP/promoted-vercel-deployment.json")" = "$RELEASE_SHA"
+          project_name=$(jq -r '.name // empty' "$RUNNER_TEMP/promoted-vercel-deployment.json")
+          if [[ ! "$project_name" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+            echo "::error::Vercel returned an invalid project name"
+            exit 1
+          fi
+          # Team-owned deployment metadata can omit the public <project>.vercel.app alias.
+          mapfile -t production_aliases < <(jq -r \
+            --arg default_alias "$project_name.vercel.app" \
+            '[.alias[]?, $default_alias] | map(select(length > 0)) | unique[]' \
+            "$RUNNER_TEMP/promoted-vercel-deployment.json")
           if test "${#production_aliases[@]}" -eq 0; then
             echo "::error::The promoted deployment has no production alias"
             exit 1
