@@ -522,7 +522,7 @@ test("serves browser security headers", async ({ request }) => {
   expect(response.headers()["x-powered-by"]).toBeUndefined();
 });
 
-test("one tap starts Action V3, the outer ring warps, and the run resumes safely", async ({
+test("one tap starts Action V3, direct drag stops cleanly, and the run resumes safely", async ({
   page,
   request,
 }) => {
@@ -614,17 +614,18 @@ test("one tap starts Action V3, the outer ring warps, and the run resumes safely
   expect(encounterViewport.overscroll).toBe("none");
 
   const movement = page.getByRole("group", {
-    name: "Movement and Warp control",
+    name: "Drag movement and tap Warp control",
   });
   const box = await movement.boundingBox();
   if (!box) throw new Error("Movement control has no bounds");
   await page.mouse.move(box.x + 88, box.y + 104);
   await page.mouse.down();
-  const stick = movement.locator("[data-active]").nth(1);
-  await expect(stick).toHaveAttribute("data-active", "true");
+  const reticle = movement.locator("[data-active]");
+  await expect(reticle).toHaveAttribute("data-active", "false");
   await page.mouse.move(box.x + 178, box.y + 104, { steps: 6 });
+  await expect(reticle).toHaveAttribute("data-active", "true");
   await page.mouse.up();
-  await expect(stick).toHaveAttribute("data-active", "false");
+  await expect(reticle).toHaveAttribute("data-active", "false");
 
   const first = await getGame(request);
   expect(first.protocol).toBe("action-v2");

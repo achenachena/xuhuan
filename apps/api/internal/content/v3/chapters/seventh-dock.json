@@ -254,7 +254,7 @@
       "chapter_slug": "seventh-dock",
       "kind": "tutorial",
       "objective": {
-        "kind": "stabilize",
+        "kind": "recover",
         "target": 3
       },
       "duration_ticks": 750,

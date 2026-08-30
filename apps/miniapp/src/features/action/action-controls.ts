@@ -1,102 +1,103 @@
-import type { ActionInput } from "@/features/action/action-types";
+import type {
+  ActionInput,
+  ActionVec,
+} from "@/features/action/action-types";
 
 type Point = { readonly x: number; readonly y: number };
 
-export type JoystickControl = {
+export type DragControl = {
   readonly pointerId: number;
   readonly origin: Point;
   readonly pointer: Point;
-  readonly radius: number;
-  readonly warpRadius: number;
+  readonly arenaPointer: ActionVec;
+  readonly dragged: boolean;
 };
 
-export type JoystickVisual = {
-  readonly origin: Point;
-  readonly knob: Point;
-  readonly warpArmed: boolean;
-};
+const DRAG_ACTIVATION_PX = 5;
+const SLOW_DRAG_PX = 3;
+const FAST_DRAG_PX = 10;
 
-// Movement is deliberately binary. Once the thumb leaves a generous dead zone,
-// the character moves at full speed; releasing emits a neutral frame on the
-// very next simulation tick. Variable speed bands felt like acceleration on a
-// small WebView even though the simulation itself has no retained velocity.
-const DEAD_ZONE_RATIO = 0.2;
-const WARP_RADIUS_RATIO = 1.7;
+const neutralInput = (): ActionInput => ({
+  direction: 0,
+  magnitude: 0,
+  skill: false,
+});
 
-export const beginJoystickControl = (
+const quantizedDirection = (dx: number, dy: number): number =>
+  (Math.round((Math.atan2(dy, dx) / (Math.PI * 2)) * 16) + 16) % 16;
+
+export const beginDragControl = (
   pointerId: number,
   x: number,
   y: number,
-  radius = 52,
-): JoystickControl => ({
+  arenaPointer: ActionVec,
+): DragControl => ({
   pointerId,
   origin: { x, y },
   pointer: { x, y },
-  radius,
-  warpRadius: radius * WARP_RADIUS_RATIO,
+  arenaPointer,
+  dragged: false,
 });
 
-export const moveJoystickControl = (
-  control: JoystickControl,
+export const moveDragControl = (
+  control: DragControl,
   x: number,
   y: number,
-): JoystickControl => ({ ...control, pointer: { x, y } });
+  arenaPointer: ActionVec,
+): DragControl => ({
+  ...control,
+  pointer: { x, y },
+  arenaPointer,
+  dragged:
+    control.dragged ||
+    Math.hypot(x - control.origin.x, y - control.origin.y) >=
+      DRAG_ACTIVATION_PX,
+});
 
-export const readJoystickInput = (
-  control: JoystickControl | null,
-  skill: boolean,
-  skillDirection = 0,
-): ActionInput => {
-  if (!control)
-    return {
-      direction: skill ? skillDirection & 15 : 0,
-      // A released outer-ring Warp must carry its quantized direction in the
-      // same authoritative frame. Magnitude three is the trace protocol's
-      // directional Warp form; magnitude zero is intentionally the upward
-      // keyboard/accessibility fallback in the Go engine.
-      magnitude: skill ? 3 : 0,
-      skill,
-    };
-
+// Movement follows only displacement received since the previous simulation
+// tick. Consuming that displacement makes a stationary or released finger
+// produce a neutral frame immediately, with no hidden target or velocity.
+export const readDragInput = (control: DragControl | null): ActionInput => {
+  if (!control?.dragged) return neutralInput();
   const dx = control.pointer.x - control.origin.x;
   const dy = control.pointer.y - control.origin.y;
   const distance = Math.hypot(dx, dy);
-  const ratio = distance / control.radius;
-  if (ratio < DEAD_ZONE_RATIO)
-    return { direction: 0, magnitude: 0, skill };
-
-  const direction =
-    (Math.round((Math.atan2(dy, dx) / (Math.PI * 2)) * 16) + 16) % 16;
-  return { direction, magnitude: 3, skill };
-};
-
-export const isWarpArmed = (control: JoystickControl): boolean => {
-  const dx = control.pointer.x - control.origin.x;
-  const dy = control.pointer.y - control.origin.y;
-  return Math.hypot(dx, dy) >= control.warpRadius;
-};
-
-export const releasedWarpDirection = (
-  control: JoystickControl,
-): number | null => {
-  if (!isWarpArmed(control)) return null;
-  return readJoystickInput(control, false).direction;
-};
-
-export const joystickVisual = (
-  control: JoystickControl,
-): JoystickVisual => {
-  const dx = control.pointer.x - control.origin.x;
-  const dy = control.pointer.y - control.origin.y;
-  const distance = Math.hypot(dx, dy);
-  const scale =
-    distance > control.warpRadius ? control.warpRadius / distance : 1;
+  if (distance < 1) return neutralInput();
   return {
-    origin: control.origin,
-    knob: {
-      x: control.origin.x + dx * scale,
-      y: control.origin.y + dy * scale,
-    },
-    warpArmed: isWarpArmed(control),
+    direction: quantizedDirection(dx, dy),
+    magnitude:
+      distance >= FAST_DRAG_PX ? 3 : distance >= SLOW_DRAG_PX ? 2 : 1,
+    skill: false,
   };
 };
+
+export const consumeDragInput = (
+  control: DragControl | null,
+): DragControl | null =>
+  control
+    ? {
+        ...control,
+        origin: control.pointer,
+      }
+    : null;
+
+export const releasedTapWarpDirection = (
+  control: DragControl,
+  player: ActionVec,
+): number | null => {
+  if (control.dragged) return null;
+  const dx = control.arenaPointer.x - player.x;
+  const dy = control.arenaPointer.y - player.y;
+  if (Math.hypot(dx, dy) < 80) return null;
+  return quantizedDirection(dx, dy);
+};
+
+export const warpInput = (direction: number): ActionInput => ({
+  direction: direction & 15,
+  magnitude: 0,
+  skill: true,
+});
+
+export const dragReticle = (
+  control: DragControl,
+): Point | null => (control.dragged ? control.pointer : null);

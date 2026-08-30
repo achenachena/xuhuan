@@ -4,17 +4,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAudio } from "@/components/providers/audio-provider";
 import {
-  beginJoystickControl,
-  isWarpArmed,
-  joystickVisual,
-  moveJoystickControl,
-  readJoystickInput,
-  releasedWarpDirection,
-  type JoystickControl,
+  beginDragControl,
+  consumeDragInput,
+  dragReticle,
+  moveDragControl,
+  readDragInput,
+  releasedTapWarpDirection,
+  warpInput,
+  type DragControl,
 } from "@/features/action/action-controls";
 import { ActionHUD } from "@/features/action/action-hud";
 import {
   ACTION_TPS,
+  ACTION_HEIGHT,
+  ACTION_WIDTH,
   buildActionConfig,
   createActionSimulation,
   TraceRecorder,
@@ -22,11 +25,9 @@ import {
   type ActionSnapshot,
   type ActionTrace,
 } from "@/features/action/action-engine";
-import { protocolLabel } from "@/features/action/action-labels";
 import {
   drawActionArena,
   preloadActionVisuals,
-  remainingWarpSeconds,
   resolveActionVisualSources,
   type ActionVisuals,
 } from "@/features/action/action-renderer";
@@ -48,37 +49,34 @@ type Props = {
   readonly onRestart: () => void;
 };
 
-const syncJoystickVisual = (
-  pad: HTMLDivElement | null,
-  ring: HTMLDivElement | null,
-  knob: HTMLDivElement | null,
-  control: JoystickControl | null,
+const arenaPoint = (
+  rect: DOMRect,
+  x: number,
+  y: number,
+): { readonly x: number; readonly y: number } => {
+  const scale = Math.min(rect.width / ACTION_WIDTH, rect.height / ACTION_HEIGHT);
+  const offsetX = (rect.width - ACTION_WIDTH * scale) / 2;
+  const offsetY = (rect.height - ACTION_HEIGHT * scale) / 2;
+  return {
+    x: Math.max(0, Math.min(ACTION_WIDTH, Math.round((x - offsetX) / scale))),
+    y: Math.max(0, Math.min(ACTION_HEIGHT, Math.round((y - offsetY) / scale))),
+  };
+};
+
+const syncDragReticle = (
+  reticle: HTMLDivElement | null,
+  control: DragControl | null,
 ): void => {
-  if (!pad || !ring || !knob) return;
-  const active = Boolean(control);
-  const armed = Boolean(control && isWarpArmed(control));
-  pad.dataset.active = String(active);
-  ring.dataset.active = String(active);
-  knob.dataset.active = String(active);
-  pad.dataset.warp = String(armed);
-  ring.dataset.warp = String(armed);
-  knob.dataset.warp = String(armed);
-  if (!control) {
-    pad.style.removeProperty("left");
-    pad.style.removeProperty("top");
-    ring.style.removeProperty("left");
-    ring.style.removeProperty("top");
-    knob.style.removeProperty("left");
-    knob.style.removeProperty("top");
+  if (!reticle) return;
+  const point = control ? dragReticle(control) : null;
+  reticle.dataset.active = String(Boolean(point));
+  if (!point) {
+    reticle.style.removeProperty("left");
+    reticle.style.removeProperty("top");
     return;
   }
-  const visual = joystickVisual(control);
-  pad.style.left = `${visual.origin.x}px`;
-  pad.style.top = `${visual.origin.y}px`;
-  ring.style.left = `${visual.origin.x}px`;
-  ring.style.top = `${visual.origin.y}px`;
-  knob.style.left = `${visual.knob.x}px`;
-  knob.style.top = `${visual.knob.y}px`;
+  reticle.style.left = `${point.x}px`;
+  reticle.style.top = `${point.y}px`;
 };
 
 export const ActionArena = ({
@@ -93,14 +91,11 @@ export const ActionArena = ({
   const audio = useAudio();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controlSurfaceRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef<JoystickControl | null>(null);
-  const stickPadRef = useRef<HTMLDivElement>(null);
-  const stickWarpRingRef = useRef<HTMLDivElement>(null);
-  const stickKnobRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragControl | null>(null);
+  const dragReticleRef = useRef<HTMLDivElement>(null);
   const snapshotRef = useRef<ActionSnapshot | null>(null);
   const skillRef = useRef(false);
   const skillDirectionRef = useRef(0);
-  const warpArmedRef = useRef(false);
   const movedRef = useRef(false);
   const usedWarpRef = useRef(false);
   const completeRef = useRef(onComplete);
@@ -198,11 +193,6 @@ export const ActionArena = ({
 
     const draw = (): void => {
       if (!simulation) return;
-      const control = stickRef.current;
-      const aimDirection =
-        control && isWarpArmed(control)
-          ? readJoystickInput(control, false).direction
-          : null;
       drawActionArena(
         canvasRef.current,
         currentSnapshot ?? simulation.snapshot(),
@@ -210,7 +200,7 @@ export const ActionArena = ({
         Math.min(1, accumulator / (1000 / ACTION_TPS)),
         config,
         visuals,
-        aimDirection,
+        null,
       );
     };
 
@@ -225,11 +215,12 @@ export const ActionArena = ({
         updates < 5 &&
         !submitting
       ) {
-        const input = readJoystickInput(
-          stickRef.current,
-          skillRef.current,
-          skillDirectionRef.current,
-        );
+        const input = skillRef.current
+          ? warpInput(skillDirectionRef.current)
+          : readDragInput(dragRef.current);
+        if (!skillRef.current) {
+          dragRef.current = consumeDragInput(dragRef.current);
+        }
         skillRef.current = false;
         if (input.magnitude > 0 && !movedRef.current) {
           movedRef.current = true;
@@ -292,22 +283,15 @@ export const ActionArena = ({
     return () => {
       disposed = true;
       cancelAnimationFrame(animationFrame);
-      stickRef.current = null;
-      warpArmedRef.current = false;
+      dragRef.current = null;
     };
   }, [config, submitCompletedTrace, visualSources]);
 
   useEffect(() => {
     const releaseControl = (): void => {
-      stickRef.current = null;
+      dragRef.current = null;
       skillRef.current = false;
-      warpArmedRef.current = false;
-      syncJoystickVisual(
-        stickPadRef.current,
-        stickWarpRingRef.current,
-        stickKnobRef.current,
-        null,
-      );
+      syncDragReticle(dragReticleRef.current, null);
     };
     const onVisibility = (): void => {
       setPaused(document.hidden);
@@ -340,10 +324,10 @@ export const ActionArena = ({
     };
   }, []);
 
-  const haptic = (style: "light" | "medium"): void => {
+  const haptic = (): void => {
     void import("@twa-dev/sdk").then(({ default: webApp }) => {
       if (webApp.platform !== "unknown") {
-        webApp.HapticFeedback.impactOccurred(style);
+        webApp.HapticFeedback.impactOccurred("medium");
       }
     });
   };
@@ -353,76 +337,59 @@ export const ActionArena = ({
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const rect = event.currentTarget.getBoundingClientRect();
-    const control = beginJoystickControl(
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const control = beginDragControl(
       event.pointerId,
-      event.clientX - rect.left,
-      event.clientY - rect.top,
-      42,
+      x,
+      y,
+      arenaPoint(rect, x, y),
     );
-    stickRef.current = control;
-    warpArmedRef.current = isWarpArmed(control);
-    syncJoystickVisual(
-      stickPadRef.current,
-      stickWarpRingRef.current,
-      stickKnobRef.current,
-      control,
-    );
+    dragRef.current = control;
+    syncDragReticle(dragReticleRef.current, control);
   };
 
   const pointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
-    if (stickRef.current?.pointerId !== event.pointerId) return;
+    if (dragRef.current?.pointerId !== event.pointerId) return;
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
-    const control = moveJoystickControl(
-      stickRef.current,
-      event.clientX - rect.left,
-      event.clientY - rect.top,
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const control = moveDragControl(
+      dragRef.current,
+      x,
+      y,
+      arenaPoint(rect, x, y),
     );
-    const armed = isWarpArmed(control);
-    if (armed && !warpArmedRef.current) haptic("light");
-    warpArmedRef.current = armed;
-    stickRef.current = control;
-    syncJoystickVisual(
-      stickPadRef.current,
-      stickWarpRingRef.current,
-      stickKnobRef.current,
-      control,
-    );
+    dragRef.current = control;
+    syncDragReticle(dragReticleRef.current, control);
   };
 
   const endPointer = (
     event: React.PointerEvent<HTMLDivElement>,
     releaseWarp: boolean,
   ): void => {
-    const control = stickRef.current;
+    const control = dragRef.current;
     if (control?.pointerId !== event.pointerId) return;
     event.preventDefault();
-    const direction = releaseWarp ? releasedWarpDirection(control) : null;
+    const direction =
+      releaseWarp && snapshotRef.current
+        ? releasedTapWarpDirection(control, snapshotRef.current.player)
+        : null;
     if (direction !== null && (snapshotRef.current?.warpCooldown ?? 1) === 0) {
       skillDirectionRef.current = direction;
       skillRef.current = true;
-      haptic("medium");
+      haptic();
     }
-    stickRef.current = null;
-    warpArmedRef.current = false;
-    syncJoystickVisual(
-      stickPadRef.current,
-      stickWarpRingRef.current,
-      stickKnobRef.current,
-      null,
-    );
+    dragRef.current = null;
+    syncDragReticle(dragReticleRef.current, null);
   };
 
   const tutorial = run.state.encounter?.tutorial;
-  const protocolReady = Boolean(snapshot?.protocol);
   const guidance =
     (snapshot?.reconnectFX ?? 0) > 0
       ? text("emergencyReconnect")
       : undefined;
-  const cooldown = snapshot ? remainingWarpSeconds(snapshot) : 0;
-  const warpLabel = snapshot
-    ? protocolLabel(snapshot.protocol, locale)
-    : text("warp");
   const traceWasRejected =
     submissionError instanceof APIError &&
     ["invalid_command", "invalid_trace", "incomplete_encounter"].includes(
@@ -470,31 +437,13 @@ export const ActionArena = ({
           onContextMenu={(event) => event.preventDefault()}
         >
           <div
-            ref={stickWarpRingRef}
+            ref={dragReticleRef}
             aria-hidden="true"
             data-active="false"
-            data-warp="false"
-            className="pointer-events-none absolute h-[8.9rem] w-[8.9rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-fuchsia-200/40 bg-fuchsia-500/[.03] opacity-0 shadow-[0_0_24px_rgba(217,70,239,.1)] data-[active=true]:opacity-100 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-500/[.08]"
-          />
-          <div
-            ref={stickPadRef}
-            data-active="false"
-            data-warp="false"
-            className="pointer-events-none absolute grid h-[5.25rem] w-[5.25rem] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-cyan-100/45 bg-slate-950/82 font-mono text-[7px] tracking-[.12em] text-cyan-50/75 opacity-0 shadow-[inset_0_0_0_7px_rgba(8,47,73,.28)] data-[active=true]:opacity-100 data-[active=true]:border-cyan-50/80 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-950/82 data-[warp=true]:shadow-[inset_0_0_0_7px_rgba(8,47,73,.36),0_0_24px_rgba(217,70,239,.55)]"
+            className="pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-cyan-100/75 bg-cyan-300/10 opacity-0 shadow-[0_0_12px_rgba(34,211,238,.45)] data-[active=true]:opacity-100"
           >
-            {cooldown > 0
-              ? `${cooldown}s`
-              : protocolReady
-                ? warpLabel
-                : text("moveWarp")}
-            <div className="absolute inset-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-cyan-100/45" />
+            <span className="absolute inset-2 border border-cyan-50/80 bg-cyan-300/35" />
           </div>
-          <div
-            ref={stickKnobRef}
-            data-active="false"
-            data-warp="false"
-            className="pointer-events-none absolute h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-50 bg-cyan-400/45 opacity-0 shadow-[0_0_16px_rgba(34,211,238,.5)] transition-[opacity,background-color,border-color,box-shadow] data-[active=true]:opacity-100 data-[warp=true]:border-fuchsia-50 data-[warp=true]:bg-fuchsia-400/65 data-[warp=true]:shadow-[0_0_26px_rgba(217,70,239,.8)]"
-          />
         </div>
       </div>
 

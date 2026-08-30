@@ -13,7 +13,9 @@ export type APIDailyResult = components["schemas"]["DailyResult"];
 
 type ErrorEnvelope = components["schemas"]["ErrorEnvelope"];
 const requestTimeoutMilliseconds = 20_000;
-const encounterReplayTimeoutMilliseconds = 45_000;
+const encounterReplayTimeoutMilliseconds = 20_000;
+const encounterReplayAttempts = 3;
+const retryDelaysMilliseconds = [250, 750] as const;
 
 let cachedWebApp: (typeof import("@twa-dev/sdk"))["default"] | null = null;
 
@@ -96,16 +98,40 @@ const postJSON = async <TBody, TResponse>(
   body: TBody,
   idempotencyKey: string,
   timeoutMilliseconds = requestTimeoutMilliseconds,
+  attempts = 1,
 ): Promise<TResponse> => {
-  return requestJSON<TResponse>(path, {
-    method: "POST",
-    signal: AbortSignal.timeout(timeoutMilliseconds),
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey
-    },
-    body: JSON.stringify(body)
-  });
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await requestJSON<TResponse>(path, {
+        method: "POST",
+        signal: AbortSignal.timeout(timeoutMilliseconds),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey
+        },
+        body: JSON.stringify(body)
+      });
+    } catch (error) {
+      lastError = error;
+      const retryable =
+        error instanceof TypeError ||
+        (error instanceof DOMException &&
+          ["AbortError", "TimeoutError"].includes(error.name)) ||
+        (error instanceof APIError &&
+          (error.status === 429 || error.status >= 500));
+      if (!retryable || attempt + 1 >= attempts) throw error;
+      await new Promise((resolve) =>
+        globalThis.setTimeout(
+          resolve,
+          retryDelaysMilliseconds[
+            Math.min(attempt, retryDelaysMilliseconds.length - 1)
+          ],
+        ),
+      );
+    }
+  }
+  throw lastError;
 };
 
 export const createIdempotencyKey = (): string => {
@@ -149,6 +175,7 @@ export const createRunCommand = (
     body.type === "complete_encounter"
       ? encounterReplayTimeoutMilliseconds
       : requestTimeoutMilliseconds,
+    body.type === "complete_encounter" ? encounterReplayAttempts : 1,
   );
 };
 

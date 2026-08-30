@@ -60,6 +60,6 @@ export const protocolLabel = (
     case "resonance":
       return gameText(locale, "protocolResonance");
     default:
-      return gameText(locale, "warp");
+      return "";
   }
 };

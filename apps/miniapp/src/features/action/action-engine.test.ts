@@ -489,6 +489,19 @@ describe("action-v2 engine", () => {
     expect(simulation.snapshot().player).toEqual(moved);
   });
 
+  it("warps in the tapped direction without an extra movement step", () => {
+    const config = toConfig(fixture.vectors[0]!.config);
+    const simulation = new ActionSimulation(config, 1234);
+    const before = simulation.snapshot().player;
+
+    simulation.step({ direction: 0, magnitude: 0, skill: true });
+
+    expect(simulation.snapshot().player).toEqual({
+      x: before.x + 620,
+      y: before.y,
+    });
+  });
+
   it("uses the authoritative projectile-speed cadence for upgraded builds", () => {
     const base = toConfig(fixture.vectors[0]!.config);
     const config: ActionConfig = {
