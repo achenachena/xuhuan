@@ -38,7 +38,7 @@ The Lambda is exposed through a Function URL bound to a stable alias. There is n
 4. Entering a room stores the encounter slug, derived seed, objective, duration, hard Tick cap, risk, reward bias, and hazards in the Run snapshot.
 5. The browser simulates at 30 Hz for responsive presentation and records only quantized direction, magnitude, and Warp presses.
 6. Room completion submits one `rle8-v1` input trace under the global 64 KiB request limit. The client does not submit authoritative positions, damage, kills, drops, score, or outcomes.
-7. Go decodes and replays the trace with fixed-point coordinates, seeded randomness, stable entity order, and hard entity limits. The optional trace field `prediction_digest` is compared with the authoritative digest and reported as `prediction_drift`; it is telemetry only and cannot override the replay result.
+7. Go decodes and replays the trace with fixed-point coordinates, seeded randomness, stable entity order, and hard entity limits. The replay result is authoritative; the browser sends no client-authored health, damage, reward, or prediction checksum.
 8. PostgreSQL locks the player-owned Run, checks `expected_version` and `Idempotency-Key`, appends an immutable command result, writes the new JSONB snapshot, and commits atomically.
 
 Malformed, oversized, non-canonical, or incomplete traces cannot advance a Run. Closing the WebView loses only predicted frames; reopening restarts the current room from the stored encounter seed.
@@ -55,7 +55,7 @@ apps/api/internal/
   game/          authenticated application orchestration
   api/           HTTP v2 transport and localized response mapping
   postgres/      pgx repositories, row locks, migrations, daily results
-  platform/      configuration, logging, telemetry, and rate limiting
+  platform/      configuration, structured logging, and rate limiting
 ```
 
 The `action` and `run` packages do not call databases, clocks, networks, or process-global random functions. Date selection for daily mode occurs in the application service; the resulting UTC date, seed, chapter, and character are stored before replay.
@@ -144,11 +144,11 @@ The App Router page remains a Server Component and mounts a small client boundar
 
 The interface targets a 320 by 568 portrait viewport, Telegram safe areas, pointer capture, `touch-action: none`, capped device-pixel ratio, and visibility pause. Assets are local under `apps/miniapp/public/game/v3/`; no third-party game runtime is required.
 
-## Release and observability boundaries
+## Release and operational boundaries
 
 Production uses one protected exact-SHA workflow and rejects stale ancestors of the current `main` HEAD. It stages a production-mode Vercel build without domains, verifies its rendered V3/action-v2 marker, checks an immutable Lambda version, promotes the exact staged frontend, and confirms that the linked production domain serves that artifact. It then sets Lambda concurrency to zero, applies the V3 preparation migration, verifies the runtime database URL sees that boundary, switches the alias, restores bounded concurrency, verifies `healthz`/`readyz` and `v3`/`action-v2`, and runs a signed Telegram journey. The same ephemeral signed launch data is injected through a minimal Telegram bridge into headless Chrome so the promoted frontend itself must boot, authenticate its game snapshot, and perform a localized UI/API refresh. During the API cutover, the already-promoted V3 frontend keeps the player in its connection-safe retry state instead of issuing legacy commands. The smoke refuses any pre-existing synthetic Telegram ID; an always-running, identity-scoped cleanup removes only the synthetic player and its cascading game records after any attempted journey. The legacy schema contracts only after both smoke and cleanup pass. See [action-v3-release.md](action-v3-release.md).
 
-Responses carry `X-Request-ID`. Logs and metrics use route templates and bounded reason labels, never raw init data, credentials, database URLs, SQL arguments, full traces, or player/run identifiers. PostgreSQL gates readiness. Redis and optional OTLP export fail open to bounded in-process behavior or no-op telemetry.
+Responses carry `X-Request-ID`. Structured logs use route templates and bounded reason labels, never raw init data, credentials, database URLs, SQL arguments, full traces, or player/run identifiers. PostgreSQL gates readiness. Redis failures fall back to a bounded in-process limiter. AWS-native Lambda and CloudWatch signals cover production health without an unused application telemetry exporter.
 
 ## Identity and dependency policy
 

@@ -6,9 +6,9 @@
     "data": "PBo4GTQFMDI4MjwfMDI4GTwpMBk0BDgZPAQwGTQpODIwMjQfODIwGTwFNBpEATwaOBk0BTAyODI8HzAw"
   },
   "vectors": [
-    {"name": "nana-waypoint-chain", "passive": "nana_route_chain", "digest": "3cfb5553"},
-    {"name": "ava-delayed-replay", "passive": "ava_afterimage", "digest": "4a0b955b"},
-    {"name": "lulu-glitch-conversion", "passive": "lulu_convert_projectiles", "digest": "dbd95ca7"},
-    {"name": "nailu-bloom-zones", "passive": "nailu_memory_bloom", "digest": "810f54c4"}
+    {"name": "nana-waypoint-chain", "passive": "nana_route_chain", "expected": {"won": true, "health": 90, "ticks": 665, "kills": 0, "protocols": 1, "distortion": 55, "score": 1028, "emergency_used": false, "objective_progress": 6, "enemy_count": 4, "projectile_count": 19, "signal_count": 3, "weave": null, "player": {"x": 1800, "y": 4580}, "shield": 0, "total_grazes": 15}},
+    {"name": "ava-delayed-replay", "passive": "ava_afterimage", "expected": {"won": true, "health": 88, "ticks": 665, "kills": 0, "protocols": 1, "distortion": 66, "score": 1018, "emergency_used": false, "objective_progress": 6, "enemy_count": 4, "projectile_count": 27, "signal_count": 3, "weave": null, "player": {"x": 1800, "y": 4580}, "shield": 0, "total_grazes": 17}},
+    {"name": "lulu-glitch-conversion", "passive": "lulu_convert_projectiles", "expected": {"won": true, "health": 90, "ticks": 665, "kills": 0, "protocols": 1, "distortion": 26, "score": 1108, "emergency_used": false, "objective_progress": 6, "enemy_count": 4, "projectile_count": 0, "signal_count": 3, "weave": null, "player": {"x": 1800, "y": 4580}, "shield": 0, "total_grazes": 9}},
+    {"name": "nailu-bloom-zones", "passive": "nailu_memory_bloom", "expected": {"won": true, "health": 92, "ticks": 665, "kills": 0, "protocols": 1, "distortion": 71, "score": 1038, "emergency_used": false, "objective_progress": 6, "enemy_count": 4, "projectile_count": 14, "signal_count": 3, "weave": null, "player": {"x": 1800, "y": 4580}, "shield": 0, "total_grazes": 18}}
   ]
 }

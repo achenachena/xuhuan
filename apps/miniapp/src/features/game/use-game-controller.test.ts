@@ -239,7 +239,7 @@ describe("useGameController action-v2 orchestration", () => {
         encoding: "rle8-v1",
         ticks: 12,
         data: "MAw",
-        prediction_digest: "4b2517cd",
+        obsolete_field: "discard-me",
       },
     } as const;
     window.sessionStorage.setItem(
@@ -262,7 +262,11 @@ describe("useGameController action-v2 orchestration", () => {
 
     expect(dependencies.createRunCommand).toHaveBeenCalledWith(
       encounter.id,
-      body,
+      {
+        type: "complete_encounter",
+        expected_version: 1,
+        trace: { encoding: "rle8-v1", ticks: 12, data: "MAw" },
+      },
       "pending-key",
     );
     expect(result.current.game?.campaign_run?.version).toBe(2);
@@ -344,12 +348,10 @@ describe("useGameController action-v2 orchestration", () => {
       encoding: "rle8-v1" as const,
       ticks: 12,
       data: "MAw",
-      prediction_digest: "4b2517cd",
     };
     const replacementTrace = {
       ...originalTrace,
       data: "unexpected-replacement",
-      prediction_digest: "ffffffff",
     };
     dependencies.getGame.mockResolvedValue(
       createV3Game({ campaign_run: encounter }),
@@ -434,7 +436,6 @@ describe("useGameController action-v2 orchestration", () => {
           encoding: "rle8-v1",
           ticks: 12,
           data: "MAw",
-          prediction_digest: "4b2517cd",
         },
       });
       expect(response?.run.version).toBe(2);

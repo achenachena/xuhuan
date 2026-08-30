@@ -8,7 +8,7 @@ import {
 } from "@/test/v3-fixtures";
 
 describe("buildActionConfig", () => {
-  it("normalizes a legacy null hazards collection at the transport edge", () => {
+  it("normalizes a nullable hazards collection at the transport edge", () => {
     const run = createV3Run({
       state: {
         ...v3BaseState,

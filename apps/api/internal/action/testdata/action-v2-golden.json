@@ -55,7 +55,7 @@
         }
       },
       "trace": { "encoding": "rle8-v1", "ticks": 120, "data": "EHg" },
-      "digest": "1b8dd12d"
+      "expected": {"won": true, "health": 80, "ticks": 120, "kills": 1, "protocols": 0, "distortion": 0, "score": 520, "emergency_used": false, "objective_progress": 120, "enemy_count": 0, "projectile_count": 0, "signal_count": 3, "weave": null, "player": {"x": 3480, "y": 5200}, "shield": 0, "total_grazes": 0}
     },
     {
       "name": "three-phase-boss",
@@ -113,7 +113,7 @@
         }
       },
       "trace": { "encoding": "rle8-v1", "ticks": 2700, "data": "EP8Q_xD_EP8Q_xD_EP8Q_xD_EP8Qlg" },
-      "digest": "4f9a23e9"
+      "expected": {"won": false, "health": 0, "ticks": 925, "kills": 0, "protocols": 0, "distortion": 40, "score": 591, "emergency_used": true, "objective_progress": 0, "enemy_count": 1, "projectile_count": 0, "signal_count": 3, "weave": null, "player": {"x": 3480, "y": 5200}, "shield": 0, "total_grazes": 29}
     },
     {
       "name": "elite-linked-shield-split",
@@ -197,15 +197,15 @@
         }
       },
       "trace": { "encoding": "rle8-v1", "ticks": 1500, "data": "HP8c_xz_HP8c_xzh" },
-      "digest": "9ab57dcb"
+      "expected": {"won": true, "health": 83, "ticks": 601, "kills": 1, "protocols": 0, "distortion": 0, "score": 814, "emergency_used": false, "objective_progress": 1, "enemy_count": 4, "projectile_count": 0, "signal_count": 3, "weave": ["echo", "echo"], "player": {"x": 1800, "y": 700}, "shield": 0, "total_grazes": 0}
     }
   ],
   "boss_variants": {
     "base_vector": "three-phase-boss",
     "vectors": [
-      { "variant": "authentic", "digest": "66ab0cd9" },
-      { "variant": "balanced", "digest": "4f9a23e9" },
-      { "variant": "retained", "digest": "0368254d" }
+      { "variant": "authentic", "expected": {"won": false, "health": 0, "ticks": 820, "kills": 0, "protocols": 0, "distortion": 91, "score": 626, "emergency_used": true, "objective_progress": 0, "enemy_count": 1, "projectile_count": 8, "signal_count": 3, "weave": null, "player": {"x": 3480, "y": 5200}, "shield": 0, "total_grazes": 23} },
+      { "variant": "balanced", "expected": {"won": false, "health": 0, "ticks": 925, "kills": 0, "protocols": 0, "distortion": 40, "score": 591, "emergency_used": true, "objective_progress": 0, "enemy_count": 1, "projectile_count": 0, "signal_count": 3, "weave": null, "player": {"x": 3480, "y": 5200}, "shield": 0, "total_grazes": 29} },
+      { "variant": "retained", "expected": {"won": false, "health": 0, "ticks": 518, "kills": 0, "protocols": 0, "distortion": 79, "score": 727, "emergency_used": true, "objective_progress": 0, "enemy_count": 1, "projectile_count": 44, "signal_count": 3, "weave": null, "player": {"x": 3480, "y": 5200}, "shield": 0, "total_grazes": 20} }
     ]
   }
 }

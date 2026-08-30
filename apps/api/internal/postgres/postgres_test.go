@@ -7,7 +7,6 @@ func TestServerlessPoolConfigSupportsNeonConnectionString(t *testing.T) {
 
 	config, err := serverlessPoolConfig(
 		"postgresql://xuhuan_owner:secret@example-pooler.us-east-1.aws.neon.tech/xuhuan?sslmode=require&channel_binding=require",
-		nil,
 	)
 	if err != nil {
 		t.Fatalf("serverlessPoolConfig() error = %v", err)

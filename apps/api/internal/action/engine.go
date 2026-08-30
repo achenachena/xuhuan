@@ -126,11 +126,7 @@ func Simulate(config Config, trace InputTrace) (Result, error) {
 	if !finished {
 		return Result{}, ErrIncompleteRoom
 	}
-	result := sim.result(won)
-	// The browser digest is observability for cross-language drift, never an
-	// authority signal. A valid trace always advances from the Go replay.
-	result.PredictionDrift = trace.PredictionDigest != "" && trace.PredictionDigest != result.Digest
-	return result, nil
+	return sim.result(won), nil
 }
 
 func normalizeConfig(config *Config) error {
@@ -224,6 +220,8 @@ func normalizeEnemy(spec *EnemySpec) {
 }
 
 func newSimulation(config Config) *simulation {
+	// SHA-256 maps the same authored seed to the same 32-bit simulation seed in
+	// Go and the browser. It is deterministic game state, not authentication.
 	hash := sha256.Sum256([]byte(config.Seed))
 	return &simulation{
 		config: config, random: randomStream{state: binary.LittleEndian.Uint32(hash[:4])},

@@ -11,6 +11,8 @@ type randomStream struct {
 }
 
 func (stream *randomStream) Uint64() uint64 {
+	// Hashing (seed, cursor) gives map/reward generation a stable random stream
+	// across processes without storing mutable RNG state or exposing a token.
 	input := make([]byte, len(stream.seed)+8)
 	copy(input, stream.seed)
 	binary.BigEndian.PutUint64(input[len(stream.seed):], stream.cursor)

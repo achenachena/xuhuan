@@ -2,13 +2,11 @@ import {
   bossMimic,
   enemyBossPhase,
 } from "@/features/action/action-boss-scripts";
-import { fnvDigest } from "@/features/action/action-digest";
 import { currentEnemyAttack } from "@/features/action/action-enemy-behaviors";
 import { ACTION_DIRECTIONS, goDivide } from "@/features/action/action-math";
 import {
   SIGNAL_PATTERNS,
   SIGNAL_TYPES,
-  stableStringId,
   type EnemyEntity,
   type SimulationState,
 } from "@/features/action/action-simulation-state";
@@ -169,120 +167,6 @@ export const buildActionSnapshot = (state: SimulationState): ActionSnapshot => {
   };
 };
 
-export const canonicalDigest = (state: SimulationState): string => {
-  const values = [
-    state.tickValue,
-    Math.max(0, state.health),
-    state.shield,
-    state.playerX,
-    state.playerY,
-    state.kills,
-    state.protocols,
-    state.distortion,
-    state.objectiveProgress,
-    state.score,
-    state.emergencyUsed ? 1 : 0,
-    state.won ? 1 : 0,
-    state.warpClock,
-    state.invulnerable,
-    state.attackClock,
-    state.totalGrazes,
-    state.routeStep,
-    state.routeReady ? 1 : 0,
-    state.routeWarpUsed ? 1 : 0,
-    state.lastGraze,
-    state.nextEnemyId,
-    state.nextBulletId,
-    state.spawnIndex,
-    state.random.state,
-    state.signalPattern,
-    state.autoAttacks,
-    state.warpReadyTick,
-    state.lastSignalTick,
-    stableStringId(state.protocol),
-    stableStringId(state.lastSignal),
-    state.hasLastWarp ? 1 : 0,
-    state.lastWarpStart.x,
-    state.lastWarpStart.y,
-    state.lastWarpEnd.x,
-    state.lastWarpEnd.y,
-    state.nextFriendlyId,
-  ];
-  if (
-    state.config.kind === "boss" ||
-    state.config.objective.kind === "boss"
-  ) {
-    values.push(stableStringId(state.config.bossVariant));
-  }
-  if (state.config.objective.kind === "elite") {
-    values.push(state.eliteSpawned, state.eliteKills);
-  }
-  values.push(
-    ...state.signalCooldown,
-    ...state.weave.map(stableStringId),
-  );
-  for (const waypoint of state.signalWaypoints) {
-    values.push(waypoint.x, waypoint.y);
-  }
-  for (const bloom of state.blooms) values.push(bloom.x, bloom.y);
-  for (const zone of state.safeZones) {
-    values.push(
-      zone.position.x,
-      zone.position.y,
-      zone.radius,
-      zone.expiresTick,
-    );
-  }
-  for (const replay of state.delayedWarps) {
-    values.push(
-      replay.start.x,
-      replay.start.y,
-      replay.end.x,
-      replay.end.y,
-      replay.triggerTick,
-      replay.damage,
-      replay.radius,
-    );
-  }
-  for (const shot of state.friendlyShots) {
-    values.push(
-      shot.id,
-      shot.x,
-      shot.y,
-      shot.targetId,
-      shot.damage,
-      shot.life,
-    );
-  }
-  for (const enemy of state.enemies) {
-    values.push(
-      enemy.id,
-      enemy.specIndex,
-      enemy.x,
-      enemy.y,
-      Math.max(0, enemy.health),
-      enemy.maxHealth,
-      enemy.fireClock,
-      enemy.attackIndex,
-    );
-  }
-  for (const bullet of state.projectiles) {
-    values.push(
-      bullet.id,
-      bullet.x,
-      bullet.y,
-      bullet.vx,
-      bullet.vy,
-      bullet.damage,
-      bullet.grazed ? 1 : 0,
-      bullet.glitchMarked ? 1 : 0,
-      bullet.delay,
-      stableStringId(bullet.pattern),
-    );
-  }
-  return fnvDigest(values);
-};
-
 export const buildActionResult = (state: SimulationState): ActionResult => {
   const final = buildActionSnapshot(state);
   state.score +=
@@ -299,7 +183,6 @@ export const buildActionResult = (state: SimulationState): ActionResult => {
     distortion: state.distortion,
     score: state.score,
     emergencyReconnectUsed: state.emergencyUsed,
-    digest: canonicalDigest(state),
     final: authoritativeFinal,
   };
 };

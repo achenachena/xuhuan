@@ -173,7 +173,7 @@ export const ActionArena = ({
       if (submitting) return;
       submitting = true;
       audioRef.current.playSound(result.won ? "victory" : "defeat");
-      const trace = recorder.encode(result.digest);
+      const trace = recorder.encode();
       pendingTraceRef.current = trace;
       void submitCompletedTrace(trace);
     };

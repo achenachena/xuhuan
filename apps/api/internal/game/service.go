@@ -363,6 +363,9 @@ func newSeed() (string, error) {
 }
 
 func hashRequest(value any) ([sha256.Size]byte, error) {
+	// Idempotency keys are safe to retry only when the same key still names the
+	// same command. Persisting this fixed-size fingerprint lets repositories
+	// reject accidental key reuse without storing another copy of request data.
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return [sha256.Size]byte{}, err

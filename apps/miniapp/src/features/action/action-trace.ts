@@ -17,7 +17,7 @@ export class TraceRecorder {
     );
   }
 
-  encode(digest: string): ActionTrace {
+  encode(): ActionTrace {
     const bytes: number[] = [];
     for (let index = 0; index < this.controls.length; ) {
       const control = this.controls[index]!;
@@ -36,7 +36,6 @@ export class TraceRecorder {
       encoding: "rle8-v1",
       ticks: this.controls.length,
       data: encodeBase64URL(bytes),
-      prediction_digest: digest,
     };
   }
 }

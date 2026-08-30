@@ -59,7 +59,7 @@ apps/
   api/                 Go API, deterministic engines, migrations, and V3 content
   miniapp/             Next.js Telegram Mini App and static game assets
 docs/                  Architecture, game design, authoring, and release guides
-infra/terraform/       AWS Lambda, Function URL, IAM, SSM, and observability
+infra/terraform/       AWS Lambda, Function URL, IAM, SSM, and CloudWatch alarms
 scripts/               Repository policy checks
 ```
 

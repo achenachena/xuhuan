@@ -120,7 +120,7 @@ on the removed schema. Failures after that point are fixed forward.
 - Lambda memory is capped at 512 MB and requested reserved concurrency at two.
   A new AWS account may temporarily use its reduced account-wide concurrency
   cap until AWS permits the per-function reservation.
-- Keep CloudWatch retention at three days and do not enable X-Ray, OTLP
+- Keep CloudWatch retention at three days and do not enable additional paid tracing
   collectors, custom domains, API Gateway, provisioned concurrency, VPC
   endpoints, or extra alarms without a cost review.
 - Watch AWS credits and plan expiration, Neon compute/storage usage, and Upstash

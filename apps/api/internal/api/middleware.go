@@ -9,7 +9,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/achenachena/xuhuan/apps/api/internal/platform/observability"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -113,7 +112,7 @@ func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 	}
 }
 
-func accessLogMiddleware(logger *slog.Logger, metrics *observability.Metrics) func(http.Handler) http.Handler {
+func accessLogMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			started := time.Now()
@@ -133,7 +132,6 @@ func accessLogMiddleware(logger *slog.Logger, metrics *observability.Metrics) fu
 					"response_bytes", recorder.bytes,
 					"duration_ms", duration.Milliseconds(),
 				)
-				metrics.HTTPRequest(r.Context(), r.Method, route, status, duration)
 			}()
 			next.ServeHTTP(recorder, r)
 		})

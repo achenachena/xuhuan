@@ -30,7 +30,6 @@ resource "aws_lambda_function" "api" {
       RATE_LIMIT_PLAYER_REQUESTS = "60"
       TELEGRAM_BOT_TOKEN         = "replaced-by-deploy-workflow"
       TELEGRAM_AUTH_MAX_AGE      = "24h"
-      OTEL_SERVICE_NAME          = "xuhuan-api"
       DATABASE_URL               = "replaced-by-deploy-workflow"
       REDIS_URL                  = "replaced-by-deploy-workflow"
       REDIS_TIMEOUT              = "1s"

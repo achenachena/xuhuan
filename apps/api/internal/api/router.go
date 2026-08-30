@@ -6,9 +6,7 @@ import (
 	"net/http"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
-	"github.com/achenachena/xuhuan/apps/api/internal/platform/observability"
 	"github.com/go-chi/chi/v5"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type ReadinessChecker interface {
@@ -30,8 +28,6 @@ type Dependencies struct {
 	Authenticator  *auth.Authenticator
 	Game           GameService
 	RateLimit      RateLimitConfig
-	Metrics        *observability.Metrics
-	TracingEnabled bool
 }
 
 func NewRouter(dependencies Dependencies) http.Handler {
@@ -48,7 +44,7 @@ func newRouter(dependencies Dependencies, register func(chi.Router, func(http.Ha
 
 	router := chi.NewRouter()
 	router.Use(requestIDMiddleware)
-	router.Use(accessLogMiddleware(dependencies.Logger, dependencies.Metrics))
+	router.Use(accessLogMiddleware(dependencies.Logger))
 	router.Use(recoverMiddleware(dependencies.Logger))
 	router.Use(securityHeadersMiddleware)
 	router.Use(corsMiddleware(dependencies.AllowedOrigins))
@@ -80,15 +76,11 @@ func newRouter(dependencies Dependencies, register func(chi.Router, func(http.Ha
 		})
 	})
 	if dependencies.Game != nil {
-		registerV2Routes(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics), dependencies.RateLimit, dependencies.Game, dependencies.Logger)
+		registerV2Routes(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger), dependencies.RateLimit, dependencies.Game, dependencies.Logger)
 	}
 
 	if register != nil {
-		register(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger, dependencies.Metrics))
-	}
-
-	if dependencies.TracingEnabled {
-		return otelhttp.NewHandler(router, "http.server")
+		register(router, requireAuthentication(dependencies.Authenticator, dependencies.Logger))
 	}
 	return router
 }
