@@ -588,10 +588,16 @@ test("one tap starts Action V3, the outer ring warps, and the run resumes safely
 
   await simulateTelegramHost(page);
   const hud = await page.getByTestId("combat-hud").boundingBox();
+  const playfield = await page.getByTestId("action-playfield").boundingBox();
   const canvasBox = await canvas.boundingBox();
   expect(hud?.y).toBeGreaterThanOrEqual(84);
   expect(hud?.height).toBeLessThanOrEqual(70);
-  expect(canvasBox?.y).toBeGreaterThanOrEqual((hud?.y ?? 0) + (hud?.height ?? 0));
+  expect(playfield?.y).toBeGreaterThanOrEqual(
+    (hud?.y ?? 0) + (hud?.height ?? 0),
+  );
+  expect(playfield?.width).toBe(320);
+  expect(playfield?.height).toBeGreaterThanOrEqual(390);
+  expect(canvasBox).toEqual(playfield);
   await expect(page.getByText(/TRAINING 1\/3|TRAINING 2\/3/)).toBeVisible();
   const encounterViewport = await page.evaluate(() => ({
     clientHeight: document.documentElement.clientHeight,
