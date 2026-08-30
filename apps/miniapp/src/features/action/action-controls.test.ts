@@ -24,11 +24,14 @@ describe("hold-to-move joystick controls", () => {
     });
   });
 
-  it("maps thumb deflection directly to direction and speed", () => {
+  it("uses full speed immediately outside the neutral zone", () => {
     const started = beginJoystickControl(4, 90, 500, 50);
     expect(
+      readJoystickInput(moveJoystickControl(started, 90, 504), false),
+    ).toMatchObject({ direction: 4, magnitude: 3 });
+    expect(
       readJoystickInput(moveJoystickControl(started, 90, 512), false),
-    ).toMatchObject({ direction: 4, magnitude: 2 });
+    ).toMatchObject({ direction: 4, magnitude: 3 });
     expect(
       readJoystickInput(moveJoystickControl(started, 90, 532), false),
     ).toMatchObject({ direction: 4, magnitude: 3 });

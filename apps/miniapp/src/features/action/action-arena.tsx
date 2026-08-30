@@ -12,6 +12,7 @@ import {
   releasedWarpDirection,
   type JoystickControl,
 } from "@/features/action/action-controls";
+import { ActionHUD } from "@/features/action/action-hud";
 import {
   ACTION_TPS,
   buildActionConfig,
@@ -21,13 +22,7 @@ import {
   type ActionSnapshot,
   type ActionTrace,
 } from "@/features/action/action-engine";
-import {
-  objectiveProgressRatio,
-} from "@/features/action/action-objectives";
-import {
-  objectiveStatusLabel,
-  protocolLabel,
-} from "@/features/action/action-labels";
+import { protocolLabel } from "@/features/action/action-labels";
 import {
   drawActionArena,
   preloadActionVisuals,
@@ -40,7 +35,7 @@ import {
   type GameCopyKey,
   type GameLocale,
 } from "@/features/game/game-copy";
-import type { APIGameContent, APIGameRun } from "@/lib/api/client";
+import { APIError, type APIGameContent, type APIGameRun } from "@/lib/api/client";
 import { lockTelegramVerticalSwipes } from "@/lib/telegram-gesture-lock";
 
 type Props = {
@@ -48,14 +43,10 @@ type Props = {
   readonly run: APIGameRun;
   readonly locale: GameLocale;
   readonly busy: boolean;
+  readonly submissionError: unknown;
   readonly onComplete: (trace: ActionTrace) => Promise<boolean>;
+  readonly onRestart: () => void;
 };
-
-const signalTone = {
-  surge: "bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,.8)]",
-  guard: "bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,.8)]",
-  echo: "bg-violet-300 shadow-[0_0_10px_rgba(196,181,253,.8)]",
-} as const;
 
 const syncJoystickVisual = (
   pad: HTMLDivElement | null,
@@ -84,7 +75,9 @@ export const ActionArena = ({
   run,
   locale,
   busy,
+  submissionError,
   onComplete,
+  onRestart,
 }: Props) => {
   const audio = useAudio();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -139,18 +132,7 @@ export const ActionArena = ({
     setVerifying(true);
     let accepted = false;
     try {
-      for (
-        let retry = 0;
-        retry < 3 && !accepted && mountedRef.current;
-        retry += 1
-      ) {
-        accepted = await completeRef.current(trace);
-        if (!accepted && retry < 2 && mountedRef.current) {
-          await new Promise((resolve) =>
-            window.setTimeout(resolve, 600 * 2 ** retry),
-          );
-        }
-      }
+      accepted = await completeRef.current(trace);
     } finally {
       submissionInFlightRef.current = false;
     }
@@ -198,6 +180,11 @@ export const ActionArena = ({
 
     const draw = (): void => {
       if (!simulation) return;
+      const control = stickRef.current;
+      const aimDirection =
+        control && isWarpArmed(control)
+          ? readJoystickInput(control, false).direction
+          : null;
       drawActionArena(
         canvasRef.current,
         currentSnapshot ?? simulation.snapshot(),
@@ -205,6 +192,7 @@ export const ActionArena = ({
         Math.min(1, accumulator / (1000 / ACTION_TPS)),
         config,
         visuals,
+        aimDirection,
       );
     };
 
@@ -388,9 +376,6 @@ export const ActionArena = ({
               ? null
               : text("tutorialWarp")
             : text("tutorialSignal");
-  const progress = snapshot
-    ? objectiveProgressRatio(snapshot.objective)
-    : 0;
   const cooldown = snapshot ? remainingWarpSeconds(snapshot) : 0;
   const warpLabel = snapshot
     ? protocolLabel(snapshot.protocol, locale)
@@ -409,86 +394,18 @@ export const ActionArena = ({
         onContextMenu={(event) => event.preventDefault()}
       />
 
-      <header
-        data-testid="combat-hud"
-        className="pointer-events-none absolute inset-x-0 top-[calc(var(--xuhuan-host-safe-top)+.75rem)] z-10 px-3 pr-[4.75rem]"
-      >
-        <div className="border-2 border-cyan-100/35 bg-[#040b18]/95 p-2.5 shadow-[4px_4px_0_rgba(2,6,23,.9),0_0_24px_rgba(34,211,238,.08)] backdrop-blur-sm">
-          <div className="flex items-center gap-2 font-mono text-[9px] tracking-[.12em] text-slate-300">
-            <span>{text("hp")}</span>
-            <strong className="text-emerald-300">
-              {snapshot?.health ?? run.state.health}/
-              {snapshot?.maxHealth ?? run.state.max_health}
-            </strong>
-            {(snapshot?.shield ?? 0) > 0 && (
-              <span className="text-sky-300">
-                {text("shield")} {snapshot?.shield}
-              </span>
-            )}
-            <span className="ml-auto text-cyan-100">
-              {snapshot
-                ? objectiveStatusLabel(snapshot, locale)
-                : text("connectingShort")}
-            </span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden border border-cyan-100/20 bg-black/70">
-            <div
-              className="h-full bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400"
-              style={{ width: `${progress * 100}%` }}
-            />
-          </div>
-          <div className="mt-2 grid grid-cols-[1fr_auto] items-end gap-3 font-mono text-[8px] tracking-[.12em] text-slate-400">
-            <div>
-              <div className="mb-1 flex items-center gap-1.5">
-                <span>{text("signalWeave")}</span>
-                {[0, 1, 2].map((index) => {
-                  const signal = snapshot?.weave[index];
-                  return (
-                    <span
-                      key={index}
-                      className={`h-2.5 w-2.5 border border-white/25 ${signal ? signalTone[signal] : "bg-slate-900"}`}
-                    />
-                  );
-                })}
-                {protocolReady && (
-                  <strong className="ml-1 text-fuchsia-200">{warpLabel}</strong>
-                )}
-              </div>
-              <div className="h-1.5 overflow-hidden border border-white/10 bg-black/60">
-                <div
-                  className={
-                    snapshot && snapshot.distortion >= 60
-                      ? "h-full bg-fuchsia-400"
-                      : "h-full bg-violet-500"
-                  }
-                  style={{ width: `${snapshot?.distortion ?? 0}%` }}
-                />
-              </div>
-              <div className="mt-0.5 flex justify-between">
-                <span>
-                  {snapshot && snapshot.distortion >= 60
-                    ? text("overload")
-                    : text("distortion")}
-                </span>
-                <span>{snapshot?.distortion ?? 0}%</span>
-              </div>
-            </div>
-            <div className="text-right">
-              <div>
-                {text("threat")} {snapshot?.enemies.length ?? 0}
-              </div>
-              <div className="mt-1 text-amber-200">
-                {text("score")} {snapshot?.score ?? run.state.score}
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ActionHUD
+        snapshot={snapshot}
+        locale={locale}
+        fallbackHealth={run.state.health}
+        fallbackMaxHealth={run.state.max_health}
+      />
 
       {hint && (
         <div
           role="status"
-          className="pointer-events-none absolute left-1/2 top-[calc(var(--xuhuan-host-safe-top)+8.25rem)] z-20 w-[82%] -translate-x-1/2 border-2 border-cyan-200/35 bg-[#040b18]/95 px-4 py-3 text-center font-mono text-xs leading-5 text-cyan-50 shadow-[4px_4px_0_rgba(2,6,23,.9)] backdrop-blur-sm"
+          data-testid="tutorial-hint"
+          className="pointer-events-none absolute left-1/2 top-[calc(var(--xuhuan-host-safe-top)+4.25rem)] z-20 max-w-[88%] -translate-x-1/2 truncate whitespace-nowrap border-l-2 border-cyan-200/60 bg-[#040b18]/72 px-3 py-1.5 text-center font-mono text-[9px] leading-4 text-cyan-50 shadow-[2px_2px_0_rgba(2,6,23,.72)] backdrop-blur-[2px]"
         >
           {hint}
         </div>
@@ -498,7 +415,7 @@ export const ActionArena = ({
         ref={controlSurfaceRef}
         role="group"
         aria-label={text("movementControl")}
-        className="absolute bottom-[var(--xuhuan-host-safe-bottom)] left-0 z-20 h-48 w-48 [touch-action:none]"
+        className="absolute bottom-[var(--xuhuan-host-safe-bottom)] left-0 z-20 h-40 w-40 [touch-action:none]"
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
@@ -508,13 +425,13 @@ export const ActionArena = ({
       >
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-3 left-3 h-40 w-40 rounded-full border-2 border-dashed border-fuchsia-200/35 bg-fuchsia-500/[.04] shadow-[0_0_28px_rgba(217,70,239,.1),inset_0_0_24px_rgba(34,211,238,.07)]"
+          className="pointer-events-none absolute bottom-2 left-2 h-32 w-32 rounded-full border-2 border-dashed border-fuchsia-200/35 bg-fuchsia-500/[.04] shadow-[0_0_24px_rgba(217,70,239,.1),inset_0_0_20px_rgba(34,211,238,.07)]"
         />
         <div
           ref={stickPadRef}
           data-active="false"
           data-warp="false"
-          className="pointer-events-none absolute bottom-10 left-10 grid h-24 w-24 place-items-center rounded-full border-2 border-cyan-100/45 bg-slate-950/80 font-mono text-[8px] tracking-[.15em] text-cyan-50/75 shadow-[inset_0_0_0_9px_rgba(8,47,73,.32)] transition-[border-color,background-color,box-shadow] data-[active=true]:border-cyan-50/80 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-950/75 data-[warp=true]:shadow-[inset_0_0_0_9px_rgba(8,47,73,.4),0_0_28px_rgba(217,70,239,.55)]"
+          className="pointer-events-none absolute bottom-8 left-8 grid h-20 w-20 place-items-center rounded-full border-2 border-cyan-100/45 bg-slate-950/76 font-mono text-[7px] tracking-[.12em] text-cyan-50/75 shadow-[inset_0_0_0_7px_rgba(8,47,73,.28)] transition-[border-color,background-color,box-shadow] data-[active=true]:border-cyan-50/80 data-[warp=true]:border-fuchsia-100 data-[warp=true]:bg-fuchsia-950/75 data-[warp=true]:shadow-[inset_0_0_0_7px_rgba(8,47,73,.36),0_0_24px_rgba(217,70,239,.55)]"
         >
           {cooldown > 0
             ? `${cooldown}s`
@@ -527,38 +444,53 @@ export const ActionArena = ({
           ref={stickKnobRef}
           data-active="false"
           data-warp="false"
-          className="pointer-events-none absolute h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-50 bg-cyan-400/45 opacity-0 shadow-[0_0_18px_rgba(34,211,238,.5)] transition-[opacity,background-color,border-color,box-shadow] data-[active=true]:opacity-100 data-[warp=true]:border-fuchsia-50 data-[warp=true]:bg-fuchsia-400/65 data-[warp=true]:shadow-[0_0_30px_rgba(217,70,239,.8)]"
+          className="pointer-events-none absolute h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-50 bg-cyan-400/45 opacity-0 shadow-[0_0_16px_rgba(34,211,238,.5)] transition-[opacity,background-color,border-color,box-shadow] data-[active=true]:opacity-100 data-[warp=true]:border-fuchsia-50 data-[warp=true]:bg-fuchsia-400/65 data-[warp=true]:shadow-[0_0_26px_rgba(217,70,239,.8)]"
         />
-        <span className="pointer-events-none absolute bottom-0 left-0 w-44 text-center font-mono text-[8px] tracking-[.18em] text-fuchsia-100/70">
-          {text("warpGesture")}
-        </span>
       </div>
 
-      {(paused || verifying || submissionFailed) && (
-        <div className="absolute inset-0 z-40 grid place-items-center bg-slate-950/80 backdrop-blur-sm">
-          <div className="mx-6 max-w-sm border-2 border-cyan-200/35 bg-[#040b18] px-6 py-4 text-center font-mono text-xs text-cyan-50 shadow-[5px_5px_0_rgba(2,6,23,.9)]">
-            {submissionFailed ? (
-              <>
-                <p className="leading-5">{text("traceUploadFailed")}</p>
-                <button
-                  type="button"
-                  className="mt-4 min-h-11 border-2 border-cyan-200 bg-cyan-200 px-5 py-2 font-bold text-slate-950"
-                  onClick={() => {
-                    const trace = pendingTraceRef.current;
-                    if (trace) void submitCompletedTrace(trace);
-                  }}
-                >
-                  {text("retryTrace")}
-                </button>
-              </>
-            ) : verifying ? (
-              text("verifyingEncounter")
+      {paused ? (
+        <div className="absolute inset-0 z-40 grid place-items-center bg-slate-950/75 backdrop-blur-sm">
+          <div className="border-l-2 border-cyan-200/50 bg-[#040b18]/90 px-5 py-3 font-mono text-[10px] text-cyan-50">
+            {text("channelPaused")}
+          </div>
+        </div>
+      ) : null}
+      {verifying && !submissionFailed ? (
+        <div className="pointer-events-none absolute bottom-[calc(var(--xuhuan-host-safe-bottom)+1rem)] left-1/2 z-40 -translate-x-1/2 border-l-2 border-cyan-200/60 bg-[#040b18]/88 px-4 py-2 font-mono text-[9px] text-cyan-50 shadow-lg">
+          {text("verifyingEncounter")}
+        </div>
+      ) : null}
+      {submissionFailed ? (
+        <div className="absolute inset-x-3 bottom-[calc(var(--xuhuan-host-safe-bottom)+.75rem)] z-40 border-l-2 border-rose-300/70 bg-[#100814]/94 px-4 py-3 font-mono text-[10px] text-rose-50 shadow-xl backdrop-blur-sm">
+          <p className="leading-4">
+            {submissionError instanceof APIError && submissionError.code === "invalid_command"
+              ? text("traceRejected")
+              : text("traceUploadFailed")}
+          </p>
+          <div className="mt-2 flex gap-2">
+            {submissionError instanceof APIError && submissionError.code === "invalid_command" ? (
+              <button
+                type="button"
+                className="min-h-10 flex-1 border border-rose-200 bg-rose-200 px-3 py-2 font-bold text-slate-950"
+                onClick={onRestart}
+              >
+                {text("restartEncounter")}
+              </button>
             ) : (
-              text("channelPaused")
+              <button
+                type="button"
+                className="min-h-10 flex-1 border border-cyan-200 bg-cyan-200 px-3 py-2 font-bold text-slate-950"
+                onClick={() => {
+                  const trace = pendingTraceRef.current;
+                  if (trace) void submitCompletedTrace(trace);
+                }}
+              >
+                {text("retryTrace")}
+              </button>
             )}
           </div>
         </div>
-      )}
+      ) : null}
     </main>
   );
 };

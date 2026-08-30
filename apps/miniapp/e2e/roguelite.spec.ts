@@ -589,6 +589,10 @@ test("one tap starts Action V3, the outer ring warps, and the run resumes safely
   await simulateTelegramHost(page);
   const hud = await page.getByTestId("combat-hud").boundingBox();
   expect(hud?.y).toBeGreaterThanOrEqual(200);
+  expect(hud?.height).toBeLessThanOrEqual(64);
+  const tutorialHint = await page.getByTestId("tutorial-hint").boundingBox();
+  expect(tutorialHint?.height).toBeLessThanOrEqual(48);
+  expect(tutorialHint?.y).toBeLessThanOrEqual(330);
   const encounterViewport = await page.evaluate(() => ({
     clientHeight: document.documentElement.clientHeight,
     scrollHeight: document.documentElement.scrollHeight,

@@ -39,6 +39,7 @@ const GameShell = () => {
   const controller = useGameController(locale);
   const { content, game, loading, busy, error } = controller;
   const [requestedMode, setRequestedMode] = useState<RunMode>("campaign");
+  const [encounterAttempt, setEncounterAttempt] = useState(0);
 
   useEffect(() => {
     void preloadActionVisuals().catch(() => undefined);
@@ -130,14 +131,19 @@ const GameShell = () => {
       case "encounter":
         screen = (
           <ActionArena
-            key={`${run.id}:${run.version}:${run.state.encounter?.seed}`}
+            key={`${run.id}:${run.version}:${run.state.encounter?.seed}:${encounterAttempt}`}
             content={content}
             run={run}
             locale={locale}
             busy={busy}
+            submissionError={error}
             onComplete={async (trace) =>
               (await command({ type: "complete_encounter", trace })) !== null
             }
+            onRestart={() => {
+              controller.restartEncounter();
+              setEncounterAttempt((current) => current + 1);
+            }}
           />
         );
         break;

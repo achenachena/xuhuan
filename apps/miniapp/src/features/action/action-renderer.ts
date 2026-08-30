@@ -7,6 +7,7 @@ import type {
   ActionVec,
   SignalType,
 } from "@/features/action/action-types";
+import { ACTION_DIRECTIONS, nearTravelPath } from "@/features/action/action-math";
 import {
   ACTION_HEIGHT,
   ACTION_TPS,
@@ -147,6 +148,7 @@ export const drawActionArena = (
   alpha: number,
   config: ActionConfig,
   visuals: ActionVisuals | null,
+  warpAimDirection: number | null = null,
 ): void => {
   if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
@@ -224,6 +226,7 @@ export const drawActionArena = (
     );
   }
   drawWarpTrail(context, previous?.player, snapshot.player, snapshot);
+  drawWarpAim(context, snapshot, warpAimDirection);
   const moving = Boolean(
     previous &&
       (previous.player.x !== snapshot.player.x ||
@@ -471,12 +474,22 @@ const drawIntent = (
   if (enemy.intentTicks <= 0) return;
   const urgency = 1 - Math.min(1, enemy.intentTicks / 18);
   context.save();
-  context.strokeStyle = `rgba(251,113,133,${0.38 + urgency * 0.5})`;
+  const color =
+    enemy.attack === "beam"
+      ? "103,232,249"
+      : enemy.attack === "delayed_echo"
+        ? "216,180,254"
+        : enemy.attack === "ring" || enemy.attack === "mine"
+          ? "251,191,36"
+          : "251,113,133";
+  context.strokeStyle = `rgba(${color},${0.38 + urgency * 0.5})`;
+  context.fillStyle = `rgba(${color},${0.04 + urgency * 0.08})`;
   context.lineWidth = enemy.movement === "charge" ? 105 : 25;
-  context.setLineDash([54, 32]);
+  context.setLineDash(enemy.attack === "beam" ? [90, 24] : [54, 32]);
   if (enemy.attack === "ring" || enemy.attack === "mine") {
     context.beginPath();
     context.arc(position.x, position.y, 440 + urgency * 150, 0, Math.PI * 2);
+    context.fill();
     context.stroke();
   } else if (enemy.attack === "fan") {
     const angle = Math.atan2(
@@ -487,6 +500,7 @@ const drawIntent = (
     context.moveTo(position.x, position.y);
     context.arc(position.x, position.y, 1900, angle - 0.32, angle + 0.32);
     context.closePath();
+    context.fill();
     context.stroke();
   } else {
     context.beginPath();
@@ -649,22 +663,42 @@ const drawCombatFeedback = (
   for (const enemy of snapshot.enemies) {
     const before = previousEnemies.get(enemy.id);
     if (!before || enemy.health >= before.health) continue;
-    context.fillStyle = "#e0f2fe";
-    context.fillRect(enemy.position.x - 125, enemy.position.y - 40, 90, 24);
+    context.save();
+    context.strokeStyle = "rgba(224,242,254,.92)";
+    context.lineWidth = 24;
+    context.strokeRect(
+      enemy.position.x - 185,
+      enemy.position.y - 185,
+      370,
+      370,
+    );
     context.fillStyle = "#f0abfc";
-    context.fillRect(enemy.position.x + 42, enemy.position.y + 22, 68, 22);
+    for (let shard = 0; shard < 4; shard += 1) {
+      const x = enemy.position.x + (shard - 1.5) * 82;
+      const y = enemy.position.y + (shard % 2 === 0 ? -210 : 190);
+      context.fillRect(x - 18, y - 18, 36, 36);
+    }
+    context.restore();
   }
   const alive = new Set(snapshot.enemies.map((enemy) => enemy.id));
   for (const enemy of previous.enemies) {
     if (alive.has(enemy.id)) continue;
-    context.strokeStyle = "rgba(103,232,249,.78)";
-    context.lineWidth = 34;
-    context.strokeRect(
-      enemy.position.x - 190,
-      enemy.position.y - 190,
-      380,
-      380,
-    );
+    context.save();
+    context.translate(enemy.position.x, enemy.position.y);
+    context.strokeStyle = "rgba(103,232,249,.9)";
+    context.lineWidth = 28;
+    for (let ray = 0; ray < 8; ray += 1) {
+      context.rotate(Math.PI / 4);
+      context.beginPath();
+      context.moveTo(170, 0);
+      context.lineTo(350, 0);
+      context.stroke();
+    }
+    context.fillStyle = "rgba(244,114,182,.85)";
+    context.fillRect(-95, -95, 190, 190);
+    context.fillStyle = "rgba(224,242,254,.95)";
+    context.fillRect(-42, -42, 84, 84);
+    context.restore();
   }
 };
 
@@ -691,6 +725,73 @@ const drawWarpTrail = (
   context.restore();
 };
 
+const drawWarpAim = (
+  context: CanvasRenderingContext2D,
+  snapshot: ActionSnapshot,
+  direction: number | null,
+): void => {
+  if (direction === null || snapshot.warpCooldown > 0) return;
+  const vector = ACTION_DIRECTIONS[direction & 15]!;
+  const end = {
+    x: snapshot.player.x + Math.round((vector.x * 620) / 1000),
+    y: snapshot.player.y + Math.round((vector.y * 620) / 1000),
+  };
+  const midpoint = {
+    x: Math.round((snapshot.player.x + end.x) / 2),
+    y: Math.round((snapshot.player.y + end.y) / 2),
+  };
+  const radius = snapshot.protocol ? 700 : 330;
+  const targets = snapshot.enemies.filter((enemy) =>
+    nearTravelPath(
+      enemy.position.x,
+      enemy.position.y,
+      snapshot.player.x,
+      snapshot.player.y,
+      midpoint.x,
+      midpoint.y,
+      end.x,
+      end.y,
+      radius,
+    ),
+  );
+
+  context.save();
+  context.strokeStyle = snapshot.protocol
+    ? "rgba(244,114,182,.9)"
+    : "rgba(103,232,249,.78)";
+  context.lineWidth = snapshot.protocol ? 42 : 24;
+  context.setLineDash([42, 24]);
+  context.beginPath();
+  context.moveTo(snapshot.player.x, snapshot.player.y);
+  context.lineTo(end.x, end.y);
+  context.stroke();
+  context.setLineDash([]);
+  context.fillStyle = context.strokeStyle;
+  context.beginPath();
+  context.moveTo(end.x, end.y);
+  context.lineTo(
+    end.x - vector.x / 8 + vector.y / 10,
+    end.y - vector.y / 8 - vector.x / 10,
+  );
+  context.lineTo(
+    end.x - vector.x / 8 - vector.y / 10,
+    end.y - vector.y / 8 + vector.x / 10,
+  );
+  context.closePath();
+  context.fill();
+  for (const target of targets) {
+    context.strokeStyle = "rgba(254,240,138,.95)";
+    context.lineWidth = 18;
+    context.strokeRect(
+      target.position.x - 210,
+      target.position.y - 210,
+      420,
+      420,
+    );
+  }
+  context.restore();
+};
+
 const drawPlayer = (
   context: CanvasRenderingContext2D,
   player: ActionVec,
@@ -701,7 +802,9 @@ const drawPlayer = (
   context.save();
   context.translate(player.x, player.y);
   const walkFrame = moving ? Math.floor(snapshot.tick / 4) & 1 : 0;
-  const bob = moving ? (walkFrame === 0 ? -10 : 6) : Math.sin(snapshot.tick / 13) * 4;
+  // Keep the character grounded. Large idle/movement bobbing read as physics
+  // inertia on a small phone even though the simulation has no velocity.
+  const bob = moving ? (walkFrame === 0 ? -3 : 2) : 0;
   context.fillStyle = "rgba(34,211,238,.2)";
   context.fillRect(-190, 180, 380, 52);
   if (sprite) {

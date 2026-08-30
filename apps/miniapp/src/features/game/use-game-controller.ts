@@ -381,6 +381,34 @@ export const useGameController = (locale: GameLocale) => {
         }));
         return response;
       } catch (error) {
+        if (body.type === "complete_encounter") {
+          try {
+            // The server may have committed an idempotent command after the
+            // WebView timed out or lost the response. Re-read the whole game
+            // projection before showing an error so an accepted room never
+            // strands the player behind a false retry dialog.
+            const synchronized = await getGame(locale);
+            const synchronizedRun = runForMode(synchronized, mode);
+            const advanced =
+              synchronizedRun?.id === currentRun.id &&
+              (synchronizedRun.version > currentRun.version ||
+                synchronizedRun.state.phase !== "encounter");
+            if (advanced) {
+              clearPendingEncounter();
+              setState((current) => ({
+                ...current,
+                busy: false,
+                error: null,
+                game: current.game ? synchronized : null,
+              }));
+              return { run: synchronizedRun, events: [] };
+            }
+          } catch {
+            // Preserve the original command error. It is more useful than a
+            // secondary synchronization failure and the exact trace remains
+            // available for an explicit retry.
+          }
+        }
         if (error instanceof APIError && error.code === "version_conflict") {
           try {
             const run = await getRun(currentRun.id);
@@ -482,6 +510,11 @@ export const useGameController = (locale: GameLocale) => {
     setState((current) => ({ ...current, error: null }));
   }, []);
 
+  const restartEncounter = useCallback(() => {
+    clearPendingEncounter();
+    setState((current) => ({ ...current, busy: false, error: null }));
+  }, []);
+
   return {
     ...state,
     load,
@@ -491,6 +524,7 @@ export const useGameController = (locale: GameLocale) => {
     chooseStory,
     returnToHub,
     clearError,
+    restartEncounter,
   };
 };
 

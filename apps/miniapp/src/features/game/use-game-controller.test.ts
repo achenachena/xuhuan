@@ -389,6 +389,64 @@ describe("useGameController action-v2 orchestration", () => {
     ).toBeNull();
   });
 
+  it("accepts an encounter when authority advanced after the response was lost", async () => {
+    const encounter = createV3Run({
+      state: {
+        ...v3BaseState,
+        phase: "encounter",
+        encounter: {
+          slug: "signal-handshake",
+          seed: "seed:tutorial",
+          kind: "tutorial",
+          duration_ticks: 600,
+          max_ticks: 900,
+          tutorial: true,
+          objective: { kind: "recover", target: 3 },
+          risk: 1,
+          reward_bias: "surge",
+          hazards: [],
+        },
+      },
+    });
+    const reward = createV3Run({
+      version: 2,
+      state: {
+        ...v3BaseState,
+        phase: "reward",
+        reward: { module_choices: ["route-needle"], rerolled: false },
+      },
+    });
+    dependencies.getGame
+      .mockReset()
+      .mockResolvedValueOnce(createV3Game({ campaign_run: encounter }))
+      .mockResolvedValueOnce(createV3Game({ campaign_run: reward }));
+    dependencies.createRunCommand.mockRejectedValueOnce(
+      new DOMException("request timed out", "TimeoutError"),
+    );
+
+    const { result } = renderHook(() => useGameController("en"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      const response = await result.current.command("campaign", {
+        type: "complete_encounter",
+        trace: {
+          encoding: "rle8-v1",
+          ticks: 12,
+          data: "MAw",
+          prediction_digest: "4b2517cd",
+        },
+      });
+      expect(response?.run.version).toBe(2);
+    });
+
+    expect(result.current.game?.campaign_run?.state.phase).toBe("reward");
+    expect(result.current.error).toBeNull();
+    expect(
+      window.sessionStorage.getItem("xuhuan.pending-encounter.v3"),
+    ).toBeNull();
+  });
+
   it("refetches the snapshot when a command opens a mid-run story scene", async () => {
     const current = createV3Run();
     const advanced = createV3Run({
