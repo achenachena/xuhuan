@@ -32,7 +32,7 @@ export const movePlayer = (
   state: SimulationState,
   input: ActionInput,
 ): void => {
-  let vector = ACTION_DIRECTIONS[input.direction & 15]!;
+  const vector = ACTION_DIRECTIONS[input.direction & 15]!;
   if (input.magnitude > 0) {
     const speed = goDivide(
       state.config.runtime.moveSpeed * input.magnitude,
@@ -44,7 +44,6 @@ export const movePlayer = (
   if (input.skill && state.warpClock === 0) {
     const startX = state.playerX;
     const startY = state.playerY;
-    if (input.magnitude === 0) vector = ACTION_DIRECTIONS[12]!;
     state.playerX += goDivide(vector.x * 620, 1000);
     state.playerY += goDivide(vector.y * 620, 1000);
     state.invulnerable = 12;

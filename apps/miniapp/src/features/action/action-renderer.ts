@@ -10,7 +10,6 @@ import type {
 import { ACTION_DIRECTIONS, nearTravelPath } from "@/features/action/action-math";
 import {
   ACTION_HEIGHT,
-  ACTION_TPS,
   ACTION_WIDTH,
 } from "@/features/action/action-types";
 import type { APIGameContent, APIGameRun } from "@/lib/api/client";
@@ -176,7 +175,7 @@ export const drawActionArena = (
   context.imageSmoothingEnabled = false;
 
   drawBackground(context, snapshot, config, visuals?.background ?? null);
-  drawObjectiveZone(context, snapshot);
+  drawObjectiveZone(context, snapshot, config);
   drawSignalGuide(context, snapshot);
   for (const signal of snapshot.signals) {
     drawSignal(context, signal, snapshot, visuals?.signals.get(signal.type));
@@ -288,18 +287,53 @@ const drawBackground = (
 const drawObjectiveZone = (
   context: CanvasRenderingContext2D,
   snapshot: ActionSnapshot,
+  config: ActionConfig,
 ): void => {
-  if (snapshot.objective.kind !== "stabilize") return;
+  if (config.kind === "tutorial" || snapshot.objective.kind !== "stabilize") {
+    return;
+  }
   const pulse = Math.sin(snapshot.tick / 10) * 35;
+  const progress = Math.max(
+    0,
+    Math.min(1, snapshot.objective.progress / snapshot.objective.target),
+  );
   context.save();
-  context.strokeStyle = "rgba(110,231,183,.7)";
-  context.fillStyle = "rgba(16,185,129,.08)";
-  context.lineWidth = 22;
+  context.strokeStyle = "rgba(110,231,183,.72)";
+  context.fillStyle = "rgba(16,185,129,.055)";
+  context.lineWidth = 18;
   context.setLineDash([42, 28]);
   context.beginPath();
   context.arc(ACTION_WIDTH / 2, ACTION_HEIGHT / 2, 820 + pulse, 0, Math.PI * 2);
   context.fill();
   context.stroke();
+  context.setLineDash([]);
+  context.strokeStyle = "rgba(224,242,254,.95)";
+  context.lineWidth = 34;
+  context.beginPath();
+  context.arc(
+    ACTION_WIDTH / 2,
+    ACTION_HEIGHT / 2,
+    700,
+    -Math.PI / 2,
+    -Math.PI / 2 + Math.PI * 2 * progress,
+  );
+  context.stroke();
+  context.translate(ACTION_WIDTH / 2, ACTION_HEIGHT / 2);
+  context.fillStyle = "rgba(110,231,183,.9)";
+  context.fillRect(-85, -85, 170, 170);
+  context.fillStyle = "rgba(2,6,23,.95)";
+  context.fillRect(-38, -38, 76, 76);
+  context.strokeStyle = "rgba(167,243,208,.9)";
+  context.lineWidth = 20;
+  for (let index = 0; index < 4; index += 1) {
+    context.rotate(Math.PI / 2);
+    context.beginPath();
+    context.moveTo(0, -310);
+    context.lineTo(-70, -230);
+    context.moveTo(0, -310);
+    context.lineTo(70, -230);
+    context.stroke();
+  }
   context.restore();
 };
 
@@ -863,6 +897,3 @@ const interpolate = (
 
 const distanceSquared = (left: ActionVec, right: ActionVec): number =>
   (left.x - right.x) ** 2 + (left.y - right.y) ** 2;
-
-export const remainingWarpSeconds = (snapshot: ActionSnapshot): number =>
-  Math.max(0, Math.ceil(snapshot.warpCooldown / ACTION_TPS));

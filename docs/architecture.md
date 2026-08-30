@@ -62,7 +62,7 @@ The `action` and `run` packages do not call databases, clocks, networks, or proc
 
 ## `action-v2` simulation runtime
 
-The logical arena is 360 by 640 units represented as integer tenths. The character moves from a full-screen relative joystick, attacks the nearest live enemy automatically, and uses Warp for displacement, 12 invulnerable Ticks, projectile clearing along the path, and damage.
+The logical arena is 360 by 640 units represented as integer tenths. Pointer displacement controls the character for one simulation Tick at a time, so holding still or releasing stops movement on the next Tick without retained velocity. A tap activates Warp toward that arena position. Automatic attacks still target the nearest live enemy, while Warp provides displacement, 12 invulnerable Ticks, projectile clearing along the path, and damage.
 
 Three fixed signal locations yield Surge, Guard, and Echo. Collecting three signals refreshes Warp and arms a protocol:
 

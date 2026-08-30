@@ -149,4 +149,34 @@ describe("API client", () => {
       }),
     );
   });
+
+  it("retries a completed encounter with the same idempotency key", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new TypeError("temporary network failure"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ run: {}, events: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+    await createRunCommand(
+      "c8c6d56d-974f-4c82-8a83-a3c20e736e38",
+      {
+        type: "complete_encounter",
+        expected_version: 4,
+        trace: { encoding: "rle8-v1", ticks: 1, data: "AAE" },
+      },
+      "encounter-key-001",
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      "Idempotency-Key": "encounter-key-001",
+    });
+    expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({
+      "Idempotency-Key": "encounter-key-001",
+    });
+  });
 });

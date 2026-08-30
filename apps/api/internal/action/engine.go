@@ -320,9 +320,6 @@ func (sim *simulation) movePlayer(input InputFrame) {
 	}
 	if input.Skill && sim.warpClock == 0 {
 		startX, startY := sim.playerX, sim.playerY
-		if input.Magnitude == 0 {
-			vector = directionVectors[12]
-		}
 		sim.playerX += vector.X * 620 / 1000
 		sim.playerY += vector.Y * 620 / 1000
 		sim.invulnerable = 12

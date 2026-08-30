@@ -35,7 +35,7 @@ func TestActionCatalogIsCompleteAndBilingual(t *testing.T) {
 			t.Fatalf("character %q has no authored module behavior", character.Slug)
 		}
 	}
-	if encounter, ok := catalog.Encounter("signal-handshake"); !ok || !encounter.Tutorial || encounter.Objective.Kind != "stabilize" {
+	if encounter, ok := catalog.Encounter("signal-handshake"); !ok || !encounter.Tutorial || encounter.Objective.Kind != "recover" {
 		t.Fatalf("tutorial encounter = %#v, %v", encounter, ok)
 	}
 	if chapter, ok := catalog.Chapter("seventh-dock"); !ok || chapter.BossEncounterSlug != "optimal-persona" {

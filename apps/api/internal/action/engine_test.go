@@ -119,6 +119,15 @@ func TestMovementHazardsRouteAndEmergencyReconnect(t *testing.T) {
 		}
 	})
 
+	t.Run("tap warp uses its direction without a movement frame", func(t *testing.T) {
+		sim := newSimulation(testConfig())
+		startX, startY := sim.playerX, sim.playerY
+		sim.movePlayer(InputFrame{Direction: 0, Magnitude: 0, Skill: true})
+		if sim.playerX != startX+620 || sim.playerY != startY {
+			t.Fatalf("player=(%d,%d) start=(%d,%d)", sim.playerX, sim.playerY, startX, startY)
+		}
+	})
+
 	t.Run("graze triggers desync", func(t *testing.T) {
 		sim := newSimulation(testConfig())
 		sim.distortion = 99
