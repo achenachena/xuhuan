@@ -405,7 +405,7 @@ export const ActionArena = ({
         <div
           role="status"
           data-testid="tutorial-hint"
-          className="pointer-events-none absolute left-1/2 top-[calc(var(--xuhuan-host-safe-top)+4.6rem)] z-20 max-w-[88%] -translate-x-1/2 border-l-2 border-cyan-200/60 bg-[#040b18]/72 px-3 py-1.5 text-center font-mono text-[9px] leading-4 text-cyan-50 shadow-[2px_2px_0_rgba(2,6,23,.72)] backdrop-blur-[2px]"
+          className="pointer-events-none absolute left-1/2 top-[calc(var(--xuhuan-host-safe-top)+4.25rem)] z-20 max-w-[88%] -translate-x-1/2 truncate whitespace-nowrap border-l-2 border-cyan-200/60 bg-[#040b18]/72 px-3 py-1.5 text-center font-mono text-[9px] leading-4 text-cyan-50 shadow-[2px_2px_0_rgba(2,6,23,.72)] backdrop-blur-[2px]"
         >
           {hint}
         </div>
