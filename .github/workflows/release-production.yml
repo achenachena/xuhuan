@@ -21,7 +21,7 @@ jobs:
   release:
     name: Release exact SHA
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 90
     environment: Production
     env:
       RELEASE_SHA: ${{ inputs.release_sha }}
@@ -30,7 +30,6 @@ jobs:
       AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
       LAMBDA_FUNCTION: ${{ vars.AWS_LAMBDA_FUNCTION }}
       LAMBDA_ALIAS: ${{ vars.AWS_LAMBDA_ALIAS }}
-      LAMBDA_RESERVED_CONCURRENCY: ${{ vars.AWS_LAMBDA_RESERVED_CONCURRENCY }}
       DATABASE_URL_PARAMETER: ${{ vars.AWS_DATABASE_URL_PARAMETER }}
       DATABASE_MIGRATION_URL_PARAMETER: ${{ vars.AWS_DATABASE_MIGRATION_URL_PARAMETER }}
       REDIS_URL_PARAMETER: ${{ vars.AWS_REDIS_URL_PARAMETER }}
@@ -40,9 +39,7 @@ jobs:
       SMOKE_RUN_ID: ${{ github.run_id }}
     steps:
       - name: Validate release SHA input
-        id: release_clock
         run: |
-          echo "started_epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
           if test "$GITHUB_REF" != "refs/heads/main"; then
             echo "::error::Dispatch this workflow from the main branch"
             exit 1
@@ -120,17 +117,6 @@ jobs:
           grep --fixed-strings --quiet \
             '/v2/content/v3?locale=' \
             apps/miniapp/src/lib/api/client.ts
-          if grep --recursive \
-            --include='*.ts' \
-            --include='*.tsx' \
-            --include='*.mjs' \
-            --extended-regexp --quiet \
-            '/v2/content/v2|action-v1' \
-            apps/miniapp/src \
-            apps/miniapp/scripts; then
-            echo "::error::Mini App runtime or production smoke still targets the legacy action contract"
-            exit 1
-          fi
           test "$(jq '.strings | length' apps/api/internal/content/v3/locales/en.json)" -eq 620
           test "$(jq '.strings | length' apps/api/internal/content/v3/locales/zh-CN.json)" -eq 620
           jq --exit-status \
@@ -213,7 +199,7 @@ jobs:
             'CONTENT-V3 / ACTION-V2' \
             "$RUNNER_TEMP/staged-index.html"
 
-      - name: Build immutable Lambda and migration runner
+      - name: Build immutable Lambda
         working-directory: apps/api
         run: |
           mkdir -p "$RUNNER_TEMP/xuhuan-lambda"
@@ -224,7 +210,6 @@ jobs:
             -o "$RUNNER_TEMP/xuhuan-lambda/bootstrap" \
             ./cmd/lambda
           (cd "$RUNNER_TEMP/xuhuan-lambda" && zip -q lambda.zip bootstrap)
-          go build -trimpath -o "$RUNNER_TEMP/xuhuan-migrate" ./cmd/migrate
 
       - name: Validate protected production configuration
         env:
@@ -245,9 +230,6 @@ jobs:
           test -n "$VERCEL_ORG_ID"
           test -n "$VERCEL_PROJECT_ID"
           test -n "$VERCEL_TOKEN"
-          test -n "$LAMBDA_RESERVED_CONCURRENCY"
-          test "$LAMBDA_RESERVED_CONCURRENCY" -ge 1
-          test "$LAMBDA_RESERVED_CONCURRENCY" -le 2
 
       - name: Configure short-lived AWS credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
@@ -279,25 +261,26 @@ jobs:
             echo "::add-mask::$value"
           done
 
-          migration_query="SELECT string_agg(version::text || ':' || name, ',' ORDER BY version) FROM schema_migrations"
+          schema_query="SELECT
+            (SELECT count(*) = 6 AND max(version) = 6 FROM schema_migrations)
+            AND to_regclass('players') IS NOT NULL
+            AND to_regclass('player_campaign_progress') IS NOT NULL
+            AND to_regclass('player_chapter_progress') IS NOT NULL
+            AND to_regclass('runs') IS NOT NULL
+            AND to_regclass('run_commands') IS NOT NULL
+            AND to_regclass('daily_results') IS NOT NULL
+            AND to_regclass('player_progress') IS NULL"
           # Neon poolers reject libpq startup options, so apply timeouts inside the query transaction.
-          migration_state=$(PGCONNECT_TIMEOUT=10 \
+          migration_ready=$(PGCONNECT_TIMEOUT=10 \
             psql "$database_migration_url" \
             --no-psqlrc --set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align \
-            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; $migration_query; COMMIT;")
-          runtime_state=$(PGCONNECT_TIMEOUT=10 \
+            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; $schema_query; COMMIT;")
+          runtime_ready=$(PGCONNECT_TIMEOUT=10 \
             psql "$database_url" \
             --no-psqlrc --set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align \
-            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; $migration_query; COMMIT;")
-          expected_v4='1:001_initial_schema.sql,2:002_story_roguelite.sql,3:003_remove_v1_compatibility.sql,4:004_action_roguelite.sql'
-          expected_v5="$expected_v4,5:005_action_v3_prepare.sql"
-          expected_v6="$expected_v5,6:006_remove_action_v2.sql"
-          case "$migration_state" in
-            "$expected_v4"|"$expected_v5"|"$expected_v6") ;;
-            *) echo "::error::Migration URL is not at a supported complete Action V2/V3 boundary"; exit 1 ;;
-          esac
-          if test "$runtime_state" != "$migration_state"; then
-            echo "::error::Runtime and migration database URLs expose different migration histories"
+            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; $schema_query; COMMIT;")
+          if test "$migration_ready" != "t" || test "$runtime_ready" != "t"; then
+            echo "::error::Production database is not at the complete V3 schema"
             exit 1
           fi
 
@@ -318,17 +301,16 @@ jobs:
             --query ReservedConcurrentExecutions \
             --output text)
           case "$reserved_concurrency" in
-            None|0|1|2) ;;
+            None|1|2) ;;
             *) echo "::error::Live Lambda concurrency is outside the zero-cost release guardrail"; exit 1 ;;
           esac
-          echo "reserved_concurrency=$reserved_concurrency" >> "$GITHUB_OUTPUT"
           lambda_config=$(aws lambda get-function-configuration \
             --function-name "$LAMBDA_FUNCTION" \
             --output json)
           lambda_timeout=$(jq -r .Timeout <<< "$lambda_config")
           test "$lambda_timeout" -ge 1
           if test "$lambda_timeout" -gt 30; then
-            echo "::error::Lambda timeout exceeds the workflow's 35-second drain window"
+            echo "::error::Lambda timeout exceeds the 30-second production limit"
             exit 1
           fi
           test "$(jq -r '.Architectures | join(",")' <<< "$lambda_config")" = "arm64"
@@ -448,7 +430,6 @@ jobs:
       - name: Check immutable candidate dependencies and content
         env:
           CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
-          INITIAL_RESERVED_CONCURRENCY: ${{ steps.live_alias.outputs.reserved_concurrency }}
         run: |
           candidate_config=$(aws lambda get-function-configuration \
             --function-name "$LAMBDA_FUNCTION" \
@@ -456,10 +437,6 @@ jobs:
             --output json)
           test "$(jq -r .Description <<< "$candidate_config")" = "$RELEASE_SHA"
           test "$(jq -r .Environment.Variables.APP_VERSION <<< "$candidate_config")" = "$RELEASE_SHA"
-          if test "$INITIAL_RESERVED_CONCURRENCY" = "0"; then
-            echo "::warning::Direct candidate invocation is unavailable while recovery/bootstrap concurrency is zero; local validation, exact configuration checks, and the post-alias API handshake remain mandatory."
-            exit 0
-          fi
           aws lambda invoke \
             --function-name "$LAMBDA_FUNCTION" \
             --qualifier "$CANDIDATE_VERSION" \
@@ -473,35 +450,12 @@ jobs:
           test "$(jq -r .content_version "$RUNNER_TEMP/check-response.json")" = "v3"
           test "$(jq -r .protocol "$RUNNER_TEMP/check-response.json")" = "action-v2"
 
-      - name: Require enough time for a bounded cutover
-        env:
-          RELEASE_STARTED_EPOCH: ${{ steps.release_clock.outputs.started_epoch }}
-        run: |
-          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-          main_sha=$(git rev-parse refs/remotes/origin/main)
-          if test "$RELEASE_SHA" != "$main_sha"; then
-            echo "::error::origin/main advanced to $main_sha during preflight; rerun this release for the new HEAD"
-            exit 1
-          fi
-          started_epoch=$RELEASE_STARTED_EPOCH
-          if [[ ! "$started_epoch" =~ ^[0-9]+$ ]]; then
-            echo "::error::Release start time is unavailable"
-            exit 1
-          fi
-          elapsed_seconds=$(($(date +%s) - started_epoch))
-          if test "$elapsed_seconds" -gt 3000; then
-            echo "::error::Preflight exceeded 50 minutes; rerun instead of entering maintenance near the job deadline"
-            exit 1
-          fi
-
       - name: Promote the exact staged Mini App
         id: promotion
         timeout-minutes: 6
         env:
           STAGED_URL: ${{ steps.frontend.outputs.url }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
-          INITIAL_RESERVED_CONCURRENCY: ${{ steps.live_alias.outputs.reserved_concurrency }}
         run: |
           vercel promote "$STAGED_URL" --yes --timeout=4m
           promoted=false
@@ -548,16 +502,6 @@ jobs:
             exit 1
           fi
           publicly_reachable=false
-          candidate_cors_origins=""
-          if test "$INITIAL_RESERVED_CONCURRENCY" = "0"; then
-            candidate_cors_origins=$(aws lambda get-function-configuration \
-              --function-name "$LAMBDA_FUNCTION" \
-              --qualifier "$CANDIDATE_VERSION" \
-              --query Environment.Variables.CORS_ALLOWED_ORIGINS \
-              --output text)
-            test -n "$candidate_cors_origins"
-            test "$candidate_cors_origins" != "None"
-          fi
           for alias in "${production_aliases[@]}"; do
             if [[ ! "$alias" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]]; then
               echo "::error::Vercel returned an invalid production alias"
@@ -570,34 +514,18 @@ jobs:
               grep --fixed-strings --quiet \
                 'CONTENT-V3 / ACTION-V2' \
                 "$RUNNER_TEMP/public-production-index.html"; then
-              cors_ready=false
-              if test "$INITIAL_RESERVED_CONCURRENCY" = "0"; then
-                IFS=',' read -r -a allowed_origins <<< "$candidate_cors_origins"
-                for allowed_origin in "${allowed_origins[@]}"; do
-                  allowed_origin=${allowed_origin#"${allowed_origin%%[![:space:]]*}"}
-                  allowed_origin=${allowed_origin%"${allowed_origin##*[![:space:]]}"}
-                  if test "${allowed_origin,,}" = "https://${alias,,}"; then
-                    cors_ready=true
-                    break
-                  fi
-                done
-              else
-                cors_status=$(curl --show-error --silent \
-                  --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 2 --retry-all-errors \
-                  --request OPTIONS \
-                  --header "Origin: https://$alias" \
-                  --header 'Access-Control-Request-Method: GET' \
-                  --dump-header "$RUNNER_TEMP/public-api-cors-headers.txt" \
-                  --output /dev/null \
-                  --write-out '%{http_code}' \
-                  "${API_BASE_URL%/}/healthz")
-                cors_origin=$(tr -d '\r' < "$RUNNER_TEMP/public-api-cors-headers.txt" | \
-                  awk -F ': ' 'tolower($1) == "access-control-allow-origin" { print $2; exit }')
-                if test "$cors_status" = "204" && test "$cors_origin" = "https://$alias"; then
-                  cors_ready=true
-                fi
-              fi
-              if test "$cors_ready" = "true"; then
+              cors_status=$(curl --show-error --silent \
+                --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 2 --retry-all-errors \
+                --request OPTIONS \
+                --header "Origin: https://$alias" \
+                --header 'Access-Control-Request-Method: GET' \
+                --dump-header "$RUNNER_TEMP/public-api-cors-headers.txt" \
+                --output /dev/null \
+                --write-out '%{http_code}' \
+                "${API_BASE_URL%/}/healthz")
+              cors_origin=$(tr -d '\r' < "$RUNNER_TEMP/public-api-cors-headers.txt" | \
+                awk -F ': ' 'tolower($1) == "access-control-allow-origin" { print $2; exit }')
+              if test "$cors_status" = "204" && test "$cors_origin" = "https://$alias"; then
                 publicly_reachable=true
                 echo "public_origin=https://$alias" >> "$GITHUB_OUTPUT"
                 break
@@ -606,98 +534,6 @@ jobs:
           done
           if test "$publicly_reachable" != "true"; then
             echo "::error::No production alias exposes V3 publicly and passes the API CORS preflight"
-            exit 1
-          fi
-
-      - name: Enter maintenance window and drain Lambda
-        id: maintenance
-        timeout-minutes: 2
-        run: |
-          echo "started=true" >> "$GITHUB_OUTPUT"
-          aws lambda put-function-concurrency \
-            --function-name "$LAMBDA_FUNCTION" \
-            --reserved-concurrent-executions 0 > /dev/null
-          test "$(aws lambda get-function-concurrency \
-            --function-name "$LAMBDA_FUNCTION" \
-            --query ReservedConcurrentExecutions \
-            --output text)" = "0"
-          sleep 35
-
-      - name: Apply V3 preparation migration
-        id: migrations
-        timeout-minutes: 7
-        working-directory: apps/api
-        run: |
-          database_migration_url=$(aws ssm get-parameter \
-            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
-            --with-decryption \
-            --query Parameter.Value \
-            --output text)
-          case "$database_migration_url" in
-            postgres://*|postgresql://*) ;;
-            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
-          esac
-          echo "::add-mask::$database_migration_url"
-          MIGRATION_TARGET_VERSION=5 \
-            DATABASE_URL="$database_migration_url" \
-            "$RUNNER_TEMP/xuhuan-migrate"
-
-      - name: Resolve V3 boundary after a reported migration failure
-        id: migration_boundary
-        if: ${{ always() && steps.maintenance.outputs.started == 'true' && steps.migrations.outcome != 'success' }}
-        timeout-minutes: 2
-        run: |
-          set +x
-          command -v psql > /dev/null
-          database_migration_url=$(aws ssm get-parameter \
-            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
-            --with-decryption \
-            --query Parameter.Value \
-            --output text)
-          case "$database_migration_url" in
-            postgres://*|postgresql://*) ;;
-            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
-          esac
-          echo "::add-mask::$database_migration_url"
-          v3_applied=$(PGCONNECT_TIMEOUT=10 \
-            psql "$database_migration_url" \
-            --set=ON_ERROR_STOP=1 \
-            --no-psqlrc \
-            --quiet \
-            --tuples-only \
-            --no-align \
-            --command="BEGIN; SET LOCAL lock_timeout = '10s'; SET LOCAL statement_timeout = '30s'; SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 5); COMMIT;")
-          case "$v3_applied" in
-            t) echo "v3_applied=true" >> "$GITHUB_OUTPUT" ;;
-            f) echo "v3_applied=false" >> "$GITHUB_OUTPUT" ;;
-            *) echo "::error::Could not determine the V3 migration boundary"; exit 1 ;;
-          esac
-
-      - name: Verify the Lambda runtime database reached V3
-        timeout-minutes: 2
-        run: |
-          set +x
-          command -v psql > /dev/null
-          database_url=$(aws ssm get-parameter \
-            --name "$DATABASE_URL_PARAMETER" \
-            --with-decryption \
-            --query Parameter.Value \
-            --output text)
-          case "$database_url" in
-            postgres://*|postgresql://*) ;;
-            *) echo "::error::Database runtime parameter is not a PostgreSQL URL"; exit 1 ;;
-          esac
-          echo "::add-mask::$database_url"
-          runtime_v3_ready=$(PGCONNECT_TIMEOUT=10 \
-            psql "$database_url" \
-            --no-psqlrc \
-            --set=ON_ERROR_STOP=1 \
-            --quiet \
-            --tuples-only \
-            --no-align \
-            --command="BEGIN; SET LOCAL lock_timeout = '10s'; SET LOCAL statement_timeout = '30s'; SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 5) AND to_regclass('player_campaign_progress') IS NOT NULL; COMMIT;")
-          if test "$runtime_v3_ready" != "t"; then
-            echo "::error::Lambda runtime DATABASE_URL does not expose the committed V3 schema"
             exit 1
           fi
 
@@ -729,33 +565,6 @@ jobs:
           test "$(jq -r '.FunctionVersion // empty' <<< "$live_alias")" = "$CANDIDATE_VERSION"
           test "$(jq -r '.Description // empty' <<< "$live_alias")" = "$RELEASE_SHA"
           test "$(jq '.RoutingConfig.AdditionalVersionWeights // {} | length' <<< "$live_alias")" -eq 0
-
-      - name: Restore bounded Lambda concurrency
-        if: ${{ always() && steps.maintenance.outputs.started == 'true' && (steps.alias.outcome == 'success' || (steps.migrations.outcome != 'success' && steps.migration_boundary.outputs.v3_applied == 'false')) }}
-        timeout-minutes: 3
-        run: |
-          unreserved_concurrency=$(aws lambda get-account-settings \
-            --query AccountLimit.UnreservedConcurrentExecutions \
-            --output text)
-          minimum_unreserved_concurrency=100
-          required_unreserved_concurrency=$((LAMBDA_RESERVED_CONCURRENCY + minimum_unreserved_concurrency))
-          if test "$unreserved_concurrency" -ge "$required_unreserved_concurrency"; then
-            aws lambda put-function-concurrency \
-              --function-name "$LAMBDA_FUNCTION" \
-              --reserved-concurrent-executions "$LAMBDA_RESERVED_CONCURRENCY" > /dev/null
-            test "$(aws lambda get-function-concurrency \
-              --function-name "$LAMBDA_FUNCTION" \
-              --query ReservedConcurrentExecutions \
-              --output text)" = "$LAMBDA_RESERVED_CONCURRENCY"
-          else
-            aws lambda delete-function-concurrency \
-              --function-name "$LAMBDA_FUNCTION"
-            test "$(aws lambda get-function-concurrency \
-              --function-name "$LAMBDA_FUNCTION" \
-              --query ReservedConcurrentExecutions \
-              --output text)" = "None"
-            echo "::warning::Lambda unreserved concurrency is $unreserved_concurrency; using the account-wide cap until it reaches $required_unreserved_concurrency."
-          fi
 
       - name: Verify API handshake
         timeout-minutes: 10
@@ -938,30 +747,6 @@ jobs:
           COMMIT;
           SQL
 
-      - name: Remove legacy Action V2 schema after V3 smoke
-        id: contract
-        timeout-minutes: 7
-        working-directory: apps/api
-        run: |
-          database_migration_url=$(aws ssm get-parameter \
-            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
-            --with-decryption \
-            --query Parameter.Value \
-            --output text)
-          case "$database_migration_url" in
-            postgres://*|postgresql://*) ;;
-            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
-          esac
-          echo "::add-mask::$database_migration_url"
-          MIGRATION_TARGET_VERSION=6 \
-            DATABASE_URL="$database_migration_url" \
-            "$RUNNER_TEMP/xuhuan-migrate"
-
-      - name: Record forward-only failure boundary
-        if: ${{ failure() && steps.maintenance.outputs.started == 'true' && (steps.migrations.outcome == 'success' || steps.migration_boundary.outputs.v3_applied != 'false') }}
-        run: |
-          echo "::error::V3 preparation migration 005 committed or could not be proven absent. Do not restore an Action V2 Lambda or frontend; keep the compatible candidate live (or maintenance concurrency at zero if alias switching failed) and fix forward. Migration 006 remains gated until synthetic-state cleanup succeeds and is safe to retry after a contract-step failure."
-
       - name: Release summary
         if: success()
         env:
@@ -977,5 +762,4 @@ jobs:
             echo "- Fixed V3 catalog counts and both production locales: validated"
             echo "- Signed Telegram production journey: passed"
             echo "- Synthetic production smoke player: removed"
-            echo "- Legacy Action V2 schema cleanup: migration 006 applied"
           } >> "$GITHUB_STEP_SUMMARY"

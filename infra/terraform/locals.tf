@@ -1,4 +1,5 @@
 locals {
-  name          = "${var.project_name}-${var.environment}"
+  environment   = "production"
+  name          = "${var.project_name}-${local.environment}"
   function_name = "${local.name}-api"
 }

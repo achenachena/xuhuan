@@ -187,8 +187,12 @@ func startEncounter(state *State, runSeed, slug string, catalog *gamecontent.Cat
 	if !ok {
 		return fmt.Errorf("run: unknown encounter %q", slug)
 	}
+	seed := runSeed + ":" + state.Map.CurrentNodeID
+	if definition.Tutorial {
+		seed = "tutorial:" + slug + ":0"
+	}
 	state.Phase = EncounterPhase
-	state.Encounter = &EncounterState{Slug: slug, Seed: runSeed + ":" + state.Map.CurrentNodeID, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, Tutorial: definition.Tutorial, Objective: action.ObjectiveConfig{Kind: definition.Objective.Kind, Target: definition.Objective.Target}, Risk: definition.Risk, RewardBias: definition.RewardBias, Hazards: append([]string{}, definition.Hazards...)}
+	state.Encounter = &EncounterState{Slug: slug, Seed: seed, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, Tutorial: definition.Tutorial, Objective: action.ObjectiveConfig{Kind: definition.Objective.Kind, Target: definition.Objective.Target}, Risk: definition.Risk, RewardBias: definition.RewardBias, Hazards: append([]string{}, definition.Hazards...)}
 	return nil
 }
 

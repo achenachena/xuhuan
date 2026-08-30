@@ -70,7 +70,7 @@ describe("useGameController action-v2 orchestration", () => {
     expect(result.current.content?.locale).toBe("zh-CN");
   });
 
-  it("creates independent campaign and daily slots with the new signatures", async () => {
+  it("creates independent campaign and daily slots", async () => {
     const campaign = createV3Run();
     const daily = createV3Run({
       id: "10000000-0000-4000-8000-000000000009",

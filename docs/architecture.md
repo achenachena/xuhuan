@@ -101,7 +101,7 @@ locales/zh-CN.json        the same 620 keys in Simplified Chinese
 
 Loading uses strict JSON decoding and rejects unknown fields, duplicate slugs, locale-key drift, missing text, undeclared asset URLs, invalid enum values, invalid effects, broken content references, incorrect chapter succession, or the wrong fixed counts. CI additionally requires exact parity between the immutable asset manifest and the public V3 WebP tree. The assembled bundle contains 36 enemies, 47 encounters, 28 events, and 34 story scenes.
 
-See [content-authoring.md](content-authoring.md) for the authoring contract. Released content versions must not be edited in place because active Runs retain their `content_version` and seeds.
+See [content-authoring.md](content-authoring.md) for the authoring contract. The runtime supports only the current embedded catalog. Run snapshots retain their content label and seed, while a deployment that changes deterministic encounter inputs may restart the current room under the new rules.
 
 ## PostgreSQL model after V3 migration
 
@@ -117,7 +117,7 @@ See [content-authoring.md](content-authoring.md) for the authoring contract. Rel
 | `daily_results` | best score, build, and streak for a UTC day | unique player/date and Run |
 | `schema_migrations` | ordered migration history | unique numeric version |
 
-Migration `005_action_v3_prepare.sql` preserves `players` but deletes all prior game truth, creates V3 progression and daily state, and permits separate campaign/daily active Runs. After the promoted V3 stack passes its signed smoke journey, migration `006_remove_action_v2.sql` removes the now-unused legacy gameplay tables and Telegram profile-name columns. Both migration files remain permanently in history.
+Migrations 001–006 are the ordered path from an empty database to the current schema. Migration 005 performed the one-time V3 reset and migration 006 removed the retired gameplay schema. They remain embedded as database history, but current runtime and release code support only the completed migration-6 schema.
 
 ## HTTP surface
 
@@ -146,7 +146,7 @@ The interface targets a 320 by 568 portrait viewport, Telegram safe areas, point
 
 ## Release and operational boundaries
 
-Production uses one protected exact-SHA workflow and rejects stale ancestors of the current `main` HEAD. It stages a production-mode Vercel build without domains, verifies its rendered V3/action-v2 marker, checks an immutable Lambda version, promotes the exact staged frontend, and confirms that the linked production domain serves that artifact. It then sets Lambda concurrency to zero, applies the V3 preparation migration, verifies the runtime database URL sees that boundary, switches the alias, restores bounded concurrency, verifies `healthz`/`readyz` and `v3`/`action-v2`, and runs a signed Telegram journey. The same ephemeral signed launch data is injected through a minimal Telegram bridge into headless Chrome so the promoted frontend itself must boot, authenticate its game snapshot, and perform a localized UI/API refresh. During the API cutover, the already-promoted V3 frontend keeps the player in its connection-safe retry state instead of issuing legacy commands. The smoke refuses any pre-existing synthetic Telegram ID; an always-running, identity-scoped cleanup removes only the synthetic player and its cascading game records after any attempted journey. The legacy schema contracts only after both smoke and cleanup pass. See [action-v3-release.md](action-v3-release.md).
+Production uses one protected exact-SHA workflow and rejects stale ancestors of the current `main` HEAD. It requires successful CI, verifies that both Neon URLs expose the complete migration-6 schema, stages and checks immutable Vercel and Lambda artifacts, promotes them, and verifies `healthz`, `readyz`, CORS, and both localized V3 catalogs. Signed API and headless-Chrome journeys use one collision-checked synthetic Telegram identity; an always-running cleanup removes only that player and cascading game records. See [action-v3-release.md](action-v3-release.md).
 
 Responses carry `X-Request-ID`. Structured logs use route templates and bounded reason labels, never raw init data, credentials, database URLs, SQL arguments, full traces, or player/run identifiers. PostgreSQL gates readiness. Redis failures fall back to a bounded in-process limiter. AWS-native Lambda and CloudWatch signals cover production health without an unused application telemetry exporter.
 

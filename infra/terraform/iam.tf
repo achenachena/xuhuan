@@ -45,7 +45,7 @@ data "aws_iam_policy_document" "github_assume" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:environment:${var.github_environment}"]
+      values   = ["repo:${var.github_repository}:environment:Production"]
     }
   }
 }
@@ -60,13 +60,11 @@ data "aws_iam_policy_document" "github_deploy" {
     sid = "ReleaseLambda"
     actions = [
       "lambda:GetAlias",
-      "lambda:DeleteFunctionConcurrency",
       "lambda:GetFunction",
       "lambda:GetFunctionConcurrency",
       "lambda:GetFunctionConfiguration",
       "lambda:InvokeFunction",
       "lambda:PublishVersion",
-      "lambda:PutFunctionConcurrency",
       "lambda:UpdateAlias",
       "lambda:UpdateFunctionCode",
       "lambda:UpdateFunctionConfiguration",
@@ -75,12 +73,6 @@ data "aws_iam_policy_document" "github_deploy" {
       aws_lambda_function.api.arn,
       "${aws_lambda_function.api.arn}:*",
     ]
-  }
-
-  statement {
-    sid       = "ReadAccountConcurrency"
-    actions   = ["lambda:GetAccountSettings"]
-    resources = ["*"]
   }
 
   statement {

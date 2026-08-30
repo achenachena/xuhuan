@@ -15,31 +15,9 @@ variable "project_name" {
   }
 }
 
-variable "environment" {
-  description = "Protected GitHub environment used for this single deployment."
-  type        = string
-  default     = "production"
-
-  validation {
-    condition     = contains(["staging", "production"], var.environment)
-    error_message = "environment must be staging or production."
-  }
-}
-
 variable "github_repository" {
   description = "GitHub owner/repository allowed to assume the deployment role."
   type        = string
-}
-
-variable "github_environment" {
-  description = "Case-sensitive protected GitHub environment used in the OIDC subject claim."
-  type        = string
-  default     = "Production"
-
-  validation {
-    condition     = contains(["staging", "Production"], var.github_environment)
-    error_message = "github_environment must be staging or Production."
-  }
 }
 
 variable "github_oidc_provider_arn" {
@@ -73,12 +51,6 @@ variable "lambda_timeout" {
   description = "Maximum HTTP or maintenance invocation duration in seconds."
   type        = number
   default     = 30
-}
-
-variable "lambda_reserved_concurrency" {
-  description = "Concurrency enabled by the deploy workflow after secrets and migrations are ready."
-  type        = number
-  default     = 2
 }
 
 variable "log_retention_days" {

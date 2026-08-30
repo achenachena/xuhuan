@@ -283,7 +283,7 @@
       "kind": "normal",
       "objective": {
         "kind": "recover",
-        "target": 4
+        "target": 3
       },
       "duration_ticks": 1060,
       "max_ticks": 1650,

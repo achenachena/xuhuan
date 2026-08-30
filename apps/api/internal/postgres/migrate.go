@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,8 +18,7 @@ const (
 	// The migration-level deadline bounds all numbered migrations and commits;
 	// the runner adds a wider deadline around connection establishment as well.
 	// Database-side limits are deliberately shorter so PostgreSQL reports a
-	// failure before the process deadline and the release workflow can inspect
-	// the committed migration boundary safely.
+	// failure before the process deadline.
 	migrationExecutionTimeout = 5 * time.Minute
 	migrationStatementTimeout = 4 * time.Minute
 	migrationLockTimeout      = 15 * time.Second
@@ -34,13 +32,6 @@ type migration struct {
 }
 
 func (d *Database) Migrate(ctx context.Context, files fs.FS) error {
-	return d.MigrateTo(ctx, files, 0)
-}
-
-// MigrateTo applies migrations through targetVersion. A target of zero applies
-// every embedded migration. Production uses this boundary to apply an expand
-// migration, validate the new release, and only then apply the contract step.
-func (d *Database) MigrateTo(ctx context.Context, files fs.FS, targetVersion int64) error {
 	ctx, cancel := boundedMigrationContext(ctx)
 	defer cancel()
 
@@ -48,17 +39,11 @@ func (d *Database) MigrateTo(ctx context.Context, files fs.FS, targetVersion int
 	if err != nil {
 		return err
 	}
-	if targetVersion < 0 || (targetVersion > 0 && !slices.ContainsFunc(migrations, func(item migration) bool { return item.version == targetVersion })) {
-		return fmt.Errorf("migration target %d does not exist", targetVersion)
-	}
 	if err := d.ensureMigrationTable(ctx); err != nil {
 		return err
 	}
 
 	for _, item := range migrations {
-		if targetVersion > 0 && item.version > targetVersion {
-			break
-		}
 		if err := d.applyMigration(ctx, item); err != nil {
 			return err
 		}

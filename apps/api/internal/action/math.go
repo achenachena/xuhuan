@@ -1,5 +1,21 @@
 package action
 
+func seedFromString(value string) uint32 {
+	const (
+		offset = uint32(2166136261)
+		prime  = uint32(16777619)
+	)
+	seed := offset
+	for index := 0; index < len(value); index++ {
+		seed ^= uint32(value[index])
+		seed *= prime
+	}
+	if seed == 0 {
+		return 0x9e3779b9
+	}
+	return seed
+}
+
 func (stream *randomStream) next() uint32 {
 	if stream.state == 0 {
 		stream.state = 0x9e3779b9
