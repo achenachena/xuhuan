@@ -16,12 +16,10 @@ export type JoystickVisual = {
   readonly warpArmed: boolean;
 };
 
-// Keep the neutral zone small and reach full speed early. The trace protocol is
-// intentionally quantized, so wide slow-speed bands feel like momentum even
-// though the simulation stops immediately on release.
-const DEAD_ZONE_RATIO = 0.08;
-const WALK_RATIO = 0.22;
-const RUN_RATIO = 0.58;
+// Movement is deliberately binary: outside a small neutral zone the player is
+// at full speed. Variable speed bands made a fixed joystick feel like it was
+// accelerating even though the authoritative simulation has no velocity.
+const DEAD_ZONE_RATIO = 0.05;
 const WARP_RADIUS_RATIO = 1.55;
 
 export const beginJoystickControl = (
@@ -68,8 +66,7 @@ export const readJoystickInput = (
 
   const direction =
     (Math.round((Math.atan2(dy, dx) / (Math.PI * 2)) * 16) + 16) % 16;
-  const magnitude = ratio < WALK_RATIO ? 1 : ratio < RUN_RATIO ? 2 : 3;
-  return { direction, magnitude, skill };
+  return { direction, magnitude: 3, skill };
 };
 
 export const isWarpArmed = (control: JoystickControl): boolean => {

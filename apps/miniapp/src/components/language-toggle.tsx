@@ -13,11 +13,12 @@ const LanguageToggle = () => {
 
   return (
     <button
+      data-language-toggle="true"
       type="button"
       aria-label={label}
       title={label}
       onClick={() => setLanguage(isEnglish ? "zh-CN" : "en")}
-      className="fixed right-3 top-[var(--xuhuan-host-safe-top)] z-[60] min-w-12 border-2 border-cyan-200/30 bg-[#071225]/92 px-2.5 py-2 font-mono text-[10px] font-bold tracking-wider text-cyan-50 shadow-[3px_3px_0_rgba(2,6,23,.75)] backdrop-blur-sm transition active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+      className="fixed right-2 top-[calc(var(--xuhuan-host-safe-top)+.25rem)] z-[60] grid h-8 min-w-8 place-items-center border border-cyan-200/35 bg-[#071225]/82 px-1.5 font-mono text-[8px] font-bold tracking-wider text-cyan-50 shadow-[2px_2px_0_rgba(2,6,23,.65)] backdrop-blur-sm transition active:translate-x-px active:translate-y-px active:shadow-none"
     >
       {isEnglish ? "ZH" : "EN"}
     </button>

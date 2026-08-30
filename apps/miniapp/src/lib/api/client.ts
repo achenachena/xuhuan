@@ -13,6 +13,7 @@ export type APIDailyResult = components["schemas"]["DailyResult"];
 
 type ErrorEnvelope = components["schemas"]["ErrorEnvelope"];
 const requestTimeoutMilliseconds = 20_000;
+const encounterReplayTimeoutMilliseconds = 45_000;
 
 let cachedWebApp: (typeof import("@twa-dev/sdk"))["default"] | null = null;
 
@@ -93,10 +94,12 @@ const requestJSON = async <TResponse>(
 const postJSON = async <TBody, TResponse>(
   path: string,
   body: TBody,
-  idempotencyKey: string
+  idempotencyKey: string,
+  timeoutMilliseconds = requestTimeoutMilliseconds,
 ): Promise<TResponse> => {
   return requestJSON<TResponse>(path, {
     method: "POST",
+    signal: AbortSignal.timeout(timeoutMilliseconds),
     headers: {
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey
@@ -139,7 +142,14 @@ export const createRunCommand = (
   body: APIRunCommand,
   idempotencyKey: string
 ): Promise<APIRunCommandResponse> => {
-  return postJSON(`/v2/runs/${encodeURIComponent(runId)}/commands`, body, idempotencyKey);
+  return postJSON(
+    `/v2/runs/${encodeURIComponent(runId)}/commands`,
+    body,
+    idempotencyKey,
+    body.type === "complete_encounter"
+      ? encounterReplayTimeoutMilliseconds
+      : requestTimeoutMilliseconds,
+  );
 };
 
 export const createStoryChoice = (
