@@ -49,6 +49,8 @@ func newTelegramVerifier(botToken string, maxAge time.Duration, now func() time.
 	if maxAge <= 0 {
 		return nil, errors.New("telegram auth max age must be positive")
 	}
+	// Telegram Mini Apps require this two-step HMAC-SHA-256 verification. It is
+	// the production identity boundary, not an application-issued credential.
 	secret := hmac.New(sha256.New, []byte("WebAppData"))
 	_, _ = secret.Write([]byte(botToken))
 	return &TelegramVerifier{secretKey: secret.Sum(nil), maxAge: maxAge, now: now}, nil

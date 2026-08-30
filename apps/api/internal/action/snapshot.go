@@ -1,62 +1,12 @@
 package action
 
-import "fmt"
-
 func (sim *simulation) result(won bool) Result {
 	final := sim.snapshot()
 	sim.score += max(0, sim.health)*5 + sim.protocols*250 + max(0, sim.config.MaxTicks-sim.tick)/3
 	final.Score = sim.score
-	digest := sim.canonicalDigest(won)
 	return Result{Won: won, Health: max(0, sim.health), Ticks: sim.tick, Kills: sim.kills,
 		ProtocolsCompleted: sim.protocols, Distortion: sim.distortion, Score: sim.score, EmergencyReconnectUsed: sim.emergencyUsed,
-		Digest: digest, Final: final}
-}
-
-func (sim *simulation) canonicalDigest(won bool) string {
-	values := []uint32{
-		uint32(sim.tick), uint32(max(0, sim.health)), uint32(sim.shield), uint32(sim.playerX), uint32(sim.playerY),
-		uint32(sim.kills), uint32(sim.protocols), uint32(sim.distortion), uint32(sim.objectiveProgress), uint32(sim.score),
-		boolInt(sim.emergencyUsed), boolInt(won), uint32(sim.warpClock), uint32(sim.invulnerable), uint32(sim.attackClock), uint32(sim.totalGrazes),
-		uint32(sim.routeStep), boolInt(sim.routeReady), boolInt(sim.routeWarpUsed), uint32(sim.lastGraze), uint32(sim.nextEnemyID),
-		uint32(sim.nextBulletID), uint32(sim.spawnIndex), sim.random.state, uint32(sim.routePattern), uint32(sim.autoAttacks),
-		uint32(sim.warpReadyTick), uint32(sim.lastSignalTick), stableStringID(string(sim.protocol)), stableStringID(string(sim.lastSignal)),
-		boolInt(sim.hasLastWarp), uint32(sim.lastWarpStart.X), uint32(sim.lastWarpStart.Y), uint32(sim.lastWarpEnd.X), uint32(sim.lastWarpEnd.Y),
-		uint32(sim.nextFriendlyID),
-	}
-	if sim.config.Kind == "boss" || sim.config.Objective.Kind == "boss" {
-		values = append(values, stableStringID(sim.config.BossVariant))
-	}
-	if sim.config.Objective.Kind == "elite" {
-		values = append(values, uint32(sim.eliteSpawned), uint32(sim.eliteKills))
-	}
-	for _, cooldown := range sim.signalCooldown {
-		values = append(values, uint32(cooldown))
-	}
-	for _, signal := range sim.weave {
-		values = append(values, stableStringID(string(signal)))
-	}
-	for _, waypoint := range sim.signalWaypoints {
-		values = append(values, uint32(waypoint.X), uint32(waypoint.Y))
-	}
-	for _, bloom := range sim.blooms {
-		values = append(values, uint32(bloom.X), uint32(bloom.Y))
-	}
-	for _, zone := range sim.safeZones {
-		values = append(values, uint32(zone.position.X), uint32(zone.position.Y), uint32(zone.radius), uint32(zone.expiresTick))
-	}
-	for _, replay := range sim.delayedWarps {
-		values = append(values, uint32(replay.start.X), uint32(replay.start.Y), uint32(replay.end.X), uint32(replay.end.Y), uint32(replay.triggerTick), uint32(replay.damage), uint32(replay.radius))
-	}
-	for _, shot := range sim.friendlyShots {
-		values = append(values, uint32(shot.id), uint32(shot.x), uint32(shot.y), uint32(shot.targetID), uint32(shot.damage), uint32(shot.life))
-	}
-	for _, enemy := range sim.enemies {
-		values = append(values, uint32(enemy.id), uint32(enemy.specIndex), uint32(enemy.x), uint32(enemy.y), uint32(max(0, enemy.health)), uint32(enemy.maxHealth), uint32(enemy.fireClock), uint32(enemy.attackIndex))
-	}
-	for _, bullet := range sim.projectiles {
-		values = append(values, uint32(bullet.id), uint32(bullet.x), uint32(bullet.y), uint32(bullet.vx), uint32(bullet.vy), uint32(bullet.damage), boolInt(bullet.grazed), boolInt(bullet.glitchMarked), uint32(bullet.delay), stableStringID(bullet.pattern))
-	}
-	return fmt.Sprintf("%08x", fnv32(values))
+		Final: final}
 }
 
 func (sim *simulation) snapshot() Snapshot {

@@ -4,8 +4,39 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"os"
+	"reflect"
 	"testing"
 )
+
+type goldenSummary struct {
+	Won               bool         `json:"won"`
+	Health            int          `json:"health"`
+	Ticks             int          `json:"ticks"`
+	Kills             int          `json:"kills"`
+	Protocols         int          `json:"protocols"`
+	Distortion        int          `json:"distortion"`
+	Score             int          `json:"score"`
+	EmergencyUsed     bool         `json:"emergency_used"`
+	ObjectiveProgress int          `json:"objective_progress"`
+	EnemyCount        int          `json:"enemy_count"`
+	ProjectileCount   int          `json:"projectile_count"`
+	SignalCount       int          `json:"signal_count"`
+	Weave             []SignalType `json:"weave"`
+	Player            Vec          `json:"player"`
+	Shield            int          `json:"shield"`
+	TotalGrazes       int          `json:"total_grazes"`
+}
+
+func summarizeResult(result Result) goldenSummary {
+	return goldenSummary{
+		Won: result.Won, Health: result.Health, Ticks: result.Ticks, Kills: result.Kills,
+		Protocols: result.ProtocolsCompleted, Distortion: result.Distortion, Score: result.Score,
+		EmergencyUsed: result.EmergencyReconnectUsed, ObjectiveProgress: result.Final.Objective.Progress,
+		EnemyCount: len(result.Final.Enemies), ProjectileCount: len(result.Final.Projectiles),
+		SignalCount: len(result.Final.Signals), Weave: result.Final.Weave, Player: result.Final.Player,
+		Shield: result.Final.Shield, TotalGrazes: result.Final.TotalGrazes,
+	}
+}
 
 func encodedTrace(control byte, ticks int) InputTrace {
 	raw := make([]byte, 0, ticks/255*2+2)
@@ -36,10 +67,9 @@ func TestSimulationIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Digest != second.Digest || !first.Won {
+	if !reflect.DeepEqual(first, second) || !first.Won {
 		t.Fatalf("results differ: %#v %#v", first, second)
 	}
-	t.Logf("conformance digest: %s", first.Digest)
 }
 
 func TestSimulationRejectsEnemiesWithoutAuthoredAttacks(t *testing.T) {
@@ -75,18 +105,6 @@ func TestTraceRejectsNonCanonicalEncodingAndRuns(t *testing.T) {
 	splitRun := InputTrace{Encoding: TraceEncodingRLE, Ticks: 2, Data: base64.RawURLEncoding.EncodeToString([]byte{0x10, 1, 0x10, 1})}
 	if _, err := DecodeTrace(splitRun, 10); err != ErrInvalidTrace {
 		t.Fatalf("split run error = %v", err)
-	}
-}
-
-func TestPredictionDigestMismatchIsAdvisory(t *testing.T) {
-	trace := encodedTrace(0, 120)
-	trace.PredictionDigest = "deadbeef"
-	result, err := Simulate(testConfig(), trace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.Won || !result.PredictionDrift {
-		t.Fatalf("won=%v prediction_drift=%v", result.Won, result.PredictionDrift)
 	}
 }
 
@@ -228,7 +246,6 @@ func TestAuthoredBossVariantsChangePatternsAndReadableTiming(t *testing.T) {
 		"balanced":  {kind: "fan", interval: 30, telegraph: 12, count: 3},
 		"retained":  {kind: "ring", interval: 27, telegraph: 16, count: 16},
 	}
-	digests := map[string]bool{}
 	for _, variant := range []string{"authentic", "balanced", "retained"} {
 		t.Run(variant, func(t *testing.T) {
 			config := base
@@ -263,11 +280,6 @@ func TestAuthoredBossVariantsChangePatternsAndReadableTiming(t *testing.T) {
 			if len(sim.projectiles) != want.count {
 				t.Fatalf("projectiles=%d want=%d", len(sim.projectiles), want.count)
 			}
-			digest := sim.canonicalDigest(false)
-			if digests[digest] {
-				t.Fatalf("variant did not produce a unique canonical digest: %s", digest)
-			}
-			digests[digest] = true
 		})
 	}
 }
@@ -325,20 +337,6 @@ func TestEnemyPatternsProduceDistinctAttacks(t *testing.T) {
 	}
 }
 
-func TestBossConformanceVector(t *testing.T) {
-	config := Config{Seed: "boss-conformance", Kind: "boss", DurationTicks: 2700, MaxTicks: 2700, SpawnInterval: 300, MaxAlive: 4, PlayerHealth: 100, PlayerMaxHealth: 100, EmergencyReconnectAvailable: true,
-		Objective: ObjectiveConfig{Kind: "boss", Target: 1},
-		Enemies:   []EnemySpec{{Slug: "optimal", Kind: "boss", MaxHealth: 1050, Speed: 5, ContactDamage: 12, Movement: MovementSpec{Kind: "chase"}, Attacks: []AttackSpec{{Kind: "fan", Interval: 24, ProjectileSpeed: 34, Damage: 8, Count: 3, Spread: 4}, {Kind: "ring", Interval: 22, ProjectileSpeed: 36, Damage: 8, Count: 8}, {Kind: "spiral", Interval: 20, ProjectileSpeed: 38, Damage: 9, Count: 8}}}},
-		Runtime:   RuntimeConfig{Kit: "nana-route", Passive: "nana_route_chain", Resonance: "nana_route_chain", AttackDamage: 8, AttackInterval: 12, MoveSpeed: 42, WarpCooldown: 240, WarpDamage: 14, DistortionGain: 4, GrazeRadius: 310, ProjectileCount: 1, ProjectileSpeed: 100}}
-	result, err := Simulate(config, encodedTrace(0x10, 2700))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Digest != "4f9a23e9" {
-		t.Fatalf("boss conformance digest = %s", result.Digest)
-	}
-}
-
 func TestEliteConformanceVector(t *testing.T) {
 	config := Config{
 		Seed: "elite-conformance", Kind: "elite", DurationTicks: 1200, MaxTicks: 1500,
@@ -356,9 +354,6 @@ func TestEliteConformanceVector(t *testing.T) {
 	if err != nil || !result.Won || result.Final.Objective.Progress != 1 || len(result.Final.Enemies) < 2 {
 		t.Fatalf("result=%#v error=%v", result, err)
 	}
-	if result.Digest != "9ab57dcb" {
-		t.Fatalf("elite conformance digest=%s", result.Digest)
-	}
 }
 
 func TestActionV2GoldenVectors(t *testing.T) {
@@ -369,16 +364,16 @@ func TestActionV2GoldenVectors(t *testing.T) {
 	var fixture struct {
 		Version string `json:"version"`
 		Vectors []struct {
-			Name   string     `json:"name"`
-			Config Config     `json:"config"`
-			Trace  InputTrace `json:"trace"`
-			Digest string     `json:"digest"`
+			Name     string        `json:"name"`
+			Config   Config        `json:"config"`
+			Trace    InputTrace    `json:"trace"`
+			Expected goldenSummary `json:"expected"`
 		} `json:"vectors"`
 		BossVariants struct {
 			BaseVector string `json:"base_vector"`
 			Vectors    []struct {
-				Variant string `json:"variant"`
-				Digest  string `json:"digest"`
+				Variant  string        `json:"variant"`
+				Expected goldenSummary `json:"expected"`
 			} `json:"vectors"`
 		} `json:"boss_variants"`
 	}
@@ -394,16 +389,16 @@ func TestActionV2GoldenVectors(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if result.Digest != vector.Digest {
-				t.Fatalf("digest=%q want=%q", result.Digest, vector.Digest)
+			if got := summarizeResult(result); !reflect.DeepEqual(got, vector.Expected) {
+				t.Fatalf("result summary=%#v want=%#v", got, vector.Expected)
 			}
 		})
 	}
 	var bossVector *struct {
-		Name   string     `json:"name"`
-		Config Config     `json:"config"`
-		Trace  InputTrace `json:"trace"`
-		Digest string     `json:"digest"`
+		Name     string        `json:"name"`
+		Config   Config        `json:"config"`
+		Trace    InputTrace    `json:"trace"`
+		Expected goldenSummary `json:"expected"`
 	}
 	for index := range fixture.Vectors {
 		if fixture.Vectors[index].Name == fixture.BossVariants.BaseVector {
@@ -422,21 +417,21 @@ func TestActionV2GoldenVectors(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if result.Digest != vector.Digest {
-				t.Fatalf("digest=%q want=%q", result.Digest, vector.Digest)
+			if got := summarizeResult(result); !reflect.DeepEqual(got, vector.Expected) {
+				t.Fatalf("result summary=%#v want=%#v", got, vector.Expected)
 			}
 		})
 	}
 }
 
-func TestActionV2SignatureKitGoldenVectors(t *testing.T) {
+func TestActionV2CharacterKitGoldenVectors(t *testing.T) {
 	var fixture struct {
 		Version string     `json:"version"`
 		Trace   InputTrace `json:"trace"`
 		Vectors []struct {
-			Name    string `json:"name"`
-			Passive string `json:"passive"`
-			Digest  string `json:"digest"`
+			Name     string        `json:"name"`
+			Passive  string        `json:"passive"`
+			Expected goldenSummary `json:"expected"`
 		} `json:"vectors"`
 	}
 	payload, err := os.ReadFile("testdata/action-v2-kit-golden.json")
@@ -454,8 +449,11 @@ func TestActionV2SignatureKitGoldenVectors(t *testing.T) {
 				Runtime:   RuntimeConfig{Kit: vector.Passive, Passive: vector.Passive, Resonance: vector.Passive, AttackDamage: 3, AttackInterval: 30, MoveSpeed: 42, WarpCooldown: 120, WarpDamage: 14, DistortionGain: 4, GrazeRadius: 310, ProjectileCount: 1, ProjectileSpeed: 100, Behaviors: []RuntimeBehavior{}},
 			}
 			result, err := Simulate(config, fixture.Trace)
-			if err != nil || !result.Won || result.Digest != vector.Digest {
-				t.Fatalf("result=%#v error=%v want digest=%s", result, err, vector.Digest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := summarizeResult(result); !reflect.DeepEqual(got, vector.Expected) {
+				t.Fatalf("result summary=%#v want=%#v", got, vector.Expected)
 			}
 		})
 	}
@@ -631,16 +629,16 @@ func TestAllSevenCharacterResonancesChangeAuthoritativeState(t *testing.T) {
 			sim.projectiles = []projectileEntity{{id: 1, x: 1000, y: 1000, damage: 2}}
 			sim.signalWaypoints = append(sim.signalWaypoints, Vec{X: 1800, Y: 1200})
 			sim.lastWarpStart, sim.lastWarpEnd, sim.hasLastWarp = Vec{X: 1800, Y: 5200}, Vec{X: 1800, Y: 4580}, true
-			before := sim.canonicalDigest(false)
+			before := sim.snapshot()
 			sim.activateResonance()
-			if sim.canonicalDigest(false) == before {
+			if reflect.DeepEqual(sim.snapshot(), before) {
 				t.Fatal("resonance made no authoritative state change")
 			}
 		})
 	}
 }
 
-func TestSignatureKitMechanics(t *testing.T) {
+func TestCharacterKitMechanics(t *testing.T) {
 	t.Run("Bella releases a homing tailwind inside the generous beat window", func(t *testing.T) {
 		config := testConfig()
 		config.Runtime.Passive = "bella_perfect_warp"
@@ -758,12 +756,12 @@ func TestSignatureKitMechanics(t *testing.T) {
 		}
 	})
 
-	t.Run("kit entities participate in the canonical digest", func(t *testing.T) {
+	t.Run("kit entities participate in the authoritative snapshot", func(t *testing.T) {
 		base := newSimulation(testConfig())
 		changed := newSimulation(testConfig())
 		changed.signalWaypoints = append(changed.signalWaypoints, Vec{X: 10, Y: 20})
-		if base.canonicalDigest(false) == changed.canonicalDigest(false) {
-			t.Fatal("signal waypoints were omitted from the digest")
+		if reflect.DeepEqual(base.snapshot(), changed.snapshot()) {
+			t.Fatal("signal waypoints were omitted from the authoritative snapshot")
 		}
 	})
 

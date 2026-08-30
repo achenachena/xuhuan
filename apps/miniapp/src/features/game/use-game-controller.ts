@@ -83,7 +83,6 @@ const loadPendingEncounter = (): PendingEncounterCommand | null => {
             encoding?: unknown;
             ticks?: unknown;
             data?: unknown;
-            prediction_digest?: unknown;
           };
         })
       | undefined;
@@ -102,14 +101,26 @@ const loadPendingEncounter = (): PendingEncounterCommand | null => {
       Number(body.trace.ticks) > 0 &&
       Number(body.trace.ticks) <= 2700 &&
       typeof body.trace.data === "string" &&
-      body.trace.data.length > 0 &&
-      (body.trace.prediction_digest === undefined ||
-        typeof body.trace.prediction_digest === "string");
+      body.trace.data.length > 0;
     if (!valid) {
       window.sessionStorage.removeItem(pendingTraceStorageKey);
       return null;
     }
-    return pending as PendingEncounterCommand;
+    return {
+      runId: pending.runId!,
+      mode: pending.mode!,
+      version: pending.version!,
+      idempotencyKey: pending.idempotencyKey!,
+      body: {
+        type: "complete_encounter",
+        expected_version: body.expected_version!,
+        trace: {
+          encoding: "rle8-v1",
+          ticks: Number(body.trace!.ticks),
+          data: body.trace!.data as string,
+        },
+      },
+    };
   } catch {
     window.sessionStorage.removeItem(pendingTraceStorageKey);
     return null;

@@ -243,11 +243,3 @@ export const createSimulationState = (
     won: false,
   };
 };
-
-export const stableStringId = (value: string): number => {
-  let hash = 2166136261 >>> 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = Math.imul((hash ^ value.charCodeAt(index)) >>> 0, 16777619) >>> 0;
-  }
-  return hash;
-};

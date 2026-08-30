@@ -561,7 +561,6 @@ export interface components {
             encoding: "rle8-v1";
             ticks: number;
             data: string;
-            prediction_digest?: string;
         };
         CreateRunRequest: {
             /** @enum {string} */

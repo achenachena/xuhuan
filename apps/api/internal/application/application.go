@@ -15,7 +15,6 @@ import (
 	"github.com/achenachena/xuhuan/apps/api/internal/game"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/config"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/logging"
-	"github.com/achenachena/xuhuan/apps/api/internal/platform/observability"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/ratelimit"
 	"github.com/achenachena/xuhuan/apps/api/internal/postgres"
 )
@@ -23,11 +22,10 @@ import (
 // Runtime owns the long-lived dependencies shared by the local HTTP server and
 // warm Lambda invocations.
 type Runtime struct {
-	Handler   http.Handler
-	Logger    *slog.Logger
-	database  *postgres.Database
-	telemetry *observability.Telemetry
-	redis     *ratelimit.RedisLimiter
+	Handler  http.Handler
+	Logger   *slog.Logger
+	database *postgres.Database
+	redis    *ratelimit.RedisLimiter
 }
 
 func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, error) {
@@ -38,34 +36,17 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 	logger := logging.New(output, level)
 	slog.SetDefault(logger)
 
-	telemetry, telemetryErr := observability.Initialize(ctx, observability.Config{
-		Endpoint:       cfg.OTLPEndpoint,
-		ServiceName:    cfg.OTELServiceName,
-		ServiceVersion: cfg.Version,
-		Environment:    string(cfg.Environment),
-		ExportInterval: cfg.OTELExportInterval,
-	})
-	if telemetryErr != nil {
-		// Exporter errors can include endpoint details. Telemetry is optional and
-		// must never become an availability dependency.
-		logger.Warn("telemetry_initialization_failed")
-		telemetry = observability.Noop()
-	}
-
 	if cfg.DatabaseURL == "" {
-		_ = shutdownTelemetry(telemetry)
 		return nil, fmt.Errorf("DATABASE_URL is required")
 	}
-	database, err := postgres.OpenWithTracer(ctx, cfg.DatabaseURL, observability.DatabaseTracer{Metrics: telemetry.Metrics})
+	database, err := postgres.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
-		_ = shutdownTelemetry(telemetry)
 		return nil, fmt.Errorf("connect to PostgreSQL: %w", err)
 	}
 
 	runtime := &Runtime{
-		Logger:    logger,
-		database:  database,
-		telemetry: telemetry,
+		Logger:   logger,
+		database: database,
 	}
 	cleanup := func(cause error) (*Runtime, error) {
 		closeContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -120,9 +101,7 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 				Limit: cfg.PlayerRateLimit, Window: cfg.RateLimitWindow,
 			},
 		},
-		Metrics:        telemetry.Metrics,
-		TracingEnabled: telemetry.Enabled(),
-		Game:           gameService,
+		Game: gameService,
 	})
 	return runtime, nil
 }
@@ -131,7 +110,7 @@ func (runtime *Runtime) Check(ctx context.Context) error {
 	return runtime.database.Check(ctx)
 }
 
-func (runtime *Runtime) Close(ctx context.Context) error {
+func (runtime *Runtime) Close(_ context.Context) error {
 	if runtime == nil {
 		return nil
 	}
@@ -142,11 +121,5 @@ func (runtime *Runtime) Close(ctx context.Context) error {
 	if runtime.database != nil {
 		runtime.database.Close()
 	}
-	return errors.Join(redisErr, runtime.telemetry.Shutdown(ctx))
-}
-
-func shutdownTelemetry(telemetry *observability.Telemetry) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return telemetry.Shutdown(ctx)
+	return redisErr
 }

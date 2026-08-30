@@ -9,6 +9,7 @@ import {
   TraceRecorder,
   type ActionConfig,
   type ActionInput,
+  type ActionResult,
 } from "@/features/action/action-engine";
 import { bossVariantAttack } from "@/features/action/action-boss-scripts";
 import { weaveProtocol } from "@/features/action/action-protocols";
@@ -30,10 +31,7 @@ import {
 } from "@/features/action/action-kits";
 import { updateProjectiles } from "@/features/action/action-projectiles";
 import { createSimulationState } from "@/features/action/action-simulation-state";
-import {
-  buildActionSnapshot,
-  canonicalDigest,
-} from "@/features/action/action-snapshot";
+import { buildActionSnapshot } from "@/features/action/action-snapshot";
 
 type GoldenConfig = {
   seed: string;
@@ -103,8 +101,46 @@ type GoldenVector = {
   name: string;
   config: GoldenConfig;
   trace: { encoding: "rle8-v1"; ticks: number; data: string };
-  digest: string;
+  expected: GoldenSummary;
 };
+
+type GoldenSummary = {
+  won: boolean;
+  health: number;
+  ticks: number;
+  kills: number;
+  protocols: number;
+  distortion: number;
+  score: number;
+  emergency_used: boolean;
+  objective_progress: number;
+  enemy_count: number;
+  projectile_count: number;
+  signal_count: number;
+  weave: readonly string[] | null;
+  player: { x: number; y: number };
+  shield: number;
+  total_grazes: number;
+};
+
+const summarizeResult = (result: ActionResult): GoldenSummary => ({
+  won: result.won,
+  health: result.health,
+  ticks: result.ticks,
+  kills: result.kills,
+  protocols: result.protocolsCompleted,
+  distortion: result.distortion,
+  score: result.score,
+  emergency_used: result.emergencyReconnectUsed,
+  objective_progress: result.final.objective.progress,
+  enemy_count: result.final.enemies.length,
+  projectile_count: result.final.projectiles.length,
+  signal_count: result.final.signals.length,
+  weave: result.final.weave.length > 0 ? result.final.weave : null,
+  player: result.final.player,
+  shield: result.final.shield,
+  total_grazes: result.final.totalGrazes,
+});
 
 const fixture = JSON.parse(
   readFileSync(
@@ -121,7 +157,7 @@ const fixture = JSON.parse(
     base_vector: string;
     vectors: Array<{
       variant: ActionConfig["bossVariant"];
-      digest: string;
+      expected: GoldenSummary;
     }>;
   };
 };
@@ -137,7 +173,11 @@ const kitFixture = JSON.parse(
 ) as {
   version: string;
   trace: GoldenVector["trace"];
-  vectors: Array<{ name: string; passive: string; digest: string }>;
+  vectors: Array<{
+    name: string;
+    passive: string;
+    expected: GoldenSummary;
+  }>;
 };
 
 const patternFor = (enemy: GoldenConfig["enemies"][number]): string => {
@@ -262,7 +302,8 @@ describe("action-v2 engine", () => {
         result = simulation.step(frame);
         if (result) break;
       }
-      expect(result?.digest, vector.name).toBe(vector.digest);
+      expect(result, vector.name).not.toBeNull();
+      expect(summarizeResult(result!), vector.name).toEqual(vector.expected);
     }
   });
 
@@ -282,7 +323,10 @@ describe("action-v2 engine", () => {
         result = simulation.step(frame);
         if (result) break;
       }
-      expect(result?.digest, vector.variant).toBe(vector.digest);
+      expect(result, vector.variant).not.toBeNull();
+      expect(summarizeResult(result!), vector.variant).toEqual(
+        vector.expected,
+      );
     }
   });
 
@@ -327,7 +371,7 @@ describe("action-v2 engine", () => {
     }
   });
 
-  it("consumes the Go signature-kit golden vectors without state drift", async () => {
+  it("consumes the Go character-kit golden vectors without state drift", async () => {
     expect(kitFixture.version).toBe("action-v2");
     const source = toConfig(fixture.vectors[0]!.config);
     for (const vector of kitFixture.vectors) {
@@ -401,7 +445,8 @@ describe("action-v2 engine", () => {
         result = simulation.step(frame);
         if (result) break;
       }
-      expect(result?.digest, vector.name).toBe(vector.digest);
+      expect(result, vector.name).not.toBeNull();
+      expect(summarizeResult(result!), vector.name).toEqual(vector.expected);
     }
   });
 
@@ -418,12 +463,11 @@ describe("action-v2 engine", () => {
       firstResult = first.step(frame);
       secondResult = second.step(frame);
     }
-    expect(firstResult?.digest).toBe(secondResult?.digest);
-    const trace = recorder.encode(firstResult!.digest);
+    expect(firstResult).toEqual(secondResult);
+    const trace = recorder.encode();
     expect(trace.ticks).toBe(120);
     expect(trace.data).toBe(vector.trace.data);
-    expect(trace.prediction_digest).toBe(firstResult!.digest);
-    expect(trace).not.toHaveProperty("client_digest");
+    expect(trace).toEqual(vector.trace);
   });
 
   it("stops on the first neutral tick with no hidden velocity", () => {
@@ -1009,14 +1053,6 @@ describe("action-v2 engine", () => {
     ];
     updateProjectiles(state);
     expect(state.projectiles).toHaveLength(0);
-  });
-
-  it("includes signature kit entities in the canonical digest", () => {
-    const config = toConfig(fixture.vectors[0]!.config);
-    const base = createSimulationState(config, 19);
-    const changed = createSimulationState(config, 19);
-    changed.signalWaypoints.push({ x: 10, y: 20 });
-    expect(canonicalDigest(changed)).not.toBe(canonicalDigest(base));
   });
 
   it("executes authored module behaviors at deterministic hooks", () => {

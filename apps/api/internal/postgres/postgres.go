@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -14,18 +13,14 @@ type Database struct {
 }
 
 func Open(ctx context.Context, databaseURL string) (*Database, error) {
-	return OpenWithTracer(ctx, databaseURL, nil)
-}
-
-func OpenWithTracer(ctx context.Context, databaseURL string, tracer pgx.QueryTracer) (*Database, error) {
-	config, err := serverlessPoolConfig(databaseURL, tracer)
+	config, err := serverlessPoolConfig(databaseURL)
 	if err != nil {
 		return nil, err
 	}
 	return OpenConfig(ctx, config)
 }
 
-func serverlessPoolConfig(databaseURL string, tracer pgx.QueryTracer) (*pgxpool.Config, error) {
+func serverlessPoolConfig(databaseURL string) (*pgxpool.Config, error) {
 	if databaseURL == "" {
 		return nil, errors.New("DATABASE_URL is required")
 	}
@@ -42,7 +37,6 @@ func serverlessPoolConfig(databaseURL string, tracer pgx.QueryTracer) (*pgxpool.
 	config.MaxConnLifetime = 30 * time.Minute
 	config.MaxConnIdleTime = 5 * time.Minute
 	config.HealthCheckPeriod = 30 * time.Second
-	config.ConnConfig.Tracer = tracer
 	return config, nil
 }
 

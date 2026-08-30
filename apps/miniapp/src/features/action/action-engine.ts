@@ -177,9 +177,11 @@ export class ActionSimulation {
 export const createActionSimulation = async (
   config: ActionConfig,
 ): Promise<ActionSimulation> => {
-  const digest = await globalThis.crypto.subtle.digest(
+  // SHA-256 converts an arbitrary authored seed into the exact 32-bit seed
+  // used by Go. It is deterministic game state, not authentication or a token.
+  const seedHash = await globalThis.crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(config.seed),
   );
-  return new ActionSimulation(config, new DataView(digest).getUint32(0, true));
+  return new ActionSimulation(config, new DataView(seedHash).getUint32(0, true));
 };

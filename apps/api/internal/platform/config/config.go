@@ -22,8 +22,6 @@ const (
 	defaultRateWindow     = time.Minute
 	defaultIPRateLimit    = int64(120)
 	defaultPlayerLimit    = int64(60)
-	defaultOTELInterval   = 30 * time.Second
-	defaultOTELService    = "xuhuan-api"
 )
 
 type Environment string
@@ -47,9 +45,6 @@ type Config struct {
 	RateLimitWindow    time.Duration
 	IPRateLimit        int64
 	PlayerRateLimit    int64
-	OTLPEndpoint       string
-	OTELServiceName    string
-	OTELExportInterval time.Duration
 	MaxBodyBytes       int64
 	ReadTimeout        time.Duration
 	WriteTimeout       time.Duration
@@ -122,25 +117,6 @@ func LoadFrom(lookup Lookup) (Config, error) {
 	if err := validatePostgresURL("DATABASE_URL", databaseURL, appEnv); err != nil {
 		return Config{}, err
 	}
-	otlpEndpoint := valueOrDefault(lookup, "OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	if otlpEndpoint != "" {
-		parsedEndpoint, parseErr := url.Parse(otlpEndpoint)
-		if parseErr != nil || (parsedEndpoint.Scheme != "http" && parsedEndpoint.Scheme != "https") || parsedEndpoint.Host == "" || parsedEndpoint.User != nil || parsedEndpoint.RawQuery != "" || parsedEndpoint.Fragment != "" {
-			return Config{}, errors.New("OTEL_EXPORTER_OTLP_ENDPOINT must be an http(s) URL without user information, query, or fragment")
-		}
-		if appEnv == Production && parsedEndpoint.Scheme != "https" {
-			return Config{}, errors.New("OTEL_EXPORTER_OTLP_ENDPOINT must use https in production")
-		}
-	}
-	otelExportInterval, err := parseDuration(lookup, "OTEL_EXPORT_INTERVAL", defaultOTELInterval)
-	if err != nil || otelExportInterval > 5*time.Minute {
-		return Config{}, errors.New("OTEL_EXPORT_INTERVAL must be a positive duration no greater than 5m")
-	}
-	otelServiceName := valueOrDefault(lookup, "OTEL_SERVICE_NAME", defaultOTELService)
-	if otelServiceName == "" || len(otelServiceName) > 128 {
-		return Config{}, errors.New("OTEL_SERVICE_NAME must contain between 1 and 128 characters")
-	}
-
 	cfg := Config{
 		Environment:        appEnv,
 		HTTPAddr:           valueOrDefault(lookup, "HTTP_ADDR", defaultHTTPAddr),
@@ -154,9 +130,6 @@ func LoadFrom(lookup Lookup) (Config, error) {
 		RateLimitWindow:    rateLimitWindow,
 		IPRateLimit:        ipRateLimit,
 		PlayerRateLimit:    playerRateLimit,
-		OTLPEndpoint:       otlpEndpoint,
-		OTELServiceName:    otelServiceName,
-		OTELExportInterval: otelExportInterval,
 		MaxBodyBytes:       maxBodyBytes,
 		ReadTimeout:        readTimeout,
 		WriteTimeout:       writeTimeout,

@@ -40,27 +40,3 @@ func nearTravelPath(x, y, startX, startY, midpointX, midpointY, endX, endY, radi
 	return distance <= radius*radius
 }
 func clamp(value, low, high int) int { return min(high, max(low, value)) }
-func boolInt(value bool) uint32 {
-	if value {
-		return 1
-	}
-	return 0
-}
-func stableStringID(value string) uint32 {
-	hash := uint32(2166136261)
-	for index := 0; index < len(value); index++ {
-		hash ^= uint32(value[index])
-		hash *= 16777619
-	}
-	return hash
-}
-func fnv32(values []uint32) uint32 {
-	hash := uint32(2166136261)
-	for _, value := range values {
-		for shift := uint(0); shift < 32; shift += 8 {
-			hash ^= (value >> shift) & 0xff
-			hash *= 16777619
-		}
-	}
-	return hash
-}

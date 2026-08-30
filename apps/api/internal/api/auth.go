@@ -5,15 +5,13 @@ import (
 	"net/http"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
-	"github.com/achenachena/xuhuan/apps/api/internal/platform/observability"
 )
 
-func requireAuthentication(authenticator *auth.Authenticator, logger *slog.Logger, metrics *observability.Metrics) func(http.Handler) http.Handler {
+func requireAuthentication(authenticator *auth.Authenticator, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")
 			if authenticator == nil {
-				metrics.AuthenticationFailure(r.Context(), "unconfigured")
 				logger.ErrorContext(r.Context(), "authentication_unconfigured", "request_id", requestIDFromContext(r.Context()))
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "An internal error occurred")
 				return
@@ -21,7 +19,6 @@ func requireAuthentication(authenticator *auth.Authenticator, logger *slog.Logge
 			principal, err := authenticator.Authenticate(r)
 			if err != nil {
 				reason := authenticationFailureReason(err)
-				metrics.AuthenticationFailure(r.Context(), reason)
 				logger.WarnContext(r.Context(), "authentication_failed",
 					"request_id", requestIDFromContext(r.Context()),
 					"reason", reason,

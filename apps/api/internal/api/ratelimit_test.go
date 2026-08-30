@@ -75,7 +75,7 @@ func TestPlayerRateLimitRunsAfterAuthentication(t *testing.T) {
 	limiter := &countingLimiter{counts: make(map[string]int64)}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	authenticator := auth.NewAuthenticator(nil, true)
-	handler := requireAuthentication(authenticator, logger, nil)(
+	handler := requireAuthentication(authenticator, logger)(
 		playerRateLimitMiddleware(RateLimitConfig{
 			Limiter: limiter, PlayerPolicy: ratelimit.Policy{Limit: 1, Window: time.Minute},
 		})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

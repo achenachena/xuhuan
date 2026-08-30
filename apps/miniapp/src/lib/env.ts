@@ -33,7 +33,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_API_URL: externalURLValidator,
   // Base URL for all audio files (if all files are in the same location)
   NEXT_PUBLIC_AUDIO_BASE_URL: urlOrPathValidator,
-  // BGM URL - single BGM for all pages (select, battle, reward)
+  // One BGM URL is shared by the hub, action arena, and reward screens.
   NEXT_PUBLIC_AUDIO_BGM: urlOrPathValidator,
   // Individual audio file URLs (override base URL if provided)
   NEXT_PUBLIC_AUDIO_SPECIAL_MOVE: urlOrPathValidator,

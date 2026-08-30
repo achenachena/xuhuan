@@ -26,10 +26,9 @@ type InputFrame struct {
 	Skill     bool
 }
 type InputTrace struct {
-	Encoding         string `json:"encoding"`
-	Ticks            int    `json:"ticks"`
-	Data             string `json:"data"`
-	PredictionDigest string `json:"prediction_digest,omitempty"`
+	Encoding string `json:"encoding"`
+	Ticks    int    `json:"ticks"`
+	Data     string `json:"data"`
 }
 
 type SignalType string
@@ -236,7 +235,5 @@ type Result struct {
 	Distortion             int      `json:"distortion"`
 	Score                  int      `json:"score"`
 	EmergencyReconnectUsed bool     `json:"emergency_reconnect_used"`
-	Digest                 string   `json:"digest"`
-	PredictionDrift        bool     `json:"prediction_drift"`
 	Final                  Snapshot `json:"final"`
 }

@@ -20,7 +20,6 @@ export type ActionTrace = {
   readonly encoding: "rle8-v1";
   readonly ticks: number;
   readonly data: string;
-  readonly prediction_digest: string;
 };
 
 export type SignalType = "surge" | "guard" | "echo";
@@ -225,7 +224,6 @@ export type ActionResult = {
   readonly distortion: number;
   readonly score: number;
   readonly emergencyReconnectUsed: boolean;
-  readonly digest: string;
   readonly final: ActionSnapshot;
 };
 
