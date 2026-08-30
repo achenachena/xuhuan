@@ -280,16 +280,15 @@ jobs:
           done
 
           migration_query="SELECT string_agg(version::text || ':' || name, ',' ORDER BY version) FROM schema_migrations"
+          # Neon poolers reject libpq startup options, so apply timeouts inside the query transaction.
           migration_state=$(PGCONNECT_TIMEOUT=10 \
-            PGOPTIONS='-c lock_timeout=5s -c statement_timeout=30s' \
             psql "$database_migration_url" \
-            --no-psqlrc --set=ON_ERROR_STOP=1 --tuples-only --no-align \
-            --command="$migration_query")
+            --no-psqlrc --set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align \
+            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; $migration_query; COMMIT;")
           runtime_state=$(PGCONNECT_TIMEOUT=10 \
-            PGOPTIONS='-c lock_timeout=5s -c statement_timeout=30s' \
             psql "$database_url" \
-            --no-psqlrc --set=ON_ERROR_STOP=1 --tuples-only --no-align \
-            --command="$migration_query")
+            --no-psqlrc --set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align \
+            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; $migration_query; COMMIT;")
           expected_v4='1:001_initial_schema.sql,2:002_story_roguelite.sql,3:003_remove_v1_compatibility.sql,4:004_action_roguelite.sql'
           expected_v5="$expected_v4,5:005_action_v3_prepare.sql"
           expected_v6="$expected_v5,6:006_remove_action_v2.sql"
@@ -648,13 +647,13 @@ jobs:
           esac
           echo "::add-mask::$database_migration_url"
           v3_applied=$(PGCONNECT_TIMEOUT=10 \
-            PGOPTIONS='-c lock_timeout=10s -c statement_timeout=30s' \
             psql "$database_migration_url" \
             --set=ON_ERROR_STOP=1 \
             --no-psqlrc \
+            --quiet \
             --tuples-only \
             --no-align \
-            --command='SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 5)')
+            --command="BEGIN; SET LOCAL lock_timeout = '10s'; SET LOCAL statement_timeout = '30s'; SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 5); COMMIT;")
           case "$v3_applied" in
             t) echo "v3_applied=true" >> "$GITHUB_OUTPUT" ;;
             f) echo "v3_applied=false" >> "$GITHUB_OUTPUT" ;;
@@ -677,13 +676,13 @@ jobs:
           esac
           echo "::add-mask::$database_url"
           runtime_v3_ready=$(PGCONNECT_TIMEOUT=10 \
-            PGOPTIONS='-c lock_timeout=10s -c statement_timeout=30s' \
             psql "$database_url" \
             --no-psqlrc \
             --set=ON_ERROR_STOP=1 \
+            --quiet \
             --tuples-only \
             --no-align \
-            --command="SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 5) AND to_regclass('player_campaign_progress') IS NOT NULL")
+            --command="BEGIN; SET LOCAL lock_timeout = '10s'; SET LOCAL statement_timeout = '30s'; SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 5) AND to_regclass('player_campaign_progress') IS NOT NULL; COMMIT;")
           if test "$runtime_v3_ready" != "t"; then
             echo "::error::Lambda runtime DATABASE_URL does not expose the committed V3 schema"
             exit 1
@@ -837,13 +836,13 @@ jobs:
           esac
           echo "::add-mask::$database_migration_url"
           identity_available=$(PGCONNECT_TIMEOUT=10 \
-            PGOPTIONS='-c lock_timeout=5s -c statement_timeout=30s' \
             psql "$database_migration_url" \
             --no-psqlrc \
             --set=ON_ERROR_STOP=1 \
+            --quiet \
             --tuples-only \
             --no-align \
-            --command="SELECT NOT EXISTS (SELECT 1 FROM players WHERE telegram_user_id = $smoke_telegram_user_id::bigint)")
+            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; SELECT NOT EXISTS (SELECT 1 FROM players WHERE telegram_user_id = $smoke_telegram_user_id::bigint); COMMIT;")
           if test "$identity_available" != "t"; then
             echo "::error::Synthetic Telegram identity already exists; refusing to overwrite or delete it"
             exit 1
@@ -904,7 +903,6 @@ jobs:
           echo "::add-mask::$database_migration_url"
 
           PGCONNECT_TIMEOUT=10 \
-            PGOPTIONS='-c lock_timeout=5s -c statement_timeout=30s' \
             psql "$database_migration_url" \
             --no-psqlrc \
             --set=ON_ERROR_STOP=1 \
