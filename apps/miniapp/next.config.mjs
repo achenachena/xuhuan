@@ -14,22 +14,10 @@ const safeOrigin = (value) => {
 };
 
 const connectSources = new Set(["'self'", "https://*.telegram.org"]);
-const mediaSources = new Set(["'self'", "blob:"]);
 const scriptSources = ["'self'", "'unsafe-inline'"];
 for (const value of [process.env.NEXT_PUBLIC_API_URL]) {
   const origin = safeOrigin(value);
   if (origin) connectSources.add(origin);
-}
-for (const value of [
-  process.env.NEXT_PUBLIC_AUDIO_BASE_URL,
-  process.env.NEXT_PUBLIC_AUDIO_BGM,
-  process.env.NEXT_PUBLIC_AUDIO_SPECIAL_MOVE,
-  process.env.NEXT_PUBLIC_AUDIO_DAMAGE,
-  process.env.NEXT_PUBLIC_AUDIO_VICTORY,
-  process.env.NEXT_PUBLIC_AUDIO_DEFEAT,
-]) {
-  const origin = safeOrigin(value);
-  if (origin) mediaSources.add(origin);
 }
 if (isDevelopment) {
   connectSources.add("http:");
@@ -45,7 +33,7 @@ const contentSecurityPolicy = [
   "form-action 'none'",
   "frame-ancestors https://telegram.org https://*.telegram.org",
   "img-src 'self' data: blob:",
-  `media-src ${[...mediaSources].join(" ")}`,
+  "media-src 'self' blob:",
   "object-src 'none'",
   `script-src ${scriptSources.join(" ")}`,
   "style-src 'self' 'unsafe-inline'",
@@ -77,7 +65,7 @@ const config = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      { source: "/game/v3/:path*", headers: immutableGameAssetHeaders }
+      { source: "/game/v4/:path*", headers: immutableGameAssetHeaders }
     ];
   },
   poweredByHeader: false,

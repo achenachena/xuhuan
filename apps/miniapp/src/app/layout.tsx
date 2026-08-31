@@ -7,7 +7,7 @@ import { AudioProvider } from "@/components/providers/audio-provider";
 
 export const metadata: Metadata = {
   title: "Xuhuan: Only One Online",
-  description: "A server-authoritative one-thumb action roguelite for Telegram."
+  description: "A server-authoritative one-thumb live rescue shooter for Telegram.",
 };
 
 export const viewport = {
@@ -15,7 +15,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: "cover" as const
+  viewportFit: "cover" as const,
 };
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {

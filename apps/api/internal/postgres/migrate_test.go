@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
 
+	"github.com/achenachena/xuhuan/apps/api/migrations"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -60,6 +63,85 @@ func TestReadMigrationsRejectsDuplicateVersions(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("readMigrations() error = nil")
+	}
+}
+
+func TestMigrationPlanHonorsTargetAndCurrentBoundary(t *testing.T) {
+	t.Parallel()
+	available := []migration{{version: 7, name: "007_prepare.sql"}, {version: 8, name: "008_cleanup.sql"}}
+
+	prepare, err := migrationPlan(available, 7, 6)
+	if err != nil || len(prepare) != 1 || prepare[0].version != 7 {
+		t.Fatalf("prepare plan=%#v error=%v", prepare, err)
+	}
+	if _, err := migrationPlan(available, 7, 8); err == nil {
+		t.Fatal("backward target unexpectedly accepted")
+	}
+	if _, err := migrationPlan(available, 9, 6); err == nil {
+		t.Fatal("missing target unexpectedly accepted")
+	}
+	all, err := migrationPlan(available, 0, 8)
+	if err != nil || len(all) != 2 {
+		t.Fatalf("latest plan=%#v error=%v", all, err)
+	}
+}
+
+func TestLiveRescueMigrationBoundaryPreservesV4Truth(t *testing.T) {
+	t.Parallel()
+	prepareBytes, err := migrations.Files.ReadFile("007_live_rescue_prepare.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupBytes, err := migrations.Files.ReadFile("008_remove_action_v3.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepare, cleanup := string(prepareBytes), string(cleanupBytes)
+	for _, required := range []string{"TRUNCATE TABLE daily_results", "start_request_payload jsonb", "'companion', 'memory_clip'"} {
+		if !strings.Contains(prepare, required) {
+			t.Fatalf("007 is missing %q", required)
+		}
+	}
+	if strings.Contains(cleanup, "DROP TABLE story_choices") {
+		t.Fatal("008 drops append-only V4 story choices")
+	}
+	for _, required := range []string{"DROP COLUMN request_hash", "DROP COLUMN trust", "DROP COLUMN authenticity", "DROP COLUMN retention", "'character', 'companion', 'memory_clip'"} {
+		if !strings.Contains(cleanup, required) {
+			t.Fatalf("008 is missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		"DELETE FROM runs WHERE content_version <> 'v4'",
+		"DELETE FROM player_chapter_progress",
+		"DELETE FROM player_unlocks",
+		"WITH cleared_v4 AS",
+		"content_version = 'v4'",
+		"run_mode = 'campaign'",
+		"status = 'completed'",
+		"outcome = 'cleared'",
+		"WHERE ending IN ('authentic', 'balanced', 'retained')",
+		"WITH valid_choice(scene_slug, option_slug, choice_tag) AS",
+		"DROP TRIGGER story_choices_immutable ON story_choices",
+		"CREATE TRIGGER story_choices_immutable",
+		"WITH latest_choice AS",
+		"story_flags = COALESCE",
+	} {
+		if !strings.Contains(cleanup, required) {
+			t.Fatalf("008 does not guard the compatibility-window boundary: missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"show_effect", "share_token", "capability_token"} {
+		if strings.Contains(cleanup, forbidden) {
+			t.Fatalf("008 unexpectedly contains %q", forbidden)
+		}
+	}
+}
+
+func TestMigrationLockUsesExplicitCoordinationKeys(t *testing.T) {
+	t.Parallel()
+
+	if migrationLockClassID == 0 || migrationLockObjectID == 0 || migrationLockClassID == migrationLockObjectID {
+		t.Fatalf("invalid migration advisory-lock keys %d/%d", migrationLockClassID, migrationLockObjectID)
 	}
 }
 
@@ -138,5 +220,35 @@ func TestMigrationTransactionAppliesTimeoutsAndRollsBackFailedDDL(t *testing.T) 
 	}
 	if failedTable != nil || failedVersionCount != 0 {
 		t.Fatalf("failed migration crossed its transaction boundary: table=%v version_count=%d", failedTable, failedVersionCount)
+	}
+
+	concurrentFiles := fstest.MapFS{
+		"001_timeout_probe.sql": first["001_timeout_probe.sql"],
+		"003_concurrent_probe.sql": {Data: []byte(`
+			SELECT pg_sleep(0.1);
+			CREATE TABLE migration_concurrent_probe (id integer)
+		`)},
+	}
+	start := make(chan struct{})
+	errorsByRunner := make([]error, 2)
+	var runners sync.WaitGroup
+	for index := range errorsByRunner {
+		runners.Add(1)
+		go func(index int) {
+			defer runners.Done()
+			<-start
+			errorsByRunner[index] = database.Migrate(context.Background(), concurrentFiles)
+		}(index)
+	}
+	close(start)
+	runners.Wait()
+	for index, migrationErr := range errorsByRunner {
+		if migrationErr != nil {
+			t.Fatalf("concurrent migration runner %d: %v", index, migrationErr)
+		}
+	}
+	var concurrentVersionCount int
+	if err := database.pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations WHERE version=3`).Scan(&concurrentVersionCount); err != nil || concurrentVersionCount != 1 {
+		t.Fatalf("concurrent migration records=%d err=%v", concurrentVersionCount, err)
 	}
 }

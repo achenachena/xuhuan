@@ -42,14 +42,13 @@ const textBasenames = new Set([
 // new exceptions should be reviewed instead of silently exempting whole trees.
 const allowedHanFiles = new Set([
   "apps/api/internal/auth/telegram_test.go",
-  "apps/api/internal/content/v3/locales/zh-CN.json",
+  "apps/api/internal/content/v4/locales/zh-CN.json",
   "apps/api/migrations/001_initial_schema.sql",
   "apps/api/migrations/002_story_roguelite.sql",
   "apps/api/migrations/003_remove_v1_compatibility.sql",
   "apps/api/migrations/004_action_roguelite.sql",
   "apps/api/migrations/005_action_v3_prepare.sql",
   "apps/api/migrations/006_remove_action_v2.sql",
-  "apps/miniapp/e2e/roguelite.spec.ts",
   "apps/miniapp/src/locales/zh-CN.json",
 ]);
 const hanPattern = /\p{Script=Han}/u;

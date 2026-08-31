@@ -8,45 +8,41 @@ import {
   createIdempotencyKey,
   createRun,
   createRunCommand,
-  createStoryChoice,
   getGame,
   getGameContent,
   getRun,
-  type APIGameContent,
-  type APIGameRun,
-  type APIGameSnapshot,
-  type APIRunCommand,
-  type APIRunCommandResponse,
 } from "@/lib/api/client";
+import type {
+  ShooterContent,
+  ShooterGameRun,
+  ShooterGameSnapshot,
+  ShooterRunCommand,
+  ShooterRunCommandInput,
+  ShooterRunCommandResponse,
+  ShooterTrace,
+} from "@/lib/api/types";
+import { validateShooterTrace } from "@/features/shooter/trace";
 
 export type RunMode = "campaign" | "daily";
 
 type ControllerState = {
-  readonly content: APIGameContent | null;
-  readonly game: APIGameSnapshot | null;
+  readonly content: ShooterContent | null;
+  readonly game: ShooterGameSnapshot | null;
   readonly loading: boolean;
   readonly busy: boolean;
   readonly error: unknown;
 };
 
-type PendingEncounterCommand = {
+type PendingSegment = {
   readonly runId: string;
   readonly mode: RunMode;
   readonly version: number;
   readonly idempotencyKey: string;
-  readonly body: APIRunCommand;
+  readonly trace: ShooterTrace;
 };
 
-const pendingTraceStorageKey = "xuhuan.pending-encounter.v3";
-const pendingPrologueStorageKey = "xuhuan.pending-prologue.v3";
-const pendingTutorialRunStorageKey = "xuhuan.pending-tutorial-run.v3";
+const pendingSegmentStorageKey = "xuhuan.pending-segment.v4";
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/;
-
-type PendingPrologueChoice = {
-  readonly idempotencyKey: string;
-  readonly optionSlug: string;
-  readonly expectedVersion: number;
-};
 
 const initialState: ControllerState = {
   content: null,
@@ -57,188 +53,85 @@ const initialState: ControllerState = {
 };
 
 const runForMode = (
-  game: APIGameSnapshot | null,
+  game: ShooterGameSnapshot | null,
   mode: RunMode,
-): APIGameRun | null =>
+): ShooterGameRun | null =>
   mode === "daily" ? (game?.daily_run ?? null) : (game?.campaign_run ?? null);
 
 const withRun = (
-  game: APIGameSnapshot,
+  game: ShooterGameSnapshot,
   mode: RunMode,
-  run: APIGameRun,
-): APIGameSnapshot =>
+  run: ShooterGameRun,
+): ShooterGameSnapshot =>
   mode === "daily"
     ? { ...game, daily_run: run }
     : { ...game, campaign_run: run };
 
-const loadPendingEncounter = (): PendingEncounterCommand | null => {
+const parsePendingSegment = (): PendingSegment | null => {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.sessionStorage.getItem(pendingTraceStorageKey);
+    const raw = window.sessionStorage.getItem(pendingSegmentStorageKey);
     if (!raw) return null;
-    const pending = JSON.parse(raw) as Partial<PendingEncounterCommand>;
-    const body = pending.body as
-      | (Partial<APIRunCommand> & {
-          trace?: {
-            encoding?: unknown;
-            ticks?: unknown;
-            data?: unknown;
-          };
-        })
-      | undefined;
-    const valid =
-      typeof pending.runId === "string" &&
-      pending.runId.length > 0 &&
-      (pending.mode === "campaign" || pending.mode === "daily") &&
-      Number.isSafeInteger(pending.version) &&
-      (pending.version ?? 0) > 0 &&
-      typeof pending.idempotencyKey === "string" &&
-      pending.idempotencyKey.length >= 8 &&
-      body?.type === "complete_encounter" &&
-      body.expected_version === pending.version &&
-      body.trace?.encoding === "rle8-v1" &&
-      Number.isSafeInteger(body.trace.ticks) &&
-      Number(body.trace.ticks) > 0 &&
-      Number(body.trace.ticks) <= 2700 &&
-      typeof body.trace.data === "string" &&
-      body.trace.data.length > 0;
-    if (!valid) {
-      window.sessionStorage.removeItem(pendingTraceStorageKey);
-      return null;
-    }
-    return {
-      runId: pending.runId!,
-      mode: pending.mode!,
-      version: pending.version!,
-      idempotencyKey: pending.idempotencyKey!,
-      body: {
-        type: "complete_encounter",
-        expected_version: body.expected_version!,
-        trace: {
-          encoding: "rle8-v1",
-          ticks: Number(body.trace!.ticks),
-          data: body.trace!.data as string,
-        },
-      },
-    };
-  } catch {
-    window.sessionStorage.removeItem(pendingTraceStorageKey);
-    return null;
-  }
-};
-
-const savePendingEncounter = (pending: PendingEncounterCommand): void => {
-  if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(pendingTraceStorageKey, JSON.stringify(pending));
-};
-
-const clearPendingEncounter = (): void => {
-  if (typeof window === "undefined") return;
-  window.sessionStorage.removeItem(pendingTraceStorageKey);
-};
-
-const storedIdempotencyKey = (storageKey: string): string => {
-  const existing = window.sessionStorage.getItem(storageKey);
-  if (existing && idempotencyKeyPattern.test(existing)) return existing;
-  const created = createIdempotencyKey();
-  window.sessionStorage.setItem(storageKey, created);
-  return created;
-};
-
-const loadPendingPrologue = (): PendingPrologueChoice | null => {
-  try {
-    const raw = window.sessionStorage.getItem(pendingPrologueStorageKey);
-    if (!raw) return null;
-    const pending = JSON.parse(raw) as Partial<PendingPrologueChoice>;
+    const value = JSON.parse(raw) as Partial<PendingSegment>;
     if (
-      !idempotencyKeyPattern.test(pending.idempotencyKey ?? "") ||
-      typeof pending.optionSlug !== "string" ||
-      !Number.isSafeInteger(pending.expectedVersion) ||
-      (pending.expectedVersion ?? 0) < 1
+      typeof value.runId !== "string" ||
+      (value.mode !== "campaign" && value.mode !== "daily") ||
+      !Number.isSafeInteger(value.version) ||
+      (value.version ?? 0) < 1 ||
+      !idempotencyKeyPattern.test(value.idempotencyKey ?? "") ||
+      !value.trace ||
+      !validateShooterTrace(value.trace)
     ) {
-      window.sessionStorage.removeItem(pendingPrologueStorageKey);
+      window.sessionStorage.removeItem(pendingSegmentStorageKey);
       return null;
     }
-    return pending as PendingPrologueChoice;
+    return value as PendingSegment;
   } catch {
-    window.sessionStorage.removeItem(pendingPrologueStorageKey);
+    window.sessionStorage.removeItem(pendingSegmentStorageKey);
     return null;
   }
 };
 
-const pendingPrologue = (
-  optionSlug: string,
-  expectedVersion: number,
-): PendingPrologueChoice => {
-  const existing = loadPendingPrologue();
-  if (
-    existing?.optionSlug === optionSlug &&
-    existing.expectedVersion === expectedVersion
-  ) {
-    return existing;
-  }
-  const created = {
-    idempotencyKey: createIdempotencyKey(),
-    optionSlug,
-    expectedVersion,
-  };
-  window.sessionStorage.setItem(
-    pendingPrologueStorageKey,
-    JSON.stringify(created),
-  );
-  return created;
+const savePendingSegment = (pending: PendingSegment): void => {
+  window.sessionStorage.setItem(pendingSegmentStorageKey, JSON.stringify(pending));
 };
 
-const ensureTutorialRun = async (
-  game: APIGameSnapshot,
-): Promise<APIGameSnapshot> => {
-  if (
-    game.onboarding_stage !== "tutorial" ||
-    game.pending_scene_slug !== null ||
-    game.campaign_run !== null
-  ) {
-    return game;
+const clearPendingSegment = (): void => {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem(pendingSegmentStorageKey);
   }
-  const run = await createRun(
-    {
-      mode: "campaign",
-      chapter_slug: "seventh-dock",
-      character_slug: "nana7mi",
-      noise_level: 0,
-    },
-    storedIdempotencyKey(pendingTutorialRunStorageKey),
-  );
-  window.sessionStorage.removeItem(pendingTutorialRunStorageKey);
-  window.sessionStorage.removeItem(pendingPrologueStorageKey);
-  return { ...game, campaign_run: run, onboarding_stage: "tutorial" };
 };
 
-const replayPendingEncounter = async (
-  game: APIGameSnapshot,
-): Promise<APIGameSnapshot> => {
-  const pending = loadPendingEncounter();
-  if (!pending) return game;
-  const run = runForMode(game, pending.mode);
+const replayPendingSegment = async (
+  snapshot: ShooterGameSnapshot,
+): Promise<ShooterGameSnapshot> => {
+  const pending = parsePendingSegment();
+  if (!pending) return snapshot;
+  const run = runForMode(snapshot, pending.mode);
   if (
     !run ||
     run.id !== pending.runId ||
     run.version !== pending.version ||
     run.status !== "active" ||
-    run.state.phase !== "encounter"
+    run.state.phase !== "segment"
   ) {
-    clearPendingEncounter();
-    return game;
+    clearPendingSegment();
+    return snapshot;
   }
   try {
     const response = await createRunCommand(
       pending.runId,
-      pending.body,
+      {
+        type: "complete_segment",
+        expected_version: pending.version,
+        trace: pending.trace,
+      },
       pending.idempotencyKey,
     );
-    clearPendingEncounter();
-    return withRun(game, pending.mode, response.run);
+    clearPendingSegment();
+    return withRun(snapshot, pending.mode, response.run);
   } catch {
-    return game;
+    return snapshot;
   }
 };
 
@@ -250,13 +143,11 @@ export const useGameController = (locale: GameLocale) => {
     const sequence = ++loadSequence.current;
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
-      const [content, snapshot] = await Promise.all([
+      const [content, rawGame] = await Promise.all([
         getGameContent(locale),
         getGame(locale),
       ]);
-      const game = await ensureTutorialRun(
-        await replayPendingEncounter(snapshot),
-      );
+      const game = await replayPendingSegment(rawGame);
       if (sequence !== loadSequence.current) return;
       setState({ content, game, loading: false, busy: false, error: null });
     } catch (error) {
@@ -278,7 +169,12 @@ export const useGameController = (locale: GameLocale) => {
   }, [load]);
 
   const startCampaign = useCallback(
-    async (chapterSlug: string, characterSlug: string, noiseLevel: number) => {
+    async (
+      chapterSlug: string,
+      characterSlug: string,
+      encoreLevel: number,
+      companionSlug?: string,
+    ) => {
       setState((current) => ({ ...current, busy: true, error: null }));
       try {
         const run = await createRun(
@@ -286,16 +182,15 @@ export const useGameController = (locale: GameLocale) => {
             mode: "campaign",
             chapter_slug: chapterSlug,
             character_slug: characterSlug,
-            noise_level: noiseLevel,
+            encore_level: encoreLevel,
+            ...(companionSlug ? { companion_slug: companionSlug } : {}),
           },
           createIdempotencyKey(),
         );
         setState((current) => ({
           ...current,
           busy: false,
-          game: current.game
-            ? withRun(current.game, "campaign", run)
-            : null,
+          game: current.game ? withRun(current.game, "campaign", run) : null,
         }));
       } catch (error) {
         setState((current) => ({ ...current, busy: false, error }));
@@ -307,10 +202,7 @@ export const useGameController = (locale: GameLocale) => {
   const startDaily = useCallback(async () => {
     setState((current) => ({ ...current, busy: true, error: null }));
     try {
-      const run = await createRun(
-        { mode: "daily" },
-        createIdempotencyKey(),
-      );
+      const run = await createRun({ mode: "daily" }, createIdempotencyKey());
       setState((current) => ({
         ...current,
         busy: false,
@@ -324,88 +216,65 @@ export const useGameController = (locale: GameLocale) => {
   const command = useCallback(
     async (
       mode: RunMode,
-      body: Omit<APIRunCommand, "expected_version">,
-    ) => {
+      body: ShooterRunCommandInput,
+    ): Promise<ShooterRunCommandResponse | null> => {
       const currentRun = runForMode(state.game, mode);
       if (!currentRun) return null;
       setState((current) => ({ ...current, busy: true, error: null }));
-      let fullBody: APIRunCommand = {
+      let idempotencyKey = createIdempotencyKey();
+      let fullBody = {
         ...body,
         expected_version: currentRun.version,
-      };
-      let idempotencyKey = createIdempotencyKey();
-      if (body.type === "complete_encounter") {
-        const pending = loadPendingEncounter();
+      } as ShooterRunCommand;
+
+      if (body.type === "complete_segment") {
+        const pending = parsePendingSegment();
         if (
           pending?.runId === currentRun.id &&
           pending.mode === mode &&
-          pending.version === currentRun.version &&
-          pending.body.type === "complete_encounter"
+          pending.version === currentRun.version
         ) {
-          // A completed room is immutable. Every retry must replay the exact
-          // same trace under the same idempotency key, even if the UI attempts
-          // to submit a newly simulated result after a transient failure.
-          fullBody = pending.body;
           idempotencyKey = pending.idempotencyKey;
+          fullBody = {
+            type: "complete_segment",
+            expected_version: pending.version,
+            trace: pending.trace,
+          };
         } else {
-          savePendingEncounter({
+          savePendingSegment({
             runId: currentRun.id,
             mode,
             version: currentRun.version,
             idempotencyKey,
-            body: fullBody,
+            trace: body.trace,
           });
         }
       }
+
       try {
         const response = await createRunCommand(
           currentRun.id,
           fullBody,
           idempotencyKey,
         );
-        if (body.type === "complete_encounter") clearPendingEncounter();
-        const storyBecamePending = response.events.some(
-          (event) => event.kind === "story_scene_ready",
-        );
-        let synchronizedGame: APIGameSnapshot | null = null;
-        if (storyBecamePending) {
-          try {
-            synchronizedGame = await getGame(locale);
-          } catch (refreshError) {
-            setState((current) => ({
-              ...current,
-              busy: false,
-              game: null,
-              error: refreshError,
-            }));
-            return response;
-          }
-        }
+        if (body.type === "complete_segment") clearPendingSegment();
         setState((current) => ({
           ...current,
           busy: false,
-          game:
-            synchronizedGame ??
-            (current.game
-              ? withRun(current.game, mode, response.run)
-              : null),
+          game: current.game ? withRun(current.game, mode, response.run) : null,
         }));
         return response;
       } catch (error) {
-        if (body.type === "complete_encounter") {
+        if (body.type === "complete_segment") {
           try {
-            // The server may have committed an idempotent command after the
-            // WebView timed out or lost the response. Re-read the whole game
-            // projection before showing an error so an accepted room never
-            // strands the player behind a false retry dialog.
             const synchronized = await getGame(locale);
             const synchronizedRun = runForMode(synchronized, mode);
             const advanced =
               synchronizedRun?.id === currentRun.id &&
               (synchronizedRun.version > currentRun.version ||
-                synchronizedRun.state.phase !== "encounter");
+                synchronizedRun.state.phase !== "segment");
             if (advanced) {
-              clearPendingEncounter();
+              clearPendingSegment();
               setState((current) => ({
                 ...current,
                 busy: false,
@@ -415,15 +284,13 @@ export const useGameController = (locale: GameLocale) => {
               return { run: synchronizedRun, events: [] };
             }
           } catch {
-            // Preserve the original command error. It is more useful than a
-            // secondary synchronization failure and the exact trace remains
-            // available for an explicit retry.
+            // Keep the original failure and exact pending trace for an explicit retry.
           }
         }
         if (error instanceof APIError && error.code === "version_conflict") {
           try {
             const run = await getRun(currentRun.id);
-            clearPendingEncounter();
+            clearPendingSegment();
             setState((current) => ({
               ...current,
               busy: false,
@@ -447,66 +314,6 @@ export const useGameController = (locale: GameLocale) => {
     [locale, state.game],
   );
 
-  const chooseStory = useCallback(
-    async (sceneSlug: string, optionSlug: string) => {
-      const game = state.game;
-      if (!game) return;
-      setState((current) => ({ ...current, busy: true, error: null }));
-      const isPrologue = sceneSlug === "prologue-last-viewer";
-      const prologue = isPrologue
-        ? pendingPrologue(optionSlug, game.progress.version)
-        : null;
-      try {
-        const response = await createStoryChoice(
-          {
-            scene_slug: sceneSlug,
-            option_slug: optionSlug,
-            expected_version: game.progress.version,
-          },
-          prologue?.idempotencyKey ?? createIdempotencyKey(),
-        );
-        let nextGame: APIGameSnapshot = {
-          ...game,
-          progress: response.progress,
-          pending_scene_slug: response.pending_scene_slug,
-          onboarding_stage: isPrologue ? "tutorial" : game.onboarding_stage,
-        };
-        if (isPrologue) nextGame = await ensureTutorialRun(nextGame);
-        setState((current) => ({
-          ...current,
-          busy: false,
-          game: current.game ? nextGame : null,
-        }));
-      } catch (error) {
-        if (isPrologue) {
-          try {
-            const synchronized = await getGame(locale);
-            if (synchronized.pending_scene_slug !== sceneSlug) {
-              const recovered = await ensureTutorialRun(synchronized);
-              window.sessionStorage.removeItem(pendingPrologueStorageKey);
-              setState((current) => ({
-                ...current,
-                busy: false,
-                error: null,
-                game: current.game ? recovered : null,
-              }));
-              return;
-            }
-          } catch (recoveryError) {
-            setState((current) => ({
-              ...current,
-              busy: false,
-              error: recoveryError,
-            }));
-            return;
-          }
-        }
-        setState((current) => ({ ...current, busy: false, error }));
-      }
-    },
-    [locale, state.game],
-  );
-
   const returnToHub = useCallback(async () => {
     setState((current) => ({ ...current, busy: true, error: null }));
     try {
@@ -521,25 +328,13 @@ export const useGameController = (locale: GameLocale) => {
     setState((current) => ({ ...current, error: null }));
   }, []);
 
-  const restartEncounter = useCallback(() => {
-    clearPendingEncounter();
-    setState((current) => ({ ...current, busy: false, error: null }));
-  }, []);
-
   return {
     ...state,
     load,
     startCampaign,
     startDaily,
     command,
-    chooseStory,
     returnToHub,
     clearError,
-    restartEncounter,
   };
 };
-
-export type GameCommand = Parameters<
-  ReturnType<typeof useGameController>["command"]
->[1];
-export type GameCommandResult = APIRunCommandResponse | null;

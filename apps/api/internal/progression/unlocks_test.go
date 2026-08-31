@@ -2,51 +2,27 @@ package progression
 
 import (
 	"testing"
-
-	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
+	"time"
 )
 
-func TestHorizontalUnlockPolicy(t *testing.T) {
-	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
-	initial := InitialUnlocks(catalog)
-	progress := Progress{}
-	for _, grant := range initial {
-		progress.Unlocks = append(progress.Unlocks, Unlock{Type: grant.Type, ContentSlug: grant.ContentSlug})
+func TestV4UnlockVocabularyAndInitialGrant(t *testing.T) {
+	grants := InitialUnlocks()
+	if len(grants) != 1 || grants[0].Type != CharacterUnlock || grants[0].ContentSlug != "nana7mi" {
+		t.Fatalf("initial unlocks=%#v", grants)
 	}
-	modules, plugins := RewardUnlocks(progress, catalog, "nana7mi")
-	if len(modules) != 20 || len(plugins) != 8 || StarterModule(progress, catalog, "nana7mi") != "route-needle" {
-		t.Fatalf("initial modules=%d plugins=%d starter=%q", len(modules), len(plugins), StarterModule(progress, catalog, "nana7mi"))
-	}
-	if HasUnlock(progress, CharacterUnlock, "jiaran") {
-		t.Fatal("the second character was unlocked before a chapter clear")
-	}
-
-	for _, grant := range ChapterClearUnlocks(catalog, "jiaran") {
-		progress.Unlocks = append(progress.Unlocks, Unlock{Type: grant.Type, ContentSlug: grant.ContentSlug})
-	}
-	modules, plugins = RewardUnlocks(progress, catalog, "jiaran")
-	if len(modules) != 20 || len(plugins) != 8 || StarterModule(progress, catalog, "jiaran") != "cheer-counter" {
-		t.Fatalf("Diana modules=%d plugins=%d starter=%q", len(modules), len(plugins), StarterModule(progress, catalog, "jiaran"))
-	}
-}
-
-func TestEveryCharacterUnlockPoolHasAtLeastThreeRewardChoices(t *testing.T) {
-	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
-	for _, character := range catalog.Characters {
-		progress := Progress{}
-		for _, grant := range append(InitialUnlocks(catalog), ChapterClearUnlocks(catalog, character.Slug)...) {
-			progress.Unlocks = append(progress.Unlocks, Unlock{Type: grant.Type, ContentSlug: grant.ContentSlug})
-		}
-		modules, plugins := RewardUnlocks(progress, catalog, character.Slug)
-		if len(modules) < 3 || len(plugins) < 1 || StarterModule(progress, catalog, character.Slug) == "" {
-			t.Fatalf("character %s has modules=%d plugins=%d starter=%q", character.Slug, len(modules), len(plugins), StarterModule(progress, catalog, character.Slug))
+	progress := Progress{Unlocks: []Unlock{
+		{Type: CharacterUnlock, ContentSlug: "nana7mi", CreatedAt: time.Now()},
+		{Type: CompanionUnlock, ContentSlug: "nana7mi-assist", CreatedAt: time.Now()},
+		{Type: MemoryClipUnlock, ContentSlug: "seventh-dock-memory", CreatedAt: time.Now()},
+	}}
+	for _, check := range []struct{ kind, slug string }{
+		{CharacterUnlock, "nana7mi"}, {CompanionUnlock, "nana7mi-assist"}, {MemoryClipUnlock, "seventh-dock-memory"},
+	} {
+		if !HasUnlock(progress, check.kind, check.slug) {
+			t.Fatalf("missing unlock %s/%s", check.kind, check.slug)
 		}
 	}
-}
-
-func TestChapterClearUnlocksRejectUnknownContent(t *testing.T) {
-	catalog := gamecontent.MustLoad(gamecontent.CurrentVersion)
-	if unlocks := ChapterClearUnlocks(catalog, "missing-character"); len(unlocks) != 0 {
-		t.Fatalf("unknown character unlocks=%#v", unlocks)
+	if HasUnlock(progress, "show_effect", "double-take") {
+		t.Fatal("obsolete show-effect unlock vocabulary is accepted")
 	}
 }

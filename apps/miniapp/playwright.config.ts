@@ -21,6 +21,14 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "telegram-320x568",
+      use: {
+        ...devices["Pixel 5"],
+        viewport: { width: 320, height: 568 },
+        hasTouch: true,
+      },
+    },
+    {
       name: "mobile-chromium",
       use: {
         ...devices["Pixel 7"],

@@ -76,8 +76,8 @@ func handleEvent(
 		return operationResponse{
 			Status:         "ok",
 			Operation:      operation.Operation,
-			ContentVersion: gamecontent.CurrentVersion,
-			Protocol:       gamecontent.CurrentProtocol,
+			ContentVersion: gamecontent.V4Version,
+			Protocol:       gamecontent.V4Protocol,
 		}, nil
 	case "":
 		var request events.LambdaFunctionURLRequest

@@ -24,7 +24,7 @@ func TestHandleEventDispatchesHealthCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	operationResult, ok := response.(operationResponse)
-	if !ok || operationResult.Status != "ok" || operationResult.Operation != "check" || operationResult.ContentVersion != "v3" || operationResult.Protocol != "action-v2" {
+	if !ok || operationResult.Status != "ok" || operationResult.Operation != "check" || operationResult.ContentVersion != "v4" || operationResult.Protocol != "shooter-v1" {
 		t.Fatalf("unexpected response: %#v", response)
 	}
 	if checks != 1 {

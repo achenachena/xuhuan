@@ -66,13 +66,13 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 	authenticator := auth.NewAuthenticator(telegramVerifier, cfg.Environment == config.Development)
 
 	players := postgres.NewPlayerRepository(database)
-	contentCatalog, err := gamecontent.Load(gamecontent.CurrentVersion)
+	contentCatalog, err := gamecontent.LoadV4()
 	if err != nil {
 		return cleanup(fmt.Errorf("load game content: %w", err))
 	}
 	gameService := game.NewService(
 		players,
-		postgres.NewProgressionRepository(database, contentCatalog),
+		postgres.NewProgressionRepository(database),
 		postgres.NewRunRepository(database),
 		contentCatalog,
 	)

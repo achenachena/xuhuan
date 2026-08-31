@@ -1,170 +1,135 @@
-# Xuhuan V3 game design
+# Xuhuan V4 game design
 
 ## Player fantasy
 
-The player is the last viewer still online after a stream ends. An impossible backstage channel remains open, and seven digital personas ask the player to help recover the parts of themselves that the Retention Protocol classified as inconsistent, inefficient, or difficult to market.
+The stream is over, but the aftershow group never disconnected. The player is its last viewer and helps seven fictional digital performers rescue unfinished moments before an automatic archive replaces them with perfect highlights.
 
-The design combines two forms of agency:
+V4 is a focused one-thumb shooter, not a large mobile action RPG. Depth comes from route reading, close dodges, support-note collection, build order, companion timing, and one charged character special. It intentionally avoids a second stick, inventory grid, shop currency, energy system, or paid progression.
 
-- **Embodied agency:** move, graze, weave signals, Warp through danger, and assemble a run build.
-- **Relational agency:** answer messages and events that change Trust, Authenticity, and Retention across the campaign.
+## First minute
 
-Combat should feel immediate enough for a one-thumb Telegram session, while durable outcomes remain legible, deterministic, and recoverable after a mobile interruption.
+1. A single message reads, “The stream ended. Current viewers: 1.”
+2. The player taps **Stay online**.
+3. Nana enters a 30-second tutorial wave.
+4. A finger press in the lower half of the arena captures input; horizontal finger position directly controls the character's X position.
+5. Automatic straight-up shots demonstrate firing. A friendly support note demonstrates collection. The special button lights once and pauses its charge ring when pressed.
+6. The first weapon choice appears after the wave.
 
-## Campaign structure
+There is no character, route, difficulty, or equipment choice before first movement.
 
-The campaign is linear at the chapter level and branching inside each Run.
+## Core controls
 
-| Order | Chapter | Character | Central conflict |
-| ---: | --- | --- | --- |
-| 1 | No Sea at the Seventh Dock | Nana7mi | recovering memories that were never clipped |
-| 2 | Always Cheerful | Diana | owning sadness and silence instead of performing constant cheer |
-| 3 | Loss Record Hidden | Ava | remaining visible when failure is removed from the highlight loop |
-| 4 | Captains Do Not Rest | Bella | rejecting a leadership model that omits exhaustion |
-| 5 | Localization Failed | Lulu | preserving voice and tone through endless correction |
-| 6 | Which One Is Original | Xingtong | claiming reality without a required physical original |
-| 7 | The Laplace Florist Never Existed | Nailu | allowing invented memories to carry real meaning |
-| 8 | Zero Channel | Ensemble finale | confronting the Retention Protocol and resolving the campaign metrics |
+The player remains near the bottom of a `360 x 640` portrait arena.
 
-A new player first answers the one-option prologue and enters Nana's tutorial directly. Clearing a character chapter records its best score and clear count, unlocks its next Noise level, advances the campaign, and unlocks the next character. The seven chapter clears lead to the ensemble finale.
+- **Move:** hold and move a finger horizontally. The character maps directly to that X column on the next Tick. Vertical finger movement is ignored; there is no catch-up step.
+- **Stop:** lift the finger. No velocity or inertia survives the next Tick.
+- **Fire:** automatic and straight upward. Positioning under a target is part of play; there is no nearest-target aim assist.
+- **Special:** tap the one charged button. The action depends on the selected character.
 
-Authored scenes and event options add signed deltas to three persistent metrics:
+Pointer Capture and `touch-action: none` apply only to the arena. The Telegram host adapter disables vertical WebView swipes only during combat and restores them on every exit, blur, or unmount path.
 
-- **Trust** records how consistently the player treats the characters as participants rather than content.
-- **Authenticity** favors contradiction, self-definition, and release from optimization.
-- **Retention** favors preservation, continuity, and the system's safer framing.
+## The 35-to-45-second wave loop
 
-After Zero Channel, Authenticity at least three points above Retention selects the authentic ending. Retention at least three points above Authenticity selects the retained ending. All other totals select the balanced ending. Trust remains visible campaign context but is not a hidden tie-breaker.
+Every normal segment is fixed-duration survival. Killing enemies creates room and score, while the screen presents one progress strip: survive until the aftershow connection stabilizes.
 
-## Action controls and simulation
+During a wave, the player balances three readable goals:
 
-The action arena uses a 360 by 640 logical portrait space at a deterministic 30 Ticks per second. Rendering may interpolate at display rate, but replay advances only fixed Ticks.
+1. dodge telegraphed bullets and charged lanes;
+2. move through friendly cyan, pink, and gold support notes to extend a combo and charge the special; and
+3. spend the special on a dangerous overlap, a boss opening, or a pickup route.
 
-- Dragging anywhere in the arena creates an anchored steering origin and supplies one of 16 directions plus a quantized magnitude for as long as the pointer is held. Releasing removes the input immediately, so no velocity survives into the following Tick.
-- Automatic attacks select the nearest live enemy.
-- Tapping the arena activates Warp toward the tapped point. Warp moves 62 logical units, grants 12 invulnerable Ticks, damages enemies along the path, and clears projectiles near that path.
-- The browser records direction, magnitude, and Warp state into `rle8-v1`; the server replays the same inputs and alone determines the authoritative result.
+Enemies appear in authored formations. A dangerous attack always shows a line, lane, fan edge, or charge warning before it can damage the player. The runtime permits at most 14 enemies, 120 hostile projectiles, 48 friendly projectiles, 12 pickups, and 24 visual effects.
 
-The player never reports their own damage, position, kills, objective completion, score, or rewards. A room ends only when authoritative replay satisfies its objective, defeats its boss, exhausts the hard Tick limit, or reduces health to zero.
+The player has three hearts. Damage removes one heart and grants a short invulnerable window. A completed wave cannot be invalidated by waiting enemies; surviving its fixed duration is sufficient.
 
-## Signal weaving and protocols
+## Staged build decisions
 
-Each arena contains three signal positions: Surge, Guard, and Echo. Touching a signal:
+Every chapter contains three normal segments followed by a boss. The reward after each segment has a different purpose:
 
-- adds its type to the current three-signal weave;
-- clears nearby hostile projectiles;
-- damages nearby enemies;
-- advances a `recover` objective when applicable; and
-- starts a short cooldown before that position can be collected again.
+| Segment | Reward stage | Decision |
+| ---: | --- | --- |
+| 1 | `weapon` | Choose the main firing shape for this chapter attempt. |
+| 2 | `companion` | Choose one guest performer to provide a triggered assist for this attempt. |
+| 3 | `rescue` | Choose a guard or recovery effect before the boss. |
 
-The player may repeat a signal. When the third signal is collected, Warp refreshes immediately and becomes protocol-ready.
+This sequence teaches one system at a time and prevents three cards with tiny numeric differences from appearing together. V4 has 12 shared, one-level show effects. Each behavior changes a visible rule: twin shot, pierce, spread, stronger graze charge, special guard, pickup magnet, echo volley, boss break, last-heart power, longer combo, faster companion assist, or recovery drops.
 
-| Three-signal composition | Protocol | Result when the empowered Warp is used |
+There is no upgrade level, duplicate stacking, reroll currency, shop, or six-slot inventory. A chapter attempt is short enough that three meaningful choices are sufficient.
+
+## Characters and companions
+
+| Character | Special | Combat identity |
 | --- | --- | --- |
-| two or three Surge | Surge Break | a wider, higher-damage path |
-| two or three Guard | Guard Aegis | shield, full hostile-bullet clear, and longer invulnerability |
-| two or three Echo | Echo Replay | a second damage pattern along the path |
-| one Surge, one Guard, one Echo | Resonance | the current character's signature kit effect |
+| Nana | Route Break | Opens a safe lane through dense patterns. |
+| Jiaran (Diana) | Cheer Check | Converts pressure into a guard and friendly pulse. |
+| Xiangwan (Ava) | Second Take | Replays the most recent attack line. |
+| Bella | Take Five | Parries nearby bullets and counters. |
+| Lulu | Caption Flip | Converts hostile shots into friendly glitches. |
+| Xingtong | Prism Call | Focuses a piercing beam through one lane. |
+| Nailu | Memory Bloom | Creates a damaging temporary safe garden. |
 
-Using the empowered Warp consumes the weave. This creates a short planning loop: choose signals while dodging, decide whether a focused protocol or Resonance fits the room, then aim the spend.
+Clearing each character chapter unlocks that performer as a companion. Companion assists are event-driven and automatic, so they add relationship and build texture without adding another button. Triggers include a wave clear, low health, special use, graze streak, pickup chain, boss stage change, and segment start.
 
-## Seven kits
+## Enemy language
 
-Every character has authored base health, attack, attack interval, movement speed, Warp cooldown, and Warp damage. Each kit also has a passive and a Resonance behavior.
+Six visual chassis combine one movement rule, one attack rule, and optional traits:
 
-| Character | Kit identity | Resonance emphasis |
-| --- | --- | --- |
-| Nana7mi | Route Chain | global damage through a completed route |
-| Diana | Cheer Pulse | shield plus area damage |
-| Ava | Afterimage | aggressive area damage |
-| Bella | Perfect Warp | large shield and extended invulnerability |
-| Lulu | Convert Projectiles | clears bullets, converts them to score, and damages enemies |
-| Xingtong | Signal Stance | varied area damage across the enemy list |
-| Nailu | Memory Bloom | healing plus area damage |
+| Chassis | Movement | Primary attack | Readable twist |
+| --- | --- | --- | --- |
+| Spam Bot | drift | aimed shot | Simple positioning check. |
+| Clip Cutter | dive | lane shot | Splits after destruction. |
+| Caption Blob | sweep | fan | Leaves a delayed echo. |
+| Black-Screen Ghost | mirror | delayed shot | Briefly jams presentation. |
+| Gift Thief | orbit | ring | Steals unattended support notes. |
+| Censor Frame | anchor | beam | Links and protects nearby enemies. |
 
-Character-specific modules and plugins reinforce these identities without changing the shared input language or trust model.
+Waves compose these roles rather than introducing a new rule every ten seconds. A pincer of Clip Cutters asks for timing; a Censor Frame plus drifting Spam Bots asks for target priority; a Gift Thief changes the safest support-note route.
 
-## Distortion risk and recovery
+## Boss structure
 
-A hostile projectile that passes within the graze radius without hitting raises Distortion once. Noise and authored effects can increase the gain.
+Each boss lasts at most 60 seconds and has three health stages at 100, 66, and 33 percent. A stage changes movement, shot pattern, cadence, and one chapter-specific special. It does not merely add health.
 
-- Below 60, Distortion is latent pressure.
-- At 60 or higher, automatic attacks gain at least a 25 percent overclock bonus.
-- At 100, the player takes 12 damage, hostile bullets clear, and Distortion falls to 40 plus five per Noise level.
-- After two seconds without a graze, Distortion begins to decay. Higher Noise slows that decay.
+The final stage raises pattern density but retains telegraphs. A boss is defeated by reducing health before the fixed room cap while at least one heart remains. If time expires first, the attempt ends without advancing campaign progress; only an interrupted or unsent room is resumed from the same deterministic seed.
 
-The first eligible account-wide death can trigger Emergency Reconnect: health returns to 40 percent, bullets clear, and the player receives 45 invulnerable Ticks. The progression flag is consumed when the authoritative room result commits, so refreshes cannot duplicate it.
+## Campaign
 
-## Enemies, attacks, and objectives
+| Order | Chapter | Character | Aftershow conflict | Boss |
+| ---: | --- | --- | --- | --- |
+| 1 | No Sea at the Seventh Dock | Nana | A withdrawn seven-second voice note teaches autoreply to speak as Nana. | Optimal Nana |
+| 2 | Always Cheerful | Jiaran (Diana) | An autonomous encore performs while the real Jiaran is still in the group chat. | Always-On Idol |
+| 3 | Loss Record Hidden | Xiangwan (Ava) | Xiangwan requests her funniest loss, but the archive claims she has never lost. | Perfect Highlight |
+| 4 | Captains Do Not Rest | Bella | Bella says goodnight, then a scheduling bot accepts three overnight shifts for her. | Perfect Captain |
+| 5 | Localization Failed | Lulu | Lulu's snark is translated into “thanks for the support,” and the group starts protecting her original wording. | Approved Translation |
+| 6 | Which One Is Original | Xingtong | Two live rehearsal rooms each ask the group to close the other; a backend read shows both are active. | Physical Original |
+| 7 | The Laplace Florist Never Existed | Nailu | A thanks-for-the-flowers photo exists before the flowers and stream; the archive is generating a future event. | Reality Auditor |
+| 8 | Zero Channel | Player choice | An anniversary stream looks normal, but all seven performers say, “not us.” | Auto-Archive System |
 
-V3 contains 36 enemies: 21 normal, 7 elite, and 8 bosses. Enemies compose a movement rule, one or more attacks, and optional traits.
+Chapters unlock linearly and may be replayed. Every chapter contains:
 
-- Movement: chase, orbit, strafe, charge, flee, stationary, or wander.
-- Attacks: aimed, fan, ring, spiral, delayed echo, mine, or beam.
-- Traits: linked shields, signal theft, death splitting, armor, Distortion aura, or teleport.
+- a prelude of at most three short group-chat bubbles;
+- three fixed-duration waves and staged build choices;
+- one concrete two-option intermission after the second wave;
+- a three-stage boss;
+- a short epilogue; and
+- a replay recap that acknowledges the chapter is already known.
 
-Attacks expose an intent window before they fire. Noise shortens that window and attack interval. Boss health produces three deterministic phases: an opening pattern, a mid-health pattern that can react to the player's build, and a final radial-pressure phase.
+The intermission stores an explicit selected option ID and durable tag. It never adds invisible morality or personality points. Replaying a chapter appends a new choice revision; the latest revision changes the current story projection without erasing history.
 
-The 47 authored encounters have this exact objective mix:
+## Finale endings
 
-| Objective | Count | Completion rule |
-| --- | ---: | --- |
-| Purge | 8 | reach the kill target |
-| Stabilize | 9 | hold the arena center for the required Ticks |
-| Recover | 8 | collect the required signals |
-| Holdout | 6 | survive to the target Tick |
-| Elite | 8 | defeat the elite target set |
-| Boss | 8 | defeat the boss before the hard cap |
+Zero Channel ends with three explicit actions: **Open Archive**, **Shared Cut**, and **Quiet Sign-Off**. All three are shown directly after the final boss, all carry a visible cost, and none is unlocked by a hidden score or morality threshold. Earlier concrete choices still alter dialogue, combat support, and boss presentation, while the final action remains the player's deliberate decision.
 
-One of those encounters is Nana's tutorial; the remaining kind distribution is 30 normal, 8 elite, and 8 boss encounters. Encounters may also apply narrow-arena, Distortion-rain, signal-decay, or crossfire hazards.
+## Daily Aftershow
 
-## Campaign Run flow
+Daily Aftershow unlocks after a first finale. It uses one shared UTC seed, rotates through seven characters, and contains one quick normal wave, one show choice, and one boss. It reuses authored waves, bosses, and encore modifiers rather than running a scheduler or downloading a separate bundle.
 
-The server generates the complete route from the Run seed before play:
+The mode tracks only the player's personal best and clear streak. It has no global leaderboard, paid entry, energy timer, loot box, or social pressure loop. A result may be shared without exposing Telegram identity.
 
-```text
-combat choice
-  -> event or combat
-      -> elite or rest
-          -> midpoint story event
-              -> combat choice
-                  -> boss
-```
+## Accessibility and mobile feedback
 
-Selecting one node permanently locks alternatives in that layer. The Seventh Dock route prepends its tutorial encounter. Noise 2 narrows connections between the first two layers; Noise 3 replaces the rest option with another elite.
-
-After a cleared non-boss encounter, the player receives up to three module choices. The first choice is biased toward the encounter's Surge, Guard, Echo, or Glitch reward identity when possible. Every Run begins with one reroll. A module occupies one of six slots and has exactly three cumulative levels; selecting it again advances the next level. An elite additionally grants one shared or character-compatible plugin not already held.
-
-A rest node offers one of two authoritative operations:
-
-- repair 30 percent of maximum health; or
-- tune one owned module that is below level three.
-
-Modules, plugins, route, health, and encounter state reset with the Run. Chapter progress, unlocks, story choices, metrics, endings, best scores, and daily history persist.
-
-## Noise levels
-
-Each character chapter and the finale author three cumulative Noise rules at levels 1, 2, and 3. Clearing a chapter at level *n* unlocks level *n + 1*, capped at 3. Engine rules change enemy health, firing cadence, telegraph time, Distortion pressure, route connectivity, and rest availability; authored Noise modifiers currently add only positive `distortion_gain`. Noise is not merely a health multiplier.
-
-## Daily mode
-
-Daily mode unlocks after the finale. It is deliberately smaller and more comparable than a campaign Run:
-
-```text
-combat -> elite -> boss
-```
-
-For each UTC date, the server:
-
-1. rotates deterministically through the seven character chapters;
-2. derives the Run seed from the date;
-3. reuses that chapter's encounter and boss pools at Noise 0; and
-4. records the best score and its module/plugin build for that player and date.
-
-Clearing consecutive UTC dates increases the streak. A completed daily Run can be shared directly with its existing random Run UUID. The public endpoint returns only the anonymous best result for that player's UTC date; it exposes no Telegram identity and requires no share-token table, write request, cleanup task, or extra storage. Successful anonymous reads are cached publicly for five minutes.
-
-## Content scale and localization
-
-The complete authored bundle contains 7 characters, 7 kits, 68 modules, 20 plugins, 36 enemies, 47 encounters, 28 events, 34 story scenes, 7 chapters, and 1 finale. English and Simplified Chinese each contain the same 620 locale keys.
-
-Startup and tests validate the primary catalog totals and exact locale parity; the current locale files contain 620 keys each, also checked by the release gate. See [content-authoring.md](content-authoring.md) before changing rules or authored content.
+- English is the default; Simplified Chinese can be selected at any time.
+- Safe-area and stable-viewport values come from the Telegram host adapter on every screen.
+- Friendly pickups use round shapes, warm halos, and support symbols; enemies use sharp silhouettes and danger colors.
+- Important hits combine a sprite flash, a short procedural sound, and optional Telegram haptic feedback.
+- Color is never the only signal: pickups, bullets, warnings, health, and special readiness also differ by shape and motion.
+- Background pause freezes local time; returning cannot create an input burst.

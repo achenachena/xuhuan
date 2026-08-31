@@ -1,17 +1,22 @@
-import type { components } from "@/lib/api/generated";
 import { env } from "@/lib/env";
+import type {
+  APIErrorEnvelope,
+  ShooterContent,
+  ShooterCreateRunRequest,
+  ShooterGameRun,
+  ShooterGameSnapshot,
+  ShooterRunCommand,
+  ShooterRunCommandResponse,
+} from "@/lib/api/types";
 
-export type APIGameContent = components["schemas"]["GameContent"];
-export type APIGameSnapshot = components["schemas"]["GameSnapshot"];
-export type APIGameRun = components["schemas"]["GameRun"];
-export type APIRunState = components["schemas"]["RunState"];
-export type APIRunCommand = components["schemas"]["RunCommandRequest"];
-export type APIRunCommandResponse = components["schemas"]["RunCommandResponse"];
-export type APIStoryChoiceResponse = components["schemas"]["StoryChoiceResponse"];
-export type APICreateRunRequest = components["schemas"]["CreateRunRequest"];
-export type APIDailyResult = components["schemas"]["DailyResult"];
-
-type ErrorEnvelope = components["schemas"]["ErrorEnvelope"];
+export type APIGameContent = ShooterContent;
+export type APIGameSnapshot = ShooterGameSnapshot;
+export type APIGameRun = ShooterGameRun;
+export type APIRunState = ShooterGameRun["state"];
+export type APIRunCommand = ShooterRunCommand;
+export type APIRunCommandResponse = ShooterRunCommandResponse;
+export type APICreateRunRequest = ShooterCreateRunRequest;
+export type { APIDailyResult } from "@/lib/api/types";
 const requestTimeoutMilliseconds = 20_000;
 const encounterReplayTimeoutMilliseconds = 20_000;
 const encounterReplayAttempts = 3;
@@ -61,7 +66,7 @@ const buildAuthenticationHeaders = async (): Promise<HeadersInit> => {
 
 const parseError = async (response: Response): Promise<APIError> => {
   try {
-    const body = (await response.json()) as ErrorEnvelope;
+    const body = (await response.json()) as APIErrorEnvelope;
     return new APIError(response.status, body.error.code, body.error.message, body.error.request_id);
   } catch {
     return new APIError(response.status, "request_failed", `API request failed (${response.status})`);
@@ -141,47 +146,40 @@ export const createIdempotencyKey = (): string => {
   return globalThis.crypto.randomUUID();
 };
 
-export const getGameContent = (locale: "zh-CN" | "en"): Promise<APIGameContent> => {
-  return requestJSON<APIGameContent>(
-    `/v2/content/v3?locale=${encodeURIComponent(locale)}`,
+export const getGameContent = (locale: "zh-CN" | "en"): Promise<ShooterContent> => {
+  return requestJSON<ShooterContent>(
+    `/v2/content/v4?locale=${encodeURIComponent(locale)}`,
     { headers: { "Accept-Language": locale } },
     false,
   );
 };
 
-export const getGame = (locale: "zh-CN" | "en" = "en"): Promise<APIGameSnapshot> =>
-  requestJSON<APIGameSnapshot>("/v2/game", {
+export const getGame = (locale: "zh-CN" | "en" = "en"): Promise<ShooterGameSnapshot> =>
+  requestJSON<ShooterGameSnapshot>("/v2/game", {
     headers: { "Accept-Language": locale },
   });
 
 export const createRun = (
-  body: APICreateRunRequest,
+  body: ShooterCreateRunRequest,
   idempotencyKey: string
-): Promise<APIGameRun> => postJSON("/v2/runs", body, idempotencyKey);
+): Promise<ShooterGameRun> => postJSON("/v2/runs", body, idempotencyKey);
 
-export const getRun = (runId: string): Promise<APIGameRun> => {
-  return requestJSON<APIGameRun>(`/v2/runs/${encodeURIComponent(runId)}`);
+export const getRun = (runId: string): Promise<ShooterGameRun> => {
+  return requestJSON<ShooterGameRun>(`/v2/runs/${encodeURIComponent(runId)}`);
 };
 
 export const createRunCommand = (
   runId: string,
-  body: APIRunCommand,
+  body: ShooterRunCommand,
   idempotencyKey: string
-): Promise<APIRunCommandResponse> => {
+): Promise<ShooterRunCommandResponse> => {
   return postJSON(
     `/v2/runs/${encodeURIComponent(runId)}/commands`,
     body,
     idempotencyKey,
-    body.type === "complete_encounter"
+    body.type === "complete_segment"
       ? encounterReplayTimeoutMilliseconds
       : requestTimeoutMilliseconds,
-    body.type === "complete_encounter" ? encounterReplayAttempts : 1,
+    body.type === "complete_segment" ? encounterReplayAttempts : 1,
   );
-};
-
-export const createStoryChoice = (
-  body: { readonly scene_slug: string; readonly option_slug: string; readonly expected_version: number },
-  idempotencyKey: string
-): Promise<APIStoryChoiceResponse> => {
-  return postJSON("/v2/story/choices", body, idempotencyKey);
 };

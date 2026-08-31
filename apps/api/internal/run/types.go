@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/achenachena/xuhuan/apps/api/internal/action"
+	"github.com/achenachena/xuhuan/apps/api/internal/shooter"
 )
 
 var (
@@ -43,115 +43,46 @@ const (
 type Phase string
 
 const (
-	MapPhase       Phase = "map"
-	EncounterPhase Phase = "encounter"
-	RewardPhase    Phase = "reward"
-	EventPhase     Phase = "event"
-	RestPhase      Phase = "rest"
-	CompletedPhase Phase = "completed"
+	SegmentPhase    Phase = "segment"
+	ShowChoicePhase Phase = "show_choice"
+	StoryPhase      Phase = "story"
+	CompletedPhase  Phase = "completed"
 )
 
-type NodeType string
-
-const (
-	CombatNode   NodeType = "combat"
-	EliteNode    NodeType = "elite"
-	EventNode    NodeType = "event"
-	StoryNode    NodeType = "story"
-	RestNode     NodeType = "rest"
-	BossNode     NodeType = "boss"
-	TutorialNode NodeType = "tutorial"
-)
-
-type NodeStatus string
-
-const (
-	LockedNode    NodeStatus = "locked"
-	AvailableNode NodeStatus = "available"
-	CurrentNode   NodeStatus = "current"
-	CompletedNode NodeStatus = "completed"
-)
-
-type MapNode struct {
-	ID            string     `json:"id"`
-	Layer         int        `json:"layer"`
-	Lane          int        `json:"lane"`
-	Type          NodeType   `json:"type"`
-	Status        NodeStatus `json:"status"`
-	Next          []string   `json:"next"`
-	EncounterSlug string     `json:"encounter_slug,omitempty"`
-	EventSlug     string     `json:"event_slug,omitempty"`
-	Objective     string     `json:"objective,omitempty"`
-	Risk          int        `json:"risk,omitempty"`
-	RewardBias    string     `json:"reward_bias,omitempty"`
-	EnemySlugs    []string   `json:"enemy_slugs,omitempty"`
-	Hazards       []string   `json:"hazards,omitempty"`
-}
-type MapState struct {
-	Nodes         []MapNode `json:"nodes"`
-	CurrentNodeID string    `json:"current_node_id,omitempty"`
-}
-type ModuleLevel struct {
-	Slug  string `json:"slug"`
-	Level int    `json:"level"`
-}
-type EncounterState struct {
-	Slug          string                 `json:"slug"`
-	Seed          string                 `json:"seed"`
-	Kind          string                 `json:"kind"`
-	DurationTicks int                    `json:"duration_ticks"`
-	MaxTicks      int                    `json:"max_ticks"`
-	Tutorial      bool                   `json:"tutorial"`
-	Objective     action.ObjectiveConfig `json:"objective"`
-	Risk          int                    `json:"risk"`
-	RewardBias    string                 `json:"reward_bias"`
-	Hazards       []string               `json:"hazards"`
-}
-type RewardState struct {
-	ModuleChoices []string `json:"module_choices"`
-	GrantedPlugin string   `json:"granted_plugin,omitempty"`
-	Rerolled      bool     `json:"rerolled"`
+type SegmentState struct {
+	SegmentSlug   string         `json:"segment_slug"`
+	SegmentIndex  int            `json:"segment_index"`
+	Seed          string         `json:"seed"`
+	DurationTicks int            `json:"duration_ticks"`
+	WaveID        string         `json:"wave_id,omitempty"`
+	BossID        string         `json:"boss_id,omitempty"`
+	RewardStage   string         `json:"reward_stage,omitempty"`
+	BackgroundURL string         `json:"background_url"`
+	RuntimeConfig shooter.Config `json:"runtime_config"`
 }
 
-type RewardPool struct {
-	ModuleSlugs []string `json:"module_slugs"`
-	PluginSlugs []string `json:"plugin_slugs"`
-}
-
-// NarrativeModifier is the authoritative gameplay projection of the latest
-// authored story branch. It is frozen into each command result so reward and
-// Boss behavior remain deterministic across reconnects.
-type NarrativeModifier struct {
-	RewardBias      string `json:"reward_bias,omitempty"`
-	BossVariant     string `json:"boss_variant"`
-	SourceSceneSlug string `json:"source_scene_slug,omitempty"`
-	SourceChoiceTag string `json:"source_choice_tag,omitempty"`
+type StoryState struct {
+	SceneID   string   `json:"scene_id"`
+	ChoiceIDs []string `json:"choice_ids"`
 }
 
 type State struct {
-	Phase                       Phase                `json:"phase"`
-	ChapterSlug                 string               `json:"chapter_slug"`
-	CharacterSlug               string               `json:"character_slug"`
-	CompanionSlugs              []string             `json:"companion_slugs"`
-	SupportAlignment            string               `json:"support_alignment,omitempty"`
-	WeaponSlug                  string               `json:"weapon_slug"`
-	NoiseLevel                  int                  `json:"noise_level"`
-	Health                      int                  `json:"health"`
-	MaxHealth                   int                  `json:"max_health"`
-	Modules                     []ModuleLevel        `json:"modules"`
-	Plugins                     []string             `json:"plugins"`
-	RewardPool                  RewardPool           `json:"reward_pool"`
-	NarrativeModifier           NarrativeModifier    `json:"narrative_modifier"`
-	Map                         MapState             `json:"map"`
-	Encounter                   *EncounterState      `json:"encounter,omitempty"`
-	Reward                      *RewardState         `json:"reward,omitempty"`
-	CurrentEventSlug            string               `json:"current_event_slug,omitempty"`
-	ChoiceTags                  []string             `json:"choice_tags"`
-	RNGCursor                   uint64               `json:"rng_cursor"`
-	EmergencyReconnectAvailable bool                 `json:"emergency_reconnect_available"`
-	RuntimeConfig               action.RuntimeConfig `json:"runtime_config"`
-	RerollsRemaining            int                  `json:"rerolls_remaining"`
-	Score                       int                  `json:"score"`
+	Phase              Phase         `json:"phase"`
+	ChapterSlug        string        `json:"chapter_slug"`
+	CharacterSlug      string        `json:"character_slug"`
+	CompanionSlugs     []string      `json:"companion_slugs"`
+	EncoreLevel        int           `json:"encore_level"`
+	Hearts             int           `json:"hearts"`
+	MaxHearts          int           `json:"max_hearts"`
+	SegmentIndex       int           `json:"segment_index"`
+	Segment            *SegmentState `json:"segment,omitempty"`
+	PendingShowOptions []string      `json:"pending_show_options"`
+	ShowEffects        []string      `json:"show_effects"`
+	Story              *StoryState   `json:"story,omitempty"`
+	SelectedChoiceIDs  []string      `json:"selected_choice_ids"`
+	Score              int           `json:"score"`
+	EndingID           string        `json:"ending_id,omitempty"`
+	DailyVariant       string        `json:"daily_variant,omitempty"`
 }
 
 type GameRun struct {
@@ -173,92 +104,95 @@ type GameRun struct {
 type CommandType string
 
 const (
-	ChooseNode         CommandType = "choose_node"
-	CompleteEncounter  CommandType = "complete_encounter"
-	ChooseModuleReward CommandType = "choose_module_reward"
-	RerollModuleReward CommandType = "reroll_module_reward"
-	ResolveEvent       CommandType = "resolve_event"
-	Rest               CommandType = "rest"
-	AbandonRun         CommandType = "abandon_run"
+	CompleteSegment         CommandType = "complete_segment"
+	ChooseShowOption        CommandType = "choose_show_option"
+	ChooseIntermissionReply CommandType = "choose_intermission_reply"
+	AbandonRun              CommandType = "abandon_run"
 )
 
 type Command struct {
-	Type       CommandType        `json:"type"`
-	NodeID     string             `json:"node_id,omitempty"`
-	ChoiceSlug string             `json:"choice_slug,omitempty"`
-	ModuleSlug string             `json:"module_slug,omitempty"`
-	Operation  string             `json:"operation,omitempty"`
-	Trace      *action.InputTrace `json:"trace,omitempty"`
+	Type     CommandType         `json:"type"`
+	OptionID string              `json:"option_id,omitempty"`
+	SceneID  string              `json:"scene_id,omitempty"`
+	Trace    *shooter.InputTrace `json:"trace,omitempty"`
 }
+
 type Event struct {
-	Kind              string         `json:"kind"`
-	NodeID            string         `json:"node_id,omitempty"`
-	SceneSlug         string         `json:"scene_slug,omitempty"`
-	ModuleSlug        string         `json:"module_slug,omitempty"`
-	PluginSlug        string         `json:"plugin_slug,omitempty"`
-	ChoiceTag         string         `json:"choice_tag,omitempty"`
-	Amount            int            `json:"amount,omitempty"`
-	EncounterResult   *action.Result `json:"encounter_result,omitempty"`
-	Trust             int            `json:"trust,omitempty"`
-	Authenticity      int            `json:"authenticity,omitempty"`
-	Retention         int            `json:"retention,omitempty"`
-	ChapterSlug       string         `json:"chapter_slug,omitempty"`
-	NextChapterSlug   string         `json:"next_chapter_slug,omitempty"`
-	NextCharacterSlug string         `json:"next_character_slug,omitempty"`
+	Kind              string          `json:"kind"`
+	SegmentSlug       string          `json:"segment_slug,omitempty"`
+	ShowEffectID      string          `json:"show_effect_id,omitempty"`
+	SceneID           string          `json:"scene_id,omitempty"`
+	ChoiceID          string          `json:"choice_id,omitempty"`
+	ChoiceTag         string          `json:"choice_tag,omitempty"`
+	CompanionID       string          `json:"companion_id,omitempty"`
+	ChapterSlug       string          `json:"chapter_slug,omitempty"`
+	NextChapterSlug   string          `json:"next_chapter_slug,omitempty"`
+	NextCharacterSlug string          `json:"next_character_slug,omitempty"`
+	EndingID          string          `json:"ending_id,omitempty"`
+	EncounterResult   *shooter.Result `json:"segment_result,omitempty"`
 }
+
 type Resolution struct {
 	State  State   `json:"state"`
 	Events []Event `json:"events"`
 }
+
 type StartInput struct {
-	ChapterSlug                 string
-	CharacterSlug               string
-	NoiseLevel                  int
-	Seed                        string
-	EmergencyReconnectAvailable bool
-	TutorialCompleted           bool
-	CompanionSlugs              []string
-	SupportAlignment            string
-	Mode                        Mode
-	DailyDate                   *string
-	UnlockedModuleSlugs         []string
-	UnlockedPluginSlugs         []string
-	StarterModuleSlug           string
-	NarrativeModifier           NarrativeModifier
-	ChoiceTags                  []string
+	ChapterSlug     string
+	CharacterSlug   string
+	EncoreLevel     int
+	Seed            string
+	CompanionSlugs  []string
+	SelectedChoices []string
+	Mode            Mode
+	DailyDate       *string
 }
+
+type StartRequest struct {
+	Mode          Mode    `json:"mode"`
+	ChapterSlug   string  `json:"chapter_slug"`
+	CharacterSlug string  `json:"character_slug"`
+	CompanionSlug string  `json:"companion_slug,omitempty"`
+	EncoreLevel   int     `json:"encore_level"`
+	DailyDate     *string `json:"daily_date,omitempty"`
+}
+
 type CreateInput struct {
 	PlayerID       string
 	ContentVersion string
 	Seed           string
 	State          State
 	IdempotencyKey string
-	RequestHash    [32]byte
+	Request        StartRequest
 	Mode           Mode
 	DailyDate      *string
 }
+
 type ApplyInput struct {
 	PlayerID        string
 	RunID           string
 	Command         Command
 	ExpectedVersion int64
 	IdempotencyKey  string
-	RequestHash     [32]byte
 }
+
 type CommandResponse struct {
 	Run    GameRun `json:"run"`
 	Events []Event `json:"events"`
 }
+
 type DailyResult struct {
-	Date          string        `json:"date"`
-	CharacterSlug string        `json:"character_slug"`
-	Score         int           `json:"score"`
-	Modules       []ModuleLevel `json:"modules"`
-	Plugins       []string      `json:"plugins"`
-	Streak        int           `json:"streak"`
-	CompletedAt   time.Time     `json:"-"`
+	Date           string    `json:"date"`
+	CharacterSlug  string    `json:"character_slug"`
+	Score          int       `json:"score"`
+	ShowEffects    []string  `json:"show_effects"`
+	CompanionSlugs []string  `json:"companion_slugs"`
+	Streak         int       `json:"streak"`
+	CompletedAt    time.Time `json:"-"`
 }
+
 type Resolver func(GameRun, Command) (Resolution, *Outcome, error)
+
 type Repository interface {
 	Create(context.Context, CreateInput) (GameRun, bool, error)
 	Get(context.Context, string, string) (GameRun, error)

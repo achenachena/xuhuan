@@ -1,0 +1,35 @@
+{
+  "chapter": {
+    "id":"zero-channel","order":8,"title_key":"chapter.zero_channel.title","subtitle_key":"chapter.zero_channel.subtitle","featured_character":"player-choice","unlock_companion":"","background_url":"/game/v4/backgrounds/zero-channel.webp",
+    "segments":[
+      {"id":"zero-roll-call","duration_ticks":1080,"wave_id":"zero-wave-1","background_url":"/game/v4/backgrounds/zero-channel.webp","reward_stage":"weapon"},
+      {"id":"zero-unsent-drafts","duration_ticks":1200,"wave_id":"zero-wave-2","background_url":"/game/v4/backgrounds/zero-channel.webp","reward_stage":"companion"},
+      {"id":"zero-last-minute","duration_ticks":1320,"wave_id":"zero-wave-3","background_url":"/game/v4/backgrounds/zero-channel.webp","reward_stage":"rescue"}
+    ],
+    "waves":[
+      {"id":"zero-wave-1","spawns":[{"at_tick":15,"enemy_id":"spam-bot","count":4,"formation":"line","interval_ticks":14},{"at_tick":250,"enemy_id":"caption-blob","count":3,"formation":"fan","interval_ticks":22},{"at_tick":540,"enemy_id":"gift-thief","count":3,"formation":"pincer","interval_ticks":28}]},
+      {"id":"zero-wave-2","spawns":[{"at_tick":15,"enemy_id":"black-screen-ghost","count":3,"formation":"staggered","interval_ticks":34},{"at_tick":270,"enemy_id":"clip-cutter","count":4,"formation":"sweep","interval_ticks":17},{"at_tick":610,"enemy_id":"censor-frame","count":2,"formation":"center","interval_ticks":42}]},
+      {"id":"zero-wave-3","spawns":[{"at_tick":10,"enemy_id":"gift-thief","count":3,"formation":"fan","interval_ticks":28},{"at_tick":250,"enemy_id":"caption-blob","count":4,"formation":"sweep","interval_ticks":21},{"at_tick":570,"enemy_id":"black-screen-ghost","count":3,"formation":"pincer","interval_ticks":33},{"at_tick":810,"enemy_id":"censor-frame","count":2,"formation":"center","interval_ticks":40}]}
+    ],
+    "boss":{"id":"auto-archive-system","name_key":"boss.auto_archive.name","description_key":"boss.auto_archive.description","sprite_url":"/game/v4/bosses/auto-archive-system.webp","max_health":1440,"duration_ticks":1800,"stages":[
+      {"id":"sort-the-chat","health_threshold":100,"move_pattern":"anchor","shot_pattern":"lane","shot_interval":48,"projectile_speed":116,"projectile_damage":1,"telegraph_ticks":21,"special":"remove-duplicates"},
+      {"id":"keep-only-highlights","health_threshold":66,"move_pattern":"mirror","shot_pattern":"delayed","shot_interval":40,"projectile_speed":122,"projectile_damage":1,"telegraph_ticks":25,"special":"overwrite-drafts"},
+      {"id":"end-the-stream","health_threshold":33,"move_pattern":"orbit","shot_pattern":"beam","shot_interval":62,"projectile_speed":132,"projectile_damage":1,"telegraph_ticks":32,"special":"archive-everyone"}
+    ]},
+    "story":{
+      "prelude":[{"sender":"system","text_key":"story.zero.prelude.1"},{"sender":"nana7mi","text_key":"story.zero.prelude.2"},{"sender":"group","text_key":"story.zero.prelude.3"}],
+      "intermission":{"after_segment":2,"prompt_key":"story.zero.intermission.prompt","messages":[{"sender":"system","text_key":"story.zero.intermission.1"},{"sender":"group","text_key":"story.zero.intermission.2"}],"choices":[
+        {"id":"publish-mismatch-log","label_key":"story.zero.choice.mismatch.label","result_key":"story.zero.choice.mismatch.result","tag":"published-mismatch-log","show_effect_id":"still-live"},
+        {"id":"publish-seven-approved-notes","label_key":"story.zero.choice.approved.label","result_key":"story.zero.choice.approved.result","tag":"published-approved-accounts","show_effect_id":"cohost-cue"}
+      ]},
+      "epilogue":[{"sender":"group","text_key":"story.zero.epilogue.1"},{"sender":"system","text_key":"story.zero.epilogue.2"}],
+      "replay_recap":[{"sender":"nana7mi","text_key":"story.zero.recap.1"}]
+    },
+    "encore":[{"id":"zero-late-aftershow","name_key":"encore.zero_late_aftershow.name","description_key":"encore.zero_late_aftershow.description","enemy_speed_percent":12,"projectile_speed_percent":15,"special_charge_penalty_percent":15}],
+    "endings":[
+      {"id":"open-archive","title_key":"ending.open_archive.title","summary_key":"ending.open_archive.summary","messages":[{"sender":"nana7mi","text_key":"ending.open_archive.1"},{"sender":"group","text_key":"ending.open_archive.2"}]},
+      {"id":"shared-cut","title_key":"ending.shared_cut.title","summary_key":"ending.shared_cut.summary","messages":[{"sender":"bella","text_key":"ending.shared_cut.1"},{"sender":"group","text_key":"ending.shared_cut.2"}]},
+      {"id":"quiet-signoff","title_key":"ending.quiet_signoff.title","summary_key":"ending.quiet_signoff.summary","messages":[{"sender":"jiaran","text_key":"ending.quiet_signoff.1"},{"sender":"system","text_key":"ending.quiet_signoff.2"}]}
+    ]
+  }
+}

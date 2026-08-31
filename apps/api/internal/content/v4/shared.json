@@ -1,0 +1,70 @@
+{
+  "show_effects": [
+    {"id":"double-take","name_key":"effect.double_take.name","description_key":"effect.double_take.description","archetype":"power","behavior":"twin_shot","amount":1},
+    {"id":"clean-cut","name_key":"effect.clean_cut.name","description_key":"effect.clean_cut.description","archetype":"power","behavior":"piercing_shot","amount":1},
+    {"id":"wide-angle","name_key":"effect.wide_angle.name","description_key":"effect.wide_angle.description","archetype":"power","behavior":"spread_shot","amount":2},
+    {"id":"close-call","name_key":"effect.close_call.name","description_key":"effect.close_call.description","archetype":"style","behavior":"graze_charge","amount":2},
+    {"id":"safety-chat","name_key":"effect.safety_chat.name","description_key":"effect.safety_chat.description","archetype":"guard","behavior":"guard_on_special","amount":1},
+    {"id":"sticky-comment","name_key":"effect.sticky_comment.name","description_key":"effect.sticky_comment.description","archetype":"style","behavior":"pickup_magnet","amount":320},
+    {"id":"instant-replay","name_key":"effect.instant_replay.name","description_key":"effect.instant_replay.description","archetype":"style","behavior":"echo_volley","amount":35},
+    {"id":"headline-break","name_key":"effect.headline_break.name","description_key":"effect.headline_break.description","archetype":"power","behavior":"boss_break","amount":20},
+    {"id":"still-live","name_key":"effect.still_live.name","description_key":"effect.still_live.description","archetype":"power","behavior":"low_health_power","amount":30},
+    {"id":"no-dead-air","name_key":"effect.no_dead_air.name","description_key":"effect.no_dead_air.description","archetype":"style","behavior":"combo_extend","amount":90},
+    {"id":"cohost-cue","name_key":"effect.cohost_cue.name","description_key":"effect.cohost_cue.description","archetype":"style","behavior":"companion_charge","amount":20},
+    {"id":"snack-drop","name_key":"effect.snack_drop.name","description_key":"effect.snack_drop.description","archetype":"guard","behavior":"recovery_drop","amount":1}
+  ],
+  "characters": [
+    {
+      "id":"nana7mi","name_key":"character.nana7mi.name","biography_key":"character.nana7mi.biography","playstyle_key":"character.nana7mi.playstyle","color_theme":"#59e5ff","portrait_url":"/game/v4/players/nana7mi.webp","sprite_url":"/game/v4/players/nana7mi.webp",
+      "base_stats":{"max_health":3,"shot_damage":12,"shot_interval":9,"move_limit":1520},
+      "special":{"id":"nana-route-break","name_key":"special.nana.name","description_key":"special.nana.description","charge_cost":100,"behavior":"barrage_break","power":34,"duration_ticks":90}
+    },
+    {
+      "id":"jiaran","name_key":"character.jiaran.name","biography_key":"character.jiaran.biography","playstyle_key":"character.jiaran.playstyle","color_theme":"#ff7fba","portrait_url":"/game/v4/players/jiaran.webp","sprite_url":"/game/v4/players/jiaran.webp",
+      "base_stats":{"max_health":3,"shot_damage":10,"shot_interval":8,"move_limit":1500},
+      "special":{"id":"jiaran-cheer-check","name_key":"special.jiaran.name","description_key":"special.jiaran.description","charge_cost":100,"behavior":"cheer_guard","power":28,"duration_ticks":120}
+    },
+    {
+      "id":"xiangwan","name_key":"character.xiangwan.name","biography_key":"character.xiangwan.biography","playstyle_key":"character.xiangwan.playstyle","color_theme":"#8ea7ff","portrait_url":"/game/v4/players/xiangwan.webp","sprite_url":"/game/v4/players/xiangwan.webp",
+      "base_stats":{"max_health":3,"shot_damage":11,"shot_interval":8,"move_limit":1640},
+      "special":{"id":"xiangwan-second-take","name_key":"special.xiangwan.name","description_key":"special.xiangwan.description","charge_cost":100,"behavior":"afterimage_replay","power":30,"duration_ticks":105}
+    },
+    {
+      "id":"bella","name_key":"character.bella.name","biography_key":"character.bella.biography","playstyle_key":"character.bella.playstyle","color_theme":"#d769ff","portrait_url":"/game/v4/players/bella.webp","sprite_url":"/game/v4/players/bella.webp",
+      "base_stats":{"max_health":3,"shot_damage":12,"shot_interval":10,"move_limit":1460},
+      "special":{"id":"bella-take-five","name_key":"special.bella.name","description_key":"special.bella.description","charge_cost":100,"behavior":"captain_parry","power":36,"duration_ticks":75}
+    },
+    {
+      "id":"lulu","name_key":"character.lulu.name","biography_key":"character.lulu.biography","playstyle_key":"character.lulu.playstyle","color_theme":"#63f1a9","portrait_url":"/game/v4/players/lulu.webp","sprite_url":"/game/v4/players/lulu.webp",
+      "base_stats":{"max_health":3,"shot_damage":10,"shot_interval":8,"move_limit":1560},
+      "special":{"id":"lulu-caption-flip","name_key":"special.lulu.name","description_key":"special.lulu.description","charge_cost":100,"behavior":"subtitle_flip","power":27,"duration_ticks":120}
+    },
+    {
+      "id":"xingtong","name_key":"character.xingtong.name","biography_key":"character.xingtong.biography","playstyle_key":"character.xingtong.playstyle","color_theme":"#ffd05f","portrait_url":"/game/v4/players/xingtong.webp","sprite_url":"/game/v4/players/xingtong.webp",
+      "base_stats":{"max_health":3,"shot_damage":13,"shot_interval":10,"move_limit":1480},
+      "special":{"id":"xingtong-prism-call","name_key":"special.xingtong.name","description_key":"special.xingtong.description","charge_cost":100,"behavior":"prism_shift","power":38,"duration_ticks":90}
+    },
+    {
+      "id":"nailu","name_key":"character.nailu.name","biography_key":"character.nailu.biography","playstyle_key":"character.nailu.playstyle","color_theme":"#ffad66","portrait_url":"/game/v4/players/nailu.webp","sprite_url":"/game/v4/players/nailu.webp",
+      "base_stats":{"max_health":3,"shot_damage":11,"shot_interval":9,"move_limit":1500},
+      "special":{"id":"nailu-flower-call","name_key":"special.nailu.name","description_key":"special.nailu.description","charge_cost":100,"behavior":"memory_bloom","power":32,"duration_ticks":120}
+    }
+  ],
+  "companions": [
+    {"id":"nana7mi-assist","character_id":"nana7mi","name_key":"companion.nana.name","description_key":"companion.nana.description","portrait_url":"/game/v4/players/nana7mi.webp","assist":{"trigger":"wave_clear","behavior":"side_shot","amount":20,"cooldown_ticks":180}},
+    {"id":"jiaran-assist","character_id":"jiaran","name_key":"companion.jiaran.name","description_key":"companion.jiaran.description","portrait_url":"/game/v4/players/jiaran.webp","assist":{"trigger":"low_health","behavior":"shield","amount":1,"cooldown_ticks":450}},
+    {"id":"xiangwan-assist","character_id":"xiangwan","name_key":"companion.xiangwan.name","description_key":"companion.xiangwan.description","portrait_url":"/game/v4/players/xiangwan.webp","assist":{"trigger":"special_used","behavior":"echo_shot","amount":28,"cooldown_ticks":180}},
+    {"id":"bella-assist","character_id":"bella","name_key":"companion.bella.name","description_key":"companion.bella.description","portrait_url":"/game/v4/players/bella.webp","assist":{"trigger":"graze_streak","behavior":"clear_lane","amount":3,"cooldown_ticks":240}},
+    {"id":"lulu-assist","character_id":"lulu","name_key":"companion.lulu.name","description_key":"companion.lulu.description","portrait_url":"/game/v4/players/lulu.webp","assist":{"trigger":"pickup_chain","behavior":"convert_bullet","amount":4,"cooldown_ticks":210}},
+    {"id":"xingtong-assist","character_id":"xingtong","name_key":"companion.xingtong.name","description_key":"companion.xingtong.description","portrait_url":"/game/v4/players/xingtong.webp","assist":{"trigger":"boss_stage","behavior":"focus_beam","amount":40,"cooldown_ticks":300}},
+    {"id":"nailu-assist","character_id":"nailu","name_key":"companion.nailu.name","description_key":"companion.nailu.description","portrait_url":"/game/v4/players/nailu.webp","assist":{"trigger":"segment_start","behavior":"heal","amount":1,"cooldown_ticks":900}}
+  ],
+  "enemies": [
+    {"id":"spam-bot","name_key":"enemy.spam_bot.name","description_key":"enemy.spam_bot.description","sprite_url":"/game/v4/enemies/spam-bot.webp","max_health":26,"speed":90,"contact_damage":1,"move_pattern":"drift","shot_pattern":"aimed","shot_interval":48,"projectile_speed":90,"projectile_damage":1,"telegraph_ticks":15,"traits":[]},
+    {"id":"clip-cutter","name_key":"enemy.clip_cutter.name","description_key":"enemy.clip_cutter.description","sprite_url":"/game/v4/enemies/clip-cutter.webp","max_health":34,"speed":130,"contact_damage":1,"move_pattern":"dive","shot_pattern":"lane","shot_interval":60,"projectile_speed":120,"projectile_damage":1,"telegraph_ticks":18,"traits":[]},
+    {"id":"caption-blob","name_key":"enemy.caption_blob.name","description_key":"enemy.caption_blob.description","sprite_url":"/game/v4/enemies/caption-blob.webp","max_health":46,"speed":65,"contact_damage":1,"move_pattern":"sweep","shot_pattern":"fan","shot_interval":54,"projectile_speed":82,"projectile_damage":1,"telegraph_ticks":20,"traits":[]},
+    {"id":"black-screen-ghost","name_key":"enemy.black_screen_ghost.name","description_key":"enemy.black_screen_ghost.description","sprite_url":"/game/v4/enemies/black-screen-ghost.webp","max_health":40,"speed":80,"contact_damage":1,"move_pattern":"mirror","shot_pattern":"delayed","shot_interval":66,"projectile_speed":96,"projectile_damage":1,"telegraph_ticks":24,"traits":[]},
+    {"id":"gift-thief","name_key":"enemy.gift_thief.name","description_key":"enemy.gift_thief.description","sprite_url":"/game/v4/enemies/gift-thief.webp","max_health":38,"speed":115,"contact_damage":1,"move_pattern":"orbit","shot_pattern":"ring","shot_interval":72,"projectile_speed":78,"projectile_damage":1,"telegraph_ticks":21,"traits":["steal_pickup"]},
+    {"id":"censor-frame","name_key":"enemy.censor_frame.name","description_key":"enemy.censor_frame.description","sprite_url":"/game/v4/enemies/censor-frame.webp","max_health":62,"speed":35,"contact_damage":1,"move_pattern":"anchor","shot_pattern":"beam","shot_interval":84,"projectile_speed":110,"projectile_damage":1,"telegraph_ticks":30,"traits":["armor"]}
+  ]
+}

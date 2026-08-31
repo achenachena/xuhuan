@@ -1,0 +1,31 @@
+{
+  "chapter": {
+    "id":"loss-hidden","order":3,"title_key":"chapter.loss_hidden.title","subtitle_key":"chapter.loss_hidden.subtitle","featured_character":"xiangwan","unlock_companion":"xiangwan-assist","background_url":"/game/v4/backgrounds/loss-hidden.webp",
+    "segments":[
+      {"id":"loss-practice-room","duration_ticks":1080,"wave_id":"loss-wave-1","background_url":"/game/v4/backgrounds/loss-hidden.webp","reward_stage":"weapon"},
+      {"id":"loss-cutting-floor","duration_ticks":1200,"wave_id":"loss-wave-2","background_url":"/game/v4/backgrounds/loss-hidden.webp","reward_stage":"companion"},
+      {"id":"loss-highlight-reel","duration_ticks":1320,"wave_id":"loss-wave-3","background_url":"/game/v4/backgrounds/loss-hidden.webp","reward_stage":"rescue"}
+    ],
+    "waves":[
+      {"id":"loss-wave-1","spawns":[{"at_tick":25,"enemy_id":"clip-cutter","count":4,"formation":"pincer","interval_ticks":18},{"at_tick":320,"enemy_id":"gift-thief","count":2,"formation":"fan","interval_ticks":36}]},
+      {"id":"loss-wave-2","spawns":[{"at_tick":15,"enemy_id":"black-screen-ghost","count":2,"formation":"center","interval_ticks":40},{"at_tick":230,"enemy_id":"clip-cutter","count":4,"formation":"staggered","interval_ticks":19},{"at_tick":520,"enemy_id":"caption-blob","count":2,"formation":"sweep","interval_ticks":32}]},
+      {"id":"loss-wave-3","spawns":[{"at_tick":20,"enemy_id":"gift-thief","count":3,"formation":"sweep","interval_ticks":30},{"at_tick":260,"enemy_id":"spam-bot","count":4,"formation":"line","interval_ticks":16},{"at_tick":540,"enemy_id":"censor-frame","count":2,"formation":"pincer","interval_ticks":40}]}
+    ],
+    "boss":{"id":"perfect-highlight","name_key":"boss.perfect_highlight.name","description_key":"boss.perfect_highlight.description","sprite_url":"/game/v4/bosses/perfect-highlight.webp","max_health":1020,"duration_ticks":1800,"stages":[
+      {"id":"best-moments","health_threshold":100,"move_pattern":"sweep","shot_pattern":"lane","shot_interval":48,"projectile_speed":104,"projectile_damage":1,"telegraph_ticks":18,"special":"crop-the-miss"},
+      {"id":"take-again","health_threshold":66,"move_pattern":"mirror","shot_pattern":"delayed","shot_interval":41,"projectile_speed":108,"projectile_damage":1,"telegraph_ticks":22,"special":"bad-take-echo"},
+      {"id":"perfect-only","health_threshold":33,"move_pattern":"dive","shot_pattern":"fan","shot_interval":34,"projectile_speed":120,"projectile_damage":1,"telegraph_ticks":24,"special":"delete-loss"}
+    ]},
+    "story":{
+      "prelude":[{"sender":"xiangwan","text_key":"story.loss_hidden.prelude.1"},{"sender":"nana7mi","text_key":"story.loss_hidden.prelude.2"}],
+      "intermission":{"after_segment":2,"prompt_key":"story.loss_hidden.intermission.prompt","messages":[{"sender":"xiangwan","text_key":"story.loss_hidden.intermission.1"},{"sender":"system","text_key":"story.loss_hidden.intermission.2"}],"choices":[
+        {"id":"restore-funniest-loss","label_key":"story.loss_hidden.choice.loss.label","result_key":"story.loss_hidden.choice.loss.result","tag":"restored-funniest-loss","show_effect_id":"instant-replay"},
+        {"id":"mark-missing-loss","label_key":"story.loss_hidden.choice.gap.label","result_key":"story.loss_hidden.choice.gap.result","tag":"marked-missing-loss","show_effect_id":"double-take"}
+      ]},
+      "epilogue":[{"sender":"xiangwan","text_key":"story.loss_hidden.epilogue.1"},{"sender":"jiaran","text_key":"story.loss_hidden.epilogue.2"}],
+      "replay_recap":[{"sender":"xiangwan","text_key":"story.loss_hidden.recap.1"}]
+    },
+    "encore":[{"id":"loss-second-take","name_key":"encore.loss_second_take.name","description_key":"encore.loss_second_take.description","enemy_speed_percent":12,"projectile_speed_percent":6,"special_charge_penalty_percent":5}],
+    "endings":[]
+  }
+}

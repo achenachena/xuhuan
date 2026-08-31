@@ -8,11 +8,11 @@ const repositoryRoot = path.resolve(
 );
 const contentRoot = path.join(
   repositoryRoot,
-  "apps/api/internal/content/v3",
+  "apps/api/internal/content/v4",
 );
 const publicRoot = path.join(
   repositoryRoot,
-  "apps/miniapp/public/game/v3",
+  "apps/miniapp/public/game/v4",
 );
 const manifest = JSON.parse(
   await readFile(path.join(contentRoot, "manifest.json"), "utf8"),
@@ -26,6 +26,48 @@ const assetBudgets = {
   pickups: { maxWidth: 256, maxHeight: 256, maxBytes: 64 * 1024 },
   players: { maxWidth: 512, maxHeight: 512, maxBytes: 64 * 1024 },
 };
+const requiredAssets = [
+  ...[
+    "seventh-dock",
+    "always-cheerful",
+    "loss-hidden",
+    "captains-do-not-rest",
+    "localization-failed",
+    "which-is-original",
+    "laplace-florist",
+    "zero-channel",
+  ].map((slug) => `/game/v4/backgrounds/${slug}.webp`),
+  ...[
+    "nana7mi",
+    "jiaran",
+    "xiangwan",
+    "bella",
+    "lulu",
+    "xingtong",
+    "nailu",
+  ].map((slug) => `/game/v4/players/${slug}.webp`),
+  ...[
+    "spam-bot",
+    "clip-cutter",
+    "caption-blob",
+    "black-screen-ghost",
+    "gift-thief",
+    "censor-frame",
+  ].map((slug) => `/game/v4/enemies/${slug}.webp`),
+  ...[
+    "optimal-nana",
+    "always-on-idol",
+    "perfect-highlight",
+    "perfect-captain",
+    "approved-translation",
+    "physical-original",
+    "reality-auditor",
+    "auto-archive-system",
+  ].map((slug) => `/game/v4/bosses/${slug}.webp`),
+  ...["support-cyan", "support-pink", "support-gold"].map(
+    (slug) => `/game/v4/pickups/${slug}.webp`,
+  ),
+];
 
 const readUInt24LE = (buffer, offset) =>
   buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
@@ -90,17 +132,25 @@ const walk = async (directory, suffix) => {
 const listed = Array.isArray(manifest.assets) ? manifest.assets : [];
 const listedSet = new Set(listed);
 if (listed.length === 0 || listedSet.size !== listed.length) {
-  throw new Error("V3 manifest assets must be a non-empty unique list");
+  throw new Error("V4 manifest assets must be a non-empty unique list");
+}
+if (
+  listed.length !== requiredAssets.length ||
+  listed.some((asset, index) => asset !== requiredAssets[index])
+) {
+  throw new Error(
+    `V4 manifest must contain the exact ${requiredAssets.length}-file runtime asset set in canonical order`,
+  );
 }
 for (const asset of listed) {
-  if (!/^\/game\/v3\/[a-z0-9-]+\/[a-z0-9-]+\.webp$/.test(asset)) {
-    throw new Error(`Invalid V3 asset path: ${asset}`);
+  if (!/^\/game\/v4\/[a-z0-9-]+\/[a-z0-9-]+\.webp$/.test(asset)) {
+    throw new Error(`Invalid V4 asset path: ${asset}`);
   }
 }
 
 const actual = (await walk(publicRoot, ".webp"))
   .map((filename) =>
-    `/game/v3/${path.relative(publicRoot, filename).split(path.sep).join("/")}`,
+    `/game/v4/${path.relative(publicRoot, filename).split(path.sep).join("/")}`,
   )
   .sort();
 const actualSet = new Set(actual);
@@ -108,7 +158,7 @@ const missing = listed.filter((asset) => !actualSet.has(asset));
 const unlisted = actual.filter((asset) => !listedSet.has(asset));
 if (missing.length > 0 || unlisted.length > 0) {
   throw new Error(
-    `V3 asset manifest mismatch\nMissing: ${missing.join(", ") || "none"}\nUnlisted: ${unlisted.join(", ") || "none"}`,
+    `V4 asset manifest mismatch\nMissing: ${missing.join(", ") || "none"}\nUnlisted: ${unlisted.join(", ") || "none"}`,
   );
 }
 
@@ -118,8 +168,8 @@ await Promise.all(
   listed.map(async (asset) => {
     const category = asset.split("/")[3];
     const budget = assetBudgets[category];
-    if (!budget) throw new Error(`Unknown V3 asset category: ${asset}`);
-    const absolute = path.join(publicRoot, asset.slice("/game/v3/".length));
+    if (!budget) throw new Error(`Unknown V4 asset category: ${asset}`);
+    const absolute = path.join(publicRoot, asset.slice("/game/v4/".length));
     const buffer = await readFile(absolute);
     const dimensions = readWebPDimensions(buffer, asset);
     if (
@@ -128,7 +178,7 @@ await Promise.all(
       buffer.length > budget.maxBytes
     ) {
       throw new Error(
-        `V3 asset exceeds its mobile budget: ${asset} is ${dimensions.width}x${dimensions.height}, ${buffer.length} bytes`,
+        `V4 asset exceeds its mobile budget: ${asset} is ${dimensions.width}x${dimensions.height}, ${buffer.length} bytes`,
       );
     }
     const decoded = dimensions.width * dimensions.height * 4;
@@ -137,16 +187,16 @@ await Promise.all(
   }),
 );
 if (encodedBytes > 4 * MEBIBYTE) {
-  throw new Error(`V3 encoded asset catalog exceeds 4 MiB: ${encodedBytes} bytes`);
+  throw new Error(`V4 encoded asset catalog exceeds 4 MiB: ${encodedBytes} bytes`);
 }
 if (decodedBytes > 56 * MEBIBYTE) {
-  throw new Error(`V3 decoded asset catalog exceeds 56 MiB: ${decodedBytes} bytes`);
+  throw new Error(`V4 decoded asset catalog exceeds 56 MiB: ${decodedBytes} bytes`);
 }
 
 const referenced = new Set();
 const collectReferences = (value) => {
   if (typeof value === "string") {
-    if (value.startsWith("/game/v3/")) referenced.add(value);
+    if (value.startsWith("/game/v4/")) referenced.add(value);
     return;
   }
   if (Array.isArray(value)) {
@@ -166,10 +216,10 @@ const undeclaredReferences = [...referenced].filter(
 );
 if (undeclaredReferences.length > 0) {
   throw new Error(
-    `Content references undeclared V3 assets: ${undeclaredReferences.join(", ")}`,
+    `Content references undeclared V4 assets: ${undeclaredReferences.join(", ")}`,
   );
 }
 
 console.log(
-  `Verified ${listed.length} immutable V3 assets and ${referenced.size} authored references (${(encodedBytes / MEBIBYTE).toFixed(2)} MiB encoded, ${(decodedBytes / MEBIBYTE).toFixed(2)} MiB decoded catalog).`,
+  `Verified ${listed.length} immutable V4 assets and ${referenced.size} authored references (${(encodedBytes / MEBIBYTE).toFixed(2)} MiB encoded, ${(decodedBytes / MEBIBYTE).toFixed(2)} MiB decoded catalog).`,
 );

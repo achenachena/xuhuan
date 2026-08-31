@@ -1,0 +1,31 @@
+{
+  "chapter": {
+    "id":"captains-do-not-rest","order":4,"title_key":"chapter.captains.title","subtitle_key":"chapter.captains.subtitle","featured_character":"bella","unlock_companion":"bella-assist","background_url":"/game/v4/backgrounds/captains-do-not-rest.webp",
+    "segments":[
+      {"id":"captain-last-task","duration_ticks":1080,"wave_id":"captain-wave-1","background_url":"/game/v4/backgrounds/captains-do-not-rest.webp","reward_stage":"weapon"},
+      {"id":"captain-empty-call","duration_ticks":1200,"wave_id":"captain-wave-2","background_url":"/game/v4/backgrounds/captains-do-not-rest.webp","reward_stage":"companion"},
+      {"id":"captain-checklist","duration_ticks":1320,"wave_id":"captain-wave-3","background_url":"/game/v4/backgrounds/captains-do-not-rest.webp","reward_stage":"rescue"}
+    ],
+    "waves":[
+      {"id":"captain-wave-1","spawns":[{"at_tick":20,"enemy_id":"spam-bot","count":4,"formation":"line","interval_ticks":15},{"at_tick":300,"enemy_id":"censor-frame","count":1,"formation":"center","interval_ticks":0},{"at_tick":430,"enemy_id":"clip-cutter","count":2,"formation":"pincer","interval_ticks":22}]},
+      {"id":"captain-wave-2","spawns":[{"at_tick":15,"enemy_id":"censor-frame","count":2,"formation":"pincer","interval_ticks":45},{"at_tick":260,"enemy_id":"caption-blob","count":3,"formation":"fan","interval_ticks":26},{"at_tick":560,"enemy_id":"black-screen-ghost","count":2,"formation":"staggered","interval_ticks":38}]},
+      {"id":"captain-wave-3","spawns":[{"at_tick":20,"enemy_id":"gift-thief","count":3,"formation":"sweep","interval_ticks":28},{"at_tick":280,"enemy_id":"clip-cutter","count":4,"formation":"pincer","interval_ticks":17},{"at_tick":590,"enemy_id":"censor-frame","count":2,"formation":"center","interval_ticks":44}]}
+    ],
+    "boss":{"id":"perfect-captain","name_key":"boss.perfect_captain.name","description_key":"boss.perfect_captain.description","sprite_url":"/game/v4/bosses/perfect-captain.webp","max_health":1080,"duration_ticks":1800,"stages":[
+      {"id":"roll-call","health_threshold":100,"move_pattern":"anchor","shot_pattern":"beam","shot_interval":72,"projectile_speed":110,"projectile_damage":1,"telegraph_ticks":30,"special":"assign-everything"},
+      {"id":"no-breaks","health_threshold":66,"move_pattern":"sweep","shot_pattern":"fan","shot_interval":42,"projectile_speed":112,"projectile_damage":1,"telegraph_ticks":22,"special":"overtime-wall"},
+      {"id":"captain-alone","health_threshold":33,"move_pattern":"orbit","shot_pattern":"ring","shot_interval":35,"projectile_speed":122,"projectile_damage":1,"telegraph_ticks":24,"special":"carry-the-room"}
+    ]},
+    "story":{
+      "prelude":[{"sender":"bella","text_key":"story.captains.prelude.1"},{"sender":"lulu","text_key":"story.captains.prelude.2"}],
+      "intermission":{"after_segment":2,"prompt_key":"story.captains.intermission.prompt","messages":[{"sender":"bella","text_key":"story.captains.intermission.1"},{"sender":"nailu","text_key":"story.captains.intermission.2"}],"choices":[
+        {"id":"cancel-three-overnights","label_key":"story.captains.choice.cancel.label","result_key":"story.captains.choice.cancel.result","tag":"cancelled-overnights","show_effect_id":"cohost-cue"},
+        {"id":"share-one-overnight","label_key":"story.captains.choice.share.label","result_key":"story.captains.choice.share.result","tag":"shared-overnight","show_effect_id":"headline-break"}
+      ]},
+      "epilogue":[{"sender":"bella","text_key":"story.captains.epilogue.1"},{"sender":"lulu","text_key":"story.captains.epilogue.2"}],
+      "replay_recap":[{"sender":"bella","text_key":"story.captains.recap.1"}]
+    },
+    "encore":[{"id":"captain-overtime","name_key":"encore.captain_overtime.name","description_key":"encore.captain_overtime.description","enemy_speed_percent":8,"projectile_speed_percent":8,"special_charge_penalty_percent":15}],
+    "endings":[]
+  }
+}

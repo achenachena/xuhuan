@@ -1,49 +1,57 @@
 "use client";
 
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
 import { audioManager, type SoundEffectType } from "@/lib/audio-manager";
 
 type AudioContextValue = {
+  readonly muted: boolean;
   readonly playSound: (type: SoundEffectType) => void;
-  readonly playBattleBGM: (loop?: boolean) => void;
-  readonly stopBGM: () => void;
+  readonly toggleMuted: () => void;
 };
 
 const AudioContext = createContext<AudioContextValue | null>(null);
 
-const audioContextValue: AudioContextValue = {
-  playSound: (type) => audioManager.playSound(type),
-  playBattleBGM: (loop) => audioManager.playBattleBGM(loop),
-  stopBGM: () => audioManager.stopBGM()
-};
+export const AudioProvider = ({ children }: { readonly children: ReactNode }) => {
+  const [muted, setMuted] = useState(() => audioManager.isMuted());
 
-type AudioProviderProps = {
-  readonly children: ReactNode;
-};
-
-export const AudioProvider = ({ children }: AudioProviderProps) => {
   useEffect(() => {
-    const events = ["click", "touchstart", "keydown"] as const;
-    const removeListeners = (): void => {
-      events.forEach((event) => document.removeEventListener(event, handleUserInteraction));
-    };
-    const handleUserInteraction = (): void => {
+    const events = ["pointerdown", "keydown"] as const;
+    const markInteraction = () => {
       audioManager.markUserInteracted();
-      removeListeners();
+      events.forEach((event) => document.removeEventListener(event, markInteraction));
     };
-
-    events.forEach((event) => document.addEventListener(event, handleUserInteraction, { passive: true }));
-
-    return removeListeners;
+    events.forEach((event) =>
+      document.addEventListener(event, markInteraction, { passive: true }),
+    );
+    return () =>
+      events.forEach((event) => document.removeEventListener(event, markInteraction));
   }, []);
 
-  return <AudioContext.Provider value={audioContextValue}>{children}</AudioContext.Provider>;
+  const toggleMuted = useCallback(() => {
+    setMuted((current) => {
+      audioManager.setMuted(!current);
+      return !current;
+    });
+  }, []);
+
+  const value = useMemo<AudioContextValue>(
+    () => ({ muted, playSound: (type) => audioManager.playSound(type), toggleMuted }),
+    [muted, toggleMuted],
+  );
+  return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;
 };
 
 export const useAudio = (): AudioContextValue => {
   const context = useContext(AudioContext);
-  if (!context) {
-    throw new Error("useAudio must be used within AudioProvider");
-  }
+  if (!context) throw new Error("useAudio must be used within AudioProvider");
   return context;
 };

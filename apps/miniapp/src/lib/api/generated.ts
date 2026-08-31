@@ -43,7 +43,7 @@ export interface paths {
             };
             header?: never;
             path: {
-                version: "v3";
+                version: "v4";
             };
             cookie?: never;
         };
@@ -133,7 +133,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["createStoryChoice"];
+        post: operations["appendStoryChoiceRevision"];
         delete?: never;
         options?: never;
         head?: never;
@@ -177,356 +177,522 @@ export interface components {
                 request_id: string;
             };
         };
-        Effect: {
-            kind: string;
-            amount?: number;
-            value?: string;
+        Slug: string;
+        AssetPath: string;
+        Rules: {
+            /** @constant */
+            tick_rate: 30;
+            /** @constant */
+            logical_width: 3600;
+            /** @constant */
+            logical_height: 6400;
+            /** @constant */
+            player_y: 5200;
+            /** @constant */
+            input_columns: 128;
+            /** @constant */
+            starting_hearts: 3;
+            /** @constant */
+            max_enemies: 14;
+            /** @constant */
+            max_enemy_projectiles: 120;
+            /** @constant */
+            max_player_projectiles: 48;
+            /** @constant */
+            max_pickups: 12;
+            /** @constant */
+            max_effects: 24;
+            /** @constant */
+            special_charge_max: 100;
+            graze_charge: number;
+            /** @constant */
+            waves_per_chapter: 3;
+            /** @constant */
+            boss_stages: 3;
         };
-        StoryMetrics: {
-            trust: number;
-            authenticity: number;
-            retention: number;
+        PlayerStats: {
+            /** @constant */
+            max_health: 3;
+            shot_damage: number;
+            shot_interval: number;
+            move_limit: number;
         };
-        EntityLimits: {
-            max_enemies: number;
-            max_enemy_projectiles: number;
-            max_player_projectiles: number;
-            max_pickups: number;
-            max_effects: number;
+        LocalizedSpecial: {
+            id: components["schemas"]["Slug"];
+            name: string;
+            description: string;
+            /** @constant */
+            charge_cost: 100;
+            /** @enum {string} */
+            behavior: "barrage_break" | "cheer_guard" | "afterimage_replay" | "captain_parry" | "subtitle_flip" | "prism_shift" | "memory_bloom";
+            power: number;
+            duration_ticks: number;
         };
-        BaseStats: {
-            max_health: number;
-            attack_damage: number;
-            attack_interval: number;
-            move_speed: number;
-            warp_cooldown: number;
-            warp_damage: number;
+        LocalizedShowEffect: {
+            id: components["schemas"]["Slug"];
+            name: string;
+            description: string;
+            /** @enum {string} */
+            archetype: "power" | "guard" | "style";
+            /** @enum {string} */
+            behavior: "twin_shot" | "piercing_shot" | "spread_shot" | "graze_charge" | "guard_on_special" | "pickup_magnet" | "echo_volley" | "boss_break" | "low_health_power" | "combo_extend" | "companion_charge" | "recovery_drop";
+            amount: number;
         };
-        CharacterContent: {
-            slug: string;
+        LocalizedCharacter: {
+            id: components["schemas"]["Slug"];
             name: string;
             biography: string;
             playstyle: string;
             color_theme: string;
-            portrait_url: string;
-            model_url: string;
-            kit_slug: string;
+            portrait_url: components["schemas"]["AssetPath"];
+            sprite_url: components["schemas"]["AssetPath"];
+            base_stats: components["schemas"]["PlayerStats"];
+            special: components["schemas"]["LocalizedSpecial"];
         };
-        KitContent: {
-            slug: string;
-            character_slug: string;
-            passive: string;
-            resonance: string;
-            base_stats: components["schemas"]["BaseStats"];
-        };
-        ModuleBehavior: {
+        Assist: {
             /** @enum {string} */
-            kind: "warp_aftershock" | "graze_guard" | "protocol_echo" | "kill_signal";
+            trigger: "segment_start" | "graze_streak" | "low_health" | "special_used" | "boss_stage" | "pickup_chain" | "wave_clear";
+            /** @enum {string} */
+            behavior: "side_shot" | "shield" | "echo_shot" | "clear_lane" | "convert_bullet" | "focus_beam" | "heal";
             amount: number;
-            every?: number;
+            cooldown_ticks: number;
         };
-        ModuleLevelDefinition: {
-            effects: components["schemas"]["Effect"][];
-            behaviors?: components["schemas"]["ModuleBehavior"][];
-        };
-        ModuleContent: {
-            slug: string;
-            character_slug: string | null;
+        LocalizedCompanion: {
+            id: components["schemas"]["Slug"];
+            character_id: components["schemas"]["Slug"];
             name: string;
             description: string;
-            /** @enum {string} */
-            archetype: "surge" | "guard" | "echo" | "glitch";
-            /** @enum {string} */
-            rarity: "common" | "uncommon" | "rare";
-            levels: components["schemas"]["ModuleLevelDefinition"][];
+            portrait_url: components["schemas"]["AssetPath"];
+            assist: components["schemas"]["Assist"];
         };
-        PluginContent: {
-            slug: string;
-            character_slug: string | null;
+        LocalizedEnemy: {
+            /** @enum {string} */
+            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
             name: string;
             description: string;
-            effects: components["schemas"]["Effect"][];
-        };
-        Movement: {
-            /** @enum {string} */
-            kind: "chase" | "orbit" | "strafe" | "charge" | "flee" | "stationary" | "wander";
-            amount?: number;
-        };
-        Attack: {
-            /** @enum {string} */
-            kind: "aimed" | "fan" | "ring" | "spiral" | "delayed_echo" | "mine" | "beam";
-            interval: number;
-            projectile_speed: number;
-            damage: number;
-            count?: number;
-            spread?: number;
-            telegraph_ticks?: number;
-        };
-        Trait: {
-            /** @enum {string} */
-            kind: "linked_shield" | "steal_signal" | "death_split" | "armored" | "distortion_aura" | "teleport";
-            amount?: number;
-            value?: string;
-        };
-        EnemyContent: {
-            slug: string;
-            chapter_slug: string | null;
-            name: string;
-            description: string;
-            /** @enum {string} */
-            kind: "normal" | "elite" | "boss";
+            sprite_url: components["schemas"]["AssetPath"];
             max_health: number;
             speed: number;
             contact_damage: number;
-            color_theme: string;
-            image_url: string;
-            movement: components["schemas"]["Movement"];
-            attacks: components["schemas"]["Attack"][];
-            traits: components["schemas"]["Trait"][];
-        };
-        Objective: {
             /** @enum {string} */
-            kind: "purge" | "stabilize" | "recover" | "holdout" | "elite" | "boss";
-            target: number;
+            move_pattern: "drift" | "sweep" | "dive" | "orbit" | "anchor" | "mirror";
+            /** @enum {string} */
+            shot_pattern: "aimed" | "fan" | "lane" | "ring" | "delayed" | "beam";
+            shot_interval: number;
+            projectile_speed: number;
+            projectile_damage: number;
+            telegraph_ticks: number;
+            traits: ("shield_link" | "split" | "steal_pickup" | "armor" | "echo" | "jammer")[];
         };
-        EncounterContent: {
-            slug: string;
-            chapter_slug: string;
-            kind: string;
-            objective: components["schemas"]["Objective"];
+        ContentSegment: {
+            id: components["schemas"]["Slug"];
             duration_ticks: number;
-            max_ticks: number;
-            spawn_interval: number;
-            max_alive: number;
-            enemy_slugs: string[];
-            hazards: string[];
-            reward_bias: string;
-            tutorial: boolean;
-            risk: number;
+            wave_id: components["schemas"]["Slug"];
+            background_url: components["schemas"]["AssetPath"];
+            /** @enum {string} */
+            reward_stage: "weapon" | "companion" | "rescue";
         };
-        EventOptionContent: {
-            slug: string;
-            label: string;
-            result: string;
-            effects: components["schemas"]["Effect"][];
-            metrics: components["schemas"]["StoryMetrics"];
+        Spawn: {
+            at_tick: number;
+            /** @enum {string} */
+            enemy_id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
+            count: number;
+            /** @enum {string} */
+            formation: "line" | "fan" | "staggered" | "pincer" | "center" | "sweep";
+            interval_ticks: number;
         };
-        EventContent: {
-            slug: string;
-            chapter_slug: string;
-            title: string;
-            body: string;
-            options: components["schemas"]["EventOptionContent"][];
+        Wave: {
+            id: components["schemas"]["Slug"];
+            spawns: components["schemas"]["Spawn"][];
         };
-        StoryTrigger: {
-            kind: string;
-            chapter_slug?: string;
-            ending?: string;
+        ContentBossStage: {
+            id: components["schemas"]["Slug"];
+            health_threshold: number;
+            /** @enum {string} */
+            move_pattern: "drift" | "sweep" | "dive" | "orbit" | "anchor" | "mirror";
+            /** @enum {string} */
+            shot_pattern: "aimed" | "fan" | "lane" | "ring" | "delayed" | "beam";
+            shot_interval: number;
+            projectile_speed: number;
+            projectile_damage: number;
+            telegraph_ticks: number;
+            special: string;
         };
-        StoryMessageContent: {
+        LocalizedBoss: {
+            /** @enum {string} */
+            id: "optimal-nana" | "always-on-idol" | "perfect-highlight" | "perfect-captain" | "approved-translation" | "physical-original" | "reality-auditor" | "auto-archive-system";
+            name: string;
+            description: string;
+            sprite_url: components["schemas"]["AssetPath"];
+            max_health: number;
+            duration_ticks: number;
+            stages: components["schemas"]["ContentBossStage"][];
+        };
+        LocalizedBubble: {
+            /** @enum {string} */
+            sender_id: "nana7mi" | "jiaran" | "xiangwan" | "bella" | "lulu" | "xingtong" | "nailu" | "system" | "group";
             sender: string;
-            kind: string;
             text: string;
         };
-        StoryOptionContent: {
-            slug: string;
+        LocalizedStoryChoice: {
+            id: components["schemas"]["Slug"];
             label: string;
-            metrics: components["schemas"]["StoryMetrics"];
+            result: string;
+            tag: components["schemas"]["Slug"];
+            show_effect_id?: components["schemas"]["Slug"];
         };
-        StorySceneContent: {
-            slug: string;
-            chapter_slug: string | null;
+        LocalizedIntermission: {
+            after_segment: number;
+            prompt: string;
+            messages: components["schemas"]["LocalizedBubble"][];
+            choices: components["schemas"]["LocalizedStoryChoice"][];
+        };
+        LocalizedStory: {
+            prelude: components["schemas"]["LocalizedBubble"][];
+            intermission: components["schemas"]["LocalizedIntermission"];
+            epilogue: components["schemas"]["LocalizedBubble"][];
+            replay_recap: components["schemas"]["LocalizedBubble"][];
+        };
+        LocalizedEncore: {
+            id: components["schemas"]["Slug"];
+            name: string;
+            description: string;
+            enemy_speed_percent: number;
+            projectile_speed_percent: number;
+            special_charge_penalty_percent: number;
+        };
+        LocalizedEnding: {
+            /** @enum {string} */
+            id: "open-archive" | "shared-cut" | "quiet-signoff";
             title: string;
-            trigger: components["schemas"]["StoryTrigger"];
-            messages: components["schemas"]["StoryMessageContent"][];
-            options: components["schemas"]["StoryOptionContent"][];
+            summary: string;
+            messages: components["schemas"]["LocalizedBubble"][];
         };
-        ChapterContent: {
-            slug: string;
+        LocalizedChapter: {
+            id: components["schemas"]["Slug"];
             order: number;
             title: string;
             subtitle: string;
-            character_slug: string | null;
-            finale: boolean;
-            available: boolean;
-            next_chapter_slug: string | null;
-            background_url: string;
-            kit_slug: string | null;
+            featured_character: components["schemas"]["Slug"];
+            unlock_companion: string;
+            background_url: components["schemas"]["AssetPath"];
+            segments: components["schemas"]["ContentSegment"][];
+            waves: components["schemas"]["Wave"][];
+            boss: components["schemas"]["LocalizedBoss"];
+            story: components["schemas"]["LocalizedStory"];
+            encore: components["schemas"]["LocalizedEncore"][];
+            endings: components["schemas"]["LocalizedEnding"][];
+        };
+        LocalizedDaily: {
+            id: components["schemas"]["Slug"];
+            title: string;
+            subtitle: string;
+            /** @constant */
+            seed_timezone: "UTC";
+            segment_duration_ticks: number;
+            /** @constant */
+            segment_count: 2;
+            /** @constant */
+            show_choice_count: 1;
+            rotation_characters: components["schemas"]["Slug"][];
+            wave_ids: components["schemas"]["Slug"][];
+            boss_ids: string[];
+            encore_modifier_ids: components["schemas"]["Slug"][];
         };
         GameContent: {
             /** @constant */
-            version: "v3";
+            version: "v4";
             /** @constant */
-            protocol: "action-v2";
+            protocol: "shooter-v1";
             /** @enum {string} */
             locale: "en" | "zh-CN";
-            limits: components["schemas"]["EntityLimits"];
-            characters: components["schemas"]["CharacterContent"][];
-            kits: components["schemas"]["KitContent"][];
-            modules: components["schemas"]["ModuleContent"][];
-            plugins: components["schemas"]["PluginContent"][];
-            enemies: components["schemas"]["EnemyContent"][];
-            encounters: components["schemas"]["EncounterContent"][];
-            events: components["schemas"]["EventContent"][];
-            scenes: components["schemas"]["StorySceneContent"][];
-            chapters: components["schemas"]["ChapterContent"][];
+            rules: components["schemas"]["Rules"];
+            show_effects: components["schemas"]["LocalizedShowEffect"][];
+            characters: components["schemas"]["LocalizedCharacter"][];
+            companions: components["schemas"]["LocalizedCompanion"][];
+            enemies: components["schemas"]["LocalizedEnemy"][];
+            chapters: components["schemas"]["LocalizedChapter"][];
+            daily: components["schemas"]["LocalizedDaily"];
         };
         Unlock: {
-            type: string;
-            content_slug: string;
+            /** @enum {string} */
+            type: "character" | "companion" | "memory_clip";
+            content_slug: components["schemas"]["Slug"];
             /** Format: date-time */
             created_at: string;
         };
         StoryChoice: {
-            scene_slug: string;
-            option_slug: string;
-            choice_tag: string;
+            scene_slug: components["schemas"]["Slug"];
+            option_slug: components["schemas"]["Slug"];
+            choice_tag: components["schemas"]["Slug"];
             revision: number;
-            trust: number;
-            authenticity: number;
-            retention: number;
             /** Format: date-time */
             created_at: string;
         };
         ChapterProgress: {
-            chapter_slug: string;
-            highest_noise_level: number;
+            chapter_slug: components["schemas"]["Slug"];
+            highest_encore_level: number;
             clears: number;
             best_score: number;
             /** Format: date-time */
             updated_at: string;
         };
         GameProgress: {
-            current_chapter_slug: string;
-            highest_noise_level: number;
-            story_version: number;
+            current_chapter_slug: components["schemas"]["Slug"];
+            /** @constant */
+            story_version: 4;
             /** Format: int64 */
             version: number;
             unlocks: components["schemas"]["Unlock"][];
             choices: components["schemas"]["StoryChoice"][];
             chapters: components["schemas"]["ChapterProgress"][];
-            trust: number;
-            authenticity: number;
-            retention: number;
-            ending: string | null;
+            /** @enum {string|null} */
+            ending: "open-archive" | "shared-cut" | "quiet-signoff" | null;
             daily_unlocked: boolean;
         };
-        ModuleLevel: {
-            slug: string;
-            level: number;
+        InputTrace: {
+            /** @constant */
+            encoding: "x-position-rle-v1";
+            ticks: number;
+            runs: [
+                number,
+                number
+            ][];
         };
-        RuntimeBehavior: {
-            source_slug: string;
-            level: number;
+        RuntimeEffect: {
             /** @enum {string} */
-            kind: "warp_aftershock" | "graze_guard" | "protocol_echo" | "kill_signal";
+            kind: "twin_shot" | "piercing_shot" | "spread_shot" | "graze_charge" | "guard_on_special" | "pickup_magnet" | "echo_volley" | "boss_break" | "low_health_power" | "combo_extend" | "companion_charge" | "recovery_drop";
             amount: number;
-            every?: number;
+        };
+        RuntimeKit: {
+            /** @enum {string} */
+            id: "nana7mi" | "jiaran" | "xiangwan" | "bella" | "lulu" | "xingtong" | "nailu";
+            /** @constant */
+            max_health: 3;
+            attack_damage: number;
+            fire_interval: number;
+            rescue_damage: number;
+            starting_shield: number;
+            move_limit: number;
+            /** @enum {string} */
+            special_behavior: "barrage_break" | "cheer_guard" | "afterimage_replay" | "captain_parry" | "subtitle_flip" | "prism_shift" | "memory_bloom";
+            special_duration: number;
+        };
+        RuntimeCompanion: {
+            /** @enum {string} */
+            id: "nana7mi-assist" | "jiaran-assist" | "xiangwan-assist" | "bella-assist" | "lulu-assist" | "xingtong-assist" | "nailu-assist";
+            /** @enum {string} */
+            trigger: "segment_start" | "graze_streak" | "low_health" | "special_used" | "boss_stage" | "pickup_chain" | "wave_clear";
+            /** @enum {string} */
+            behavior: "side_shot" | "shield" | "echo_shot" | "clear_lane" | "convert_bullet" | "focus_beam" | "heal";
+            amount: number;
+            cooldown_ticks: number;
+        };
+        RuntimeEnemy: {
+            /** @enum {string} */
+            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
+            /** @enum {string} */
+            chassis: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
+            health: number;
+            speed: number;
+            contact_damage: number;
+            /** @enum {string} */
+            move_pattern: "drift" | "sweep" | "dive" | "orbit" | "anchor" | "mirror";
+            /** @enum {string} */
+            shot_pattern: "aimed" | "fan" | "lane" | "ring" | "delayed" | "beam";
+            fire_interval: number;
+            projectile_speed: number;
+            damage: number;
+            score: number;
+            telegraph_ticks: number;
+            traits: ("shield_link" | "split" | "steal_pickup" | "armor" | "echo" | "jammer")[];
+        };
+        RuntimeBossStage: {
+            id: components["schemas"]["Slug"];
+            health_threshold: number;
+            move_pattern: string;
+            shot_pattern: string;
+            fire_interval: number;
+            projectile_speed: number;
+            damage: number;
+            telegraph_ticks: number;
+            special?: string;
+        };
+        RuntimeBoss: {
+            /** @enum {string} */
+            id: "optimal-nana" | "always-on-idol" | "perfect-highlight" | "perfect-captain" | "approved-translation" | "physical-original" | "reality-auditor" | "auto-archive-system";
+            health: number;
+            score: number;
+            stages: components["schemas"]["RuntimeBossStage"][];
+        };
+        RuntimeLimits: {
+            enemies: number;
+            enemy_projectiles: number;
+            player_projectiles: number;
+            pickups: number;
+            effects: number;
         };
         RuntimeConfig: {
-            kit: string;
-            passive: string;
-            resonance: string;
-            attack_damage: number;
-            attack_interval: number;
-            move_speed: number;
-            warp_cooldown: number;
-            warp_damage: number;
-            starting_shield: number;
-            overload_bonus: number;
-            distortion_gain: number;
-            protocol_damage: number;
-            protocol_shield: number;
-            echo_power: number;
-            resonance_power: number;
-            projectile_pierce: number;
-            projectile_count: number;
-            projectile_speed: number;
-            graze_radius: number;
-            heal_on_protocol: number;
-            reflect_damage: number;
-            behaviors: components["schemas"]["RuntimeBehavior"][];
-        };
-        RewardPool: {
-            module_slugs: string[];
-            plugin_slugs: string[];
-        };
-        NarrativeModifier: {
-            /** @enum {string} */
-            reward_bias?: "surge" | "guard" | "echo" | "glitch";
-            /** @enum {string} */
-            boss_variant: "authentic" | "balanced" | "retained";
-            source_scene_slug?: string;
-            source_choice_tag?: string;
-        };
-        MapNode: {
-            id: string;
-            layer: number;
-            lane: number;
-            type: string;
-            status: string;
-            next: string[];
-            encounter_slug?: string;
-            event_slug?: string;
-            objective?: string;
-            risk?: number;
-            reward_bias?: string;
-            enemy_slugs?: string[];
-            hazards?: string[];
-        };
-        RunMap: {
-            nodes: components["schemas"]["MapNode"][];
-            current_node_id?: string;
-        };
-        EncounterState: {
-            slug: string;
             seed: string;
-            kind: string;
             duration_ticks: number;
-            max_ticks: number;
-            tutorial: boolean;
-            objective: components["schemas"]["Objective"];
-            risk: number;
-            reward_bias: string;
-            hazards: string[];
+            player_health: number;
+            starting_rescue_charge: number;
+            story_choice_id?: components["schemas"]["Slug"];
+            encore_level: number;
+            daily: boolean;
+            daily_modifier_id?: components["schemas"]["Slug"];
+            special_charge_penalty_percent: number;
+            kit: components["schemas"]["RuntimeKit"];
+            companions: components["schemas"]["RuntimeCompanion"][];
+            show_effects: components["schemas"]["RuntimeEffect"][];
+            enemies: components["schemas"]["RuntimeEnemy"][];
+            wave: components["schemas"]["Wave"];
+            boss?: components["schemas"]["RuntimeBoss"];
+            limits: components["schemas"]["RuntimeLimits"];
         };
-        RewardState: {
-            module_choices: string[];
-            granted_plugin?: string;
-            rerolled: boolean;
+        SegmentState: {
+            segment_slug: components["schemas"]["Slug"];
+            segment_index: number;
+            seed: string;
+            duration_ticks: number;
+            wave_id?: components["schemas"]["Slug"];
+            boss_id?: string;
+            /** @enum {string} */
+            reward_stage?: "weapon" | "companion" | "rescue";
+            background_url: components["schemas"]["AssetPath"];
+            runtime_config: components["schemas"]["RuntimeConfig"];
+        };
+        RunStory: {
+            scene_id: components["schemas"]["Slug"];
+            choice_ids: components["schemas"]["Slug"][];
         };
         RunState: {
-            phase: string;
-            chapter_slug: string;
-            character_slug: string;
-            companion_slugs: string[];
             /** @enum {string} */
-            support_alignment?: "authentic" | "balanced" | "retained";
-            weapon_slug: string;
-            noise_level: number;
+            phase: "segment" | "show_choice" | "story" | "completed";
+            chapter_slug: components["schemas"]["Slug"];
+            character_slug: components["schemas"]["Slug"];
+            companion_slugs: components["schemas"]["Slug"][];
+            encore_level: number;
+            hearts: number;
+            /** @constant */
+            max_hearts: 3;
+            segment_index: number;
+            segment?: components["schemas"]["SegmentState"];
+            pending_show_options: components["schemas"]["Slug"][];
+            show_effects: components["schemas"]["Slug"][];
+            story?: components["schemas"]["RunStory"];
+            selected_choice_ids: components["schemas"]["Slug"][];
+            score: number;
+            /** @enum {string} */
+            ending_id?: "open-archive" | "shared-cut" | "quiet-signoff";
+            daily_variant?: string;
+        };
+        Position: {
+            x: number;
+            y: number;
+        };
+        EnemySnapshot: {
+            id: number;
+            spec_id: string;
+            /** @enum {string} */
+            chassis: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
+            position: components["schemas"]["Position"];
             health: number;
             max_health: number;
-            modules: components["schemas"]["ModuleLevel"][];
-            plugins: string[];
-            reward_pool: components["schemas"]["RewardPool"];
-            narrative_modifier: components["schemas"]["NarrativeModifier"];
-            map: components["schemas"]["RunMap"];
-            encounter?: components["schemas"]["EncounterState"];
-            reward?: components["schemas"]["RewardState"];
-            current_event_slug?: string;
-            choice_tags: string[];
-            /** Format: int64 */
-            rng_cursor: number;
-            emergency_reconnect_available: boolean;
-            runtime_config: components["schemas"]["RuntimeConfig"];
-            rerolls_remaining: number;
+            boss: boolean;
+            stage?: number;
+            /** @enum {string} */
+            intent?: "fire" | "charge";
+            marks?: number;
+        };
+        ProjectileSnapshot: {
+            id: number;
+            position: components["schemas"]["Position"];
+            velocity: components["schemas"]["Position"];
+            hostile: boolean;
+            kind?: string;
+            radius?: number;
+            width?: number;
+            health?: number;
+        };
+        PickupSnapshot: {
+            id: number;
+            /** @constant */
+            kind: "support_note";
+            position: components["schemas"]["Position"];
+            value: number;
+        };
+        ThreatSnapshot: {
+            source_id: number;
+            /** @enum {string} */
+            kind: "charge_lane" | "horizontal_cut" | "caption_block" | "black_wall" | "censor_gap" | "aimed_line" | "danger_lane" | "fan_cone" | "radial_burst" | "delayed_echo";
+            ticks_remaining: number;
+            origin: components["schemas"]["Position"];
+            target: components["schemas"]["Position"];
+            radius?: number;
+            width?: number;
+        };
+        VisualEffectSnapshot: {
+            id: number;
+            /** @enum {string} */
+            kind: "route_mark" | "mark_detonation" | "cadence_volley" | "subtitle_rewrite" | "alignment_beam" | "memory_plant" | "memory_bloom" | "afterimage_replay" | "captain_parry" | "subtitle_flip" | "prism_shift" | "choice_assist" | "boss_cut" | "wall_hit" | "wall_break";
+            position: components["schemas"]["Position"];
+            ticks: number;
+            power?: number;
+        };
+        ShooterSnapshot: {
+            tick: number;
+            player_x: number;
+            health: number;
+            /** @constant */
+            max_health: 3;
+            shield: number;
+            invulnerable_ticks: number;
+            rescue_charge: number;
+            rescues_used: number;
+            graze_count: number;
+            combo: number;
             score: number;
+            daily_variant?: string;
+            enemies: components["schemas"]["EnemySnapshot"][];
+            enemy_projectiles: components["schemas"]["ProjectileSnapshot"][];
+            player_projectiles: components["schemas"]["ProjectileSnapshot"][];
+            pickups: components["schemas"]["PickupSnapshot"][];
+            threats: components["schemas"]["ThreatSnapshot"][];
+            effects: components["schemas"]["VisualEffectSnapshot"][];
+        };
+        ShooterResult: {
+            won: boolean;
+            health: number;
+            ticks: number;
+            kills: number;
+            rescues_used: number;
+            grazes: number;
+            score: number;
+            daily_variant?: string;
+            final: components["schemas"]["ShooterSnapshot"];
+        };
+        RunEvent: {
+            /** @enum {string} */
+            kind: "segment_completed" | "show_choice_ready" | "show_effect_chosen" | "companion_chosen" | "intermission_ready" | "intermission_replied" | "ending_choice_ready" | "ending_chosen" | "chapter_cleared";
+            segment_slug?: components["schemas"]["Slug"];
+            show_effect_id?: components["schemas"]["Slug"];
+            scene_id?: components["schemas"]["Slug"];
+            choice_id?: components["schemas"]["Slug"];
+            choice_tag?: components["schemas"]["Slug"];
+            companion_id?: components["schemas"]["Slug"];
+            chapter_slug?: components["schemas"]["Slug"];
+            next_chapter_slug?: components["schemas"]["Slug"];
+            next_character_slug?: components["schemas"]["Slug"];
+            /** @enum {string} */
+            ending_id?: "open-archive" | "shared-cut" | "quiet-signoff";
+            segment_result?: components["schemas"]["ShooterResult"];
         };
         GameRun: {
             /** Format: uuid */
             id: string;
             /** @constant */
-            content_version: "v3";
+            content_version: "v4";
             /** @enum {string} */
             mode: "campaign" | "daily";
             /** Format: date */
@@ -534,7 +700,8 @@ export interface components {
             state: components["schemas"]["RunState"];
             /** @enum {string} */
             status: "active" | "completed" | "abandoned";
-            outcome: string | null;
+            /** @enum {string|null} */
+            outcome: "cleared" | "failed" | "abandoned" | null;
             /** Format: int64 */
             version: number;
             /** Format: date-time */
@@ -544,69 +711,97 @@ export interface components {
             /** Format: date-time */
             completed_at: string | null;
         };
+        DailyResult: {
+            /** Format: date */
+            date: string;
+            character_slug: components["schemas"]["Slug"];
+            score: number;
+            show_effects: components["schemas"]["Slug"][];
+            companion_slugs: components["schemas"]["Slug"][];
+            streak: number;
+        };
         GameSnapshot: {
             /** @constant */
-            protocol: "action-v2";
+            protocol: "shooter-v1";
             /** @constant */
-            content_version: "v3";
+            content_version: "v4";
             progress: components["schemas"]["GameProgress"];
             campaign_run: components["schemas"]["GameRun"] | null;
             daily_run: components["schemas"]["GameRun"] | null;
             daily_result: components["schemas"]["DailyResult"] | null;
-            pending_scene_slug: string | null;
-            onboarding_stage: string;
         };
-        InputTrace: {
-            /** @constant */
-            encoding: "rle8-v1";
-            ticks: number;
-            data: string;
+        CampaignCreateRunRequest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mode: "campaign";
+            chapter_slug: components["schemas"]["Slug"];
+            character_slug: components["schemas"]["Slug"];
+            companion_slug?: components["schemas"]["Slug"];
+            encore_level?: number;
         };
-        CreateRunRequest: {
-            /** @enum {string} */
-            mode: "campaign" | "daily";
-            chapter_slug?: string;
-            character_slug?: string;
-            noise_level?: number;
+        DailyCreateRunRequest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mode: "daily";
         };
-        RunCommandRequest: {
-            /** @enum {string} */
-            type: "choose_node" | "complete_encounter" | "choose_module_reward" | "reroll_module_reward" | "resolve_event" | "rest" | "abandon_run";
+        CreateRunRequest: components["schemas"]["CampaignCreateRunRequest"] | components["schemas"]["DailyCreateRunRequest"];
+        CompleteSegmentCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "complete_segment";
             /** Format: int64 */
             expected_version: number;
-            node_id?: string;
-            choice_slug?: string;
-            module_slug?: string;
-            operation?: string;
-            trace?: components["schemas"]["InputTrace"];
+            trace: components["schemas"]["InputTrace"];
         };
-        RunEvent: {
-            kind: string;
-        } & {
-            [key: string]: unknown;
+        ChooseShowOptionCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "choose_show_option";
+            /** Format: int64 */
+            expected_version: number;
+            option_id: components["schemas"]["Slug"];
         };
+        ChooseIntermissionReplyCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "choose_intermission_reply";
+            /** Format: int64 */
+            expected_version: number;
+            scene_id: components["schemas"]["Slug"];
+            option_id: components["schemas"]["Slug"];
+        };
+        AbandonRunCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "abandon_run";
+            /** Format: int64 */
+            expected_version: number;
+        };
+        RunCommandRequest: components["schemas"]["CompleteSegmentCommand"] | components["schemas"]["ChooseShowOptionCommand"] | components["schemas"]["ChooseIntermissionReplyCommand"] | components["schemas"]["AbandonRunCommand"];
         RunCommandResponse: {
             run: components["schemas"]["GameRun"];
             events: components["schemas"]["RunEvent"][];
         };
         StoryChoiceRequest: {
-            scene_slug: string;
-            option_slug: string;
+            scene_slug: components["schemas"]["Slug"];
+            option_slug: components["schemas"]["Slug"];
             /** Format: int64 */
             expected_version: number;
         };
         StoryChoiceResponse: {
             progress: components["schemas"]["GameProgress"];
-            pending_scene_slug: string | null;
-        };
-        DailyResult: {
-            /** Format: date */
-            date: string;
-            character_slug: string;
-            score: number;
-            modules: components["schemas"]["ModuleLevel"][];
-            plugins: string[];
-            streak: number;
         };
     };
     responses: {
@@ -764,13 +959,13 @@ export interface operations {
             };
             header?: never;
             path: {
-                version: "v3";
+                version: "v4";
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Immutable localized V3 content */
+            /** @description Immutable localized V4 content */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -801,7 +996,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Campaign, daily, and story projection */
+            /** @description Campaign and daily state */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -846,8 +1041,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["InternalError"];
         };
     };
     getRun: {
@@ -874,7 +1067,6 @@ export interface operations {
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
         };
     };
     createRunCommand: {
@@ -910,11 +1102,9 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             413: components["responses"]["PayloadTooLarge"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["InternalError"];
         };
     };
-    createStoryChoice: {
+    appendStoryChoiceRevision: {
         parameters: {
             query?: never;
             header: {
@@ -929,7 +1119,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Updated story projection */
+            /** @description Appended story choice revision */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
@@ -942,9 +1132,8 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["InternalError"];
         };
     };
     getPublicDailyResult: {
@@ -958,11 +1147,10 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Public anonymous daily result cached for five minutes */
+            /** @description Anonymous daily result referenced by the existing run UUID */
             200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestID"];
-                    "Cache-Control"?: string;
                     [name: string]: unknown;
                 };
                 content: {

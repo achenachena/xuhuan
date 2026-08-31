@@ -39,3 +39,8 @@ func foldSeed(value string) uint64 {
 	}
 	return seed
 }
+
+func deterministicIndex(seed string, limit int) int {
+	stream := randomStream{seed: seed}
+	return stream.Intn(limit)
+}

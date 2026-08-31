@@ -38,7 +38,6 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
         // fullscreen/orientation bridge is actually available. Presentation
         // enhancement must never abort safe-area synchronization.
         try {
-          WebApp.lockOrientation();
           if (!WebApp.isFullscreen) WebApp.requestFullscreen();
         } catch {
           // Continue in the host's current presentation mode.
@@ -67,14 +66,30 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
           "--xuhuan-tg-content-safe-bottom",
           `${Math.max(content?.bottom ?? 0, system?.bottom ?? 0)}px`,
         );
+        root.style.setProperty(
+          "--xuhuan-tg-content-safe-left",
+          `${Math.max(content?.left ?? 0, system?.left ?? 0)}px`,
+        );
+        root.style.setProperty(
+          "--xuhuan-tg-content-safe-right",
+          `${Math.max(content?.right ?? 0, system?.right ?? 0)}px`,
+        );
       };
       syncHostMetrics();
 
       const handleThemeChange = () => {
         applyTelegramTheme(WebApp.themeParams);
       };
+      const handleDeactivated = () => {
+        window.dispatchEvent(new Event("xuhuan:deactivated"));
+      };
+      const handleActivated = () => {
+        window.dispatchEvent(new Event("xuhuan:activated"));
+      };
       WebApp.onEvent("themeChanged", handleThemeChange);
       WebApp.onEvent("viewportChanged", syncHostMetrics);
+      WebApp.onEvent("deactivated", handleDeactivated);
+      WebApp.onEvent("activated", handleActivated);
       window.addEventListener("resize", syncHostMetrics, { passive: true });
       if (immersiveMode) {
         WebApp.onEvent("safeAreaChanged", syncHostMetrics);
@@ -85,22 +100,21 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
       cleanup = () => {
         WebApp.offEvent("themeChanged", handleThemeChange);
         WebApp.offEvent("viewportChanged", syncHostMetrics);
+        WebApp.offEvent("deactivated", handleDeactivated);
+        WebApp.offEvent("activated", handleActivated);
         window.removeEventListener("resize", syncHostMetrics);
         if (immersiveMode) {
           WebApp.offEvent("safeAreaChanged", syncHostMetrics);
           WebApp.offEvent("contentSafeAreaChanged", syncHostMetrics);
           WebApp.offEvent("fullscreenChanged", syncHostMetrics);
           WebApp.offEvent("fullscreenFailed", syncHostMetrics);
-          try {
-            WebApp.unlockOrientation();
-          } catch {
-            // The bridge can disappear while Telegram closes the WebView.
-          }
         }
         delete root.dataset.telegramHost;
         delete root.dataset.telegramFullscreen;
         root.style.removeProperty("--xuhuan-tg-content-safe-top");
         root.style.removeProperty("--xuhuan-tg-content-safe-bottom");
+        root.style.removeProperty("--xuhuan-tg-content-safe-left");
+        root.style.removeProperty("--xuhuan-tg-content-safe-right");
         root.style.removeProperty("--xuhuan-stable-height");
         root.style.removeProperty("--xuhuan-viewport-height");
       };

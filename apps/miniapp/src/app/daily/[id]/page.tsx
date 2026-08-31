@@ -22,7 +22,7 @@ export const generateMetadata = async ({
   if (!result) return { title: "Xuhuan Daily Signal" };
   const character =
     content?.characters.find(
-      (item) => item.slug === result.character_slug,
+      (item) => item.id === result.character_slug,
     )?.name ?? result.character_slug;
   const description = `${character} recovered ${result.score} points with a ${result.streak}-clear streak.`;
   return {
@@ -45,26 +45,26 @@ const DailyResultPage = async ({ params }: DailyPageProps) => {
     getPublicGameContent("zh-CN"),
   ]);
   if (!result) notFound();
-  if (!english || !chinese) throw new Error("V3 content is unavailable");
+  if (!english || !chinese) throw new Error("V4 content is unavailable");
   const labels = Object.fromEntries(
     [english, chinese].map((content) => [
       content.locale,
       {
         characters: Object.fromEntries(
-          content.characters.map((item) => [item.slug, item.name]),
+          content.characters.map((item) => [item.id, item.name]),
         ),
-        modules: Object.fromEntries(
-          content.modules.map((item) => [item.slug, item.name]),
+        effects: Object.fromEntries(
+          content.show_effects.map((item) => [item.id, item.name]),
         ),
-        plugins: Object.fromEntries(
-          content.plugins.map((item) => [item.slug, item.name]),
+        companions: Object.fromEntries(
+          content.companions.map((item) => [item.id, item.name]),
         ),
       },
     ]),
   ) as Record<"en" | "zh-CN", {
     characters: Record<string, string>;
-    modules: Record<string, string>;
-    plugins: Record<string, string>;
+    effects: Record<string, string>;
+    companions: Record<string, string>;
   }>;
   return <DailyResultView result={result} labels={labels} />;
 };

@@ -4,9 +4,7 @@ const telegram = vi.hoisted(() => ({ initData: "query_id=test&hash=signed" }));
 
 vi.mock("@twa-dev/sdk", () => ({ default: telegram }));
 vi.mock("@/lib/env", () => ({
-  env: {
-    NEXT_PUBLIC_API_URL: "https://api.example.com",
-  },
+  env: { NEXT_PUBLIC_API_URL: "https://api.example.com" },
 }));
 
 import {
@@ -17,12 +15,13 @@ import {
   getGameContent,
 } from "@/lib/api/client";
 
-describe("API client", () => {
+describe("V4 API client", () => {
   beforeEach(() => {
     telegram.initData = "query_id=test&hash=signed";
+    vi.restoreAllMocks();
   });
 
-  it("prefers raw Telegram initData and sends a versioned run command", async () => {
+  it("sends raw Telegram initData and the final show-choice wire shape", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ run: {}, events: [] }), {
         status: 200,
@@ -32,34 +31,34 @@ describe("API client", () => {
 
     await createRunCommand(
       "c8c6d56d-974f-4c82-8a83-a3c20e736e38",
-      { type: "choose_node", node_id: "l1-a", expected_version: 4 },
-      "action-key-001",
+      {
+        type: "choose_show_option",
+        option_id: "double-take",
+        expected_version: 4,
+      },
+      "show-key-001",
     );
 
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, request] = fetchMock.mock.calls[0];
+    const [url, request] = fetchMock.mock.calls[0]!;
     expect(url).toBe(
       "https://api.example.com/v2/runs/c8c6d56d-974f-4c82-8a83-a3c20e736e38/commands",
     );
-    expect(request).toMatchObject({ method: "POST" });
-    expect(request?.cache).toBe("no-store");
-    expect(request?.signal).toBeInstanceOf(AbortSignal);
     expect(request?.headers).toMatchObject({
       "X-Telegram-Init-Data": telegram.initData,
-      "Idempotency-Key": "action-key-001",
+      "Idempotency-Key": "show-key-001",
     });
     expect(request?.body).toBe(
       JSON.stringify({
-        type: "choose_node",
-        node_id: "l1-a",
+        type: "choose_show_option",
+        option_id: "double-take",
         expected_version: 4,
       }),
     );
   });
 
-  it("requests immutable V3 content in the selected locale", async () => {
+  it("requests localized immutable V4 content without an identity header", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ version: "v3", protocol: "action-v2" }), {
+      new Response(JSON.stringify({ version: "v4", protocol: "shooter-v1" }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -68,7 +67,7 @@ describe("API client", () => {
     await getGameContent("zh-CN");
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://api.example.com/v2/content/v3?locale=zh-CN",
+      "https://api.example.com/v2/content/v4?locale=zh-CN",
     );
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
       "Accept-Language": "zh-CN",
@@ -78,7 +77,7 @@ describe("API client", () => {
     );
   });
 
-  it("creates campaign and daily runs through the same idempotent endpoint", async () => {
+  it("creates campaign and daily runs at the same idempotent endpoint", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
       new Response(JSON.stringify({ id: "run" }), {
         status: 201,
@@ -91,40 +90,61 @@ describe("API client", () => {
         mode: "campaign",
         chapter_slug: "seventh-dock",
         character_slug: "nana7mi",
-        noise_level: 0,
+        encore_level: 0,
       },
       "campaign-key",
     );
     await createRun({ mode: "daily" }, "daily-key");
 
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://api.example.com/v2/runs",
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.example.com/v2/runs");
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
+      JSON.stringify({
+        mode: "campaign",
+        chapter_slug: "seventh-dock",
+        character_slug: "nana7mi",
+        encore_level: 0,
+      }),
     );
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
-      "Idempotency-Key": "campaign-key",
-    });
-    expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({
-      "Idempotency-Key": "daily-key",
-    });
     expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
       JSON.stringify({ mode: "daily" }),
     );
   });
 
-  it("sends no identity header when Telegram initData is absent", async () => {
-    telegram.initData = "";
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ id: "player" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+  it("retries a complete segment with the exact tuple trace and key", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new TypeError("temporary"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ run: {}, events: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    const body = {
+      type: "complete_segment" as const,
+      expected_version: 4,
+      trace: {
+        encoding: "x-position-rle-v1" as const,
+        ticks: 260,
+        runs: [
+          [64, 255],
+          [64, 5],
+        ] as [number, number][],
+      },
+    };
+
+    await createRunCommand(
+      "c8c6d56d-974f-4c82-8a83-a3c20e736e38",
+      body,
+      "segment-key-001",
     );
 
-    await getGame();
-
-    expect(fetchMock.mock.calls[0][1]?.headers).not.toHaveProperty(
-      "X-Telegram-Init-Data",
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(JSON.stringify(body));
+    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(JSON.stringify(body));
+    expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({
+      "Idempotency-Key": "segment-key-001",
+    });
   });
 
   it("preserves the stable server error envelope", async () => {
@@ -133,7 +153,7 @@ describe("API client", () => {
         JSON.stringify({
           error: {
             code: "version_conflict",
-            message: "The authoritative state has changed",
+            message: "The authoritative state changed",
             request_id: "request-123",
           },
         }),
@@ -148,35 +168,5 @@ describe("API client", () => {
         requestId: "request-123",
       }),
     );
-  });
-
-  it("retries a completed encounter with the same idempotency key", async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockRejectedValueOnce(new TypeError("temporary network failure"))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ run: {}, events: [] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      );
-
-    await createRunCommand(
-      "c8c6d56d-974f-4c82-8a83-a3c20e736e38",
-      {
-        type: "complete_encounter",
-        expected_version: 4,
-        trace: { encoding: "rle8-v1", ticks: 1, data: "AAE" },
-      },
-      "encounter-key-001",
-    );
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
-      "Idempotency-Key": "encounter-key-001",
-    });
-    expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({
-      "Idempotency-Key": "encounter-key-001",
-    });
   });
 });

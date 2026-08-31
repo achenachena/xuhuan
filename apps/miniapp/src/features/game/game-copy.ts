@@ -8,3 +8,13 @@ const copy = { en, "zh-CN": zhCN } as const;
 export type GameCopyKey = keyof typeof en;
 export const gameText = (locale: GameLocale, key: GameCopyKey): string =>
   copy[locale][key];
+
+export const formatGameText = (
+  locale: GameLocale,
+  key: GameCopyKey,
+  values: Readonly<Record<string, string | number>>,
+): string =>
+  Object.entries(values).reduce(
+    (message, [name, value]) => message.replaceAll(`{${name}}`, String(value)),
+    gameText(locale, key),
+  );

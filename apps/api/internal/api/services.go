@@ -12,7 +12,7 @@ import (
 
 // GameService is the transport-facing V2 application boundary.
 type GameService interface {
-	Catalog() *gamecontent.Catalog
+	Catalog() *gamecontent.V4Catalog
 	Get(context.Context, auth.User) (game.Snapshot, error)
 	Start(context.Context, auth.User, game.StartInput) (gameRun.GameRun, bool, error)
 	GetRun(context.Context, auth.User, string) (gameRun.GameRun, error)

@@ -1,0 +1,31 @@
+{
+  "chapter": {
+    "id":"localization-failed","order":5,"title_key":"chapter.localization.title","subtitle_key":"chapter.localization.subtitle","featured_character":"lulu","unlock_companion":"lulu-assist","background_url":"/game/v4/backgrounds/localization-failed.webp",
+    "segments":[
+      {"id":"localization-caption-check","duration_ticks":1080,"wave_id":"localization-wave-1","background_url":"/game/v4/backgrounds/localization-failed.webp","reward_stage":"weapon"},
+      {"id":"localization-rewrite","duration_ticks":1200,"wave_id":"localization-wave-2","background_url":"/game/v4/backgrounds/localization-failed.webp","reward_stage":"companion"},
+      {"id":"localization-meaning-gap","duration_ticks":1320,"wave_id":"localization-wave-3","background_url":"/game/v4/backgrounds/localization-failed.webp","reward_stage":"rescue"}
+    ],
+    "waves":[
+      {"id":"localization-wave-1","spawns":[{"at_tick":20,"enemy_id":"caption-blob","count":4,"formation":"fan","interval_ticks":22},{"at_tick":320,"enemy_id":"spam-bot","count":3,"formation":"line","interval_ticks":16}]},
+      {"id":"localization-wave-2","spawns":[{"at_tick":15,"enemy_id":"black-screen-ghost","count":3,"formation":"staggered","interval_ticks":34},{"at_tick":290,"enemy_id":"caption-blob","count":3,"formation":"sweep","interval_ticks":24},{"at_tick":600,"enemy_id":"censor-frame","count":1,"formation":"center","interval_ticks":0}]},
+      {"id":"localization-wave-3","spawns":[{"at_tick":20,"enemy_id":"gift-thief","count":2,"formation":"pincer","interval_ticks":32},{"at_tick":240,"enemy_id":"clip-cutter","count":4,"formation":"sweep","interval_ticks":18},{"at_tick":570,"enemy_id":"black-screen-ghost","count":3,"formation":"center","interval_ticks":36}]}
+    ],
+    "boss":{"id":"approved-translation","name_key":"boss.approved_translation.name","description_key":"boss.approved_translation.description","sprite_url":"/game/v4/bosses/approved-translation.webp","max_health":1140,"duration_ticks":1800,"stages":[
+      {"id":"literal-mode","health_threshold":100,"move_pattern":"sweep","shot_pattern":"lane","shot_interval":50,"projectile_speed":100,"projectile_damage":1,"telegraph_ticks":20,"special":"word-by-word"},
+      {"id":"helpful-rewrite","health_threshold":66,"move_pattern":"mirror","shot_pattern":"delayed","shot_interval":43,"projectile_speed":110,"projectile_damage":1,"telegraph_ticks":24,"special":"tone-correction"},
+      {"id":"meaning-lost","health_threshold":33,"move_pattern":"orbit","shot_pattern":"ring","shot_interval":35,"projectile_speed":120,"projectile_damage":1,"telegraph_ticks":26,"special":"approved-only"}
+    ]},
+    "story":{
+      "prelude":[{"sender":"lulu","text_key":"story.localization.prelude.1"},{"sender":"system","text_key":"story.localization.prelude.2"},{"sender":"xiangwan","text_key":"story.localization.prelude.3"}],
+      "intermission":{"after_segment":2,"prompt_key":"story.localization.intermission.prompt","messages":[{"sender":"lulu","text_key":"story.localization.intermission.1"},{"sender":"jiaran","text_key":"story.localization.intermission.2"}],"choices":[
+        {"id":"publish-original-snark","label_key":"story.localization.choice.snark.label","result_key":"story.localization.choice.snark.result","tag":"kept-original-snark","show_effect_id":"close-call"},
+        {"id":"post-caption-correction","label_key":"story.localization.choice.polite.label","result_key":"story.localization.choice.polite.result","tag":"posted-caption-correction","show_effect_id":"wide-angle"}
+      ]},
+      "epilogue":[{"sender":"lulu","text_key":"story.localization.epilogue.1"},{"sender":"system","text_key":"story.localization.epilogue.2"}],
+      "replay_recap":[{"sender":"lulu","text_key":"story.localization.recap.1"}]
+    },
+    "encore":[{"id":"localization-double-caption","name_key":"encore.localization_double_caption.name","description_key":"encore.localization_double_caption.description","enemy_speed_percent":4,"projectile_speed_percent":15,"special_charge_penalty_percent":5}],
+    "endings":[]
+  }
+}

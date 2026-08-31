@@ -6,53 +6,43 @@ func normalizeCollections(state *State) {
 	if state.CompanionSlugs == nil {
 		state.CompanionSlugs = []string{}
 	}
-	if state.Modules == nil {
-		state.Modules = []ModuleLevel{}
+	if state.PendingShowOptions == nil {
+		state.PendingShowOptions = []string{}
 	}
-	if state.Plugins == nil {
-		state.Plugins = []string{}
+	if state.ShowEffects == nil {
+		state.ShowEffects = []string{}
 	}
-	if state.RewardPool.ModuleSlugs == nil {
-		state.RewardPool.ModuleSlugs = []string{}
+	if state.SelectedChoiceIDs == nil {
+		state.SelectedChoiceIDs = []string{}
 	}
-	if state.RewardPool.PluginSlugs == nil {
-		state.RewardPool.PluginSlugs = []string{}
-	}
-	if state.ChoiceTags == nil {
-		state.ChoiceTags = []string{}
-	}
-	if state.Map.Nodes == nil {
-		state.Map.Nodes = []MapNode{}
-	}
-	for index := range state.Map.Nodes {
-		if state.Map.Nodes[index].Next == nil {
-			state.Map.Nodes[index].Next = []string{}
-		}
+	if state.Story != nil && state.Story.ChoiceIDs == nil {
+		state.Story.ChoiceIDs = []string{}
 	}
 }
+
 func cloneState(current State) State {
 	next := current
 	next.CompanionSlugs = slices.Clone(current.CompanionSlugs)
-	next.Modules = slices.Clone(current.Modules)
-	next.Plugins = slices.Clone(current.Plugins)
-	next.RewardPool.ModuleSlugs = slices.Clone(current.RewardPool.ModuleSlugs)
-	next.RewardPool.PluginSlugs = slices.Clone(current.RewardPool.PluginSlugs)
-	next.ChoiceTags = slices.Clone(current.ChoiceTags)
-	next.Map.Nodes = slices.Clone(current.Map.Nodes)
-	for index := range next.Map.Nodes {
-		next.Map.Nodes[index].Next = slices.Clone(current.Map.Nodes[index].Next)
-		next.Map.Nodes[index].EnemySlugs = slices.Clone(current.Map.Nodes[index].EnemySlugs)
-		next.Map.Nodes[index].Hazards = slices.Clone(current.Map.Nodes[index].Hazards)
+	next.PendingShowOptions = slices.Clone(current.PendingShowOptions)
+	next.ShowEffects = slices.Clone(current.ShowEffects)
+	next.SelectedChoiceIDs = slices.Clone(current.SelectedChoiceIDs)
+	if current.Segment != nil {
+		segment := *current.Segment
+		segment.RuntimeConfig.Companions = slices.Clone(current.Segment.RuntimeConfig.Companions)
+		segment.RuntimeConfig.ShowEffects = slices.Clone(current.Segment.RuntimeConfig.ShowEffects)
+		segment.RuntimeConfig.Enemies = slices.Clone(current.Segment.RuntimeConfig.Enemies)
+		segment.RuntimeConfig.Wave.Spawns = slices.Clone(current.Segment.RuntimeConfig.Wave.Spawns)
+		if current.Segment.RuntimeConfig.Boss != nil {
+			boss := *current.Segment.RuntimeConfig.Boss
+			boss.Stages = slices.Clone(current.Segment.RuntimeConfig.Boss.Stages)
+			segment.RuntimeConfig.Boss = &boss
+		}
+		next.Segment = &segment
 	}
-	if current.Encounter != nil {
-		value := *current.Encounter
-		value.Hazards = slices.Clone(current.Encounter.Hazards)
-		next.Encounter = &value
-	}
-	if current.Reward != nil {
-		value := *current.Reward
-		value.ModuleChoices = slices.Clone(current.Reward.ModuleChoices)
-		next.Reward = &value
+	if current.Story != nil {
+		story := *current.Story
+		story.ChoiceIDs = slices.Clone(current.Story.ChoiceIDs)
+		next.Story = &story
 	}
 	return next
 }

@@ -1,223 +1,203 @@
-# V3 content authoring guide
+# Authoring V4 content
 
-## Contract and file layout
+## Principles
 
-V3 content is compiled into the Go binary from `apps/api/internal/content/v3/`. The format separates shared combat data, chapter-owned data, and language so each can be reviewed independently.
+V4 content is immutable, embedded in the Go binary, English-first, bilingual, deterministic, and fail-closed. The browser does not interpret arbitrary effect formulas. Content selects from behavior IDs implemented and tested in both authoritative Go replay and TypeScript prediction.
+
+Do not add payment gates, account tokens, hidden story scores, runtime scripts, remote assets, or per-frame network behavior through content.
+
+## Layout
 
 ```text
-v3/
+apps/api/internal/content/v4/
   manifest.json
   shared.json
-  chapters/                 seven character chapters plus zero-channel.json
-  locales/en.json
-  locales/zh-CN.json
+  daily.json
+  chapters/
+    seventh-dock.json
+    always-cheerful.json
+    loss-hidden.json
+    captains-do-not-rest.json
+    localization-failed.json
+    which-is-original.json
+    laplace-florist.json
+    zero-channel.json
+  locales/
+    en.json
+    zh-CN.json
 ```
 
-`manifest.json` must identify `version: "v3"`, `protocol: "action-v2"`, English as the default locale, and the exact locale order `en`, `zh-CN`. Its `chapter_files` array is assembly order: chapters one through seven, then the Zero Channel finale.
+JSON decoding rejects unknown fields. All IDs use lowercase ASCII words separated with hyphens. Locale keys use lowercase dotted names. Released IDs are durable data references; add a new ID instead of silently changing the meaning of an existing story choice.
 
-The manifest limits are deterministic protocol constraints:
+## Manifest
 
-| Limit | Value |
-| --- | ---: |
-| Live enemies | 18 |
-| Hostile projectiles | 160 |
-| Player projectiles | 64 |
-| Pickups | 6 |
-| Effects | 96 |
+`manifest.json` declares:
 
-Do not raise a limit as a content-only balance change. It changes replay cost and requires protocol/runtime review.
+- `content_version: "v4"`;
+- `protocol: "shooter-v1"`;
+- English as the default locale and exact locale order `en`, `zh-CN`;
+- every immutable WebP asset;
+- eight chapter files in campaign order;
+- `daily.json`; and
+- the fixed mobile simulation rules.
 
-## Current fixed inventory
+The current runtime contract is 30 Hz, a `3600 x 6400` logical arena, player Y `5200`, 128 horizontal input columns, and three starting hearts. Entity caps are 14 enemies, 120 hostile projectiles, 48 player projectiles, 12 pickups, and 24 effects.
 
-The current authored files contain:
+Changing a replay-affecting rule requires a new protocol or content version and new cross-language vectors. Do not edit a released manifest in place.
 
-- 7 characters and 7 one-to-one kits;
-- 68 modules: 12 shared plus 8 for each character;
-- 20 plugins: 6 shared plus 2 for each character;
-- 8 chapter documents: 7 linear character chapters plus the finale;
-- 36 enemies: 21 normal, 7 elite, and 8 bosses;
-- 47 encounters: 30 normal, 8 elite, 8 boss, and 1 tutorial;
-- 28 events;
-- 34 story scenes; and
-- 620 non-empty keys in each locale with exact key parity.
+## Shared content
 
-Startup validation enforces the primary object totals, module/plugin ownership splits, and non-empty exact locale parity; the kind breakdowns above describe the current authored inventory. The release gate also checks the current 620-key locale total. If a feature changes an object count, update the validator where fixed, tests, documentation, and compatibility decision together. If it adds copy, update both locale files and this documented key total. Do not weaken a count merely to make incomplete content load.
+### Show effects
 
-## Slugs, keys, and ownership
+V4 contains exactly 12 shared, one-level show effects. Each definition has an ID, localized name and description, archetype (`power`, `guard`, or `style`), behavior, and positive amount.
 
-Slugs are stable machine identifiers. Use lowercase words separated by hyphens and never recycle a released slug for another meaning. Foreign keys use slugs, not localized names.
-
-Translation keys use dotted namespaces such as:
+Supported behavior IDs are:
 
 ```text
-character.<slug>.name
-module.<slug>.name
-module.<slug>.description
-plugin.<slug>.name
-enemy.<slug>.name
-event.<slug>.*
-scene.<slug>.*
-chapter.<slug>.title
-chapter.<slug>.subtitle
+twin_shot            piercing_shot       spread_shot
+graze_charge         guard_on_special     pickup_magnet
+echo_volley          boss_break           low_health_power
+combo_extend         companion_charge     recovery_drop
 ```
 
-Shared objects live in `shared.json`. An enemy, encounter, event, or scene normally lives in the chapter that owns it. The finale may reference enemies from earlier chapters because the catalog indexes every enemy before validating encounters.
+Every effect must change a visible rule. Do not recreate three-level numerical upgrades or add a generic expression interpreter.
 
-## Shared document
+### Characters and specials
 
-### Characters and kits
-
-Each character requires a unique slug; name, biography, and playstyle locale keys; a color; local portrait and player-model URLs; and a `kit_slug` owned by the same character. V3 deliberately uses the same transparent, text-free pixel sprite for `portrait_url` and `model_url`, which keeps the hub, story chat, and arena visually consistent without a second legacy portrait asset.
-
-Kits require positive base health, attack damage, attack interval, movement speed, Warp cooldown, and Warp damage. Passive and Resonance must be one of these engine identities:
+There are exactly seven character IDs:
 
 ```text
-nana_route_chain
-diana_cheer_pulse
-ava_afterimage
-bella_perfect_warp
-lulu_convert_projectiles
-xingtong_signal_stance
-nailu_memory_bloom
+nana7mi  jiaran  xiangwan  bella  lulu  xingtong  nailu
 ```
 
-### Modules and plugins
+A character has localized biography/playstyle copy, local visual assets, positive base stats, and one special with charge cost 100. Max health remains three hearts.
 
-A module has an optional `character_slug`, localized name/description keys, an archetype, a rarity, and exactly three levels. Every level contains at least one effect. Levels are cumulative: level 3 applies levels 1, 2, and 3 in order.
-
-Supported archetypes are `surge`, `guard`, `echo`, and `glitch`. Supported rarities are `common`, `uncommon`, and `rare`.
-
-A plugin is shared when `character_slug` is empty and character-specific otherwise. It requires localized name/description keys and at least one effect. Elite rewards exclude plugins already held and another character's plugins.
-
-### Effects
-
-Positive numeric effects require `amount > 0`:
+Supported special behaviors are:
 
 ```text
-heal_run                 damage_run
-attack_damage            attack_speed
-move_speed               warp_cooldown
-warp_damage              starting_shield
-overload_bonus           distortion_gain
-protocol_damage          protocol_shield
-echo_power               resonance_power
-projectile_pierce        projectile_count
-projectile_speed         graze_radius
-heal_on_protocol         reflect_damage
-max_health               reroll_charge
+barrage_break       cheer_guard       afterimage_replay
+captain_parry       subtitle_flip     prism_shift
+memory_bloom
 ```
 
-`add_module` and `add_plugin` use `value`, which must resolve to an existing slug. Unknown effect kinds fail loading. A valid new effect may still require frontend presentation work; update labels, rendering, and tests in the same change.
+### Companions
+
+Each character has one unlockable companion. An assist combines a trigger, behavior, positive amount, and cooldown.
+
+```text
+triggers:  segment_start  graze_streak  low_health  special_used
+           boss_stage     pickup_chain  wave_clear
+
+behaviors: side_shot  shield  echo_shot  clear_lane
+           convert_bullet  focus_beam  heal
+```
+
+Companions are automatic. An authored change must not introduce another combat button.
+
+### Enemy chassis
+
+The six chassis IDs are fixed:
+
+```text
+spam-bot  clip-cutter  caption-blob
+black-screen-ghost  gift-thief  censor-frame
+```
+
+Movement is one of `drift`, `sweep`, `dive`, `orbit`, `anchor`, or `mirror`. Shot patterns are `aimed`, `fan`, `lane`, `ring`, `delayed`, or `beam`. Optional traits are `shield_link`, `split`, `steal_pickup`, `armor`, `echo`, or `jammer`.
+
+Every attack needs positive damage/projectile speed, an interval of at least 20 Ticks, and a telegraph of at least six Ticks. Content cannot exceed the manifest entity caps.
 
 ## Chapter documents
 
-Each chapter file has five top-level fields. Unknown JSON fields are rejected.
+Each file wraps one `chapter` object. A chapter requires:
 
-```json
-{
-  "chapter": {},
-  "enemies": [],
-  "encounters": [],
-  "events": [],
-  "scenes": []
-}
+- a unique ID and order `1..8`;
+- localized title and subtitle;
+- one featured character and unlocked companion, except the player-choice finale;
+- a registered background;
+- exactly three segments and exactly three unique waves;
+- one boss with positive health and exactly three stages;
+- one prelude, one concrete two-choice intermission after segment two, one epilogue, and one replay recap;
+- at least one encore modifier; and
+- endings only for Zero Channel.
+
+### Segments and rewards
+
+Every normal segment is fixed-duration survival. There is no authored objective field. Segment duration is `1050..1350` Ticks (35–45 seconds); Nana's first tutorial segment may be exactly 900 Ticks.
+
+The three segments must use these reward stages in order:
+
+```text
+1  weapon
+2  companion
+3  rescue
 ```
 
-### Chapter metadata
+A segment references a chapter-owned wave and a registered background. A wave has one or more scheduled spawns. Formation is `line`, `fan`, `staggered`, `pincer`, `center`, or `sweep`; a spawn count cannot exceed eight.
 
-A character chapter needs:
+### Bosses
 
-- a unique slug and order from 1 through 7;
-- title/subtitle keys, character, kit, background, and `available: true`;
-- the next chapter at exactly the following order;
-- at least two normal encounter-pool entries and one elite-pool entry;
-- a boss, event pool, midpoint event, and prelude/midpoint/epilogue scenes; and
-- exactly three non-empty Noise rules numbered 1, 2, and 3.
+A boss has a local sprite, positive `max_health`, a room duration of exactly 1800 Ticks, and exactly three stages. Stage health thresholds are exactly 100, 66, and 33. Each stage selects supported movement/shot patterns and names one script behavior implemented by the backend.
 
-Noise-rule modifiers are intentionally narrower than ordinary item effects: every authored modifier must be a positive `distortion_gain`. Route restriction, rest replacement, telegraph pressure, and enemy scaling are cumulative engine behavior keyed by the selected Noise level.
+### Story
 
-The finale is order 8 with `finale: true`, no character or kit, and no successor. It still requires route pools, a boss, story references, a background, and Noise rules. `tutorial_encounter_slug` is optional and currently belongs only to Seventh Dock.
+Each story message list contains one to three short bubbles. An intermission contains exactly two choices. A choice has:
 
-### Enemies
+- a durable ID;
+- localized label and result;
+- a concrete durable tag; and
+- an optional existing show-effect reward.
 
-Enemy kinds are `normal`, `elite`, and `boss`. Every enemy needs positive health, non-negative speed/contact damage, localized name/description keys, a color, an image URL, movement, and at least one attack.
+There are no Trust, Authenticity, Retention, morality, reputation, or personality-score fields. Story projection uses the selected option IDs directly. Replaying appends a revision rather than overwriting the old choice.
 
-Supported movement kinds are `chase`, `orbit`, `strafe`, `charge`, `flee`, `stationary`, and `wander`.
+Zero Channel contains exactly three ending IDs: `open-archive`, `shared-cut`, and `quiet-signoff`. Each ending declares the explicit selected choice IDs that make it available, localized title/summary, and one to three closing bubbles.
 
-Supported attack kinds are `aimed`, `fan`, `ring`, `spiral`, `delayed_echo`, `mine`, and `beam`. Attack intervals must be at least 20 Ticks. Damage must be positive. Every non-beam attack needs positive projectile speed; telegraph time cannot be negative, and an attack dealing at least 8 damage must have a non-zero telegraph.
+## Daily Aftershow
 
-Supported traits are `linked_shield`, `steal_signal`, `death_split`, `armored`, `distortion_aura`, and `teleport`.
+`daily.json` declares a UTC seed basis, exactly two combat segments (one normal wave and one boss), exactly one show choice between them, seven rotating character IDs, and references to existing waves, bosses, and encore modifiers. It is a deterministic content projection, not a cron job or separate economy.
 
-Keep live counts within the manifest cap and verify the referenced local asset exists. The loader validates non-empty URLs and content references; visual review is still required for the actual file, scale, transparency, and contrast.
+## Localization
 
-### Encounters
+English is the canonical writing and review language. All player-facing content keys must exist with non-empty values in both locale files. The key sets must match exactly. Do not place translated copy in Go, TypeScript, Markdown, or chapter JSON.
 
-Encounter kinds are `tutorial`, `normal`, `elite`, `boss`, and `daily`. Objective kinds are `purge`, `stabilize`, `recover`, `holdout`, `elite`, and `boss`.
+The chapter dialogue should:
 
-An encounter requires a unique slug, chapter slug, positive objective target, positive duration/hard cap, positive spawn interval, at least one existing enemy, risk from 1 through 3, and reward bias `surge`, `guard`, `echo`, `glitch`, or `balanced`. Duration cannot exceed the hard cap. A non-boss hard cap cannot exceed 1,800 Ticks, a boss hard cap cannot exceed 2,700, and `max_alive` cannot exceed 18.
+- sound like a late aftershow group rather than a product requirements document;
+- use no more than three concise bubbles in a scene;
+- center an everyday, concrete decision;
+- reveal the archive mystery gradually;
+- use only light, original, character-adjacent humor; and
+- avoid factual claims about real people, private information, lyrics, and long quotations.
 
-Supported hazards are `narrow_arena`, `distortion_rain`, `signal_decay`, and `crossfire`. Set both kind `tutorial` and `tutorial: true` for the onboarding room.
-
-### Events
-
-An event needs localized title/body keys and at least two uniquely slugged options. Every option has localized label/result keys, effects, an optional durable `choice_tag`, and optional Trust/Authenticity/Retention deltas.
-
-Event effects mutate the Run; metric deltas commit with progression. A choice tag should describe a durable fact, not presentation copy.
-
-### Story scenes
-
-Supported triggers are `new_player`, `chapter_prelude`, `chapter_midpoint`, `chapter_cleared`, `finale_unlocked`, and `ending`. An ending trigger also specifies `authentic`, `balanced`, or `retained`.
-
-Each scene needs a title key, at least one message, and at least one option. Messages use sender kind `system` or `character`. Options require a unique slug, localized label, durable tag, and metric deltas.
-
-Story choices are immutable revisions in PostgreSQL. Changing a released scene or option slug can reinterpret history, so add a revision/new slug instead of silently replacing its meaning.
-
-## Localization and English source policy
-
-English is the default and source-review language. Authored catalog copy lives in `apps/api/internal/content/v3/locales/`; Mini App interface copy lives in `apps/miniapp/src/locales/`. Add every player-facing key to both files in the relevant locale pair in the same change. Key sets must match exactly, and keys and values cannot be blank. Runtime code should consume locale data instead of embedding translated strings.
-
-```sh
-npm run check:english-source
-```
-
-The check rejects Han-script text in normal source and documentation. Its exceptions are deliberately path-specific:
-
-- the canonical V3 content and Mini App UI `zh-CN` locale documents;
-- the existing `001` through `006` SQL migration files, listed individually in the scanner so new migrations remain English; and
-- the named fixtures `apps/api/internal/auth/telegram_test.go` and `apps/miniapp/e2e/roguelite.spec.ts`.
-
-Do not exempt an entire source or test tree. When a new fixture genuinely needs non-English text, add its exact path to `scripts/check-english-source.mjs` and explain it in review.
+The source scanner allows Han characters only in narrowly reviewed localization and historical fixture files.
 
 ## Assets
 
-V3 URLs are rooted at `/game/v3/` and served by the Mini App. Put players, enemies, bosses, pickups, and backgrounds in their existing category directories with stable lowercase hyphenated names. Every deployed WebP must appear in `manifest.json#assets`; the Go loader rejects content references outside that immutable list.
+V4 URLs are rooted at `/game/v4/` and use these directories:
 
-`npm run check:content-assets` enforces exact parity between the manifest and the public V3 tree, verifies every authored content reference, parses each WebP header, and applies mobile download and decoded-memory budgets. Backgrounds are capped at 768 by 1365, bosses at 512 square, enemies at 384 square, pickups at 256 square, and players at 512 square. The complete encoded catalog must stay below 4 MiB and the decoded catalog below 56 MiB. Versioned assets are cached as immutable for one year, so publish a new content path instead of replacing a live V3 image. Also review portrait-viewport legibility, alpha behavior, source/redistribution status, and reasonable runtime size. Do not place source-only working files in the public runtime tree.
-
-## Authoring workflow
-
-1. Confirm that the change targets the current V3 catalog. The project does not ship retired content bundles; a release that changes deterministic encounter inputs restarts the current room from its server seed.
-2. Add or update shared and chapter-owned definitions with stable slugs.
-3. Add every locale key to English and `zh-CN`; keep code and docs English.
-4. Add local assets, register them in `manifest.json#assets`, and verify their presentation.
-5. Register chapter documents in manifest order.
-6. Run focused validation, then the full repository checks.
-
-```sh
-cd apps/api && go test ./internal/content ./internal/action ./internal/run ./internal/story
-cd ../../
-npm run check:english-source
-npm run check:content-assets
-npm run check:api-types --workspace @xuhuan/miniapp
-npm run test --workspace @xuhuan/miniapp
-make test
+```text
+backgrounds/  players/  enemies/  bosses/  pickups/
 ```
 
-Review both localized endpoints:
+Every public WebP must appear exactly once in `manifest.json#assets`; every authored visual reference must resolve to that list. The asset check also enforces exact manifest/public-tree parity, WebP validity, mobile dimensions, encoded download size, and decoded-memory limits.
+
+Versioned assets are cached as immutable. Publish a new content path instead of replacing a live V4 file. Do not place editable source art in the public runtime tree.
+
+## Validation workflow
 
 ```sh
-curl 'http://localhost:8080/v2/content/v3?locale=en'
-curl 'http://localhost:8080/v2/content/v3?locale=zh-CN'
+cd apps/api
+env GOCACHE=/tmp/xuhuan-go-cache go test ./internal/content
+cd ../..
+node scripts/check-content-assets.mjs
+node scripts/check-english-source.mjs
 ```
 
-Both must report `version: "v3"` and `protocol: "action-v2"`; only localized display text should differ.
+Then run the relevant shooter, run-domain, frontend, and end-to-end suites. Review both localized endpoints:
+
+```sh
+curl 'http://localhost:8080/v2/content/v4?locale=en'
+curl 'http://localhost:8080/v2/content/v4?locale=zh-CN'
+```
+
+Both responses must report `v4` and `shooter-v1`. Only localized display copy should differ.

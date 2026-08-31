@@ -42,7 +42,7 @@ func TestResponsesMatchOpenAPIContract(t *testing.T) {
 		},
 		{
 			name: "v2 content", router: v2Router,
-			method: http.MethodGet, path: "/v2/content/v3?locale=zh-CN", status: http.StatusOK,
+			method: http.MethodGet, path: "/v2/content/v4?locale=zh-CN", status: http.StatusOK,
 		},
 		{
 			name: "public daily result", router: v2Router,
@@ -55,6 +55,10 @@ func TestResponsesMatchOpenAPIContract(t *testing.T) {
 		{
 			name: "game snapshot", router: v2Router,
 			method: http.MethodGet, path: "/v2/game", status: http.StatusOK,
+		},
+		{
+			name: "authoritative run", router: v2Router,
+			method: http.MethodGet, path: "/v2/runs/10000000-0000-4000-8000-000000000001", status: http.StatusOK,
 		},
 	}
 
@@ -71,6 +75,68 @@ func TestResponsesMatchOpenAPIContract(t *testing.T) {
 	}
 }
 
+func TestV4MutationResponsesMatchOpenAPIContract(t *testing.T) {
+	t.Parallel()
+	document, err := openapi3.NewLoader().LoadFromFile("../../openapi/openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := document.Validate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	router, _ := v2TestRouter(t)
+	tests := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "run command",
+			path: "/v2/runs/10000000-0000-4000-8000-000000000001/commands",
+			body: `{"type":"choose_show_option","option_id":"double-take","expected_version":1}`,
+		},
+		{
+			name: "story choice revision",
+			path: "/v2/story/choices",
+			body: `{"scene_slug":"seventh-dock-intermission","option_slug":"keep-ocean-noise","expected_version":1}`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, test.path, strings.NewReader(test.body))
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set("Idempotency-Key", "contract-mutation-001")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+			if response.Code != http.StatusOK {
+				t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+			}
+			validateContractResponse(t, document, test.path, http.MethodPost, response)
+		})
+	}
+}
+
+func TestCreateRunResponseMatchesFullyTypedRuntimeContract(t *testing.T) {
+	t.Parallel()
+	document, err := openapi3.NewLoader().LoadFromFile("../../openapi/openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := document.Validate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	router, _ := v2TestRouter(t)
+	request := httptest.NewRequest(http.MethodPost, "/v2/runs", strings.NewReader(`{"mode":"campaign","chapter_slug":"seventh-dock","character_slug":"nana7mi","encore_level":0}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "contract-create-run-001")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+	validateContractResponse(t, document, "/v2/runs", http.MethodPost, response)
+}
+
 func validateContractResponse(t *testing.T, document *openapi3.T, path, method string, response *httptest.ResponseRecorder) {
 	t.Helper()
 	contractPath := strings.SplitN(path, "?", 2)[0]
@@ -78,6 +144,10 @@ func validateContractResponse(t *testing.T, document *openapi3.T, path, method s
 		contractPath = "/v2/content/{version}"
 	} else if strings.HasPrefix(contractPath, "/v2/daily/results/") {
 		contractPath = "/v2/daily/results/{id}"
+	} else if strings.HasSuffix(contractPath, "/commands") && strings.HasPrefix(contractPath, "/v2/runs/") {
+		contractPath = "/v2/runs/{id}/commands"
+	} else if strings.HasPrefix(contractPath, "/v2/runs/") {
+		contractPath = "/v2/runs/{id}"
 	}
 	pathItem := document.Paths.Find(contractPath)
 	if pathItem == nil {

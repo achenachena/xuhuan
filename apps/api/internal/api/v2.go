@@ -8,30 +8,29 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/achenachena/xuhuan/apps/api/internal/action"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 	"github.com/achenachena/xuhuan/apps/api/internal/game"
 	"github.com/achenachena/xuhuan/apps/api/internal/progression"
 	"github.com/achenachena/xuhuan/apps/api/internal/repository"
 	gameRun "github.com/achenachena/xuhuan/apps/api/internal/run"
-	"github.com/achenachena/xuhuan/apps/api/internal/story"
+	"github.com/achenachena/xuhuan/apps/api/internal/shooter"
 	"github.com/go-chi/chi/v5"
 )
 
 type createRunRequest struct {
 	Mode          gameRun.Mode `json:"mode"`
-	ChapterSlug   string       `json:"chapter_slug"`
-	CharacterSlug string       `json:"character_slug"`
-	NoiseLevel    int          `json:"noise_level"`
+	ChapterSlug   string       `json:"chapter_slug,omitempty"`
+	CharacterSlug string       `json:"character_slug,omitempty"`
+	CompanionSlug string       `json:"companion_slug,omitempty"`
+	EncoreLevel   int          `json:"encore_level,omitempty"`
 }
+
 type runCommandRequest struct {
 	Type            gameRun.CommandType `json:"type"`
 	ExpectedVersion int64               `json:"expected_version"`
-	NodeID          string              `json:"node_id,omitempty"`
-	ChoiceSlug      string              `json:"choice_slug,omitempty"`
-	ModuleSlug      string              `json:"module_slug,omitempty"`
-	Operation       string              `json:"operation,omitempty"`
-	Trace           *action.InputTrace  `json:"trace,omitempty"`
+	OptionID        string              `json:"option_id,omitempty"`
+	SceneID         string              `json:"scene_id,omitempty"`
+	Trace           *shooter.InputTrace `json:"trace,omitempty"`
 }
 
 type storyChoiceRequest struct {
@@ -56,29 +55,57 @@ func registerV2Routes(router chi.Router, authenticate func(http.Handler) http.Ha
 	})
 }
 
+func createStoryChoiceHandler(service GameService, logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := authenticatedPrincipal(w, r)
+		if !ok {
+			return
+		}
+		key, ok := validatedIdempotencyKey(w, r)
+		if !ok {
+			return
+		}
+		var request storyChoiceRequest
+		if !decodeRequest(w, r, &request) {
+			return
+		}
+		if !validSlugValue(request.SceneSlug) || !validSlugValue(request.OptionSlug) || request.ExpectedVersion < 1 {
+			writeError(w, r, http.StatusBadRequest, "invalid_request", "The request is invalid")
+			return
+		}
+		progress, replayed, err := service.ChooseStory(r.Context(), principal.User, game.StoryChoiceInput{SceneSlug: request.SceneSlug, OptionSlug: request.OptionSlug, ExpectedVersion: request.ExpectedVersion, IdempotencyKey: key})
+		if err != nil {
+			writeV2Error(w, r, logger, "story_choice_failed", err)
+			return
+		}
+		w.Header().Set("Idempotency-Replayed", strconv.FormatBool(replayed))
+		writeJSON(w, http.StatusOK, map[string]any{"progress": mapProgress(progress)})
+	}
+}
+
 func getContentHandler(service GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		version := chi.URLParam(r, "version")
-		if version != gamecontent.CurrentVersion {
+		if version != gamecontent.V4Version {
 			writeError(w, r, http.StatusNotFound, "not_found", "The requested content version was not found")
 			return
 		}
-		language := r.URL.Query().Get("locale")
-		if language == "" {
-			language = responseLanguage(r)
+		locale := r.URL.Query().Get("locale")
+		if locale == "" {
+			locale = responseLanguage(r)
 		}
-		if language != "zh-CN" && language != "en" {
-			writeError(w, r, http.StatusBadRequest, "invalid_request", "The locale must be zh-CN or en")
+		if locale != "en" && locale != "zh-CN" {
+			writeError(w, r, http.StatusBadRequest, "invalid_request", "The locale must be en or zh-CN")
 			return
 		}
-		etag := fmt.Sprintf("\"%s-%s\"", version, language)
+		etag := fmt.Sprintf("\"%s-%s\"", version, locale)
 		w.Header().Set("ETag", etag)
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		if r.Header.Get("If-None-Match") == etag {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
-		writeJSON(w, http.StatusOK, localizeCatalog(service.Catalog(), language))
+		writeJSON(w, http.StatusOK, service.Catalog().Localized(locale))
 	}
 }
 
@@ -111,18 +138,15 @@ func createRunHandler(service GameService, logger *slog.Logger) http.HandlerFunc
 		if !decodeRequest(w, r, &request) {
 			return
 		}
-		if request.Mode == "" {
-			request.Mode = gameRun.CampaignMode
+		valid := request.Mode == gameRun.DailyMode || request.Mode == gameRun.CampaignMode && validSlugValue(request.ChapterSlug) && validSlugValue(request.CharacterSlug) && (request.CompanionSlug == "" || validSlugValue(request.CompanionSlug)) && request.EncoreLevel >= 0 && request.EncoreLevel <= 3
+		if request.Mode == gameRun.DailyMode && (request.ChapterSlug != "" || request.CharacterSlug != "" || request.CompanionSlug != "" || request.EncoreLevel != 0) {
+			valid = false
 		}
-		if (request.Mode != gameRun.CampaignMode && request.Mode != gameRun.DailyMode) || (request.Mode == gameRun.CampaignMode && (!validSlugValue(request.ChapterSlug) || !validSlugValue(request.CharacterSlug))) || request.NoiseLevel < 0 || request.NoiseLevel > 3 {
+		if !valid {
 			writeError(w, r, http.StatusBadRequest, "invalid_request", "The request is invalid")
 			return
 		}
-		created, replayed, err := service.Start(r.Context(), principal.User, game.StartInput{
-			Mode:        request.Mode,
-			ChapterSlug: request.ChapterSlug, CharacterSlug: request.CharacterSlug,
-			NoiseLevel: request.NoiseLevel, IdempotencyKey: key,
-		})
+		created, replayed, err := service.Start(r.Context(), principal.User, game.StartInput{Mode: request.Mode, ChapterSlug: request.ChapterSlug, CharacterSlug: request.CharacterSlug, CompanionSlug: request.CompanionSlug, EncoreLevel: request.EncoreLevel, IdempotencyKey: key})
 		if err != nil {
 			writeV2Error(w, r, logger, "create_run_failed", err)
 			return
@@ -186,12 +210,13 @@ func createRunCommandHandler(service GameService, logger *slog.Logger) http.Hand
 		if !decodeRequest(w, r, &request) {
 			return
 		}
+		if !validRunCommandRequest(request) {
+			writeError(w, r, http.StatusBadRequest, "invalid_request", "The request is invalid")
+			return
+		}
 		result, replayed, err := service.Command(r.Context(), principal.User, game.CommandInput{
 			RunID: runID, ExpectedVersion: request.ExpectedVersion, IdempotencyKey: key,
-			Command: gameRun.Command{
-				Type: request.Type, NodeID: request.NodeID, ChoiceSlug: request.ChoiceSlug,
-				ModuleSlug: request.ModuleSlug, Operation: request.Operation, Trace: request.Trace,
-			},
+			Command: gameRun.Command{Type: request.Type, OptionID: request.OptionID, SceneID: request.SceneID, Trace: request.Trace},
 		})
 		if err != nil {
 			writeV2Error(w, r, logger, "run_command_failed", err)
@@ -202,41 +227,21 @@ func createRunCommandHandler(service GameService, logger *slog.Logger) http.Hand
 	}
 }
 
-func createStoryChoiceHandler(service GameService, logger *slog.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		principal, ok := authenticatedPrincipal(w, r)
-		if !ok {
-			return
-		}
-		key, ok := validatedIdempotencyKey(w, r)
-		if !ok {
-			return
-		}
-		var request storyChoiceRequest
-		if !decodeRequest(w, r, &request) {
-			return
-		}
-		if !validSlugValue(request.SceneSlug) || !validSlugValue(request.OptionSlug) {
-			writeError(w, r, http.StatusBadRequest, "invalid_request", "The request is invalid")
-			return
-		}
-		progress, replayed, err := service.ChooseStory(r.Context(), principal.User, game.StoryChoiceInput{
-			SceneSlug: request.SceneSlug, OptionSlug: request.OptionSlug,
-			ExpectedVersion: request.ExpectedVersion, IdempotencyKey: key,
-		})
-		if err != nil {
-			writeV2Error(w, r, logger, "story_choice_failed", err)
-			return
-		}
-		pending := story.PendingScene(progress, service.Catalog())
-		pendingSlug := ""
-		if pending != nil {
-			pendingSlug = pending.Slug
-		}
-		w.Header().Set("Idempotency-Replayed", strconv.FormatBool(replayed))
-		writeJSON(w, http.StatusOK, map[string]any{
-			"progress": mapProgress(progress), "pending_scene_slug": nullableString(pendingSlug),
-		})
+func validRunCommandRequest(request runCommandRequest) bool {
+	if request.ExpectedVersion < 1 {
+		return false
+	}
+	switch request.Type {
+	case gameRun.CompleteSegment:
+		return request.Trace != nil && request.OptionID == "" && request.SceneID == ""
+	case gameRun.ChooseShowOption:
+		return request.Trace == nil && validSlugValue(request.OptionID) && request.SceneID == ""
+	case gameRun.ChooseIntermissionReply:
+		return request.Trace == nil && validSlugValue(request.OptionID) && validSlugValue(request.SceneID)
+	case gameRun.AbandonRun:
+		return request.Trace == nil && request.OptionID == "" && request.SceneID == ""
+	default:
+		return false
 	}
 }
 
@@ -261,17 +266,13 @@ func writeV2Error(w http.ResponseWriter, r *http.Request, logger *slog.Logger, e
 		writeError(w, r, http.StatusConflict, "active_run_exists", "Resume or abandon the active run first")
 	case errors.Is(err, gameRun.ErrIdempotencyConflict), errors.Is(err, progression.ErrIdempotencyConflict):
 		writeError(w, r, http.StatusConflict, "idempotency_conflict", "The idempotency key was used for a different request")
-	case errors.Is(err, game.ErrStoryRequired):
-		writeError(w, r, http.StatusConflict, "story_required", "Resolve the pending story scene first")
 	case errors.Is(err, gameRun.ErrContentLocked):
-		writeError(w, r, http.StatusForbidden, "content_locked", "The requested chapter, character, or noise level is locked")
-	case errors.Is(err, progression.ErrChoiceAlreadyMade), errors.Is(err, progression.ErrSceneNotPending):
-		writeError(w, r, http.StatusConflict, "story_conflict", "The story choice is no longer pending")
-	case errors.Is(err, action.ErrInvalidTrace):
-		writeError(w, r, http.StatusBadRequest, "invalid_trace", "The encounter input trace is invalid")
-	case errors.Is(err, action.ErrIncompleteRoom):
-		writeError(w, r, http.StatusBadRequest, "incomplete_encounter", "The encounter trace ended before the authoritative room result")
-	case errors.Is(err, gameRun.ErrInvalidCommand), strings.HasPrefix(err.Error(), "action:"):
+		writeError(w, r, http.StatusForbidden, "content_locked", "The requested chapter, character, or Encore level is locked")
+	case errors.Is(err, progression.ErrSceneNotFound):
+		writeError(w, r, http.StatusNotFound, "story_not_found", "The story scene or option was not found")
+	case errors.Is(err, shooter.ErrInvalidTrace):
+		writeError(w, r, http.StatusBadRequest, "invalid_trace", "The segment input trace is invalid")
+	case errors.Is(err, gameRun.ErrInvalidCommand), strings.HasPrefix(err.Error(), "shooter:"):
 		writeError(w, r, http.StatusBadRequest, "invalid_command", "The command is invalid for the current state")
 	default:
 		logger.ErrorContext(r.Context(), event, "request_id", requestIDFromContext(r.Context()), "error_class", "internal")

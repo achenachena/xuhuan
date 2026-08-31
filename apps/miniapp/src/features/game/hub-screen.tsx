@@ -3,36 +3,50 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 
-import { gameText, type GameLocale } from "@/features/game/game-copy";
-import type { APIGameContent, APIGameSnapshot } from "@/lib/api/client";
+import { useAudio } from "@/components/providers/audio-provider";
+import type { GameLocale } from "@/features/game/game-copy";
+import { formatGameText, gameText } from "@/features/game/game-copy";
+import type {
+  ShooterChapterContent,
+  ShooterContent,
+  ShooterGameSnapshot,
+} from "@/lib/api/types";
 
-type HubScreenProps = {
-  readonly content: APIGameContent;
-  readonly game: APIGameSnapshot;
+type Props = {
+  readonly content: ShooterContent;
+  readonly game: ShooterGameSnapshot;
   readonly locale: GameLocale;
   readonly busy: boolean;
   readonly onStartCampaign: (
     chapterSlug: string,
     characterSlug: string,
-    noiseLevel: number,
+    encoreLevel: number,
+    companionSlug?: string,
   ) => void;
   readonly onStartDaily: () => void;
 };
 
-const chapterUnlocked = (
-  content: APIGameContent,
-  game: APIGameSnapshot,
-  chapterSlug: string,
-) => {
-  const chapter = content.chapters.find((item) => item.slug === chapterSlug);
-  const current = content.chapters.find(
-    (item) => item.slug === game.progress.current_chapter_slug,
+const orderedChapters = (content: ShooterContent): readonly ShooterChapterContent[] =>
+  [...content.chapters].sort((left, right) => left.order - right.order);
+
+const defaultCharacterForChapter = (
+  chapter: ShooterChapterContent | undefined,
+  content: ShooterContent,
+  unlockedCharacterIDs: ReadonlySet<string>,
+): string => {
+  const featured = content.characters.find(
+    (character) => character.id === chapter?.featured_character,
   );
-  if (!chapter || !current || !chapter.available) return false;
-  if (game.progress.chapters.some((item) => item.chapter_slug === chapterSlug)) {
-    return true;
+  if (featured && chapter?.featured_character !== "player-choice") {
+    return featured.id;
   }
-  return chapter.order <= current.order;
+  return (
+    content.characters.find((character) =>
+      unlockedCharacterIDs.has(character.id),
+    )?.id ??
+    content.characters[0]?.id ??
+    ""
+  );
 };
 
 export const HubScreen = ({
@@ -42,298 +56,290 @@ export const HubScreen = ({
   busy,
   onStartCampaign,
   onStartDaily,
-}: HubScreenProps) => {
-  const initialChapter = chapterUnlocked(
-    content,
-    game,
-    game.progress.current_chapter_slug,
-  )
-    ? game.progress.current_chapter_slug
-    : (content.chapters[0]?.slug ?? "");
-  const [selectedChapterSlug, setSelectedChapterSlug] = useState(initialChapter);
-  const [selectedCharacterSlug, setSelectedCharacterSlug] = useState("");
-  const [noise, setNoise] = useState(0);
-
-  const chapter =
-    content.chapters.find((item) => item.slug === selectedChapterSlug) ??
-    content.chapters[0];
-  const completedCharacters = useMemo(() => {
-    const cleared = new Set(
-      game.progress.chapters
-        .filter((item) => item.clears > 0)
-        .map((item) => item.chapter_slug),
-    );
-    return content.characters.filter((character) =>
-      content.chapters.some(
-        (item) =>
-          item.character_slug === character.slug && cleared.has(item.slug),
+}: Props) => {
+  const audio = useAudio();
+  const chapters = useMemo(() => orderedChapters(content), [content]);
+  const currentChapter = chapters.find(
+    (chapter) => chapter.id === game.progress.current_chapter_slug,
+  ) ?? chapters[0];
+  const [selectedChapterID, setSelectedChapterID] = useState(
+    currentChapter?.id ?? "",
+  );
+  const selectedChapter =
+    chapters.find((chapter) => chapter.id === selectedChapterID) ?? currentChapter;
+  const unlockedChapterIDs = useMemo(
+    () =>
+      new Set([
+        game.progress.current_chapter_slug,
+        ...game.progress.chapters
+          .filter((chapter) => chapter.clears > 0)
+          .map((chapter) => chapter.chapter_slug),
+      ]),
+    [game.progress],
+  );
+  const unlockedCharacterIDs = useMemo(
+    () =>
+      new Set(
+        game.progress.unlocks
+          .filter((unlock) => unlock.type === "character")
+          .map((unlock) => unlock.content_slug),
       ),
-    );
-  }, [content, game.progress.chapters]);
-  const chapterCharacter = content.characters.find(
-    (item) => item.slug === chapter?.character_slug,
+    [game.progress.unlocks],
   );
-  const character = chapter?.finale
-    ? (completedCharacters.find(
-        (item) => item.slug === selectedCharacterSlug,
-      ) ?? completedCharacters[0])
-    : chapterCharacter;
+  const unlockedCompanionIDs = useMemo(
+    () =>
+      new Set(
+        game.progress.unlocks
+          .filter((unlock) => unlock.type === "companion")
+          .map((unlock) => unlock.content_slug),
+      ),
+    [game.progress.unlocks],
+  );
+  const unlockedCharacters = content.characters.filter((character) =>
+    unlockedCharacterIDs.has(character.id),
+  );
+  const unlockedCompanions = content.companions.filter((companion) =>
+    unlockedCompanionIDs.has(companion.id),
+  );
+  const defaultCharacter = defaultCharacterForChapter(
+    selectedChapter,
+    content,
+    unlockedCharacterIDs,
+  );
+  const [selectedCharacterID, setSelectedCharacterID] = useState(defaultCharacter);
+  const [selectedCompanionID, setSelectedCompanionID] = useState("");
+  const [encoreLevel, setEncoreLevel] = useState(0);
   const chapterProgress = game.progress.chapters.find(
-    (item) => item.chapter_slug === chapter?.slug,
+    (chapter) => chapter.chapter_slug === selectedChapter?.id,
   );
-  const maximumNoise = Math.min(
+  const maxEncore = Math.min(
     3,
-    chapterProgress?.highest_noise_level ??
-      (chapter?.slug === game.progress.current_chapter_slug
-        ? game.progress.highest_noise_level
-        : 0),
+    chapterProgress?.highest_encore_level ?? 0,
   );
-  const effectiveNoise = Math.min(noise, maximumNoise);
+  const character =
+    content.characters.find((candidate) => candidate.id === selectedCharacterID) ??
+    content.characters.find((candidate) => candidate.id === defaultCharacter);
 
-  if (!chapter || !character) return null;
+  const selectChapter = (chapter: ShooterChapterContent) => {
+    setSelectedChapterID(chapter.id);
+    setSelectedCharacterID(
+      defaultCharacterForChapter(chapter, content, unlockedCharacterIDs),
+    );
+    setEncoreLevel(0);
+    setSelectedCompanionID("");
+  };
+
+  if (!selectedChapter || !character) {
+    return (
+      <main className="grid min-h-[var(--xuhuan-stable-height,100dvh)] place-items-center bg-[#02050e] text-slate-200">
+        {gameText(locale, "maintenanceError")}
+      </main>
+    );
+  }
+
+  const cleared = chapterProgress?.clears ?? 0;
+  const isFinale = selectedChapter.id === "zero-channel";
+  const canSelectCharacter =
+    (cleared > 0 || isFinale) && unlockedCharacters.length > 1;
+  const storyMessages = (
+    cleared > 0
+      ? selectedChapter.story.replay_recap
+      : selectedChapter.story.prelude
+  ).slice(0, 3);
+  const onlineCount = Math.min(
+    8,
+    1 +
+      game.progress.chapters.filter(
+        (progress) =>
+          progress.clears > 0 && progress.chapter_slug !== "zero-channel",
+      ).length,
+  );
 
   return (
     <main
       data-game-surface="true"
-      className="mx-auto min-h-[var(--xuhuan-stable-height,100dvh)] w-full max-w-lg overflow-hidden bg-[#060b15] text-white"
+      className="relative min-h-[var(--xuhuan-stable-height,100dvh)] overflow-hidden bg-[#02050e] text-white"
     >
-      <section className="relative min-h-[22rem] overflow-hidden border-b-2 border-cyan-300/20 px-5 pb-5 pt-[var(--xuhuan-host-safe-top)]">
-        <Image
-          src={chapter.background_url}
-          alt=""
-          fill
-          sizes="512px"
-          className="object-cover opacity-65 [image-rendering:pixelated]"
-          priority
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,.1),rgba(2,6,23,.5)_58%,#060b15),radial-gradient(circle_at_82%_32%,rgba(168,85,247,.28),transparent_35%)]" />
-        <div className="absolute -right-8 bottom-0 h-72 w-64 opacity-90">
-          <Image
-            src={character.portrait_url}
-            alt={character.name}
-            fill
-            sizes="256px"
-            unoptimized
-            className="object-contain object-bottom drop-shadow-[0_0_24px_rgba(103,232,249,.28)] [image-rendering:pixelated]"
-            priority
-          />
-        </div>
-        <div className="relative z-[1] max-w-[66%]">
-          <div className="mb-7 flex items-center gap-2 text-xs text-emerald-300">
-            <span className="h-2 w-2 bg-emerald-400 shadow-[0_0_10px_#34d399]" />
-            {gameText(locale, "online")}
-          </div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-200">
-            CH {String(chapter.order).padStart(2, "0")}{" // "}{gameText(locale, "chapter")}
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-45"
+        style={{ backgroundImage: `url(${selectedChapter.background_url})` }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#02050e]/80 via-[#02050e]/35 to-[#02050e]" />
+      <section className="relative mx-auto flex min-h-[var(--xuhuan-stable-height,100dvh)] w-full max-w-md flex-col px-4 pb-[var(--xuhuan-host-safe-bottom)] pt-[calc(var(--xuhuan-host-safe-top)+2.5rem)]">
+        <header className="pr-9">
+          <p className="font-mono text-[9px] font-bold tracking-[.28em] text-cyan-200">
+            {gameText(locale, "backstage")} · {formatGameText(locale, "online", { current: onlineCount })}
           </p>
-          <h1 className="mt-2 text-3xl font-black leading-tight drop-shadow-lg">
-            {chapter.title}
+          <h1 className="mt-2 text-[clamp(1.8rem,9vw,2.7rem)] font-black leading-[.95] tracking-tight">
+            {selectedChapter.title}
           </h1>
-          <p className="mt-2 text-sm leading-5 text-slate-200">
-            {chapter.subtitle}
+          <p className="mt-2 max-w-sm text-sm leading-5 text-slate-300">
+            {selectedChapter.subtitle}
           </p>
-          <span className="mt-4 inline-flex border border-white/20 bg-black/45 px-2.5 py-1 font-mono text-[10px] text-slate-200">
-            {gameText(locale, "runLength")}
-          </span>
-        </div>
-      </section>
+        </header>
 
-      <div className="space-y-6 px-4 py-5 pb-[var(--xuhuan-host-safe-bottom)]">
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-slate-300">
-              {gameText(locale, "chapters")}
-            </h2>
-            {game.progress.ending ? (
-              <span className="border border-violet-300/30 bg-violet-400/10 px-2 py-1 font-mono text-[9px] text-violet-200">
-                {gameText(locale, "ending")}: {game.progress.ending}
+        <div className="mt-3 space-y-1.5" data-testid="chapter-intro-feed">
+          {storyMessages.map((message, index) => (
+            <div
+              key={`${message.sender}-${index}`}
+              className="max-w-[92%] border border-white/10 bg-[#101d2d]/90 px-2.5 py-1.5 text-[11px] leading-4 text-slate-100"
+            >
+              <span className="mr-2 font-mono text-[8px] font-bold text-cyan-300">
+                {message.sender}
               </span>
-            ) : null}
-          </div>
-          <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-2">
-            {content.chapters.map((item) => {
-              const unlocked = chapterUnlocked(content, game, item.slug);
-              const progress = game.progress.chapters.find(
-                (entry) => entry.chapter_slug === item.slug,
-              );
-              const selected = item.slug === chapter.slug;
-              return (
-                <button
-                  key={item.slug}
-                  data-testid={`chapter-${item.slug}`}
-                  type="button"
-                  disabled={!unlocked}
-                  onClick={() => {
-                    setSelectedChapterSlug(item.slug);
-                    setNoise(0);
-                  }}
-                  className={`w-36 shrink-0 snap-start border-2 p-3 text-left transition disabled:opacity-35 ${selected ? "border-cyan-200 bg-cyan-300 text-slate-950 shadow-[3px_3px_0_#7c3aed]" : "border-slate-700 bg-[#0b1424] text-slate-200"}`}
-                >
-                  <span className="font-mono text-[9px] font-bold">
-                    {unlocked
-                      ? progress?.clears
-                        ? gameText(locale, "cleared")
-                        : gameText(locale, "current")
-                      : gameText(locale, "locked")}
-                  </span>
-                  <strong className="mt-2 block line-clamp-2 text-xs leading-4">
-                    {item.title}
-                  </strong>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {chapter.finale ? (
-          <section>
-            <h2 className="text-sm font-bold">{gameText(locale, "selectPilot")}</h2>
-            <p className="mt-1 text-xs text-slate-500">
-              {gameText(locale, "finalePilotHint")}
-            </p>
-            <div className="mt-3 grid grid-cols-7 gap-2">
-              {completedCharacters.map((item) => {
-                const selected = item.slug === character.slug;
-                return (
-                  <button
-                    key={item.slug}
-                    data-testid={`pilot-${item.slug}`}
-                    type="button"
-                    onClick={() => setSelectedCharacterSlug(item.slug)}
-                    className={`relative aspect-square overflow-hidden border-2 ${selected ? "border-cyan-200 bg-cyan-300/15" : "border-white/10 bg-white/5"}`}
-                    aria-label={item.name}
-                  >
-                    <Image
-                      src={item.portrait_url}
-                      alt=""
-                      fill
-                      sizes="52px"
-                      unoptimized
-                      className="object-contain [image-rendering:pixelated]"
-                    />
-                  </button>
-                );
-              })}
+              {message.text}
             </div>
-          </section>
-        ) : null}
+          ))}
+        </div>
 
-        <section>
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold">{gameText(locale, "noise")}</h2>
-            <span className="font-mono text-xs text-cyan-200">N-{effectiveNoise}</span>
+        <div className="mt-4 flex min-h-0 flex-1 items-end justify-center">
+          <div className="relative h-[min(45vh,20rem)] w-[min(72vw,18rem)]">
+            <Image
+              src={character.portrait_url}
+              alt={character.name}
+              fill
+              priority
+              sizes="(max-width: 480px) 72vw, 288px"
+              className="object-contain object-bottom [image-rendering:pixelated] drop-shadow-[0_0_24px_rgba(103,232,249,.28)]"
+            />
           </div>
-          <div className="mt-3 grid grid-cols-4 gap-2">
-            {[0, 1, 2, 3].map((level) => {
-              const enabled = level <= maximumNoise;
-              return (
+        </div>
+
+        <div className="border border-cyan-200/25 bg-[#06101f]/92 p-3 shadow-[5px_5px_0_rgba(67,56,202,.35)] backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-base font-black">{character.name}</p>
+              <p className="mt-0.5 truncate text-[11px] text-slate-400">
+                {gameText(locale, "startHintV4")}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label={gameText(locale, audio.muted ? "unmuteAudio" : "muteAudio")}
+              onClick={audio.toggleMuted}
+              className="grid h-8 w-8 shrink-0 place-items-center border border-white/15 bg-slate-900/80 text-xs text-slate-200"
+            >
+              {audio.muted ? "×" : "♪"}
+            </button>
+          </div>
+
+          {canSelectCharacter ? (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label={gameText(locale, "selectPilot")}>
+              {unlockedCharacters.map((candidate) => (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  data-testid={`pilot-${candidate.id}`}
+                  onClick={() => setSelectedCharacterID(candidate.id)}
+                  className={`shrink-0 border px-2 py-1 text-[10px] font-bold ${candidate.id === character.id ? "border-cyan-200 bg-cyan-300/20 text-cyan-50" : "border-white/15 bg-white/5 text-slate-400"}`}
+                >
+                  {candidate.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {cleared > 0 && unlockedCompanions.length > 0 ? (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label={gameText(locale, "selectCompanion")}>
+              <button
+                type="button"
+                onClick={() => setSelectedCompanionID("")}
+                aria-pressed={selectedCompanionID === ""}
+                className={`shrink-0 border px-2 py-1 text-[10px] font-bold ${selectedCompanionID === "" ? "border-pink-200 bg-pink-300/20 text-pink-50" : "border-white/15 bg-white/5 text-slate-400"}`}
+              >
+                {gameText(locale, "noCompanion")}
+              </button>
+              {unlockedCompanions.map((companion) => (
+                <button
+                  key={companion.id}
+                  type="button"
+                  data-testid={`companion-${companion.id}`}
+                  onClick={() => setSelectedCompanionID(companion.id)}
+                  aria-pressed={selectedCompanionID === companion.id}
+                  className={`shrink-0 border px-2 py-1 text-[10px] font-bold ${selectedCompanionID === companion.id ? "border-pink-200 bg-pink-300/20 text-pink-50" : "border-white/15 bg-white/5 text-slate-400"}`}
+                >
+                  {companion.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {cleared > 0 && maxEncore > 0 ? (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="font-mono text-[9px] tracking-wider text-slate-400">
+                {gameText(locale, "encore")}
+              </span>
+              {Array.from({ length: maxEncore + 1 }, (_, level) => (
                 <button
                   key={level}
                   type="button"
-                  disabled={!enabled}
-                  onClick={() => setNoise(level)}
-                  className={`border-2 py-3 font-mono text-sm font-black transition ${effectiveNoise === level ? "border-cyan-200 bg-cyan-300 text-slate-950 shadow-[2px_2px_0_#7c3aed]" : enabled ? "border-white/15 bg-white/5 text-white" : "border-white/5 bg-white/[0.02] text-slate-700"}`}
+                  onClick={() => setEncoreLevel(level)}
+                  className={`h-7 w-7 border font-mono text-[10px] ${encoreLevel === level ? "border-amber-200 bg-amber-300 text-slate-950" : "border-white/15 bg-white/5 text-slate-300"}`}
                 >
                   {level}
                 </button>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            {gameText(locale, "noiseHint")}
-          </p>
-        </section>
-
-        <button
-          data-testid="start-campaign"
-          type="button"
-          disabled={busy || !chapterUnlocked(content, game, chapter.slug)}
-          onClick={() => onStartCampaign(chapter.slug, character.slug, effectiveNoise)}
-          className="group relative w-full overflow-hidden bg-gradient-to-r from-cyan-300 via-sky-400 to-violet-400 px-5 py-4 text-left text-slate-950 shadow-[5px_5px_0_rgba(91,33,182,.75)] transition active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50"
-        >
-          <span className="block text-base font-black">
-            {gameText(locale, "start")}
-          </span>
-          <span className="mt-1 block pr-8 text-xs opacity-75">
-            {character.playstyle}
-          </span>
-          <span className="absolute right-5 top-1/2 -translate-y-1/2 text-2xl">→</span>
-        </button>
-
-        <section className="border-2 border-violet-300/25 bg-violet-500/[.07] p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-black text-violet-100">
-                {gameText(locale, "daily")}
-              </h2>
-              <p className="mt-1 text-xs leading-5 text-slate-400">
-                {game.progress.daily_unlocked
-                  ? gameText(locale, "dailyHint")
-                  : gameText(locale, "dailyLocked")}
-              </p>
-            </div>
-            <span className="font-mono text-xs text-violet-200">UTC</span>
-          </div>
-          {game.daily_result ? (
-            <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-[10px]">
-              <span className="border border-white/10 bg-black/20 p-2 text-slate-400">
-                {gameText(locale, "score")}
-                <b className="float-right text-cyan-100">
-                  {game.daily_result.score}
-                </b>
-              </span>
-              <span className="border border-white/10 bg-black/20 p-2 text-slate-400">
-                {gameText(locale, "dailyStreak")}
-                <b className="float-right text-violet-100">
-                  {game.daily_result.streak}
-                </b>
-              </span>
+              ))}
             </div>
           ) : null}
-          <button
-            data-testid="start-daily"
-            type="button"
-            disabled={busy || !game.progress.daily_unlocked}
-            onClick={onStartDaily}
-            className="mt-3 w-full border-2 border-violet-300/35 bg-violet-400/15 py-3 font-mono text-[10px] font-bold tracking-[.15em] text-violet-100 disabled:opacity-30"
-          >
-            {gameText(locale, "daily")}
-          </button>
-        </section>
 
-        <section>
-          <h2 className="mb-3 text-sm font-bold">{gameText(locale, "roster")}</h2>
-          <div className="grid grid-cols-7 gap-2">
-            {content.characters.map((item) => {
-              const unlocked = completedCharacters.some(
-                (entry) => entry.slug === item.slug,
-              ) || item.slug === "nana7mi";
-              return (
-                <div key={item.slug} className="text-center">
-                  <div
-                    className={`relative mx-auto aspect-square overflow-hidden border-2 ${unlocked ? "border-cyan-300/60" : "border-white/10 grayscale"}`}
-                  >
-                    <Image
-                      src={item.portrait_url}
-                      alt={item.name}
-                      fill
-                      sizes="52px"
-                      unoptimized
-                      className="object-contain [image-rendering:pixelated]"
-                    />
-                    {!unlocked ? (
-                      <span className="absolute inset-0 grid place-items-center bg-black/55 text-[10px]">⌁</span>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 truncate text-[9px] text-slate-400">
-                    {item.name}
-                  </p>
-                </div>
-              );
-            })}
+          <button
+            type="button"
+            data-testid="start-campaign"
+            disabled={busy}
+            onClick={() => onStartCampaign(selectedChapter.id, character.id, encoreLevel, selectedCompanionID || undefined)}
+            className="mt-3 w-full bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 px-5 py-3 text-sm font-black tracking-[.12em] text-slate-950 shadow-[4px_4px_0_rgba(14,116,144,.45)] active:translate-x-px active:translate-y-px active:shadow-none disabled:opacity-50"
+          >
+            {busy ? gameText(locale, "connectingShort") : gameText(locale, "goLive")}
+          </button>
+          {cleared > 0 ? (
+            <p className="mt-2 text-center font-mono text-[8px] text-slate-500">
+              {formatGameText(locale, "chapterClearCount", { count: cleared })}
+            </p>
+          ) : null}
+        </div>
+
+        <nav className="mt-3 flex justify-center gap-1.5" aria-label={gameText(locale, "chapters")}>
+          {chapters.map((chapter) => {
+            const unlocked = unlockedChapterIDs.has(chapter.id);
+            return (
+              <button
+                key={chapter.id}
+                type="button"
+                data-testid={`chapter-${chapter.id}`}
+                disabled={!unlocked}
+                aria-label={chapter.title}
+                onClick={() => selectChapter(chapter)}
+                className={`h-2.5 w-6 border ${chapter.id === selectedChapter.id ? "border-cyan-100 bg-cyan-300" : unlocked ? "border-cyan-300/40 bg-cyan-300/15" : "border-slate-800 bg-slate-900"}`}
+              />
+            );
+          })}
+        </nav>
+
+        {game.progress.daily_unlocked ? (
+          <div className="mt-3 border border-pink-200/25 bg-pink-300/10 p-2">
+            <button
+              type="button"
+              data-testid="start-daily"
+              disabled={busy}
+              onClick={onStartDaily}
+              className="w-full px-2 py-1 font-mono text-[10px] font-bold tracking-wider text-pink-100 disabled:opacity-50"
+            >
+              {content.daily.title}
+            </button>
+            {game.daily_result ? (
+              <p
+                data-testid="daily-best-summary"
+                className="mt-1 text-center font-mono text-[8px] tracking-wider text-pink-200/70"
+              >
+                {formatGameText(locale, "dailyBestSummary", {
+                  score: game.daily_result.score,
+                  streak: game.daily_result.streak,
+                })}
+              </p>
+            ) : null}
           </div>
-        </section>
-      </div>
+        ) : null}
+      </section>
     </main>
   );
 };
