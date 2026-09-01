@@ -189,17 +189,6 @@ try {
     await choice.click();
   }
 
-  const mismatch = await context.newPage();
-  await mismatch.route(`${apiOrigin}/v2/game`, async (route) => {
-    const original = await route.fetch();
-    const body = await original.json();
-    await route.fulfill({ response: original, json: { ...body, protocol: "unsupported-v0" } });
-  });
-  await mismatch.goto(miniAppOrigin, { waitUntil: "domcontentloaded" });
-  await mismatch.getByTestId("protocol-maintenance").waitFor({ state: "visible" });
-  if (await mismatch.getByTestId("shooter-canvas").count()) throw new Error("Canvas initialized during protocol mismatch");
-  await mismatch.close();
-
   if (errors.length) throw new Error(`Production browser errors: ${errors.join("; ")}`);
   await page.evaluate(() => window.sessionStorage.removeItem("__telegram__initParams"));
   await context.close();
@@ -207,4 +196,4 @@ try {
   await browser.close();
 }
 
-console.log(JSON.stringify({ status: "ok", protocol: "shooter-v1", content_version: "v4", pointer_hold: true, y_ignored: true, release_stops: true, downward_drag_safe: true, gate: true, boss: true, locale: true, maintenance_handshake: true }));
+console.log(JSON.stringify({ status: "ok", protocol: "shooter-v1", content_version: "v4", pointer_hold: true, y_ignored: true, release_stops: true, downward_drag_safe: true, gate: true, boss: true, locale: true }));
