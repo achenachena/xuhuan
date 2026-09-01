@@ -3,6 +3,7 @@
 package run
 
 import (
+	"fmt"
 	"testing"
 
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
@@ -63,6 +64,80 @@ func TestReleaseSmokeAutoplayClearsCampaignAndDaily(t *testing.T) {
 		if outcome == nil || *outcome != Cleared {
 			t.Fatalf("daily %s outcome=%v", characterID, outcome)
 		}
+	}
+}
+
+func TestReleaseSmokeAutoplayClearsSeededCampaignOffers(t *testing.T) {
+	catalog := gamecontent.MustLoadV4()
+	for seedIndex := 0; seedIndex < 8; seedIndex++ {
+		for _, chapter := range catalog.Chapters {
+			chapter := chapter
+			t.Run(fmt.Sprintf("seed-%02d/%s", seedIndex, chapter.ID), func(t *testing.T) {
+				characterID := chapter.FeaturedCharacter
+				if characterID == "player-choice" {
+					characterID = "nana7mi"
+				}
+				seed := fmt.Sprintf("release-smoke-sweep:%d:%s", seedIndex, chapter.ID)
+				state, err := NewState(StartInput{
+					ChapterSlug: chapter.ID, CharacterSlug: characterID,
+					Seed: seed, Mode: CampaignMode,
+				}, catalog)
+				if err != nil {
+					t.Fatalf("start: %v", err)
+				}
+				_, outcome := driveAuthoritySmokeRun(t, state, seed, CampaignMode, catalog)
+				if outcome == nil || *outcome != Cleared {
+					t.Fatalf("outcome=%v", outcome)
+				}
+			})
+		}
+	}
+}
+
+func TestReleaseSmokeAutoplayClearsKnownLegalLowDamageBuilds(t *testing.T) {
+	catalog := gamecontent.MustLoadV4()
+	fixtures := []struct {
+		name, chapter, character, companion, choice string
+		effects                                     []string
+	}{
+		{
+			name: "reality-auditor-piercing-build", chapter: "laplace-florist", character: "nailu",
+			companion: "bella-assist", choice: "recreate-photo-later",
+			effects: []string{"clean-cut", "sticky-comment", "safety-chat"},
+		},
+		{
+			name: "approved-translation-spread-build", chapter: "localization-failed", character: "lulu",
+			companion: "xiangwan-assist", choice: "post-caption-correction",
+			effects: []string{"double-take", "wide-angle", "safety-chat"},
+		},
+	}
+	for _, fixture := range fixtures {
+		fixture := fixture
+		t.Run(fixture.name, func(t *testing.T) {
+			chapter, ok := catalog.Chapter(fixture.chapter)
+			if !ok {
+				t.Fatalf("missing chapter %s", fixture.chapter)
+			}
+			state := State{
+				ChapterSlug: fixture.chapter, CharacterSlug: fixture.character,
+				CompanionSlugs: []string{fixture.companion}, ShowEffects: fixture.effects,
+				SelectedChoiceIDs: []string{fixture.choice}, Hearts: 3, MaxHearts: 3,
+				SegmentIndex: bossSegmentIndex,
+			}
+			seed := "release-smoke-regression:" + fixture.name
+			config, err := buildShooterConfig(state, catalog, seed, chapter.Boss.DurationTicks, gamecontent.V4Wave{}, &chapter.Boss, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			trace, err := shooter.BuildSmokeTrace(config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := shooter.Simulate(config, trace)
+			if err != nil || !result.Won {
+				t.Fatalf("result=%#v err=%v", result, err)
+			}
+		})
 	}
 }
 
