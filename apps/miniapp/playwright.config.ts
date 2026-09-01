@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const browserChannel = process.env.PLAYWRIGHT_CHANNEL === "chrome" ? "chrome" : undefined;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -26,13 +28,14 @@ export default defineConfig({
         ...devices["Pixel 5"],
         viewport: { width: 320, height: 568 },
         hasTouch: true,
+        channel: browserChannel,
       },
     },
     {
       name: "mobile-chromium",
       use: {
         ...devices["Pixel 7"],
-        channel: process.env.PLAYWRIGHT_CHANNEL === "chrome" ? "chrome" : undefined
+        channel: browserChannel
       }
     }
   ]
