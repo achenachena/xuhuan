@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -16,14 +19,23 @@ import (
 const migrationCommandTimeout = 6 * time.Minute
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(os.Args[1:]); err != nil {
 		slog.Error("migration_failed", "error", err)
 		os.Exit(1)
 	}
 	slog.Info("migrations_complete")
 }
 
-func run() error {
+func run(args []string) error {
+	flags := flag.NewFlagSet("migrate", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	target := flags.Int64("target", 0, "last migration version to apply (zero applies all)")
+	if err := flags.Parse(args); err != nil {
+		return fmt.Errorf("parse migration flags: %w", err)
+	}
+	if *target < 0 || flags.NArg() != 0 {
+		return errors.New("-target must be a non-negative migration version and no positional arguments are allowed")
+	}
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		return errors.New("DATABASE_URL is required")
@@ -37,5 +49,5 @@ func run() error {
 		return err
 	}
 	defer database.Close()
-	return database.Migrate(ctx, migrations.Files)
+	return database.MigrateTo(ctx, migrations.Files, *target)
 }

@@ -36,7 +36,7 @@ export const getPublicDailyResult = cache(
 export const getPublicGameContent = cache(
   (locale: "en" | "zh-CN"): Promise<APIGameContent | null> =>
     publicRequest<APIGameContent>(
-      `/v2/content/v3?locale=${encodeURIComponent(locale)}`,
+      `/v2/content/v4?locale=${encodeURIComponent(locale)}`,
       31_536_000,
     ),
 );

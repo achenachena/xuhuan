@@ -51,6 +51,18 @@ jobs:
         run: go vet ./...
       - name: Unit and OpenAPI contract tests
         run: go test -race ./...
+      - name: Verify release-only authority trace helper
+        run: |
+          if go list -f '{{range .GoFiles}}{{println .}}{{end}}' ./internal/shooter | grep -qx 'smoke_autoplay.go'; then
+            echo "::error::Smoke autoplay was included in the ordinary shooter build"
+            exit 1
+          fi
+          if go list ./... | grep -qx '.*/cmd/smoke-trace'; then
+            echo "::error::Smoke trace command was included in the ordinary module package list"
+            exit 1
+          fi
+          go test -race -tags smoke ./internal/shooter ./cmd/smoke-trace
+          go build -tags smoke -trimpath -o "$RUNNER_TEMP/xuhuan-smoke-trace" ./cmd/smoke-trace
       - name: Build API commands
         run: go build ./cmd/api ./cmd/migrate ./cmd/lambda
       - name: Build arm64 Lambda bootstrap
@@ -114,6 +126,8 @@ jobs:
         run: npm run check:english-source
       - name: Verify immutable content assets
         run: npm run check:content-assets
+      - name: Reject retired Action V3 runtime and protocol
+        run: npm run check:v4-cleanup
       - name: Verify generated OpenAPI types
         run: npm run check:api-types --workspace @xuhuan/miniapp
       - name: Frontend tests

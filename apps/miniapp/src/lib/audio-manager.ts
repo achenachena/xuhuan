@@ -1,113 +1,124 @@
-import { env } from "@/lib/env";
+export type SoundEffectType =
+  | "pickup"
+  | "hit"
+  | "shield"
+  | "combo"
+  | "rescue"
+  | "bossWarning"
+  | "gateSelect"
+  | "victory"
+  | "defeat";
 
-export type SoundEffectType = "specialMove" | "damage" | "victory" | "defeat";
-
-type AudioFiles = {
-  readonly battleBgm: string | null;
-  readonly specialMove: string | null;
-  readonly damage: string | null;
-  readonly victory: string | null;
-  readonly defeat: string | null;
+type Tone = {
+  readonly frequency: number;
+  readonly duration: number;
+  readonly offset?: number;
+  readonly volume?: number;
+  readonly wave?: OscillatorType;
 };
 
-const soundTypes: readonly SoundEffectType[] = ["specialMove", "damage", "victory", "defeat"];
+const sounds: Record<SoundEffectType, readonly Tone[]> = {
+  pickup: [
+    { frequency: 660, duration: 0.05, volume: 0.035 },
+    { frequency: 990, duration: 0.08, offset: 0.045, volume: 0.03 },
+  ],
+  hit: [{ frequency: 105, duration: 0.09, volume: 0.055, wave: "square" }],
+  shield: [
+    { frequency: 290, duration: 0.08, volume: 0.04, wave: "triangle" },
+    { frequency: 580, duration: 0.1, offset: 0.04, volume: 0.025 },
+  ],
+  combo: [
+    { frequency: 720, duration: 0.05, volume: 0.03 },
+    { frequency: 960, duration: 0.05, offset: 0.035, volume: 0.03 },
+    { frequency: 1_280, duration: 0.08, offset: 0.07, volume: 0.025 },
+  ],
+  rescue: [
+    { frequency: 180, duration: 0.2, volume: 0.055, wave: "sawtooth" },
+    { frequency: 420, duration: 0.22, offset: 0.04, volume: 0.04 },
+    { frequency: 840, duration: 0.25, offset: 0.09, volume: 0.035 },
+  ],
+  bossWarning: [
+    { frequency: 140, duration: 0.12, volume: 0.045, wave: "square" },
+    { frequency: 140, duration: 0.12, offset: 0.18, volume: 0.045, wave: "square" },
+  ],
+  gateSelect: [
+    { frequency: 410, duration: 0.07, volume: 0.035, wave: "triangle" },
+    { frequency: 820, duration: 0.14, offset: 0.05, volume: 0.03 },
+  ],
+  victory: [
+    { frequency: 523, duration: 0.12, volume: 0.035 },
+    { frequency: 659, duration: 0.12, offset: 0.1, volume: 0.035 },
+    { frequency: 784, duration: 0.24, offset: 0.2, volume: 0.04 },
+  ],
+  defeat: [
+    { frequency: 260, duration: 0.12, volume: 0.035, wave: "triangle" },
+    { frequency: 180, duration: 0.3, offset: 0.1, volume: 0.04, wave: "triangle" },
+  ],
+};
 
-const withTrailingSlash = (url: string): string => (url.endsWith("/") ? url : `${url}/`);
-
-const resolveAudioURL = (
-  baseURL: string | undefined,
-  override: string | undefined,
-  filename: string,
-): string | null => override ?? (baseURL ? `${withTrailingSlash(baseURL)}${filename}` : null);
+const muteStorageKey = "xuhuan.audio-muted.v1";
 
 class AudioManager {
-  private readonly files: AudioFiles;
-  private readonly soundPool = new Map<SoundEffectType, HTMLAudioElement[]>();
-  private bgmAudio: HTMLAudioElement | null = null;
-  private currentBgmURL: string | null = null;
-  private initialized = false;
-  private userInteracted = false;
+  private context: AudioContext | null = null;
+  private interacted = false;
+  private muted = false;
 
   constructor() {
-    const baseURL = env.NEXT_PUBLIC_AUDIO_BASE_URL;
-    this.files = {
-      battleBgm: resolveAudioURL(baseURL, env.NEXT_PUBLIC_AUDIO_BGM, "battle-bgm.mp3"),
-      specialMove: resolveAudioURL(
-        baseURL,
-        env.NEXT_PUBLIC_AUDIO_SPECIAL_MOVE,
-        "specialMove.mp3",
-      ),
-      damage: resolveAudioURL(baseURL, env.NEXT_PUBLIC_AUDIO_DAMAGE, "damage.mp3"),
-      victory: resolveAudioURL(baseURL, env.NEXT_PUBLIC_AUDIO_VICTORY, "victory.mp3"),
-      defeat: resolveAudioURL(baseURL, env.NEXT_PUBLIC_AUDIO_DEFEAT, "defeat.mp3"),
-    };
+    if (typeof window !== "undefined") {
+      this.muted = window.localStorage.getItem(muteStorageKey) === "true";
+    }
   }
 
   markUserInteracted(): void {
-    if (this.userInteracted) return;
-    this.userInteracted = true;
-    this.initialize();
+    this.interacted = true;
   }
 
-  playBattleBGM(loop = true): void {
-    const url = this.files.battleBgm;
-    if (!this.userInteracted || !url) return;
-    if (this.currentBgmURL === url && this.bgmAudio && !this.bgmAudio.paused) return;
-
-    this.stopBGM();
-    const audio = this.createAudio(url);
-    if (!audio) return;
-    audio.volume = 0.5;
-    audio.loop = loop;
-    this.bgmAudio = audio;
-    this.currentBgmURL = url;
-    void audio.play().catch(() => {
-      if (this.bgmAudio === audio) {
-        this.bgmAudio = null;
-        this.currentBgmURL = null;
-      }
-    });
+  isMuted(): boolean {
+    return this.muted;
   }
 
-  stopBGM(): void {
-    this.bgmAudio?.pause();
-    if (this.bgmAudio) this.bgmAudio.currentTime = 0;
-    this.bgmAudio = null;
-    this.currentBgmURL = null;
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(muteStorageKey, String(muted));
+    }
   }
 
   playSound(type: SoundEffectType): void {
-    if (!this.userInteracted) return;
-    const pool = this.soundPool.get(type);
-    if (!pool?.length) return;
-    const audio = pool.find((candidate) => candidate.paused || candidate.ended) ?? pool[0];
-    if (!audio) return;
-    audio.currentTime = 0;
-    audio.volume = 0.7;
-    void audio.play().catch(() => undefined);
+    if (!this.interacted || this.muted || typeof window === "undefined") return;
+    const context = this.audioContext();
+    if (!context) return;
+    if (context.state === "suspended") void context.resume().catch(() => undefined);
+    const start = context.currentTime;
+    for (const tone of sounds[type]) this.playTone(context, start, tone);
   }
 
-  private initialize(): void {
-    if (this.initialized) return;
-    this.initialized = true;
-    for (const type of soundTypes) {
-      const url = this.files[type];
-      if (!url) continue;
-      const pool = Array.from({ length: 3 }, () => this.createAudio(url)).filter(
-        (audio): audio is HTMLAudioElement => audio !== null,
-      );
-      if (pool.length > 0) this.soundPool.set(type, pool);
-    }
-  }
-
-  private createAudio(source: string): HTMLAudioElement | null {
+  private audioContext(): AudioContext | null {
+    if (this.context) return this.context;
+    const Constructor = window.AudioContext;
+    if (!Constructor) return null;
     try {
-      const audio = new Audio(source);
-      audio.preload = "auto";
-      return audio;
+      this.context = new Constructor({ latencyHint: "interactive" });
     } catch {
-      return null;
+      this.context = null;
     }
+    return this.context;
+  }
+
+  private playTone(context: AudioContext, start: number, tone: Tone): void {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const begins = start + (tone.offset ?? 0);
+    const ends = begins + tone.duration;
+    oscillator.type = tone.wave ?? "sine";
+    oscillator.frequency.setValueAtTime(tone.frequency, begins);
+    gain.gain.setValueAtTime(0.0001, begins);
+    gain.gain.exponentialRampToValueAtTime(tone.volume ?? 0.03, begins + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ends);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(begins);
+    oscillator.stop(ends + 0.01);
   }
 }
 

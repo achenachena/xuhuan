@@ -22,32 +22,10 @@ const externalURLValidator = optionalString(
   z.string().refine(isSafeExternalURL, "Must be a safe HTTP(S) URL")
 );
 
-const urlOrPathValidator = optionalString(
-  z.string().refine(
-    (value) => (value.startsWith("/") && !value.startsWith("//")) || isSafeExternalURL(value),
-    "Must be a safe HTTP(S) URL or an absolute path"
-  )
-);
-
 const envSchema = z.object({
-  NEXT_PUBLIC_API_URL: externalURLValidator,
-  // Base URL for all audio files (if all files are in the same location)
-  NEXT_PUBLIC_AUDIO_BASE_URL: urlOrPathValidator,
-  // One BGM URL is shared by the hub, action arena, and reward screens.
-  NEXT_PUBLIC_AUDIO_BGM: urlOrPathValidator,
-  // Individual audio file URLs (override base URL if provided)
-  NEXT_PUBLIC_AUDIO_SPECIAL_MOVE: urlOrPathValidator,
-  NEXT_PUBLIC_AUDIO_DAMAGE: urlOrPathValidator,
-  NEXT_PUBLIC_AUDIO_VICTORY: urlOrPathValidator,
-  NEXT_PUBLIC_AUDIO_DEFEAT: urlOrPathValidator
+  NEXT_PUBLIC_API_URL: externalURLValidator
 });
 
 export const env = envSchema.parse({
-  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-  NEXT_PUBLIC_AUDIO_BASE_URL: process.env.NEXT_PUBLIC_AUDIO_BASE_URL,
-  NEXT_PUBLIC_AUDIO_BGM: process.env.NEXT_PUBLIC_AUDIO_BGM,
-  NEXT_PUBLIC_AUDIO_SPECIAL_MOVE: process.env.NEXT_PUBLIC_AUDIO_SPECIAL_MOVE,
-  NEXT_PUBLIC_AUDIO_DAMAGE: process.env.NEXT_PUBLIC_AUDIO_DAMAGE,
-  NEXT_PUBLIC_AUDIO_VICTORY: process.env.NEXT_PUBLIC_AUDIO_VICTORY,
-  NEXT_PUBLIC_AUDIO_DEFEAT: process.env.NEXT_PUBLIC_AUDIO_DEFEAT
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL
 });

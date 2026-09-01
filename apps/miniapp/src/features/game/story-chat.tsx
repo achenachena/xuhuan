@@ -1,93 +1,86 @@
-import Image from "next/image";
+"use client";
 
-import type { APIGameContent } from "@/lib/api/client";
-import { gameText, type GameLocale } from "@/features/game/game-copy";
+import type { GameLocale } from "@/features/game/game-copy";
+import { gameText } from "@/features/game/game-copy";
+import type { ShooterStoryScene } from "@/lib/api/types";
 
-type StoryChatProps = {
-  readonly content: APIGameContent;
-  readonly sceneSlug: string;
+type Props = {
+  readonly scene: ShooterStoryScene;
   readonly locale: GameLocale;
   readonly busy: boolean;
-  readonly onChoose: (sceneSlug: string, optionSlug: string) => void;
+  readonly onChoose: (sceneID: string, optionID: string) => void;
 };
 
-export const StoryChat = ({ content, sceneSlug, locale, busy, onChoose }: StoryChatProps) => {
-  const scene = content.scenes.find((item) => item.slug === sceneSlug);
-  if (!scene) {
-    return null;
-  }
-
-  return (
+export const StoryChat = ({ scene, locale, busy, onChoose }: Props) => (
+  <main
+    data-game-surface="true"
+    className="flex min-h-[var(--xuhuan-stable-height,100dvh)] flex-col bg-[#0d1725] pt-[var(--xuhuan-host-safe-top)] text-slate-50"
+  >
+    <header className="border-b border-white/10 bg-[#111d2d] px-4 py-3 pr-14">
+      <p className="font-mono text-[9px] tracking-[.22em] text-cyan-300">
+        {gameText(locale, "intermission")}
+      </p>
+      <h1 className="mt-1 truncate text-base font-black">
+        {scene.title ?? gameText(locale, "backstage")}
+      </h1>
+    </header>
     <section
-      data-testid="story-scene"
-      data-scene-slug={scene.slug}
-      data-game-surface="true"
-      className="mx-auto flex min-h-[var(--xuhuan-stable-height,100dvh)] w-full max-w-lg flex-col bg-[#101827]"
+      data-testid="intermission-story"
+      className="flex-1 space-y-3 overflow-y-auto px-3 py-4"
+      aria-live="polite"
     >
-      <header className="sticky top-0 z-10 border-b border-white/10 bg-[#172231]/95 px-4 pb-3 pt-[var(--xuhuan-host-safe-top)] backdrop-blur">
-        <p className="text-sm font-semibold text-white">{gameText(locale, "backendGroup")}</p>
-        <div className="mt-1 flex items-center gap-2 text-xs text-emerald-300">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
-          {gameText(locale, "online")}
-        </div>
-      </header>
-
-      <div className="flex-1 space-y-4 overflow-y-auto bg-[radial-gradient(circle_at_top,#202d4b_0%,#101827_56%)] px-4 py-5">
-        <div className="mx-auto w-fit rounded-full bg-white/10 px-3 py-1 text-[11px] text-slate-300">
-          {scene.title}
-        </div>
-        {scene.messages.map((message, index) =>
-          message.kind === "system" ? (
-            <div key={`${message.sender}-${index}`} className="mx-auto max-w-[92%] rounded-xl border border-cyan-300/20 bg-cyan-950/40 px-3 py-2 text-center text-xs leading-5 text-cyan-100">
-              <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-400">
-                {gameText(locale, "system")}
-              </span>
+      {scene.messages.map((message, index) => {
+        const system = message.sender_id === "system";
+        return system ? (
+          <p
+            key={`${message.sender}-${index}`}
+            data-message-kind="system"
+            className="mx-auto max-w-[90%] text-center font-mono text-[9px] leading-4 text-slate-500"
+          >
+            <span className="block text-[8px] font-bold tracking-[.16em] text-cyan-400/70">
+              {message.sender}
+            </span>
+            <span className="block">{message.text}</span>
+          </p>
+        ) : (
+          <article
+            key={`${message.sender}-${index}`}
+            data-message-kind="character"
+            className="max-w-[88%] rounded-br-xl rounded-t-xl border border-white/10 bg-[#1a293b] px-3 py-2.5 shadow-sm"
+          >
+            <p className="text-[9px] font-bold tracking-wide text-cyan-300">
+              {message.sender}
+            </p>
+            <p className="mt-1 text-[13px] leading-5 text-slate-100">
               {message.text}
-            </div>
-          ) : (
-            <div key={`${message.sender}-${index}`} className="flex items-end gap-2">
-              <div className="relative h-9 w-9 shrink-0 overflow-hidden border-2 border-cyan-200/35 bg-gradient-to-br from-cyan-300 to-violet-500">
-                {content.characters.find((item) => item.slug === message.sender) ? (
-                  <Image
-                    src={content.characters.find((item) => item.slug === message.sender)!.portrait_url}
-                    alt=""
-                    fill
-                    sizes="36px"
-                    unoptimized
-                    className="object-contain [image-rendering:pixelated]"
-                  />
-                ) : (
-                  <span className="grid h-full w-full place-items-center text-xs font-bold text-slate-950">
-                    {message.sender.slice(0, 1).toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <div className="max-w-[82%] rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-sm leading-5 text-slate-900 shadow-lg shadow-black/10">
-                <span className="mb-0.5 block text-[10px] font-semibold text-violet-600">{message.sender}</span>
-                {message.text}
-              </div>
-            </div>
-          )
-        )}
-      </div>
-
-      <footer className="border-t border-white/10 bg-[#172231] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-        <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-slate-400">{gameText(locale, "chooseReply")}</p>
-        <div className="space-y-2">
-          {scene.options.map((option) => (
-            <button
-              key={option.slug}
-              data-testid={`story-choice-${option.slug}`}
-              type="button"
-              disabled={busy}
-              onClick={() => onChoose(scene.slug, option.slug)}
-              className="w-full rounded-xl border border-violet-400/35 bg-violet-500/15 px-4 py-3 text-left text-sm font-medium text-violet-50 transition active:scale-[0.98] disabled:opacity-50"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </footer>
+            </p>
+          </article>
+        );
+      })}
     </section>
-  );
-};
+    <footer className="border-t border-white/10 bg-[#111d2d] px-3 pb-[var(--xuhuan-host-safe-bottom)] pt-3">
+      <p className="mb-2 font-mono text-[8px] tracking-[.18em] text-slate-500">
+        {gameText(locale, "chooseReplyV4")}
+      </p>
+      <div className="grid gap-2">
+        {scene.options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            data-testid={`story-option-${option.id}`}
+            disabled={busy}
+            onClick={() => onChoose(scene.id, option.id)}
+            className="min-h-11 border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-left text-[12px] font-bold leading-4 text-cyan-50 active:bg-cyan-300/20 disabled:opacity-50"
+          >
+            <span className="block">{option.label}</span>
+            {option.hint ? (
+              <span className="mt-0.5 block text-[10px] font-normal text-slate-400">
+                {option.hint}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+    </footer>
+  </main>
+);

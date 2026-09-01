@@ -19,7 +19,7 @@ const OpenGraphImage = async ({
     getPublicGameContent("en"),
   ]);
   const character = result
-    ? (content?.characters.find((item) => item.slug === result.character_slug)
+    ? (content?.characters.find((item) => item.id === result.character_slug)
         ?.name ?? "UNKNOWN PILOT")
     : "UNKNOWN PILOT";
   return new ImageResponse(

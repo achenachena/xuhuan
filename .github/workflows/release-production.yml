@@ -1,4 +1,4 @@
-name: Release Production V3
+name: Release Production V4
 
 on:
   workflow_dispatch:
@@ -11,6 +11,7 @@ on:
 permissions:
   actions: read
   contents: read
+  # GitHub OIDC supplies short-lived AWS credentials; no long-lived AWS key is stored.
   id-token: write
 
 concurrency:
@@ -112,17 +113,18 @@ jobs:
           npm ci
           npm run check:english-source
           npm run check:content-assets
+          npm run check:v4-cleanup
           node --check apps/miniapp/scripts/production-smoke.mjs
           node --check apps/miniapp/scripts/production-browser-smoke.mjs
           grep --fixed-strings --quiet \
-            '/v2/content/v3?locale=' \
+            '/v2/content/v4?locale=' \
             apps/miniapp/src/lib/api/client.ts
-          test "$(jq '.strings | length' apps/api/internal/content/v3/locales/en.json)" -eq 620
-          test "$(jq '.strings | length' apps/api/internal/content/v3/locales/zh-CN.json)" -eq 620
+          test -f apps/api/internal/content/v4/locales/en.json
+          test -f apps/api/internal/content/v4/locales/zh-CN.json
           jq --exit-status \
-            --slurpfile zh apps/api/internal/content/v3/locales/zh-CN.json \
+            --slurpfile zh apps/api/internal/content/v4/locales/zh-CN.json \
             '(.strings | keys) == ($zh[0].strings | keys)' \
-            apps/api/internal/content/v3/locales/en.json > /dev/null
+            apps/api/internal/content/v4/locales/en.json > /dev/null
           npm run check:api-types --workspace @xuhuan/miniapp
           npm run test --workspace @xuhuan/miniapp
           npm run lint --workspace @xuhuan/miniapp
@@ -167,8 +169,8 @@ jobs:
             --skip-domain \
             --yes \
             --meta "releaseSha=$RELEASE_SHA" \
-            --meta "contentVersion=v3" \
-            --meta "actionProtocol=action-v2")
+            --meta "contentVersion=v4" \
+            --meta "simulationProtocol=shooter-v1")
           case "$staged_url" in
             https://*.vercel.app) ;;
             *) echo "::error::Vercel returned an unexpected deployment URL"; exit 1 ;;
@@ -190,13 +192,13 @@ jobs:
           test "$(jq -r '.target // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "production"
           test "$(jq -r '.projectId // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "$VERCEL_PROJECT_ID"
           test "$(jq -r '.meta.releaseSha // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "$RELEASE_SHA"
-          test "$(jq -r '.meta.contentVersion // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "v3"
-          test "$(jq -r '.meta.actionProtocol // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "action-v2"
+          test "$(jq -r '.meta.contentVersion // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "v4"
+          test "$(jq -r '.meta.simulationProtocol // empty' "$RUNNER_TEMP/vercel-deployment.json")" = "shooter-v1"
           vercel curl / --deployment "$STAGED_URL" -- \
             --fail --show-error --silent \
             --output "$RUNNER_TEMP/staged-index.html"
           grep --fixed-strings --quiet \
-            'CONTENT-V3 / ACTION-V2' \
+            'CONTENT-V4 / SHOOTER-V1' \
             "$RUNNER_TEMP/staged-index.html"
 
       - name: Build immutable Lambda
@@ -262,7 +264,7 @@ jobs:
           done
 
           schema_query="SELECT
-            (SELECT count(*) = 6 AND max(version) = 6 FROM schema_migrations)
+            (SELECT count(*) = max(version) AND max(version) BETWEEN 6 AND 8 FROM schema_migrations)
             AND to_regclass('players') IS NOT NULL
             AND to_regclass('player_campaign_progress') IS NOT NULL
             AND to_regclass('player_chapter_progress') IS NOT NULL
@@ -280,7 +282,7 @@ jobs:
             --no-psqlrc --set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align \
             --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; $schema_query; COMMIT;")
           if test "$migration_ready" != "t" || test "$runtime_ready" != "t"; then
-            echo "::error::Production database is not at the complete V3 schema"
+            echo "::error::Production database is not at a supported V4 release boundary (schema 6, 7, or 8)"
             exit 1
           fi
 
@@ -405,6 +407,8 @@ jobs:
       - name: Publish immutable Lambda candidate
         id: candidate
         run: |
+          # Lambda's CodeSha256 binds the immutable version to the exact ZIP built
+          # from RELEASE_SHA. This is a deployment integrity check, not gameplay data.
           expected_code_sha=$(openssl dgst -sha256 -binary \
             "$RUNNER_TEMP/xuhuan-lambda/lambda.zip" | openssl base64 -A)
           unpublished=$(aws lambda get-function-configuration \
@@ -447,8 +451,8 @@ jobs:
           test -z "$(jq -r '.FunctionError // empty' "$RUNNER_TEMP/check-metadata.json")"
           test "$(jq -r .status "$RUNNER_TEMP/check-response.json")" = "ok"
           test "$(jq -r .operation "$RUNNER_TEMP/check-response.json")" = "check"
-          test "$(jq -r .content_version "$RUNNER_TEMP/check-response.json")" = "v3"
-          test "$(jq -r .protocol "$RUNNER_TEMP/check-response.json")" = "action-v2"
+          test "$(jq -r .content_version "$RUNNER_TEMP/check-response.json")" = "v4"
+          test "$(jq -r .protocol "$RUNNER_TEMP/check-response.json")" = "shooter-v1"
 
       - name: Promote the exact staged Mini App
         id: promotion
@@ -464,7 +468,7 @@ jobs:
               --fail --show-error --silent \
               --output "$RUNNER_TEMP/production-index.html" && \
               grep --fixed-strings --quiet \
-                'CONTENT-V3 / ACTION-V2' \
+                'CONTENT-V4 / SHOOTER-V1' \
                 "$RUNNER_TEMP/production-index.html"; then
               promoted=true
               break
@@ -473,7 +477,7 @@ jobs:
             sleep 5
           done
           if test "$promoted" != "true"; then
-            echo "::error::The linked production domain is not serving the staged V3 artifact"
+            echo "::error::The linked production domain is not serving the staged V4 artifact"
             exit 1
           fi
 
@@ -512,7 +516,7 @@ jobs:
               "https://$alias/" \
               --output "$RUNNER_TEMP/public-production-index.html" && \
               grep --fixed-strings --quiet \
-                'CONTENT-V3 / ACTION-V2' \
+                'CONTENT-V4 / SHOOTER-V1' \
                 "$RUNNER_TEMP/public-production-index.html"; then
               cors_status=$(curl --show-error --silent \
                 --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 2 --retry-all-errors \
@@ -533,7 +537,52 @@ jobs:
             fi
           done
           if test "$publicly_reachable" != "true"; then
-            echo "::error::No production alias exposes V3 publicly and passes the API CORS preflight"
+            echo "::error::No production alias exposes V4 publicly and passes the API CORS preflight"
+            exit 1
+          fi
+
+      - name: Apply Live Rescue prepare migration and reset game progress
+        timeout-minutes: 8
+        working-directory: apps/api
+        run: |
+          set +x
+          database_migration_url=$(aws ssm get-parameter \
+            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          case "$database_migration_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          echo "::add-mask::$database_migration_url"
+          current_schema=$(PGCONNECT_TIMEOUT=10 \
+            psql "$database_migration_url" \
+            --no-psqlrc --set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align \
+            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; SELECT max(version) FROM schema_migrations; COMMIT;")
+          case "$current_schema" in
+            6) DATABASE_URL="$database_migration_url" go run ./cmd/migrate -target=7 ;;
+            7|8) echo "Schema $current_schema already contains the V4 prepare boundary" ;;
+            *) echo "::error::Cannot prepare V4 from schema $current_schema"; exit 1 ;;
+          esac
+          prepared=$(PGCONNECT_TIMEOUT=10 \
+            psql "$database_migration_url" \
+            --no-psqlrc --set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align \
+            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; SELECT
+              (SELECT count(*) = max(version) AND max(version) BETWEEN 7 AND 8 FROM schema_migrations)
+              AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'runs' AND column_name = 'start_request_payload'
+              )
+              AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'player_chapter_progress' AND column_name = 'highest_encore_level'
+              )
+              AND (SELECT count(*) FROM player_campaign_progress) = (SELECT count(*) FROM players); COMMIT;")
+          if test "$prepared" != "t"; then
+            echo "::error::Live Rescue prepare boundary is not present"
             exit 1
           fi
 
@@ -588,7 +637,7 @@ jobs:
           cors_origin=$(tr -d '\r' < "$RUNNER_TEMP/live-api-cors-headers.txt" | \
             awk -F ': ' 'tolower($1) == "access-control-allow-origin" { print $2; exit }')
           if test "$cors_status" != "204" || test "$cors_origin" != "$PUBLIC_ORIGIN"; then
-            echo "::error::The live V3 API does not allow the promoted Mini App origin"
+            echo "::error::The live V4 API does not allow the promoted Mini App origin"
             exit 1
           fi
           health=$(curl --fail --show-error --silent \
@@ -601,36 +650,45 @@ jobs:
             "$api_base_url/readyz" | jq -r .status)" = "ready"
           content=$(curl --fail --show-error --silent \
             --connect-timeout 5 --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors \
-            "$api_base_url/v2/content/v3?locale=en")
-          test "$(jq -r .version <<< "$content")" = "v3"
-          test "$(jq -r .protocol <<< "$content")" = "action-v2"
+            "$api_base_url/v2/content/v4?locale=en")
+          test "$(jq -r .version <<< "$content")" = "v4"
+          test "$(jq -r .protocol <<< "$content")" = "shooter-v1"
           test "$(jq -r .locale <<< "$content")" = "en"
           test "$(jq '.characters | length' <<< "$content")" -eq 7
-          test "$(jq '.kits | length' <<< "$content")" -eq 7
-          test "$(jq '.modules | length' <<< "$content")" -eq 68
-          test "$(jq '.plugins | length' <<< "$content")" -eq 20
-          test "$(jq '.enemies | length' <<< "$content")" -eq 36
-          test "$(jq '.encounters | length' <<< "$content")" -eq 47
-          test "$(jq '.events | length' <<< "$content")" -eq 28
-          test "$(jq '.scenes | length' <<< "$content")" -eq 34
+          test "$(jq '.show_effects | length' <<< "$content")" -eq 12
+          test "$(jq '.companions | length' <<< "$content")" -eq 7
+          test "$(jq '.enemies | length' <<< "$content")" -eq 6
           test "$(jq '.chapters | length' <<< "$content")" -eq 8
+          test "$(jq '[.chapters[].segments[]] | length' <<< "$content")" -eq 24
+          test "$(jq '[.chapters[].boss] | length' <<< "$content")" -eq 8
+          test "$(jq '[.chapters[].boss.stages[]] | length' <<< "$content")" -eq 24
           content_zh=$(curl --fail --show-error --silent \
             --connect-timeout 5 --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors \
-            "$api_base_url/v2/content/v3?locale=zh-CN")
-          test "$(jq -r .version <<< "$content_zh")" = "v3"
-          test "$(jq -r .protocol <<< "$content_zh")" = "action-v2"
+            "$api_base_url/v2/content/v4?locale=zh-CN")
+          test "$(jq -r .version <<< "$content_zh")" = "v4"
+          test "$(jq -r .protocol <<< "$content_zh")" = "shooter-v1"
           test "$(jq -r .locale <<< "$content_zh")" = "zh-CN"
-          for collection in characters kits modules plugins enemies encounters events scenes chapters; do
+          for collection in characters show_effects companions enemies chapters; do
             test "$(jq --arg key "$collection" '.[$key] | length' <<< "$content_zh")" = \
               "$(jq --arg key "$collection" '.[$key] | length' <<< "$content")"
           done
 
-      - name: Run signed production V3 journey
+      - name: Build release-only authority trace helper
+        id: smoke_trace
+        working-directory: apps/api
+        run: |
+          helper_path="$RUNNER_TEMP/xuhuan-smoke-trace"
+          go build -tags smoke -trimpath -o "$helper_path" ./cmd/smoke-trace
+          test -x "$helper_path"
+          echo "path=$helper_path" >> "$GITHUB_OUTPUT"
+
+      - name: Run signed production V4 journey
         id: smoke
         timeout-minutes: 20
         working-directory: apps/miniapp
         env:
           PUBLIC_ORIGIN: ${{ steps.promotion.outputs.public_origin }}
+          SMOKE_TRACE_HELPER: ${{ steps.smoke_trace.outputs.path }}
         run: |
           if [[ ! "$SMOKE_RUN_ID" =~ ^[0-9]+$ ]]; then
             echo "::error::GitHub run ID is not numeric"
@@ -669,6 +727,10 @@ jobs:
             echo "::error::Synthetic Telegram identity already exists; refusing to overwrite or delete it"
             exit 1
           fi
+          # Expose the cleanup target only after proving this workflow did not
+          # inherit an existing player. The always() cleanup must never delete
+          # an identity that failed this ownership check.
+          echo "synthetic_telegram_user_id=$smoke_telegram_user_id" >> "$GITHUB_OUTPUT"
 
           telegram_token=$(aws ssm get-parameter \
             --name "$TELEGRAM_TOKEN_PARAMETER" \
@@ -698,6 +760,58 @@ jobs:
             TELEGRAM_INIT_DATA_FILE="$init_data_file" \
             PLAYWRIGHT_CHANNEL=chrome \
             node scripts/production-browser-smoke.mjs
+
+      - name: Remove Action V3 compatibility columns
+        timeout-minutes: 8
+        working-directory: apps/api
+        run: |
+          set +x
+          database_migration_url=$(aws ssm get-parameter \
+            --name "$DATABASE_MIGRATION_URL_PARAMETER" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+          case "$database_migration_url" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Database migration parameter is not a PostgreSQL URL"; exit 1 ;;
+          esac
+          echo "::add-mask::$database_migration_url"
+          current_schema=$(PGCONNECT_TIMEOUT=10 \
+            psql "$database_migration_url" \
+            --no-psqlrc --set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align \
+            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; SELECT max(version) FROM schema_migrations; COMMIT;")
+          case "$current_schema" in
+            7) DATABASE_URL="$database_migration_url" go run ./cmd/migrate -target=8 ;;
+            8) echo "Schema 8 cleanup boundary is already applied" ;;
+            *) echo "::error::Cannot finalize V4 from schema $current_schema"; exit 1 ;;
+          esac
+          finalized=$(PGCONNECT_TIMEOUT=10 \
+            psql "$database_migration_url" \
+            --no-psqlrc --set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align \
+            --command="BEGIN; SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '30s'; SELECT
+              (SELECT count(*) = 8 AND max(version) = 8 FROM schema_migrations)
+              AND to_regclass('story_choices') IS NOT NULL
+              AND to_regclass('daily_share_tokens') IS NULL
+              AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'story_choices' AND column_name = 'revision'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND (
+                    (table_name = 'runs' AND column_name IN ('start_request_hash', 'noise_level'))
+                    OR (table_name = 'run_commands' AND column_name = 'request_hash')
+                    OR (table_name = 'story_choices' AND column_name IN ('request_hash', 'trust', 'authenticity', 'retention'))
+                    OR (table_name = 'player_campaign_progress' AND column_name IN ('trust', 'authenticity', 'retention'))
+                    OR (table_name = 'player_chapter_progress' AND column_name = 'highest_noise_level')
+                  )
+              ); COMMIT;")
+          if test "$finalized" != "t"; then
+            echo "::error::Action V3 cleanup did not reach schema 8"
+            exit 1
+          fi
 
       - name: Remove synthetic production smoke player
         if: ${{ always() && steps.smoke.outputs.synthetic_telegram_user_id != '' }}
@@ -754,12 +868,13 @@ jobs:
           CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
         run: |
           {
-            echo "### Production V3 release passed"
+            echo "### Production V4 release passed"
             echo "- Commit: $RELEASE_SHA"
             echo "- Lambda version: $CANDIDATE_VERSION"
             echo "- Promoted Vercel deployment: $STAGED_URL"
-            echo "- API: v3 content / action-v2 protocol"
-            echo "- Fixed V3 catalog counts and both production locales: validated"
+            echo "- API: v4 content / shooter-v1 protocol"
+            echo "- Database: prepare migration 007 and cleanup migration 008 applied"
+            echo "- Complete V4 catalog and both production locales: validated"
             echo "- Signed Telegram production journey: passed"
             echo "- Synthetic production smoke player: removed"
           } >> "$GITHUB_STEP_SUMMARY"

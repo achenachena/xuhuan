@@ -7,8 +7,8 @@ const dependencies = vi.hoisted(() => ({
   createRun: vi.fn(),
   getRun: vi.fn(),
   createRunCommand: vi.fn(),
-  createStoryChoice: vi.fn(),
 }));
+const localeState = vi.hoisted(() => ({ language: "en" as "en" | "zh-CN" }));
 
 vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
@@ -16,115 +16,60 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   createIdempotencyKey: () => "11111111-1111-4111-8111-111111111111",
 }));
 vi.mock("@/components/providers/use-locale", () => ({
-  default: () => ({
-    translate: (key: string) => key,
-    isReady: true,
-    language: "en",
-    setLanguage: vi.fn(),
+  default: () => ({ language: localeState.language, setLanguage: vi.fn() }),
+}));
+vi.mock("@/components/providers/audio-provider", () => ({
+  useAudio: () => ({
+    muted: false,
+    toggleMuted: vi.fn(),
+    playSound: vi.fn(),
   }),
 }));
 vi.mock("next/image", () => ({
-  default: ({ alt }: { alt?: string }) =>
-    alt ? <span role="img" aria-label={alt} /> : <span />,
+  default: ({ alt }: { alt?: string }) => <span role="img" aria-label={alt} />,
 }));
-vi.mock("@/features/action/action-arena", () => ({
-  ActionArena: () => <div data-testid="action-arena">ACTION ARENA</div>,
+vi.mock("@/features/shooter/shooter-arena", () => ({
+  ShooterArena: () => <div data-testid="shooter-arena">SHOOTER ARENA</div>,
+}));
+vi.mock("@/features/shooter/shooter-gates", () => ({
+  ShooterGates: ({ onChoose }: { onChoose: (id: string) => void }) => (
+    <button data-testid="shooter-gate" onClick={() => onChoose("double-take")}>
+      TWIN GATE
+    </button>
+  ),
 }));
 
 import HomePage from "@/app/page";
-import { APIError } from "@/lib/api/client";
 import {
-  createV3Game,
-  createV3Run,
-  v3BaseState,
-  v3Content,
-} from "@/test/v3-fixtures";
+  createV4Game,
+  createV4Run,
+  v4BaseState,
+  v4Content,
+} from "@/test/v4-fixtures";
 
-describe("Action V3 game shell", () => {
+describe("Shooter V4 game shell", () => {
   beforeEach(() => {
     Object.values(dependencies).forEach((mock) => mock.mockReset());
-    dependencies.getGameContent.mockResolvedValue(v3Content);
+    localeState.language = "en";
+    dependencies.getGameContent.mockResolvedValue(v4Content);
+    dependencies.getGame.mockResolvedValue(createV4Game());
   });
 
-  it("starts the tutorial from the one-tap English prologue", async () => {
-    dependencies.getGame.mockResolvedValue(
-      createV3Game({ pending_scene_slug: "prologue-last-viewer" }),
-    );
-    dependencies.createStoryChoice.mockResolvedValue({
-      progress: createV3Game().progress,
-      pending_scene_slug: null,
-    });
-    dependencies.createRun.mockResolvedValue(
-      createV3Run({
-        state: {
-          ...v3BaseState,
-          phase: "encounter",
-          map: {
-            nodes: [
-              {
-                id: "tutorial",
-                layer: 0,
-                lane: 0,
-                type: "tutorial",
-                status: "current",
-                next: [],
-                encounter_slug: "signal-handshake",
-              },
-            ],
-            current_node_id: "tutorial",
-          },
-          encounter: {
-            slug: "signal-handshake",
-            seed: "seed:tutorial",
-            kind: "tutorial",
-            duration_ticks: 600,
-            max_ticks: 900,
-            tutorial: true,
-            objective: { kind: "recover", target: 3 },
-            risk: 1,
-            reward_bias: "surge",
-            hazards: [],
-          },
-        },
-      }),
-    );
-
+  it("keeps the release marker in server-renderable page output", async () => {
     render(<HomePage />);
     expect(
-      await screen.findByText("The stream has ended. Current viewers: 1."),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Keep online" }));
-
-    await waitFor(() =>
-      expect(dependencies.createStoryChoice).toHaveBeenCalledWith(
-        {
-          scene_slug: "prologue-last-viewer",
-          option_slug: "stay-online",
-          expected_version: 1,
-        },
-        "11111111-1111-4111-8111-111111111111",
+      document.querySelector(
+        '[data-release-marker="CONTENT-V4 / SHOOTER-V1"]',
       ),
-    );
-    expect(dependencies.createRun).toHaveBeenCalledWith(
-      {
-        mode: "campaign",
-        chapter_slug: "seventh-dock",
-        character_slug: "nana7mi",
-        noise_level: 0,
-      },
-      "11111111-1111-4111-8111-111111111111",
-    );
-    expect(await screen.findByTestId("action-arena")).toBeInTheDocument();
+    ).toHaveTextContent("CONTENT-V4 / SHOOTER-V1");
+    expect(await screen.findByTestId("start-campaign")).toBeVisible();
   });
 
-  it("starts a campaign and renders its authoritative route", async () => {
-    dependencies.getGame.mockResolvedValue(createV3Game());
-    dependencies.createRun.mockResolvedValue(createV3Run());
-
+  it("starts one campaign and enters the live shooter directly", async () => {
+    dependencies.createRun.mockResolvedValue(createV4Run());
     render(<HomePage />);
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Enter this channel/ }),
-    );
+
+    fireEvent.click(await screen.findByTestId("start-campaign"));
 
     await waitFor(() =>
       expect(dependencies.createRun).toHaveBeenCalledWith(
@@ -132,155 +77,103 @@ describe("Action V3 game shell", () => {
           mode: "campaign",
           chapter_slug: "seventh-dock",
           character_slug: "nana7mi",
-          noise_level: 0,
+          encore_level: 0,
         },
         "11111111-1111-4111-8111-111111111111",
       ),
     );
-    expect(
-      await screen.findByRole("img", { name: "Channel topology" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId("shooter-arena")).toBeVisible();
   });
 
-  it("starts the server-selected daily run without campaign parameters", async () => {
-    const game = createV3Game({
-      progress: { ...createV3Game().progress, daily_unlocked: true },
-    });
-    dependencies.getGame.mockResolvedValue(game);
-    dependencies.createRun.mockResolvedValue(
-      createV3Run({ mode: "daily", daily_date: "2026-08-29" }),
-    );
-
-    render(<HomePage />);
-    const dailyButtons = await screen.findAllByRole("button", {
-      name: "Daily anomaly",
-    });
-    fireEvent.click(dailyButtons.at(-1)!);
-
-    await waitFor(() =>
-      expect(dependencies.createRun).toHaveBeenCalledWith(
-        { mode: "daily" },
-        "11111111-1111-4111-8111-111111111111",
-      ),
-    );
-  });
-
-  it("renders the latest anonymous daily result independently of active runs", async () => {
-    dependencies.getGame.mockResolvedValue(
-      createV3Game({
-        progress: { ...createV3Game().progress, daily_unlocked: true },
-        daily_result: {
-          date: "2026-08-29",
-          character_slug: "nana7mi",
-          score: 4242,
-          modules: [{ slug: "route-needle", level: 2 }],
-          plugins: ["archive-lens"],
-          streak: 3,
-        },
-      }),
-    );
-
-    render(<HomePage />);
-
-    expect(await screen.findByText("4242")).toBeInTheDocument();
-    expect(screen.getByText("Clear streak")).toHaveTextContent("Clear streak3");
-    expect(screen.queryByTestId("action-arena")).not.toBeInTheDocument();
-  });
-
-  it("restores a campaign run without treating browser storage as game truth", async () => {
-    dependencies.getGame.mockResolvedValue(
-      createV3Game({ campaign_run: createV3Run() }),
-    );
-
-    render(<HomePage />);
-
-    expect(
-      await screen.findByRole("img", { name: "Channel topology" }),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("route-map-header")).toHaveClass(
-      "pt-[var(--xuhuan-host-safe-top)]",
-    );
-    expect(dependencies.createRun).not.toHaveBeenCalled();
-  });
-
-  it("shows a required story scene before resuming an active campaign", async () => {
-    dependencies.getGame.mockResolvedValue(
-      createV3Game({
-        campaign_run: createV3Run(),
-        pending_scene_slug: "nana-midpoint",
-      }),
-    );
-
-    render(<HomePage />);
-
-    expect(
-      await screen.findByText(
-        "If two memories disagree, neither one has to be deleted.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("img", { name: "Channel topology" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("keeps rewards safe and sends the one-time reroll command", async () => {
-    const run = createV3Run({
+  it("submits the in-arena show gate without a reward page", async () => {
+    const gateRun = createV4Run({
       state: {
-        ...v3BaseState,
-        phase: "reward",
-        reward: {
-          module_choices: ["route-needle", "soft-firewall"],
-          rerolled: false,
-        },
+        ...v4BaseState,
+        phase: "show_choice",
+        segment: undefined,
+        pending_show_options: ["double-take", "safety-chat"],
       },
     });
+    const advanced = createV4Run({ version: 2 });
     dependencies.getGame.mockResolvedValue(
-      createV3Game({ campaign_run: run }),
+      createV4Game({ campaign_run: gateRun }),
     );
-    dependencies.createRunCommand.mockResolvedValue({ run, events: [] });
+    dependencies.createRunCommand.mockResolvedValue({ run: advanced, events: [] });
 
     render(<HomePage />);
+    fireEvent.click(await screen.findByTestId("shooter-gate"));
 
-    expect(await screen.findByText("Route Needle")).toBeInTheDocument();
-    expect(screen.getByTestId("interstitial-screen")).toHaveClass(
-      "pt-[var(--xuhuan-host-safe-top)]",
-    );
-    fireEvent.click(screen.getByRole("button", { name: /Free reroll/ }));
     await waitFor(() =>
       expect(dependencies.createRunCommand).toHaveBeenCalledWith(
-        run.id,
-        { type: "reroll_module_reward", expected_version: 1 },
+        gateRun.id,
+        {
+          type: "choose_show_option",
+          option_id: "double-take",
+          expected_version: 1,
+        },
         "11111111-1111-4111-8111-111111111111",
       ),
     );
   });
 
-  it("resynchronizes the campaign slot after an optimistic conflict", async () => {
-    const run = createV3Run();
+  it("renders the maintenance screen before creating a canvas on mismatch", async () => {
+    dependencies.getGameContent.mockResolvedValue({
+      ...v4Content,
+      protocol: "unsupported-v0",
+    });
     dependencies.getGame.mockResolvedValue(
-      createV3Game({ campaign_run: run }),
+      createV4Game({ campaign_run: createV4Run() }),
     );
-    dependencies.createRunCommand.mockRejectedValueOnce(
-      new APIError(409, "version_conflict", "changed"),
-    );
-    dependencies.getRun.mockResolvedValue(createV3Run({ version: 2 }));
 
     render(<HomePage />);
-    const node = await screen.findByRole("button", {
-      name: /Conflict available/i,
-    });
-    fireEvent.click(node);
 
-    await waitFor(() =>
-      expect(dependencies.createRunCommand).toHaveBeenCalledWith(
-        run.id,
-        { type: "choose_node", node_id: "l1-a", expected_version: 1 },
-        "11111111-1111-4111-8111-111111111111",
-      ),
+    expect(await screen.findByTestId("protocol-maintenance")).toBeVisible();
+    expect(screen.queryByTestId("shooter-arena")).not.toBeInTheDocument();
+  });
+
+  it("uses the localized system sender for a Chinese intermission prompt", async () => {
+    localeState.language = "zh-CN";
+    const chapter = v4Content.chapters[0]!;
+    const localizedSender = "Localized archive";
+    dependencies.getGameContent.mockResolvedValue({
+      ...v4Content,
+      locale: "zh-CN",
+      chapters: [
+        {
+          ...chapter,
+          story: {
+            ...chapter.story,
+            intermission: {
+              ...chapter.story.intermission,
+              messages: chapter.story.intermission.messages.map((message) =>
+                message.sender_id === "system"
+                  ? { ...message, sender: localizedSender }
+                  : message,
+              ),
+            },
+          },
+        },
+      ],
+    });
+    dependencies.getGame.mockResolvedValue(
+      createV4Game({
+        campaign_run: createV4Run({
+          state: {
+            ...v4BaseState,
+            phase: "story",
+            segment: undefined,
+            story: {
+              scene_id: "seventh-dock-intermission",
+              choice_ids: ["keep-voice"],
+            },
+          },
+        }),
+      }),
     );
-    await waitFor(() => expect(dependencies.getRun).toHaveBeenCalledWith(run.id));
-    expect(
-      screen.queryByText("Connection failed; the authoritative run is safe."),
-    ).not.toBeInTheDocument();
+
+    render(<HomePage />);
+
+    expect((await screen.findAllByText(localizedSender)).length).toBeGreaterThan(0);
+    expect(screen.queryByText("System")).not.toBeInTheDocument();
   });
 });

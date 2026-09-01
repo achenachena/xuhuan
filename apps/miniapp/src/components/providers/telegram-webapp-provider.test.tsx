@@ -57,6 +57,12 @@ describe("TelegramWebAppProvider", () => {
     document.documentElement.style.removeProperty(
       "--xuhuan-tg-content-safe-bottom",
     );
+    document.documentElement.style.removeProperty(
+      "--xuhuan-tg-content-safe-left",
+    );
+    document.documentElement.style.removeProperty(
+      "--xuhuan-tg-content-safe-right",
+    );
   });
 
   it("initializes, expands, subscribes, and unsubscribes the Mini App", async () => {
@@ -73,7 +79,7 @@ describe("TelegramWebAppProvider", () => {
     expect(webApp.isVersionAtLeast).toHaveBeenCalledWith("8.0");
     expect(webApp.disableVerticalSwipes).not.toHaveBeenCalled();
     expect(webApp.requestFullscreen).toHaveBeenCalledOnce();
-    expect(webApp.lockOrientation).toHaveBeenCalledOnce();
+    expect(webApp.lockOrientation).not.toHaveBeenCalled();
     expect(webApp.setHeaderColor).toHaveBeenCalledWith("#02050e");
     expect(webApp.setBackgroundColor).toHaveBeenCalledWith("#02050e");
     expect(document.documentElement.dataset.telegramHost).toBe("true");
@@ -83,6 +89,11 @@ describe("TelegramWebAppProvider", () => {
         "--xuhuan-tg-content-safe-top",
       ),
     ).toBe("84px");
+    expect(
+      document.documentElement.style.getPropertyValue(
+        "--xuhuan-tg-content-safe-left",
+      ),
+    ).toBe("0px");
     expect(webApp.onEvent).toHaveBeenCalledWith(
       "themeChanged",
       expect.any(Function),
@@ -94,7 +105,7 @@ describe("TelegramWebAppProvider", () => {
       expect.any(Function),
     );
     expect(webApp.enableVerticalSwipes).not.toHaveBeenCalled();
-    expect(webApp.unlockOrientation).toHaveBeenCalledOnce();
+    expect(webApp.unlockOrientation).not.toHaveBeenCalled();
     expect(document.documentElement.dataset.telegramHost).toBeUndefined();
   });
 
@@ -144,7 +155,7 @@ describe("TelegramWebAppProvider", () => {
       throw new Error("contentSafeAreaChanged handler was not registered");
     }
 
-    webApp.contentSafeAreaInset = { top: 112, bottom: 24, left: 0, right: 0 };
+    webApp.contentSafeAreaInset = { top: 112, bottom: 24, left: 7, right: 9 };
     contentSafeAreaChanged();
 
     expect(
@@ -157,6 +168,43 @@ describe("TelegramWebAppProvider", () => {
         "--xuhuan-tg-content-safe-bottom",
       ),
     ).toBe("24px");
+    expect(
+      document.documentElement.style.getPropertyValue(
+        "--xuhuan-tg-content-safe-left",
+      ),
+    ).toBe("7px");
+    expect(
+      document.documentElement.style.getPropertyValue(
+        "--xuhuan-tg-content-safe-right",
+      ),
+    ).toBe("9px");
+  });
+
+  it("forwards Telegram activation changes to the simulation lifecycle", async () => {
+    const deactivated = vi.fn();
+    const activated = vi.fn();
+    window.addEventListener("xuhuan:deactivated", deactivated);
+    window.addEventListener("xuhuan:activated", activated);
+    const rendered = render(
+      <TelegramWebAppProvider>
+        <div>game</div>
+      </TelegramWebAppProvider>,
+    );
+    await waitFor(() =>
+      expect(webApp.onEvent).toHaveBeenCalledWith(
+        "deactivated",
+        expect.any(Function),
+      ),
+    );
+
+    webApp.onEvent.mock.calls.find(([event]) => event === "deactivated")?.[1]();
+    webApp.onEvent.mock.calls.find(([event]) => event === "activated")?.[1]();
+
+    expect(deactivated).toHaveBeenCalledOnce();
+    expect(activated).toHaveBeenCalledOnce();
+    rendered.unmount();
+    window.removeEventListener("xuhuan:deactivated", deactivated);
+    window.removeEventListener("xuhuan:activated", activated);
   });
 
   it("keeps safe-area synchronization when the optional fullscreen bridge throws", async () => {

@@ -1,0 +1,31 @@
+{
+  "chapter": {
+    "id":"always-cheerful","order":2,"title_key":"chapter.always_cheerful.title","subtitle_key":"chapter.always_cheerful.subtitle","featured_character":"jiaran","unlock_companion":"jiaran-assist","background_url":"/game/v4/backgrounds/always-cheerful.webp",
+    "segments":[
+      {"id":"cheerful-greenroom","duration_ticks":1080,"wave_id":"cheer-wave-1","background_url":"/game/v4/backgrounds/always-cheerful.webp","reward_stage":"weapon"},
+      {"id":"cheerful-muted-minute","duration_ticks":1200,"wave_id":"cheer-wave-2","background_url":"/game/v4/backgrounds/always-cheerful.webp","reward_stage":"companion"},
+      {"id":"cheerful-reply-storm","duration_ticks":1320,"wave_id":"cheer-wave-3","background_url":"/game/v4/backgrounds/always-cheerful.webp","reward_stage":"rescue"}
+    ],
+    "waves":[
+      {"id":"cheer-wave-1","spawns":[{"at_tick":20,"enemy_id":"caption-blob","count":3,"formation":"fan","interval_ticks":24},{"at_tick":330,"enemy_id":"spam-bot","count":4,"formation":"line","interval_ticks":15}]},
+      {"id":"cheer-wave-2","spawns":[{"at_tick":20,"enemy_id":"black-screen-ghost","count":3,"formation":"staggered","interval_ticks":36},{"at_tick":300,"enemy_id":"clip-cutter","count":3,"formation":"pincer","interval_ticks":20},{"at_tick":570,"enemy_id":"gift-thief","count":2,"formation":"sweep","interval_ticks":30}]},
+      {"id":"cheer-wave-3","spawns":[{"at_tick":10,"enemy_id":"censor-frame","count":1,"formation":"center","interval_ticks":0},{"at_tick":180,"enemy_id":"caption-blob","count":4,"formation":"fan","interval_ticks":22},{"at_tick":510,"enemy_id":"spam-bot","count":5,"formation":"line","interval_ticks":14}]}
+    ],
+    "boss":{"id":"always-on-idol","name_key":"boss.always_on_idol.name","description_key":"boss.always_on_idol.description","sprite_url":"/game/v4/bosses/always-on-idol.webp","max_health":960,"duration_ticks":1800,"stages":[
+      {"id":"smile-check","health_threshold":100,"move_pattern":"orbit","shot_pattern":"ring","shot_interval":51,"projectile_speed":88,"projectile_damage":1,"telegraph_ticks":18,"special":"applause-loop"},
+      {"id":"silence-rejected","health_threshold":66,"move_pattern":"sweep","shot_pattern":"lane","shot_interval":43,"projectile_speed":108,"projectile_damage":1,"telegraph_ticks":20,"special":"reply-now"},
+      {"id":"always-on","health_threshold":33,"move_pattern":"mirror","shot_pattern":"fan","shot_interval":35,"projectile_speed":118,"projectile_damage":1,"telegraph_ticks":24,"special":"endless-encore"}
+    ]},
+    "story":{
+      "prelude":[{"sender":"jiaran","text_key":"story.always_cheerful.prelude.1"},{"sender":"xiangwan","text_key":"story.always_cheerful.prelude.2"}],
+      "intermission":{"after_segment":2,"prompt_key":"story.always_cheerful.intermission.prompt","messages":[{"sender":"jiaran","text_key":"story.always_cheerful.intermission.1"},{"sender":"bella","text_key":"story.always_cheerful.intermission.2"}],"choices":[
+        {"id":"stop-autonomous-encore","label_key":"story.always_cheerful.choice.stop.label","result_key":"story.always_cheerful.choice.stop.result","tag":"stopped-false-encore","show_effect_id":"safety-chat"},
+        {"id":"join-encore-with-consent","label_key":"story.always_cheerful.choice.join.label","result_key":"story.always_cheerful.choice.join.result","tag":"joined-with-consent","show_effect_id":"no-dead-air"}
+      ]},
+      "epilogue":[{"sender":"jiaran","text_key":"story.always_cheerful.epilogue.1"},{"sender":"system","text_key":"story.always_cheerful.epilogue.2"}],
+      "replay_recap":[{"sender":"jiaran","text_key":"story.always_cheerful.recap.1"}]
+    },
+    "encore":[{"id":"cheer-no-dead-air","name_key":"encore.cheer_no_dead_air.name","description_key":"encore.cheer_no_dead_air.description","enemy_speed_percent":5,"projectile_speed_percent":12,"special_charge_penalty_percent":8}],
+    "endings":[]
+  }
+}

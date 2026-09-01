@@ -1,0 +1,31 @@
+{
+  "chapter": {
+    "id":"which-is-original","order":6,"title_key":"chapter.original.title","subtitle_key":"chapter.original.subtitle","featured_character":"xingtong","unlock_companion":"xingtong-assist","background_url":"/game/v4/backgrounds/which-is-original.webp",
+    "segments":[
+      {"id":"original-rehearsal-a","duration_ticks":1080,"wave_id":"original-wave-1","background_url":"/game/v4/backgrounds/which-is-original.webp","reward_stage":"weapon"},
+      {"id":"original-rehearsal-b","duration_ticks":1200,"wave_id":"original-wave-2","background_url":"/game/v4/backgrounds/which-is-original.webp","reward_stage":"companion"},
+      {"id":"original-split-screen","duration_ticks":1320,"wave_id":"original-wave-3","background_url":"/game/v4/backgrounds/which-is-original.webp","reward_stage":"rescue"}
+    ],
+    "waves":[
+      {"id":"original-wave-1","spawns":[{"at_tick":20,"enemy_id":"black-screen-ghost","count":3,"formation":"center","interval_ticks":36},{"at_tick":320,"enemy_id":"spam-bot","count":4,"formation":"staggered","interval_ticks":15}]},
+      {"id":"original-wave-2","spawns":[{"at_tick":20,"enemy_id":"clip-cutter","count":4,"formation":"pincer","interval_ticks":19},{"at_tick":300,"enemy_id":"gift-thief","count":3,"formation":"fan","interval_ticks":31},{"at_tick":610,"enemy_id":"black-screen-ghost","count":2,"formation":"sweep","interval_ticks":38}]},
+      {"id":"original-wave-3","spawns":[{"at_tick":15,"enemy_id":"censor-frame","count":2,"formation":"pincer","interval_ticks":46},{"at_tick":280,"enemy_id":"caption-blob","count":4,"formation":"fan","interval_ticks":22},{"at_tick":620,"enemy_id":"clip-cutter","count":4,"formation":"staggered","interval_ticks":17}]}
+    ],
+    "boss":{"id":"physical-original","name_key":"boss.physical_original.name","description_key":"boss.physical_original.description","sprite_url":"/game/v4/bosses/physical-original.webp","max_health":1200,"duration_ticks":1800,"stages":[
+      {"id":"first-take","health_threshold":100,"move_pattern":"mirror","shot_pattern":"aimed","shot_interval":45,"projectile_speed":112,"projectile_damage":1,"telegraph_ticks":18,"special":"copy-position"},
+      {"id":"second-original","health_threshold":66,"move_pattern":"orbit","shot_pattern":"ring","shot_interval":41,"projectile_speed":116,"projectile_damage":1,"telegraph_ticks":22,"special":"double-exposure"},
+      {"id":"both-live","health_threshold":33,"move_pattern":"sweep","shot_pattern":"beam","shot_interval":66,"projectile_speed":126,"projectile_damage":1,"telegraph_ticks":30,"special":"split-stage"}
+    ]},
+    "story":{
+      "prelude":[{"sender":"xingtong","text_key":"story.original.prelude.1"},{"sender":"bella","text_key":"story.original.prelude.2"}],
+      "intermission":{"after_segment":2,"prompt_key":"story.original.intermission.prompt","messages":[{"sender":"xingtong","text_key":"story.original.intermission.1"},{"sender":"system","text_key":"story.original.intermission.2"}],"choices":[
+        {"id":"keep-both-rooms","label_key":"story.original.choice.both.label","result_key":"story.original.choice.both.result","tag":"kept-both-rooms","show_effect_id":"double-take"},
+        {"id":"read-session-log","label_key":"story.original.choice.log.label","result_key":"story.original.choice.log.result","tag":"read-session-log","show_effect_id":"headline-break"}
+      ]},
+      "epilogue":[{"sender":"xingtong","text_key":"story.original.epilogue.1"},{"sender":"bella","text_key":"story.original.epilogue.2"}],
+      "replay_recap":[{"sender":"xingtong","text_key":"story.original.recap.1"}]
+    },
+    "encore":[{"id":"original-mirror-take","name_key":"encore.original_mirror_take.name","description_key":"encore.original_mirror_take.description","enemy_speed_percent":10,"projectile_speed_percent":10,"special_charge_penalty_percent":10}],
+    "endings":[]
+  }
+}

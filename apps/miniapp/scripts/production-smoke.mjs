@@ -1,553 +1,193 @@
 import { createHmac, randomUUID } from "node:crypto";
-import { appendFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
+
+import {
+  chooseSmokeShowOption,
+  chooseSmokeStoryOption,
+  createAuthoritySmokeTrace,
+} from "./smoke-trace-helper.mjs";
 
 const apiBaseURL = (process.env.API_BASE_URL ?? "").replace(/\/+$/, "");
 const botToken = process.env.TELEGRAM_BOT_TOKEN ?? "";
 const smokeRunID = process.env.SMOKE_RUN_ID ?? "";
-const sleep = (milliseconds) =>
-  new Promise((resolve) => setTimeout(resolve, milliseconds));
-const expectedTelegramUserID =
-  process.env.EXPECTED_SMOKE_TELEGRAM_USER_ID ?? "";
+const expectedTelegramUserID = process.env.EXPECTED_SMOKE_TELEGRAM_USER_ID ?? "";
 const telegramInitDataFile = process.env.TELEGRAM_INIT_DATA_FILE ?? "";
-if (!/^\d+$/.test(smokeRunID)) {
-  throw new Error("SMOKE_RUN_ID must be the numeric GitHub run ID");
-}
-if (!/^8\d{15}$/.test(expectedTelegramUserID)) {
-  throw new Error("EXPECTED_SMOKE_TELEGRAM_USER_ID is invalid");
-}
-if (!telegramInitDataFile) {
-  throw new Error("TELEGRAM_INIT_DATA_FILE is required");
+if (!apiBaseURL.startsWith("https://")) throw new Error("API_BASE_URL must be HTTPS");
+if (!botToken || !/^\d+$/.test(smokeRunID) || !/^8\d{15}$/.test(expectedTelegramUserID) || !telegramInitDataFile) {
+  throw new Error("Production smoke identity inputs are invalid");
 }
 const telegramUserID = Number(expectedTelegramUserID);
-if (!Number.isSafeInteger(telegramUserID)) {
-  throw new Error("Synthetic Telegram user ID is outside JavaScript's safe range");
-}
-const telegramUser = {
-  id: telegramUserID,
-  first_name: "Production",
-  language_code: "en",
-};
+if (!Number.isSafeInteger(telegramUserID)) throw new Error("Synthetic Telegram user ID is unsafe");
+const telegramUser = { id: telegramUserID, first_name: "Production", language_code: "en" };
 
-const cleanupIdentity = {
-  synthetic_telegram_user_id: telegramUser.id,
-};
-if (process.env.GITHUB_OUTPUT) {
-  appendFileSync(
-    process.env.GITHUB_OUTPUT,
-    `synthetic_telegram_user_id=${cleanupIdentity.synthetic_telegram_user_id}\n`,
-    "utf8",
-  );
-}
-console.log(JSON.stringify({ status: "prepared", ...cleanupIdentity }));
+console.log(JSON.stringify({ status: "prepared", synthetic_telegram_user_id: telegramUser.id }));
 
-if (!apiBaseURL.startsWith("https://")) {
-  throw new Error("API_BASE_URL must be a production HTTPS URL");
-}
-if (!botToken || botToken === "replace-out-of-band") {
-  throw new Error("TELEGRAM_BOT_TOKEN is required");
-}
-
-const createInitData = () => {
-  const values = new URLSearchParams({
-    auth_date: String(Math.floor(Date.now() / 1000)),
-    query_id: `production-smoke-${smokeRunID}`,
-    user: JSON.stringify(telegramUser),
-  });
-  const check = [...values.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, value]) => `${key}=${value}`)
-    .join("\n");
-  const secret = createHmac("sha256", "WebAppData").update(botToken).digest();
-  values.set("hash", createHmac("sha256", secret).update(check).digest("hex"));
-  return values.toString();
-};
-
-const initData = createInitData();
-writeFileSync(telegramInitDataFile, initData, {
-  encoding: "utf8",
-  flag: "wx",
-  mode: 0o600,
+const values = new URLSearchParams({
+  auth_date: String(Math.floor(Date.now() / 1_000)),
+  query_id: `production-smoke-${smokeRunID}`,
+  user: JSON.stringify(telegramUser),
 });
+const dataCheck = [...values.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${value}`).join("\n");
+const secret = createHmac("sha256", "WebAppData").update(botToken).digest();
+values.set("hash", createHmac("sha256", secret).update(dataCheck).digest("hex"));
+const initData = values.toString();
+writeFileSync(telegramInitDataFile, initData, { encoding: "utf8", flag: "wx", mode: 0o600 });
+
+const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 let requestCount = 0;
 let rateLimitWaits = 0;
-
-const requestJSON = async (
-  path,
-  { method = "GET", body, idempotencyKey, authenticate = true, locale = "en" } = {},
-) => {
+const requestJSON = async (path, { method = "GET", body, key, authenticate = true, locale = "en" } = {}) => {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     requestCount += 1;
     let response;
     try {
       response = await fetch(`${apiBaseURL}${path}`, {
         method,
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(25_000),
         headers: {
           Accept: "application/json",
           "Accept-Language": locale,
           ...(authenticate ? { "X-Telegram-Init-Data": initData } : {}),
           ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-          ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+          ...(key ? { "Idempotency-Key": key } : {}),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch (error) {
       if (attempt === 7) throw error;
-      await sleep(Math.min(2 ** attempt * 500, 8_000));
+      await sleep(Math.min(500 * 2 ** attempt, 8_000));
       continue;
     }
-
-    if (response.ok) {
-      return {
-        body: await response.json(),
-        replayed: response.headers.get("idempotency-replayed") === "true",
-      };
-    }
-    const responseBody = await response.text();
+    const text = await response.text();
+    if (response.ok) return { body: text ? JSON.parse(text) : null, replayed: response.headers.get("idempotency-replayed") === "true" };
     if (response.status === 429) {
       rateLimitWaits += 1;
-      const retryAfter = Number.parseInt(
-        response.headers.get("retry-after") ?? "1",
-        10,
-      );
-      await sleep(Math.min(Math.max(retryAfter, 1), 65) * 1000 + 250);
+      await sleep(Math.min(65, Math.max(1, Number(response.headers.get("retry-after") ?? 1))) * 1_000 + 250);
       continue;
     }
     if (response.status >= 500 && attempt < 7) {
-      await sleep(Math.min(2 ** attempt * 500, 8_000));
+      await sleep(Math.min(500 * 2 ** attempt, 8_000));
       continue;
     }
-    throw new Error(
-      `${method} ${path} failed (${response.status}): ${responseBody.slice(0, 500)}`,
-    );
+    throw new Error(`${method} ${path} failed (${response.status}): ${text.slice(0, 500)}`);
   }
   throw new Error(`${method} ${path} exhausted retries`);
 };
 
-const post = (path, body, key = randomUUID()) =>
-  requestJSON(path, { method: "POST", body, idempotencyKey: key });
+const post = (path, body, key = randomUUID()) => requestJSON(path, { method: "POST", body, key });
+const command = async (run, body, key = randomUUID()) => post(`/v2/runs/${encodeURIComponent(run.id)}/commands`, { ...body, expected_version: run.version }, key);
 
-const getGame = async () => (await requestJSON("/v2/game")).body;
-
-const command = async (run, body) =>
-  (
-    await post(`/v2/runs/${encodeURIComponent(run.id)}/commands`, {
-      ...body,
-      expected_version: run.version,
-    })
-  ).body;
-
-const appendControls = (controls, direction, count, useWarp) => {
-  for (let index = 0; index < count; index += 1) {
-    const warp = useWarp && controls.length % 121 === 0 ? 0x40 : 0;
-    controls.push((direction & 0x0f) | 0x30 | warp);
-  }
-};
-
-const objectiveControls = (encounter) => {
-  const controls = [];
-  if (encounter.kind === "tutorial" || encounter.objective.kind === "recover") {
-    const sweep = [
-      [12, 26],
-      [8, 25],
-      [4, 5],
-      [0, 50],
-      [8, 50],
-      [12, 31],
-      [0, 50],
-      [8, 25],
-      [12, 41],
-      [0, 25],
-      [4, 4],
-      [8, 25],
-      [12, 4],
-      [0, 25],
-      [4, 41],
-      [8, 50],
-      [0, 50],
-      [4, 31],
-      [8, 50],
-      [0, 25],
-      [12, 5],
-      [4, 26],
-    ];
-    while (controls.length < encounter.max_ticks) {
-      for (const [direction, count] of sweep) {
-        appendControls(controls, direction, count, false);
-      }
-      if (encounter.kind === "tutorial") {
-        controls.push(0x44);
-      }
-    }
-  } else if (encounter.objective.kind === "stabilize") {
-    appendControls(controls, 12, 48, false);
-    while (controls.length < encounter.max_ticks) {
-      for (const direction of [0, 4, 8, 12]) {
-        appendControls(controls, direction, 4, false);
-      }
-    }
-  } else {
-    for (let tick = 0; tick < encounter.max_ticks; tick += 1) {
-      const direction = Math.floor((tick + 4) / 21) % 16;
-      const warp = (tick + 4) % 149 === 0 ? 0x40 : 0;
-      controls.push(direction | 0x30 | warp);
-    }
-  }
-  return controls.slice(0, encounter.max_ticks);
-};
-
-const actionTrace = (encounter) => {
-  const controls = objectiveControls(encounter);
-  const bytes = [];
-  for (let index = 0; index < controls.length; ) {
-    let count = 1;
-    while (
-      index + count < controls.length &&
-      controls[index + count] === controls[index] &&
-      count < 255
-    ) {
-      count += 1;
-    }
-    bytes.push(controls[index], count);
-    index += count;
-  }
-  return {
-    encoding: "rle8-v1",
-    ticks: controls.length,
-    data: Buffer.from(bytes).toString("base64url"),
-  };
-};
-
-const routeCoverage = new Set();
-
-const choosePendingStory = async (game, content, verifyReplay = false) => {
-  if (!game.pending_scene_slug) return game;
-  const scene = content.scenes.find(
-    (item) => item.slug === game.pending_scene_slug,
-  );
-  const option = scene?.options?.[0]?.slug;
-  if (!scene || !option) {
-    throw new Error(`Invalid pending scene ${game.pending_scene_slug}`);
-  }
-  const payload = {
-    scene_slug: scene.slug,
-    option_slug: option,
-    expected_version: game.progress.version,
-  };
-  const key = randomUUID();
-  const first = await post("/v2/story/choices", payload, key);
-  if (verifyReplay) {
-    const replay = await post("/v2/story/choices", payload, key);
-    if (
-      !replay.replayed ||
-      replay.body.progress.version !== first.body.progress.version
-    ) {
-      throw new Error("Story idempotency replay failed");
-    }
-  }
-  return {
-    ...game,
-    progress: first.body.progress,
-    pending_scene_slug: first.body.pending_scene_slug,
-  };
-};
-
-const drainPendingStories = async (game, content, verifyFirst = false) => {
-  let current = game;
-  for (let step = 0; step < 16 && current.pending_scene_slug; step += 1) {
-    current = await choosePendingStory(
-      current,
-      content,
-      verifyFirst && step === 0,
-    );
-  }
-  if (current.pending_scene_slug) {
-    throw new Error("Pending story chain exceeded its safety bound");
-  }
-  return current;
-};
-
-const finishRun = async (initial, content) => {
-  let run = initial;
-  let rerolled = false;
-  for (let step = 0; step < 72 && run.status === "active"; step += 1) {
+const finishRun = async (initialRun, endingID, verifyReplay = false) => {
+  let run = initialRun;
+  let replayChecked = false;
+  for (let step = 0; step < 24 && run.status === "active"; step += 1) {
     let response;
-    switch (run.state.phase) {
-      case "encounter":
-        response = await command(run, {
-          type: "complete_encounter",
-          trace: actionTrace(run.state.encounter),
-        });
-        break;
-      case "reward":
-        if (!rerolled && run.state.rerolls_remaining > 0) {
-          response = await command(run, { type: "reroll_module_reward" });
-          rerolled = true;
-        } else {
-          response = await command(run, {
-            type: "choose_module_reward",
-            choice_slug: run.state.reward?.module_choices?.[0] ?? "",
-          });
-        }
-        break;
-      case "map": {
-        const priority = {
-          rest: 0,
-          story: 1,
-          event: 2,
-          combat: 3,
-          elite: 4,
-          boss: 5,
-        };
-        const available = run.state.map.nodes.filter(
-          (item) => item.status === "available",
-        );
-        const recovery =
-          run.state.health * 100 <= run.state.max_health * 55
-            ? available.find((item) => item.type === "rest")
-            : undefined;
-        const missingType = ["elite", "event", "rest"].find(
-          (type) =>
-            !routeCoverage.has(type) &&
-            available.some((item) => item.type === type),
-        );
-        const node =
-          recovery ??
-          (missingType
-            ? available.find((item) => item.type === missingType)
-            : [...available].sort(
-                (left, right) =>
-                  (priority[left.type] ?? 8) - (priority[right.type] ?? 8),
-              )[0]);
-        if (!node) throw new Error("Active map has no available node");
-        routeCoverage.add(node.type);
-        response = await command(run, { type: "choose_node", node_id: node.id });
-        break;
-      }
-      case "event": {
-        const event = content.events.find(
-          (item) => item.slug === run.state.current_event_slug,
-        );
-        if (!event?.options?.[0]) {
-          throw new Error(`Invalid event ${run.state.current_event_slug}`);
-        }
-        response = await command(run, {
-          type: "resolve_event",
-          choice_slug: event.options[0].slug,
-        });
-        break;
-      }
-      case "rest":
-        response = await command(run, { type: "rest", operation: "repair" });
-        break;
-      case "completed":
-        return run;
-      default:
-        throw new Error(`Unsupported phase ${run.state.phase}`);
-    }
-
-    run = response.run;
-    if (
-      response.events.some((event) =>
-        [
-          "story_scene_ready",
-          "tutorial_completed",
-          "chapter_cleared",
-        ].includes(event.kind),
-      )
-    ) {
-      await drainPendingStories(await getGame(), content);
-    }
+    if (run.state.phase === "segment") {
+      const runtimeConfig = run.state.segment?.runtime_config;
+      if (!runtimeConfig) throw new Error("Active segment has no runtime configuration");
+      response = await command(run, { type: "complete_segment", trace: createAuthoritySmokeTrace(runtimeConfig) });
+    } else if (run.state.phase === "show_choice") {
+      const optionID = chooseSmokeShowOption(run.state.pending_show_options);
+      const body = { type: "choose_show_option", option_id: optionID };
+      if (verifyReplay && !replayChecked) {
+        const key = randomUUID();
+        const first = await command(run, body, key);
+        const replay = await command(run, body, key);
+        if (!replay.replayed || replay.body.run.version !== first.body.run.version) throw new Error("Command idempotency replay failed");
+        response = first;
+        replayChecked = true;
+      } else response = await command(run, body);
+    } else if (run.state.phase === "story") {
+      const sceneID = run.state.story?.scene_id;
+      const choices = run.state.story?.choice_ids ?? [];
+      const optionID = chooseSmokeStoryOption(
+        choices,
+        sceneID === "zero-channel-ending" ? endingID : null,
+      );
+      if (!sceneID || !optionID || !choices.includes(optionID)) throw new Error("Story scene has no valid option");
+      response = await command(run, { type: "choose_intermission_reply", scene_id: sceneID, option_id: optionID });
+    } else throw new Error(`Unexpected run phase ${run.state.phase}`);
+    run = response.body.run;
   }
-  if (run.status === "active") {
-    throw new Error(`Run ${run.id} exceeded its command safety bound`);
-  }
+  if (run.status !== "completed" || run.outcome !== "cleared") throw new Error(`Run ${run.id} did not clear`);
+  if (endingID && run.state.ending_id !== endingID) throw new Error(`Finale did not persist ${endingID}`);
   return run;
 };
 
-const assertAnonymous = (value) => {
-  const serialized = JSON.stringify(value).toLowerCase();
-  for (const forbidden of [
-    "telegram",
-    "player_id",
-    "display_name",
-    "username",
-    "first_name",
-    "last_name",
-    "completed_at",
-  ]) {
-    if (serialized.includes(forbidden)) {
-      throw new Error(`Public daily result exposed forbidden field ${forbidden}`);
+const health = await requestJSON("/healthz", { authenticate: false });
+const ready = await requestJSON("/readyz", { authenticate: false });
+if (!health.body || !ready.body) throw new Error("Health endpoints returned empty bodies");
+const [english, chinese] = await Promise.all([
+  requestJSON("/v2/content/v4?locale=en", { authenticate: false }),
+  requestJSON("/v2/content/v4?locale=zh-CN", { authenticate: false, locale: "zh-CN" }),
+]);
+if (english.body.version !== "v4" || english.body.protocol !== "shooter-v1" || chinese.body.locale !== "zh-CN") throw new Error("V4 content handshake failed");
+
+const campaignChapters = ["seventh-dock", "always-cheerful", "loss-hidden", "captains-do-not-rest", "localization-failed", "which-is-original", "laplace-florist"];
+const chapterByID = new Map(english.body.chapters.map((chapter) => [chapter.id, chapter]));
+const clearedChapters = [];
+for (const chapterSlug of campaignChapters) {
+  const characterSlug = chapterByID.get(chapterSlug)?.featured_character;
+  if (!characterSlug) throw new Error(`Content has no featured character for ${chapterSlug}`);
+  const run = (await post("/v2/runs", { mode: "campaign", chapter_slug: chapterSlug, character_slug: characterSlug })).body;
+  await finishRun(run, null, clearedChapters.length === 0);
+  clearedChapters.push(chapterSlug);
+
+  if (clearedChapters.length === 1) {
+    const chapter = chapterByID.get(chapterSlug);
+    const revisionOption = chapter?.story?.intermission?.choices?.[1]?.id;
+    const snapshotBeforeRevision = (await requestJSON("/v2/game")).body;
+    if (!revisionOption || !Number.isInteger(snapshotBeforeRevision?.progress?.version)) throw new Error("Story revision fixture is unavailable");
+    const key = randomUUID();
+    const revisionBody = {
+      scene_slug: `${chapterSlug}-intermission`,
+      option_slug: revisionOption,
+      expected_version: snapshotBeforeRevision.progress.version,
+    };
+    const firstRevision = await post("/v2/story/choices", revisionBody, key);
+    const replayedRevision = await post("/v2/story/choices", revisionBody, key);
+    const latestRevision = firstRevision.body.progress.choices.filter((choice) => choice.scene_slug === revisionBody.scene_slug).at(-1);
+    if (!replayedRevision.replayed || replayedRevision.body.progress.version !== firstRevision.body.progress.version || latestRevision?.revision !== 2) {
+      throw new Error("Append-only story choice revision or its idempotent replay failed");
     }
   }
-};
+}
 
-const validateContent = (content, locale) => {
-  const expected = {
-    characters: 7,
-    kits: 7,
-    modules: 68,
-    plugins: 20,
-    enemies: 36,
-    encounters: 47,
-    events: 28,
-    scenes: 34,
-    chapters: 8,
-  };
-  if (
-    content.version !== "v3" ||
-    content.protocol !== "action-v2" ||
-    content.locale !== locale
-  ) {
-    throw new Error(`Invalid ${locale} Action V3 content handshake`);
-  }
-  for (const [key, count] of Object.entries(expected)) {
-    if (content[key]?.length !== count) {
-      throw new Error(`${locale} content ${key} expected ${count}`);
-    }
-  }
-  const campaign = content.chapters.filter((chapter) => !chapter.finale);
-  const finale = content.chapters.filter((chapter) => chapter.finale);
-  if (campaign.length !== 7 || finale.length !== 1 || finale[0].slug !== "zero-channel") {
-    throw new Error("The complete seven-chapter campaign and finale are missing");
-  }
-};
+const endings = ["open-archive", "shared-cut", "quiet-signoff"];
+for (const endingID of endings) {
+  const run = (await post("/v2/runs", {
+    mode: "campaign",
+    chapter_slug: "zero-channel",
+    character_slug: "nana7mi",
+    companion_slug: "xingtong-assist",
+  })).body;
+  await finishRun(run, endingID);
+}
 
-const startCampaign = async (chapter, characterSlug) =>
-  (
-    await post("/v2/runs", {
-      mode: "campaign",
-      chapter_slug: chapter.slug,
-      character_slug: characterSlug,
-      noise_level: 0,
-    })
-  ).body;
+const dailyRun = (await post("/v2/runs", { mode: "daily" })).body;
+const dailyResultRun = await finishRun(dailyRun, null);
+const snapshot = (await requestJSON("/v2/game")).body;
+const publicDaily = (await requestJSON(`/v2/daily/results/${encodeURIComponent(dailyResultRun.id)}`, { authenticate: false })).body;
+if (
+  !snapshot.daily_result ||
+  publicDaily.score !== snapshot.daily_result.score ||
+  publicDaily.character_slug !== snapshot.daily_result.character_slug ||
+  JSON.stringify(publicDaily.show_effects) !== JSON.stringify(snapshot.daily_result.show_effects) ||
+  JSON.stringify(publicDaily.companion_slugs) !== JSON.stringify(snapshot.daily_result.companion_slugs)
+) {
+  throw new Error("Daily result persistence or anonymous projection failed");
+}
 
-const clearWithRetries = async (start, content, label, verifyRecovery = false) => {
-  let result;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    const run = await start();
-    if (attempt === 1 && verifyRecovery) {
-      const recovered = (
-        await requestJSON(`/v2/runs/${encodeURIComponent(run.id)}`)
-      ).body;
-      if (recovered.id !== run.id || recovered.version !== run.version) {
-        throw new Error(`${label} recovery failed`);
-      }
-      result = await finishRun(recovered, content);
-    } else {
-      result = await finishRun(run, content);
-    }
-    if (result.outcome === "cleared") return result;
-  }
-  throw new Error(`${label} did not clear within three attempts`);
-};
-
-const runSmoke = async () => {
-  console.log("Starting authenticated production Action V3 smoke test.");
-  const { body: content } = await requestJSON("/v2/content/v3?locale=en", {
-    authenticate: false,
-    locale: "en",
-  });
-  const { body: chineseContent } = await requestJSON(
-    "/v2/content/v3?locale=zh-CN",
-    { authenticate: false, locale: "zh-CN" },
-  );
-  validateContent(content, "en");
-  validateContent(chineseContent, "zh-CN");
-
-  let game = await drainPendingStories(await getGame(), content, true);
-  const orderedChapters = [...content.chapters].sort(
-    (left, right) => left.order - right.order,
-  );
-  const campaignChapters = orderedChapters.filter((chapter) => !chapter.finale);
-
-  for (const chapter of campaignChapters) {
-    game = await drainPendingStories(await getGame(), content);
-    if (game.progress.current_chapter_slug !== chapter.slug) {
-      throw new Error(
-        `Expected campaign chapter ${chapter.slug}, got ${game.progress.current_chapter_slug}`,
-      );
-    }
-    await clearWithRetries(
-      () => startCampaign(chapter, chapter.character_slug),
-      content,
-      `Campaign chapter ${chapter.slug}`,
-      true,
-    );
-    game = await drainPendingStories(await getGame(), content);
-  }
-
-  const finale = orderedChapters.find((chapter) => chapter.finale);
-  if (!finale || game.progress.current_chapter_slug !== finale.slug) {
-    throw new Error("Zero Channel did not unlock after seven memories");
-  }
-  const finalePilot = campaignChapters[0].character_slug;
-  await clearWithRetries(
-    () => startCampaign(finale, finalePilot),
-    content,
-    "Zero Channel",
-  );
-  game = await drainPendingStories(await getGame(), content);
-  if (!game.progress.ending || !game.progress.daily_unlocked) {
-    throw new Error("Finale did not project an ending and unlock Daily Anomaly");
-  }
-
-  const dailyResult = await clearWithRetries(
-    async () => {
-      const daily = (await post("/v2/runs", { mode: "daily" })).body;
-      if (daily.mode !== "daily" || !daily.daily_date) {
-        throw new Error("Server did not select a dated daily route");
-      }
-      return daily;
-    },
-    content,
-    "Daily Anomaly",
-  );
-  const settled = await getGame();
-  if (
-    settled.daily_run !== null ||
-    !settled.daily_result ||
-    settled.daily_result.score !== dailyResult.state.score
-  ) {
-    throw new Error("Daily result did not persist cleanly");
-  }
-
-  const publicResult = (
-    await requestJSON(`/v2/daily/results/${encodeURIComponent(dailyResult.id)}`, {
-      authenticate: false,
-    })
-  ).body;
-  assertAnonymous(publicResult);
-  if (
-    publicResult.date !== settled.daily_result.date ||
-    publicResult.score !== settled.daily_result.score ||
-    publicResult.character_slug !== settled.daily_result.character_slug
-  ) {
-    throw new Error("Public daily result does not match the persisted result");
-  }
-
-  return {
-    ending: game.progress.ending,
-    highestNoise: game.progress.highest_noise_level,
-    dailyScore: publicResult.score,
-    dailyStreak: publicResult.streak,
-  };
-};
-
-const result = await runSmoke();
-console.log(
-  JSON.stringify({
-    status: "ok",
-    protocol: "action-v2",
-    content_version: "v3",
-    authenticated_as: "synthetic-production-smoke-user",
-    ...cleanupIdentity,
-    ending: result.ending,
-    highest_noise_level: result.highestNoise,
-    daily_score: result.dailyScore,
-    daily_streak: result.dailyStreak,
-    requests: requestCount,
-    rate_limit_waits: rateLimitWaits,
-  }),
-);
+console.log(JSON.stringify({
+  status: "ok",
+  protocol: "shooter-v1",
+  content_version: "v4",
+  chapters: [...clearedChapters, "zero-channel"],
+  endings,
+  daily_persisted: true,
+  idempotent_replay: true,
+  story_revision: true,
+  requests: requestCount,
+  rate_limit_waits: rateLimitWaits,
+  synthetic_telegram_user_id: telegramUser.id,
+}));

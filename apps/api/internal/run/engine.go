@@ -3,255 +3,388 @@ package run
 import (
 	"fmt"
 	"slices"
+	"sort"
 
-	"github.com/achenachena/xuhuan/apps/api/internal/action"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
+	"github.com/achenachena/xuhuan/apps/api/internal/shooter"
 )
 
-const baseMaxHealth = 100
+const bossSegmentIndex = 3
 
-func NewState(input StartInput, catalog *gamecontent.Catalog) (State, error) {
+// NewState creates the complete authoritative state for one campaign or daily
+// run. Future segment configs are derived from its seed and immutable content.
+func NewState(input StartInput, catalog *gamecontent.V4Catalog) (State, error) {
+	if input.Mode != CampaignMode && input.Mode != DailyMode {
+		return State{}, ErrInvalidCommand
+	}
 	chapter, ok := catalog.Chapter(input.ChapterSlug)
-	if !ok || !chapter.Available || (!chapter.Finale && chapter.CharacterSlug != input.CharacterSlug) || input.NoiseLevel < 0 || input.NoiseLevel > 3 {
+	if !ok || input.EncoreLevel < 0 || input.EncoreLevel > 3 {
 		return State{}, ErrContentLocked
 	}
-	character, ok := catalog.Character(input.CharacterSlug)
-	if !ok {
+	if _, ok = catalog.Character(input.CharacterSlug); !ok {
 		return State{}, ErrContentLocked
 	}
-	mode := input.Mode
-	if mode == "" {
-		mode = CampaignMode
+	companions := uniqueKnownCompanions(input.CompanionSlugs, catalog)
+	if len(companions) != len(input.CompanionSlugs) {
+		return State{}, ErrContentLocked
 	}
-	gameMap, cursor, err := generateMap(input.Seed, mode, chapter, input.NoiseLevel, input.TutorialCompleted, catalog)
-	if err != nil {
+	state := State{
+		Phase: SegmentPhase, ChapterSlug: chapter.ID, CharacterSlug: input.CharacterSlug,
+		CompanionSlugs: companions, EncoreLevel: input.EncoreLevel,
+		Hearts: catalog.Rules.StartingHearts, MaxHearts: catalog.Rules.StartingHearts,
+		SegmentIndex: 0, PendingShowOptions: []string{}, ShowEffects: []string{},
+		SelectedChoiceIDs: uniqueStrings(input.SelectedChoices),
+	}
+	if err := startSegment(&state, input.Seed, input.Mode, catalog); err != nil {
 		return State{}, err
-	}
-	kit, ok := catalog.Kit(character.KitSlug)
-	if !ok {
-		return State{}, ErrContentLocked
-	}
-	modulePool, pluginPool, err := resolveRewardPool(input, catalog, input.CharacterSlug)
-	if err != nil {
-		return State{}, err
-	}
-	modifier := input.NarrativeModifier
-	if modifier.BossVariant == "" {
-		modifier.BossVariant = "balanced"
-	}
-	if modifier.BossVariant != "authentic" && modifier.BossVariant != "balanced" && modifier.BossVariant != "retained" {
-		return State{}, ErrContentLocked
-	}
-	state := State{Phase: MapPhase, ChapterSlug: input.ChapterSlug, CharacterSlug: input.CharacterSlug, CompanionSlugs: slices.Clone(input.CompanionSlugs), SupportAlignment: input.SupportAlignment, WeaponSlug: "auto-signal", NoiseLevel: input.NoiseLevel, Health: kit.BaseStats.MaxHealth, MaxHealth: kit.BaseStats.MaxHealth, Modules: []ModuleLevel{}, Plugins: []string{}, RewardPool: RewardPool{ModuleSlugs: modulePool, PluginSlugs: pluginPool}, NarrativeModifier: modifier, Map: gameMap, ChoiceTags: slices.Clone(input.ChoiceTags), RNGCursor: cursor, EmergencyReconnectAvailable: input.EmergencyReconnectAvailable, RerollsRemaining: 1}
-	if input.StarterModuleSlug != "" {
-		if !slices.Contains(modulePool, input.StarterModuleSlug) {
-			return State{}, ErrContentLocked
-		}
-		module, exists := catalog.Module(input.StarterModuleSlug)
-		if !exists || (module.CharacterSlug != "" && module.CharacterSlug != input.CharacterSlug) {
-			return State{}, ErrContentLocked
-		}
-		state.Modules = append(state.Modules, ModuleLevel{Slug: module.Slug, Level: 1})
-		starterEvents := make([]Event, 0, 1)
-		if err := applyEffects(&state, module.Levels[0].Effects, catalog, &starterEvents); err != nil {
-			return State{}, err
-		}
-	}
-	state.RuntimeConfig, err = resolveRuntime(state, catalog)
-	if err != nil {
-		return State{}, err
-	}
-	if gameMap.CurrentNodeID != "" {
-		node := gameMap.Nodes[nodeIndex(gameMap, gameMap.CurrentNodeID)]
-		if err := startEncounter(&state, input.Seed, node.EncounterSlug, catalog); err != nil {
-			return State{}, err
-		}
 	}
 	normalizeCollections(&state)
 	return state, nil
 }
 
-func resolveRewardPool(input StartInput, catalog *gamecontent.Catalog, characterSlug string) ([]string, []string, error) {
-	moduleSlugs := slices.Clone(input.UnlockedModuleSlugs)
-	pluginSlugs := slices.Clone(input.UnlockedPluginSlugs)
-	if input.UnlockedModuleSlugs == nil {
-		for _, module := range catalog.RewardModules(characterSlug) {
-			moduleSlugs = append(moduleSlugs, module.Slug)
-		}
-	}
-	if input.UnlockedPluginSlugs == nil {
-		for _, plugin := range catalog.Plugins {
-			if plugin.CharacterSlug == "" || plugin.CharacterSlug == characterSlug {
-				pluginSlugs = append(pluginSlugs, plugin.Slug)
-			}
-		}
-	}
-	slices.Sort(moduleSlugs)
-	slices.Sort(pluginSlugs)
-	moduleSlugs = slices.Compact(moduleSlugs)
-	pluginSlugs = slices.Compact(pluginSlugs)
-	if len(moduleSlugs) < 3 {
-		return nil, nil, ErrContentLocked
-	}
-	for _, slug := range moduleSlugs {
-		module, ok := catalog.Module(slug)
-		if !ok || (module.CharacterSlug != "" && module.CharacterSlug != characterSlug) {
-			return nil, nil, ErrContentLocked
-		}
-	}
-	for _, slug := range pluginSlugs {
-		plugin, ok := catalog.Plugin(slug)
-		if !ok || (plugin.CharacterSlug != "" && plugin.CharacterSlug != characterSlug) {
-			return nil, nil, ErrContentLocked
-		}
-	}
-	return moduleSlugs, pluginSlugs, nil
-}
-
-func Apply(current State, seed string, command Command, catalog *gamecontent.Catalog) (Resolution, *Outcome, error) {
+func Apply(current State, seed string, mode Mode, command Command, catalog *gamecontent.V4Catalog) (Resolution, *Outcome, error) {
 	state := cloneState(current)
-	events := make([]Event, 0, 8)
+	events := make([]Event, 0, 4)
 	var outcome *Outcome
 	var err error
 	switch command.Type {
-	case ChooseNode:
-		err = chooseNode(&state, seed, command.NodeID, catalog, &events)
-	case CompleteEncounter:
-		err = completeEncounter(&state, command.Trace, catalog, &events)
-	case ChooseModuleReward:
-		err = chooseReward(&state, command.ChoiceSlug, catalog, &events)
-	case RerollModuleReward:
-		err = rerollReward(&state, catalog, &events)
-	case ResolveEvent:
-		err = resolveEvent(&state, command.ChoiceSlug, catalog, &events)
-	case Rest:
-		err = rest(&state, command.Operation, command.ModuleSlug, catalog, &events)
+	case CompleteSegment:
+		err = completeSegment(&state, seed, mode, command.Trace, catalog, &events, &outcome)
+	case ChooseShowOption:
+		err = chooseShowOption(&state, seed, mode, command.OptionID, catalog, &events)
+	case ChooseIntermissionReply:
+		err = chooseIntermissionReply(&state, seed, mode, command.SceneID, command.OptionID, catalog, &events, &outcome)
 	case AbandonRun:
-		state.Phase = CompletedPhase
-		value := Quit
-		outcome = &value
-		events = append(events, Event{Kind: "run_abandoned"})
+		if state.Phase == CompletedPhase || command.Trace != nil || command.OptionID != "" || command.SceneID != "" {
+			err = ErrInvalidCommand
+		} else {
+			state.Phase, state.Segment, state.Story = CompletedPhase, nil, nil
+			value := Quit
+			outcome = &value
+		}
 	default:
 		err = ErrInvalidCommand
 	}
 	if err != nil {
 		return Resolution{}, nil, err
 	}
-	if command.Type != AbandonRun && state.Phase == CompletedPhase {
-		value := Cleared
-		if state.Health <= 0 {
-			value = Failed
-		}
-		outcome = &value
-	}
 	normalizeCollections(&state)
 	return Resolution{State: state, Events: events}, outcome, nil
 }
 
-func chooseNode(state *State, seed, id string, catalog *gamecontent.Catalog, events *[]Event) error {
-	if state.Phase != MapPhase || state.Map.CurrentNodeID != "" {
+func completeSegment(state *State, seed string, mode Mode, trace *shooter.InputTrace, catalog *gamecontent.V4Catalog, events *[]Event, outcome **Outcome) error {
+	if state.Phase != SegmentPhase || state.Segment == nil || trace == nil {
 		return ErrInvalidCommand
 	}
-	index := nodeIndex(state.Map, id)
-	if index < 0 || state.Map.Nodes[index].Status != AvailableNode {
+	result, err := shooter.Simulate(state.Segment.RuntimeConfig, *trace)
+	if err != nil {
+		return err
+	}
+	state.Hearts = result.Health
+	state.Score += result.Score
+	state.DailyVariant = result.DailyVariant
+	*events = append(*events, Event{Kind: "segment_completed", SegmentSlug: state.Segment.SegmentSlug, EncounterResult: &result})
+	if !result.Won {
+		state.Phase, state.Segment = CompletedPhase, nil
+		value := Failed
+		*outcome = &value
+		return nil
+	}
+	if isFinalSegment(*state, mode) {
+		return finishRun(state, catalog, events, outcome)
+	}
+	state.Phase = ShowChoicePhase
+	state.Segment = nil
+	state.PendingShowOptions = stagedOptions(*state, seed, catalog)
+	if len(state.PendingShowOptions) != 2 {
+		return fmt.Errorf("run: content cannot supply staged show choices")
+	}
+	*events = append(*events, Event{Kind: "show_choice_ready"})
+	return nil
+}
+
+func chooseShowOption(state *State, seed string, mode Mode, optionID string, catalog *gamecontent.V4Catalog, events *[]Event) error {
+	if state.Phase != ShowChoicePhase || optionID == "" || !slices.Contains(state.PendingShowOptions, optionID) {
 		return ErrInvalidCommand
 	}
-	lockAlternativeNodes(&state.Map, state.Map.Nodes[index])
-	state.Map.Nodes[index].Status = CurrentNode
-	state.Map.CurrentNodeID = id
-	node := state.Map.Nodes[index]
-	*events = append(*events, Event{Kind: "node_entered", NodeID: id})
-	switch node.Type {
-	case CombatNode, EliteNode, BossNode:
-		if node.Type == BossNode {
-			if chapter, ok := catalog.Chapter(state.ChapterSlug); ok {
-				if sceneSlug := bossBranchSceneSlug(chapter, catalog); sceneSlug != "" {
-					*events = append(*events, Event{Kind: "story_scene_ready", SceneSlug: sceneSlug, ChapterSlug: chapter.Slug})
+	if effect, ok := catalog.ShowEffect(optionID); ok {
+		if slices.Contains(state.ShowEffects, effect.ID) {
+			return ErrInvalidCommand
+		}
+		state.ShowEffects = append(state.ShowEffects, effect.ID)
+		*events = append(*events, Event{Kind: "show_effect_chosen", ShowEffectID: effect.ID})
+	} else if companion, ok := catalog.Companion(optionID); ok {
+		if slices.Contains(state.CompanionSlugs, companion.ID) {
+			return ErrInvalidCommand
+		}
+		state.CompanionSlugs = append(state.CompanionSlugs, companion.ID)
+		*events = append(*events, Event{Kind: "companion_chosen", CompanionID: companion.ID})
+	} else {
+		return ErrInvalidCommand
+	}
+	state.PendingShowOptions = []string{}
+	chapter, _ := catalog.Chapter(state.ChapterSlug)
+	completedNumber := state.SegmentIndex + 1
+	if mode == CampaignMode && completedNumber == chapter.Story.Intermission.AfterSegment {
+		choices := make([]string, 0, len(chapter.Story.Intermission.Choices))
+		for _, choice := range chapter.Story.Intermission.Choices {
+			choices = append(choices, choice.ID)
+		}
+		state.Phase = StoryPhase
+		state.Story = &StoryState{SceneID: chapter.ID + "-intermission", ChoiceIDs: choices}
+		*events = append(*events, Event{Kind: "intermission_ready", SceneID: state.Story.SceneID})
+		return nil
+	}
+	state.SegmentIndex++
+	return startSegment(state, seed, mode, catalog)
+}
+
+func chooseIntermissionReply(state *State, seed string, mode Mode, sceneID, optionID string, catalog *gamecontent.V4Catalog, events *[]Event, outcome **Outcome) error {
+	if mode != CampaignMode || state.Phase != StoryPhase || state.Story == nil || sceneID == "" || sceneID != state.Story.SceneID || !slices.Contains(state.Story.ChoiceIDs, optionID) {
+		return ErrInvalidCommand
+	}
+	chapter, ok := catalog.Chapter(state.ChapterSlug)
+	if !ok {
+		return ErrContentLocked
+	}
+	var selected *gamecontent.V4StoryChoice
+	for index := range chapter.Story.Intermission.Choices {
+		if chapter.Story.Intermission.Choices[index].ID == optionID {
+			selected = &chapter.Story.Intermission.Choices[index]
+			break
+		}
+	}
+	if selected == nil {
+		if state.ChapterSlug == "zero-channel" && state.Story.SceneID == "zero-channel-ending" {
+			return chooseEnding(state, optionID, catalog, events, outcome)
+		}
+		return ErrInvalidCommand
+	}
+	currentSceneChoices := make(map[string]bool, len(chapter.Story.Intermission.Choices))
+	for _, choice := range chapter.Story.Intermission.Choices {
+		currentSceneChoices[choice.ID] = true
+	}
+	state.SelectedChoiceIDs = removeSelectedIDs(state.SelectedChoiceIDs, currentSceneChoices)
+	state.SelectedChoiceIDs = append(state.SelectedChoiceIDs, selected.ID)
+	if selected.ShowEffectID != "" && !slices.Contains(state.ShowEffects, selected.ShowEffectID) {
+		if _, ok := catalog.ShowEffect(selected.ShowEffectID); !ok {
+			return ErrContentLocked
+		}
+		state.ShowEffects = append(state.ShowEffects, selected.ShowEffectID)
+	}
+	*events = append(*events, Event{Kind: "intermission_replied", SceneID: sceneID, ChoiceID: selected.ID, ChoiceTag: selected.Tag, ShowEffectID: selected.ShowEffectID})
+	state.Story = nil
+	state.SegmentIndex++
+	return startSegment(state, seed, mode, catalog)
+}
+
+func startSegment(state *State, seed string, mode Mode, catalog *gamecontent.V4Catalog) error {
+	chapter, ok := catalog.Chapter(state.ChapterSlug)
+	if !ok {
+		return ErrContentLocked
+	}
+	segmentSeed := fmt.Sprintf("%s:segment:%d", seed, state.SegmentIndex)
+	var segmentSlug, waveID, rewardStage, background string
+	var duration int
+	var wave gamecontent.V4Wave
+	var boss *gamecontent.V4Boss
+	if mode == DailyMode {
+		duration = catalog.Daily.SegmentDurationTicks
+		if state.SegmentIndex == catalog.Daily.SegmentCount-1 {
+			bossID := catalog.Daily.BossIDs[deterministicIndex(seed+":daily-boss", len(catalog.Daily.BossIDs))]
+			resolved, exists := catalog.Boss(bossID)
+			if !exists {
+				return ErrContentLocked
+			}
+			// Daily is one 30-second act plus the authored 60-second Boss. Reusing
+			// the act duration here silently shortened every Boss to 30 seconds.
+			boss, segmentSlug, duration, background = &resolved, "daily-boss", resolved.DurationTicks, chapter.BackgroundURL
+		} else {
+			waveID = catalog.Daily.WaveIDs[deterministicIndex(fmt.Sprintf("%s:daily-wave:%d", seed, state.SegmentIndex), len(catalog.Daily.WaveIDs))]
+			resolved, exists := findWave(catalog, waveID)
+			if !exists {
+				return ErrContentLocked
+			}
+			wave, segmentSlug, rewardStage, background = resolved, fmt.Sprintf("daily-segment-%d", state.SegmentIndex+1), rewardStageForIndex(state.SegmentIndex), chapter.BackgroundURL
+		}
+	} else if state.SegmentIndex < len(chapter.Segments) {
+		item := chapter.Segments[state.SegmentIndex]
+		resolved, exists := catalog.Wave(item.WaveID, chapter.ID)
+		if !exists {
+			return ErrContentLocked
+		}
+		segmentSlug, duration, waveID, rewardStage, background, wave = item.ID, item.DurationTicks, item.WaveID, item.RewardStage, item.BackgroundURL, resolved
+	} else if state.SegmentIndex == bossSegmentIndex {
+		resolved := chapter.Boss
+		boss, segmentSlug, duration, background = &resolved, chapter.Boss.ID, chapter.Boss.DurationTicks, chapter.BackgroundURL
+	} else {
+		return ErrInvalidCommand
+	}
+	config, err := buildShooterConfig(*state, catalog, segmentSeed, duration, wave, boss, mode == DailyMode)
+	if err != nil {
+		return err
+	}
+	state.Phase = SegmentPhase
+	state.Segment = &SegmentState{SegmentSlug: segmentSlug, SegmentIndex: state.SegmentIndex, Seed: segmentSeed, DurationTicks: duration, WaveID: waveID, RewardStage: rewardStage, BackgroundURL: background, RuntimeConfig: config}
+	if boss != nil {
+		state.Segment.BossID = boss.ID
+	}
+	return nil
+}
+
+func stagedOptions(state State, seed string, catalog *gamecontent.V4Catalog) []string {
+	candidates := make([]string, 0)
+	switch rewardStageForIndex(state.SegmentIndex) {
+	case "weapon":
+		for _, item := range catalog.ShowEffects {
+			if item.Archetype == "power" && !slices.Contains(state.ShowEffects, item.ID) {
+				candidates = append(candidates, item.ID)
+			}
+		}
+	case "companion":
+		for _, item := range catalog.Companions {
+			if item.CharacterID != state.CharacterSlug && !slices.Contains(state.CompanionSlugs, item.ID) {
+				candidates = append(candidates, item.ID)
+			}
+		}
+	case "rescue":
+		for _, item := range catalog.ShowEffects {
+			if item.Archetype == "guard" && !slices.Contains(state.ShowEffects, item.ID) {
+				candidates = append(candidates, item.ID)
+			}
+		}
+		// A concrete story reply may already grant one of the two guard effects.
+		// Keep the third gate at exactly two understandable, one-level choices by
+		// filling from style first, then power, without offering duplicates.
+		for _, fallbackArchetype := range []string{"style", "power"} {
+			for _, item := range catalog.ShowEffects {
+				if len(candidates) >= 2 {
+					break
+				}
+				if item.Archetype == fallbackArchetype && !slices.Contains(state.ShowEffects, item.ID) && !slices.Contains(candidates, item.ID) {
+					candidates = append(candidates, item.ID)
 				}
 			}
 		}
-		return startEncounter(state, seed, node.EncounterSlug, catalog)
-	case EventNode, StoryNode:
-		state.Phase = EventPhase
-		state.CurrentEventSlug = node.EventSlug
-	case RestNode:
-		state.Phase = RestPhase
-	default:
-		return ErrInvalidCommand
 	}
-	return nil
+	sort.Strings(candidates)
+	stream := randomStream{seed: seed + fmt.Sprintf(":show:%d", state.SegmentIndex)}
+	for index := len(candidates) - 1; index > 0; index-- {
+		swap := stream.Intn(index + 1)
+		candidates[index], candidates[swap] = candidates[swap], candidates[index]
+	}
+	if len(candidates) > 2 {
+		candidates = candidates[:2]
+	}
+	return candidates
 }
 
-func startEncounter(state *State, runSeed, slug string, catalog *gamecontent.Catalog) error {
-	definition, ok := catalog.Encounter(slug)
+func rewardStageForIndex(index int) string {
+	return []string{"weapon", "companion", "rescue"}[min(max(index, 0), 2)]
+}
+
+func finishRun(state *State, catalog *gamecontent.V4Catalog, events *[]Event, outcome **Outcome) error {
+	chapter, ok := catalog.Chapter(state.ChapterSlug)
 	if !ok {
-		return fmt.Errorf("run: unknown encounter %q", slug)
+		return ErrContentLocked
 	}
-	seed := runSeed + ":" + state.Map.CurrentNodeID
-	if definition.Tutorial {
-		seed = "tutorial:" + slug + ":0"
+	if chapter.ID == "zero-channel" {
+		choices := make([]string, 0, len(chapter.Endings))
+		for _, ending := range chapter.Endings {
+			choices = append(choices, ending.ID)
+		}
+		state.Phase, state.Segment, state.PendingShowOptions = StoryPhase, nil, []string{}
+		state.Story = &StoryState{SceneID: "zero-channel-ending", ChoiceIDs: choices}
+		*events = append(*events, Event{Kind: "ending_choice_ready", SceneID: state.Story.SceneID})
+		return nil
 	}
-	state.Phase = EncounterPhase
-	state.Encounter = &EncounterState{Slug: slug, Seed: seed, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, Tutorial: definition.Tutorial, Objective: action.ObjectiveConfig{Kind: definition.Objective.Kind, Target: definition.Objective.Target}, Risk: definition.Risk, RewardBias: definition.RewardBias, Hazards: append([]string{}, definition.Hazards...)}
+	state.Phase, state.Segment, state.Story, state.PendingShowOptions = CompletedPhase, nil, nil, []string{}
+	nextChapter, nextCharacter := nextChapter(catalog, chapter.Order)
+	*events = append(*events, Event{Kind: "chapter_cleared", ChapterSlug: chapter.ID, CompanionID: chapter.UnlockCompanion, NextChapterSlug: nextChapter, NextCharacterSlug: nextCharacter})
+	value := Cleared
+	*outcome = &value
 	return nil
 }
 
-func completeEncounter(state *State, trace *action.InputTrace, catalog *gamecontent.Catalog, events *[]Event) error {
-	if state.Phase != EncounterPhase || state.Encounter == nil || trace == nil {
+func isFinalSegment(state State, mode Mode) bool {
+	if mode == DailyMode {
+		return state.SegmentIndex == 1
+	}
+	return state.SegmentIndex == bossSegmentIndex
+}
+
+func chooseEnding(state *State, endingID string, catalog *gamecontent.V4Catalog, events *[]Event, outcome **Outcome) error {
+	chapter, ok := catalog.Chapter(state.ChapterSlug)
+	if !ok || !slices.ContainsFunc(chapter.Endings, func(ending gamecontent.V4Ending) bool { return ending.ID == endingID }) {
 		return ErrInvalidCommand
 	}
-	config, err := actionConfig(*state, catalog)
-	if err != nil {
-		return err
+	state.EndingID = endingID
+	endingIDs := make(map[string]bool, len(chapter.Endings))
+	for _, ending := range chapter.Endings {
+		endingIDs[ending.ID] = true
 	}
-	result, err := action.Simulate(config, *trace)
-	if err != nil {
-		return err
-	}
-	state.Health = min(state.MaxHealth, result.Health)
-	state.Score += result.Score
-	if result.EmergencyReconnectUsed {
-		state.EmergencyReconnectAvailable = false
-		*events = append(*events, Event{Kind: "emergency_reconnect_used"})
-	}
-	*events = append(*events, Event{Kind: "encounter_completed", EncounterResult: &result})
-	state.Encounter = nil
-	if !result.Won {
-		state.Health = 0
-		state.Phase = CompletedPhase
-		*events = append(*events, Event{Kind: "run_failed"})
-		return nil
-	}
-	node := state.Map.Nodes[nodeIndex(state.Map, state.Map.CurrentNodeID)]
-	if node.Type == TutorialNode {
-		*events = append(*events, Event{Kind: "tutorial_completed"})
-		if chapter, ok := catalog.Chapter(state.ChapterSlug); ok && chapter.PreludeSceneSlug != "" {
-			*events = append(*events, Event{Kind: "story_scene_ready", SceneSlug: chapter.PreludeSceneSlug, ChapterSlug: chapter.Slug})
-		}
-	}
-	if node.Type == BossNode {
-		completeCurrentNode(state)
-		state.Phase = CompletedPhase
-		chapter, _ := catalog.Chapter(state.ChapterSlug)
-		nextCharacter := ""
-		if next, ok := catalog.Chapter(chapter.NextChapterSlug); ok {
-			nextCharacter = next.CharacterSlug
-		}
-		*events = append(*events, Event{Kind: "chapter_cleared", ChapterSlug: chapter.Slug, NextChapterSlug: chapter.NextChapterSlug, NextCharacterSlug: nextCharacter})
-		return nil
-	}
-	reward := RewardState{ModuleChoices: rewardChoices(state, catalog, encounterRewardBias(node, catalog)), Rerolled: false}
-	if node.Type == EliteNode {
-		reward.GrantedPlugin = grantPlugin(state, catalog)
-		if reward.GrantedPlugin != "" {
-			if err := applyEffects(state, mustPlugin(catalog, reward.GrantedPlugin).Effects, catalog, events); err != nil {
-				return err
-			}
-			state.RuntimeConfig, _ = resolveRuntime(*state, catalog)
-			*events = append(*events, Event{Kind: "plugin_granted", PluginSlug: reward.GrantedPlugin})
-		}
-	}
-	state.Reward = &reward
-	state.Phase = RewardPhase
+	state.SelectedChoiceIDs = removeSelectedIDs(state.SelectedChoiceIDs, endingIDs)
+	state.SelectedChoiceIDs = append(state.SelectedChoiceIDs, endingID)
+	state.Phase, state.Story = CompletedPhase, nil
+	*events = append(*events,
+		Event{Kind: "ending_chosen", SceneID: "zero-channel-ending", ChoiceID: endingID, ChoiceTag: endingID, EndingID: endingID},
+		Event{Kind: "chapter_cleared", ChapterSlug: chapter.ID, EndingID: endingID},
+	)
+	value := Cleared
+	*outcome = &value
 	return nil
+}
+
+func removeSelectedIDs(selected []string, remove map[string]bool) []string {
+	result := make([]string, 0, len(selected))
+	for _, id := range selected {
+		if !remove[id] {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
+func nextChapter(catalog *gamecontent.V4Catalog, order int) (string, string) {
+	for _, chapter := range catalog.Chapters {
+		if chapter.Order == order+1 {
+			return chapter.ID, chapter.FeaturedCharacter
+		}
+	}
+	return "", ""
+}
+
+func findWave(catalog *gamecontent.V4Catalog, id string) (gamecontent.V4Wave, bool) {
+	for _, chapter := range catalog.Chapters {
+		if wave, ok := catalog.Wave(id, chapter.ID); ok {
+			return wave, true
+		}
+	}
+	return gamecontent.V4Wave{}, false
+}
+
+func uniqueKnownCompanions(values []string, catalog *gamecontent.V4Catalog) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := catalog.Companion(value); !ok || slices.Contains(result, value) {
+			continue
+		}
+		result = append(result, value)
+	}
+	return result
+}
+
+func uniqueStrings(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = appendUnique(result, value)
+	}
+	return result
+}
+
+func appendUnique(values []string, value string) []string {
+	if value != "" && !slices.Contains(values, value) {
+		return append(values, value)
+	}
+	return values
 }

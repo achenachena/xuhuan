@@ -1,71 +1,70 @@
 # Xuhuan: Only One Online
 
-*Xuhuan: Only One Online* is a portrait action roguelite for Telegram Mini Apps. The player is the last viewer left in an anomalous backstage channel. They help seven self-aware digital personas resist the Retention Protocol, a system that compresses each person into the safest and most marketable version of herself.
+*Xuhuan: Only One Online* is a one-thumb portrait shooter built for Telegram Mini Apps. A stream has ended, seven fictional digital performers are still in the backstage group, and an automatic archive is quietly replacing their awkward, funny, unfinished moments with perfect highlights.
 
-V3 is a complete linear campaign: seven character chapters lead into the **Zero Channel** finale. Choices accumulate Trust, Authenticity, and Retention; the balance between Authenticity and Retention selects one of three endings. Clearing the finale unlocks a deterministic daily challenge with score, streak, build snapshots, and anonymous result links.
+The V4 campaign is deliberately easy to enter: move only left and right, fire straight upward automatically, collect friendly support notes, and tap one special when it is ready. Each chapter contains three short waves, a concrete two-choice aftershow intermission, and a three-stage boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
 
-## What the player does
+## Why it fits Telegram
 
-- Move with one thumb while the character automatically attacks the nearest enemy.
-- Collect three Surge, Guard, or Echo signals, then spend the completed weave with Warp. Repeated signals produce a focused protocol; one of each triggers the character's unique Resonance.
-- Graze hostile shots to build Distortion. At 60, attacks overclock; reaching 100 costs health, clears bullets, and resets the meter to a safer level.
-- Complete purge, stabilize, recover, holdout, elite, and boss objectives across a branching route.
-- Choose from modules after encounters, earn plugins from elites, and use events or rest stops to shape a build. A run holds at most six module types, each with three cumulative levels.
-- Resume the same authoritative room after a refresh or closed Telegram WebView. Browser storage never decides progress or rewards.
+- Portrait play with one finger and no virtual joystick.
+- The character stays on a fixed vertical line and follows the finger horizontally without inertia.
+- Automatic fire keeps attention on dodging, support-note routes, and special timing.
+- Three hearts, strong attack telegraphs, short waves, and one obvious special keep the first session readable.
+- A room submits one compact input trace when it ends; normal play sends no frame-by-frame requests.
+- Closing Telegram restarts only the current room from its stored seed. PostgreSQL remains authoritative.
 
-The browser predicts combat at a fixed 30 Hz and records quantized input. It submits one capped `rle8-v1` trace when a room ends; Go replays the trace and decides health, kills, objectives, score, rewards, and progression.
+## V4 content
 
-## V3 content
+V4 uses content version `v4` and simulation protocol `shooter-v1`.
 
-The versioned `v3` catalog uses the `action-v2` gameplay protocol and ships all authored campaign content in English and Simplified Chinese.
-
-| Content | Count |
+| Content | Included |
 | --- | ---: |
-| Characters and character kits | 7 each |
-| Campaign chapters | 7 plus the Zero Channel finale |
-| Modules | 68: 12 shared and 8 per character |
-| Plugins | 20: 6 shared and 2 per character |
-| Enemies | 36: 21 normal, 7 elite, and 8 bosses |
-| Encounters | 47: 30 normal, 8 elite, 8 boss, and 1 tutorial |
-| Events | 28 |
-| Story scenes | 34, including the prologue and three endings |
-| Locale keys | 620 in each locale with exact key parity |
+| Character chapters | 7 |
+| Ensemble finales | 1 |
+| Normal combat waves | 24 |
+| Boss rooms | 8 |
+| Total combat rooms | 32 |
+| Boss stages | 24 |
+| Shared show effects | 12 |
+| Playable character specials | 7 |
+| Unlockable companions | 7 |
+| Composable enemy chassis | 6 |
+| Finale endings | 3 |
+| Locales | English and Simplified Chinese |
 
-Daily mode reuses the campaign encounter pools. The server derives its seed from the UTC date and rotates through the seven character chapters, so it needs no separate content bundle or scheduler. Anonymous result links reuse the completed Run UUID and permit five-minute public caching; sharing creates no token, database row, cleanup task, or additional write.
+English is the default. The language can be changed at any time and is remembered on the device. Story decisions are concrete revisions such as sealing Nana's withdrawn voice note, restoring Xiangwan's funniest loss, or cancelling Bella's overnight shifts; V4 does not use hidden Trust, Authenticity, or Retention scores.
 
-See [game-design.md](docs/game-design.md) for the complete rules and campaign structure, and [content-authoring.md](docs/content-authoring.md) for the catalog schema and validation workflow.
+Read [game-design.md](docs/game-design.md) for the player loop and complete chapter table. Read [content-authoring.md](docs/content-authoring.md) before changing the embedded catalog.
 
 ## Architecture
 
 ```text
 Telegram Mini App
-  -> Next.js 16 / React 19 on Vercel
+  -> Next.js / React / Canvas 2D on Vercel
       -> HTTPS JSON + raw Telegram initData
           -> Go / Chi on an arm64 AWS Lambda Function URL
-              -> Neon PostgreSQL: authoritative game and story state
-              -> Upstash Redis: disposable distributed rate limits only
+              -> Neon PostgreSQL: authoritative player and game state
+              -> Upstash Redis: disposable rate-limit counters only
 ```
 
-Every mutation uses an idempotency key; state-dependent mutations also include an expected version. PostgreSQL locks the player-owned row in a transaction, records an immutable command or story choice, and commits the resulting snapshot atomically. One campaign Run and one daily Run may be active for a player at the same time.
+The browser predicts a fixed 30 Hz simulation for immediate presentation. It records 128-column horizontal input, special presses, and run length as a capped `x-position-rle-v1` trace. Go decodes and replays the same room and alone decides hits, pickups, wave or boss completion, score, rewards, and progression. A command uses an idempotency key and expected Run version so retries cannot apply a completed room twice.
 
-The public HTTP namespace remains `/v2`, while the independently versioned authored bundle is content V3 (`version: "v3"`) with protocol `action-v2`. This distinction lets transport compatibility, authored content, and deterministic gameplay rules evolve deliberately.
-
-Read [architecture.md](docs/architecture.md) for the trust boundaries, data model, and runtime design. The [OpenAPI 3.1 contract](apps/api/openapi/openapi.yaml) is the machine-readable HTTP surface.
+Production identity is exclusively Telegram Mini App `initData`. The repository intentionally contains no paid authentication provider, JWT or cookie session system, payment integration, share-token table, or second identity service. See [architecture.md](docs/architecture.md) for trust boundaries and ownership.
 
 ## Repository layout
 
 ```text
-apps/
-  api/                 Go API, deterministic engines, migrations, and V3 content
-  miniapp/             Next.js Telegram Mini App and static game assets
-docs/                  Architecture, game design, authoring, and release guides
-infra/terraform/       AWS Lambda, Function URL, IAM, SSM, and CloudWatch alarms
-scripts/               Repository policy checks
+apps/api/                         Go API, deterministic shooter, migrations
+apps/api/internal/content/v4/     Immutable V4 content and locales
+apps/miniapp/                     Next.js Mini App and local V4 assets
+docs/                             Design, architecture, authoring, release notes
+infra/terraform/                  Lambda, IAM, SSM, and operational alarms
+scripts/                          Content, asset, and source-policy checks
 ```
 
 ## Run locally
 
-Prerequisites are Docker Compose v2, Node.js 20+, npm 10+, and Go 1.25+. The Go module selects the repository's tested toolchain automatically. A local Telegram bot token is not required: when `APP_ENV=development`, the API automatically uses one fixed synthetic player for requests that do not include Telegram `initData`.
+Prerequisites: Docker Compose v2, Node.js 20+, npm 10+, and the Go toolchain selected by `apps/api/go.mod`.
 
 ```sh
 cp env.example .env
@@ -73,54 +72,45 @@ make install
 make up
 ```
 
-In a second terminal:
+In another terminal:
 
 ```sh
 make miniapp
 ```
 
-Open `http://localhost:3000`. `make down` stops containers while preserving the PostgreSQL volume. Use `docker compose down --volumes` only when you intentionally want to erase local data.
+Open `http://localhost:3000`. Development mode uses one fixed synthetic local player when Telegram `initData` is absent. That identity is disabled in production and is not a login product or public credential.
 
-## Verify changes
+## Verify a change
 
 ```sh
-npm run check:english-source  # reject non-English source outside reviewed fixtures
-npm run check:content-assets  # require exact V3 manifest/public asset parity
-make test                     # Go race/unit/contract plus frontend test/lint/type/build
-make test-integration         # PostgreSQL transaction/migration and Redis behavior
-make e2e-install              # one-time Playwright Chromium installation
-make e2e                      # browser -> API -> PostgreSQL authoritative journey
+npm run check:english-source
+npm run check:content-assets
+make test
+make test-integration
+make e2e
 ```
 
-After changing the OpenAPI contract, regenerate and verify the frontend types:
+After changing the OpenAPI contract, regenerate and verify frontend types:
 
 ```sh
 npm run generate:api-types --workspace @xuhuan/miniapp
 npm run check:api-types --workspace @xuhuan/miniapp
 ```
 
-Player-facing translations belong in the V3 content locales or the Mini App UI locales. The English-source check permits only the two canonical `zh-CN` documents, the existing `001` through `006` SQL migrations, and a short path-specific list of localization test fixtures.
+The V4 loader and CI reject missing chapters, boss stages, translations, referenced assets, invalid behavior IDs, unreachable references, or entity limits that exceed the mobile runtime contract.
 
 ## Production release
 
-Merging does not deploy production. Vercel Git deployment is disabled for `main`; one protected **Release Production V3** workflow owns both Vercel and Lambda releases.
+Merging does not silently publish production. The protected production workflow pins one exact `main` commit, builds immutable Vercel and Lambda artifacts, verifies the `v4`/`shooter-v1` handshake, promotes the staged frontend, switches the Lambda alias, and runs a disposable signed Telegram smoke journey. See [production-release.md](docs/production-release.md).
 
-The operator supplies the full SHA at the current `main` HEAD. The workflow requires successful CI for that exact SHA, verifies that both production PostgreSQL URLs expose the complete migration-6 schema, builds immutable Vercel and Lambda artifacts, promotes them, verifies the API/content handshake, and runs the signed Telegram API and browser journey. The smoke refuses to reuse a pre-existing synthetic Telegram ID, and an `always()` step removes only that player and its cascading game records.
+Runtime secrets stay in AWS SSM `SecureString` parameters. GitHub uses short-lived AWS OIDC credentials; Vercel deployment uses the existing scoped deployment credential. These are deployment requirements, not player accounts or game tokens.
 
-Read [action-v3-release.md](docs/action-v3-release.md) before releasing. Historical migrations remain embedded so a new database can build the current schema from an empty state; routine code releases do not rerun the retired V2-to-V3 cutover.
+## Cost and scope
 
-## Security, operations, and cost
+The production design has no VPC, NAT Gateway, API Gateway, load balancer, RDS, ElastiCache, container cluster, queue, paid observability service, payment provider, or paid identity provider. Neon holds authoritative PostgreSQL state. Upstash is used only for fail-open distributed rate limiting. Static V4 WebP assets ship with the Mini App.
 
-Production PostgreSQL, Redis, and Telegram credentials live in AWS SSM `SecureString` parameters. GitHub obtains short-lived AWS credentials through OIDC and injects Lambda runtime values into unpublished configuration before publishing an immutable version. Schema validation, smoke, and cleanup steps retrieve only their required values, mask credentials and the synthetic identity immediately, and run on the ephemeral protected runner. Production builds contain no local-development identity configuration. CI also runs CodeQL against Go and TypeScript plus dependency and container vulnerability scans.
+## Fan-work notice
 
-The API verifies the signature and age of raw Telegram `initData`; it never trusts `initDataUnsafe`. Logs use request IDs, route templates, and bounded reason labels, and do not record init data, bot tokens, database URLs, traces, or player/run identifiers.
+This is a non-commercial, unofficial fan project and technical portfolio demonstration. It is not affiliated with or endorsed by any character, group, platform, or rights holder. The plot, dialogue, enemies, backgrounds, systems, and V4 aftershow situations are original fiction; they make no factual claims about real people. Character names and likenesses remain the property of their respective rights holders and can be removed upon a valid request.
 
-Telegram `initData` is the only production player identity mechanism. The project intentionally has no paid authentication provider, JWT/session service, cookie login, payment integration, or separate share-token store. The fixed synthetic player is enabled directly by `APP_ENV=development`; it uses no credential, request header, or frontend secret and is not part of the public API contract.
-
-The production topology has no VPC, NAT Gateway, API Gateway, load balancer, RDS, ElastiCache, ECS/EKS, or ECR. Neon stores authoritative PostgreSQL data, while Upstash stores only rate-limit counters. See the [Terraform README](infra/terraform/README.md) for configuration and operational details.
-
-## Fan work and assets
-
-This is a non-commercial, unofficial technical demonstration and fan project. It is not affiliated with, endorsed by, or produced in cooperation with any character, group, platform, or rights holder. All story characters are fictional digital personas; the narrative makes no factual claims about real people or organizations.
-
-Character names and likenesses belong to their respective rights holders and will be removed upon a valid request. Project-created V3 backgrounds, text-free pixel sprites, effects, interface work, enemy concepts, narrative, and game systems live under `apps/miniapp/public/game/`. This repository does not grant redistribution rights for character likenesses or permit their use in a commercial release.
+See [fan-reference-sources.md](docs/fan-reference-sources.md) for the deliberately conservative reference policy used by the V4 story.

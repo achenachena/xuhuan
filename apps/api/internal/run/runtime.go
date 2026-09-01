@@ -1,138 +1,135 @@
 package run
 
 import (
-	"github.com/achenachena/xuhuan/apps/api/internal/action"
+	"fmt"
+
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
+	"github.com/achenachena/xuhuan/apps/api/internal/shooter"
 )
 
-func actionConfig(state State, catalog *gamecontent.Catalog) (action.Config, error) {
-	definition, ok := catalog.Encounter(state.Encounter.Slug)
-	if !ok {
-		return action.Config{}, ErrInvalidCommand
-	}
-	enemies := make([]action.EnemySpec, 0, len(definition.EnemySlugs))
-	for _, slug := range definition.EnemySlugs {
-		enemy, ok := catalog.Enemy(slug)
-		if !ok {
-			return action.Config{}, ErrInvalidCommand
-		}
-		attacks := make([]action.AttackSpec, 0, len(enemy.Attacks))
-		for _, attack := range enemy.Attacks {
-			attacks = append(attacks, action.AttackSpec{Kind: attack.Kind, Interval: attack.Interval, ProjectileSpeed: attack.ProjectileSpeed, Damage: attack.Damage, Count: attack.Count, Spread: attack.Spread, TelegraphTicks: attack.TelegraphTicks})
-		}
-		traits := make([]action.TraitSpec, 0, len(enemy.Traits))
-		for _, trait := range enemy.Traits {
-			traits = append(traits, action.TraitSpec{Kind: trait.Kind, Amount: trait.Amount, Value: trait.Value})
-		}
-		enemies = append(enemies, action.EnemySpec{Slug: enemy.Slug, Kind: enemy.Kind, MaxHealth: enemy.MaxHealth, Speed: enemy.Speed, ContactDamage: enemy.ContactDamage, Movement: action.MovementSpec{Kind: enemy.Movement.Kind, Amount: enemy.Movement.Amount}, Attacks: attacks, Traits: traits})
-	}
-	return action.Config{Seed: state.Encounter.Seed, Kind: definition.Kind, DurationTicks: definition.DurationTicks, MaxTicks: definition.MaxTicks, SpawnInterval: definition.SpawnInterval, MaxAlive: definition.MaxAlive, PlayerHealth: state.Health, PlayerMaxHealth: state.MaxHealth, NoiseLevel: state.NoiseLevel, EmergencyReconnectAvailable: state.EmergencyReconnectAvailable, Enemies: enemies, Runtime: state.RuntimeConfig, Objective: state.Encounter.Objective, Hazards: append([]string(nil), state.Encounter.Hazards...), BossVariant: state.NarrativeModifier.BossVariant}, nil
-}
-
-func resolveRuntime(state State, catalog *gamecontent.Catalog) (action.RuntimeConfig, error) {
+func buildShooterConfig(state State, catalog *gamecontent.V4Catalog, seed string, duration int, wave gamecontent.V4Wave, boss *gamecontent.V4Boss, daily bool) (shooter.Config, error) {
 	character, ok := catalog.Character(state.CharacterSlug)
 	if !ok {
-		return action.RuntimeConfig{}, ErrInvalidCommand
-	}
-	kit, ok := catalog.Kit(character.KitSlug)
-	if !ok {
-		return action.RuntimeConfig{}, ErrInvalidCommand
-	}
-	stats := kit.BaseStats
-	runtime := action.RuntimeConfig{Kit: kit.Slug, Passive: kit.Passive, Resonance: kit.Resonance, AttackDamage: stats.AttackDamage, AttackInterval: stats.AttackInterval, MoveSpeed: stats.MoveSpeed, WarpCooldown: stats.WarpCooldown, WarpDamage: stats.WarpDamage, DistortionGain: 4, GrazeRadius: 310, ProjectileCount: 1, ProjectileSpeed: 100, Behaviors: []action.RuntimeBehavior{}}
-	for _, owned := range state.Modules {
-		module, ok := catalog.Module(owned.Slug)
-		if !ok || owned.Level < 1 || owned.Level > 3 {
-			return action.RuntimeConfig{}, ErrInvalidCommand
-		}
-		for level := 0; level < owned.Level; level++ {
-			accumulateRuntime(&runtime, module.Levels[level].Effects)
-			for _, behavior := range module.Levels[level].Behaviors {
-				runtime.Behaviors = append(runtime.Behaviors, action.RuntimeBehavior{SourceSlug: module.Slug, Level: level + 1, Kind: behavior.Kind, Amount: behavior.Amount, Every: behavior.Every})
-			}
-		}
-	}
-	for _, slug := range state.Plugins {
-		plugin, ok := catalog.Plugin(slug)
-		if !ok {
-			return action.RuntimeConfig{}, ErrInvalidCommand
-		}
-		accumulateRuntime(&runtime, plugin.Effects)
+		return shooter.Config{}, ErrContentLocked
 	}
 	chapter, ok := catalog.Chapter(state.ChapterSlug)
 	if !ok {
-		return action.RuntimeConfig{}, ErrInvalidCommand
+		return shooter.Config{}, ErrContentLocked
 	}
-	for _, rule := range chapter.NoiseRules {
-		if rule.Level <= state.NoiseLevel {
-			accumulateRuntime(&runtime, rule.Modifiers)
+	config := shooter.Config{
+		Seed: seed, DurationTicks: duration, PlayerHealth: state.Hearts,
+		EncoreLevel: state.EncoreLevel, Daily: daily,
+		StoryChoiceID: currentStoryChoiceID(state.SelectedChoiceIDs, chapter),
+		Kit: shooter.Kit{
+			ID: shooter.KitID(character.ID), MaxHealth: character.BaseStats.MaxHealth,
+			AttackDamage: character.BaseStats.ShotDamage, FireInterval: character.BaseStats.ShotInterval,
+			MoveLimit: character.BaseStats.MoveLimit, RescueDamage: character.Special.Power,
+			SpecialBehavior: character.Special.Behavior, SpecialDuration: character.Special.DurationTicks,
+		},
+		Companions:  make([]shooter.Companion, 0, len(state.CompanionSlugs)),
+		ShowEffects: make([]shooter.Effect, 0, len(state.ShowEffects)),
+		Enemies:     make([]shooter.EnemySpec, 0, len(catalog.Enemies)),
+		Wave:        shooter.Wave{ID: wave.ID, Spawns: make([]shooter.Spawn, 0, len(wave.Spawns))},
+		Limits: shooter.Limits{
+			Enemies: catalog.Rules.MaxEnemies, EnemyProjectiles: catalog.Rules.MaxEnemyProjectiles,
+			PlayerProjectiles: catalog.Rules.MaxPlayerProjectiles, Pickups: catalog.Rules.MaxPickups,
+			Effects: catalog.Rules.MaxEffects,
+		},
+	}
+	tutorial := !daily && state.ChapterSlug == "seventh-dock" && state.SegmentIndex == 0 && config.StoryChoiceID == ""
+	if tutorial {
+		// Four ordinary kills plus their collected support notes fill Rescue
+		// (20 + 4*(10+12) > 100). This keeps the meter visibly earned while making
+		// the embedded tutorial independent of grazing or perfect pickup routing.
+		config.StartingRescueCharge = 20
+		// The first live segment also carries a two-hit visible training shield.
+		// It forgives an untrained sweep without changing the three ON AIR hearts.
+		config.Kit.StartingShield = 2
+	}
+	for _, item := range state.ShowEffects {
+		effect, exists := catalog.ShowEffect(item)
+		if !exists {
+			return shooter.Config{}, ErrContentLocked
+		}
+		config.ShowEffects = append(config.ShowEffects, shooter.Effect{Kind: shooter.EffectKind(effect.Behavior), Amount: effect.Amount})
+	}
+	for _, id := range state.CompanionSlugs {
+		companion, exists := catalog.Companion(id)
+		if !exists {
+			return shooter.Config{}, ErrContentLocked
+		}
+		config.Companions = append(config.Companions, shooter.Companion{ID: shooter.CompanionID(companion.ID), Trigger: companion.Assist.Trigger, Behavior: companion.Assist.Behavior, Amount: companion.Assist.Amount, CooldownTicks: companion.Assist.CooldownTicks})
+	}
+	for _, item := range catalog.Enemies {
+		fireInterval := item.ShotInterval
+		if tutorial && item.ID == "clip-cutter" {
+			// The embedded movement tutorial introduces cutters late, with enough
+			// space for an untrained left/right sweep to survive and see Rescue.
+			fireInterval *= 2
+		}
+		config.Enemies = append(config.Enemies, shooter.EnemySpec{
+			ID: item.ID, Chassis: shooter.Chassis(item.ID), Health: item.MaxHealth,
+			Speed: item.Speed, ContactDamage: item.ContactDamage, MovePattern: item.MovePattern,
+			ShotPattern: item.ShotPattern, FireInterval: fireInterval,
+			ProjectileSpeed: item.ProjectileSpeed, Damage: item.ProjectileDamage,
+			TelegraphTicks: item.TelegraphTicks, Score: max(50, item.MaxHealth*4), Traits: append([]string{}, item.Traits...),
+		})
+	}
+	for _, spawn := range wave.Spawns {
+		config.Wave.Spawns = append(config.Wave.Spawns, shooter.Spawn{AtTick: spawn.AtTick, EnemyID: spawn.EnemyID, Count: spawn.Count, Formation: spawn.Formation, IntervalTicks: spawn.IntervalTicks})
+	}
+	if boss != nil {
+		// Boss segments do not spawn an authored wave. Keep the runtime wire
+		// shape explicit and valid by identifying the empty wave with the Boss
+		// slug instead of serializing an invalid empty slug.
+		config.Wave.ID = string(boss.ID)
+		resolved := &shooter.Boss{ID: shooter.BossID(boss.ID), Health: boss.MaxHealth, Score: max(1000, boss.MaxHealth*5), Stages: make([]shooter.BossStage, 0, len(boss.Stages))}
+		for _, stage := range boss.Stages {
+			resolved.Stages = append(resolved.Stages, shooter.BossStage{ID: stage.ID, HealthThreshold: stage.HealthThreshold, MovePattern: stage.MovePattern, ShotPattern: stage.ShotPattern, FireInterval: stage.ShotInterval, ProjectileSpeed: stage.ProjectileSpeed, Damage: stage.ProjectileDamage, TelegraphTicks: stage.TelegraphTicks, Special: stage.Special})
+		}
+		config.Boss = resolved
+	}
+	enemyPercent, projectilePercent, chargePenaltyPercent := 100, 100, 0
+	for level := 0; level < state.EncoreLevel && level < len(chapter.Encore); level++ {
+		modifier := chapter.Encore[level]
+		enemyPercent += modifier.EnemySpeedPercent
+		projectilePercent += modifier.ProjectileSpeedPercent
+		chargePenaltyPercent += modifier.SpecialChargePenaltyPercent
+	}
+	if daily && len(catalog.Daily.EncoreModifierIDs) > 0 {
+		index := deterministicIndex(seed+":daily-encore", len(catalog.Daily.EncoreModifierIDs))
+		config.DailyModifierID = catalog.Daily.EncoreModifierIDs[index]
+		if modifier, exists := catalog.Encore(config.DailyModifierID); exists {
+			enemyPercent += modifier.EnemySpeedPercent
+			projectilePercent += modifier.ProjectileSpeedPercent
+			chargePenaltyPercent += modifier.SpecialChargePenaltyPercent
 		}
 	}
-	if chapter.Finale && len(state.CompanionSlugs) > 0 {
-		// The off-screen cast supports the selected lead according to the latest
-		// story projection. Go resolves the support into ordinary action stats so
-		// clients never interpret narrative choices as gameplay authority.
-		supporters := len(state.CompanionSlugs)
-		switch state.SupportAlignment {
-		case "authentic":
-			runtime.AttackDamage += supporters
-			runtime.ProjectileCount += min(2, supporters/3)
-			runtime.ResonancePower += supporters * 2
-		case "retained":
-			runtime.StartingShield += supporters * 2
-			runtime.ProtocolShield += supporters
-			runtime.HealOnProtocol += max(1, supporters/3)
-		default:
-			runtime.AttackDamage += supporters / 2
-			runtime.StartingShield += supporters
-			runtime.EchoPower += supporters
+	for index := range config.Enemies {
+		config.Enemies[index].Speed = max(1, config.Enemies[index].Speed*enemyPercent/100)
+		config.Enemies[index].ProjectileSpeed = max(1, config.Enemies[index].ProjectileSpeed*projectilePercent/100)
+	}
+	if config.Boss != nil {
+		for index := range config.Boss.Stages {
+			config.Boss.Stages[index].ProjectileSpeed = max(1, config.Boss.Stages[index].ProjectileSpeed*projectilePercent/100)
 		}
 	}
-	runtime.AttackInterval = max(4, runtime.AttackInterval)
-	runtime.WarpCooldown = max(75, runtime.WarpCooldown)
-	runtime.MoveSpeed = max(20, runtime.MoveSpeed)
-	return runtime, nil
+	config.SpecialChargePenaltyPercent = min(75, chargePenaltyPercent)
+	if config.Kit.ID == "" || len(config.Enemies) != 6 {
+		return shooter.Config{}, fmt.Errorf("run: incomplete shooter runtime")
+	}
+	return config, nil
 }
 
-func accumulateRuntime(buffs *action.RuntimeConfig, effects []gamecontent.Effect) {
-	for _, effect := range effects {
-		switch effect.Kind {
-		case "attack_damage":
-			buffs.AttackDamage += effect.Amount
-		case "attack_speed":
-			buffs.AttackInterval = max(5, buffs.AttackInterval-effect.Amount)
-		case "move_speed":
-			buffs.MoveSpeed += effect.Amount
-		case "warp_cooldown":
-			buffs.WarpCooldown = max(75, buffs.WarpCooldown-effect.Amount)
-		case "warp_damage":
-			buffs.WarpDamage += effect.Amount
-		case "starting_shield":
-			buffs.StartingShield += effect.Amount
-		case "overload_bonus":
-			buffs.OverloadBonus += effect.Amount
-		case "distortion_gain":
-			buffs.DistortionGain += effect.Amount
-		case "protocol_damage":
-			buffs.ProtocolDamage += effect.Amount
-		case "protocol_shield":
-			buffs.ProtocolShield += effect.Amount
-		case "echo_power":
-			buffs.EchoPower += effect.Amount
-		case "resonance_power":
-			buffs.ResonancePower += effect.Amount
-		case "projectile_pierce":
-			buffs.ProjectilePierce += effect.Amount
-		case "projectile_count":
-			buffs.ProjectileCount += effect.Amount
-		case "projectile_speed":
-			buffs.ProjectileSpeed += effect.Amount
-		case "graze_radius":
-			buffs.GrazeRadius += effect.Amount
-		case "heal_on_protocol":
-			buffs.HealOnProtocol += effect.Amount
-		case "reflect_damage":
-			buffs.ReflectDamage += effect.Amount
+func currentStoryChoiceID(selectedIDs []string, chapter gamecontent.V4Chapter) string {
+	result := ""
+	for _, selectedID := range selectedIDs {
+		for _, choice := range chapter.Story.Intermission.Choices {
+			if selectedID == choice.ID {
+				result = selectedID
+				break
+			}
 		}
 	}
+	return result
 }

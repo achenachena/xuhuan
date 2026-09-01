@@ -2,85 +2,65 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { StoryChat } from "@/features/game/story-chat";
-import type { APIGameContent } from "@/lib/api/client";
-import { v3Content } from "@/test/v3-fixtures";
+import type { ShooterStoryScene } from "@/lib/api/types";
 
-const metrics = { trust: 1, authenticity: 1, retention: 1 };
-
-const endings: APIGameContent["scenes"] = [
+const endings: readonly ShooterStoryScene[] = [
   {
-    slug: "zero-authentic-ending",
-    chapter_slug: "zero-channel",
+    id: "zero-open-signal",
     title: "Ending: Open Signal",
-    trigger: { kind: "ending", chapter_slug: "zero-channel", ending: "authentic" },
     messages: [
-      { sender: "system", kind: "system", text: "Retention Protocol offline." },
-      { sender: "xingtong", kind: "character", text: "Some of us may change." },
-      { sender: "nana7mi", kind: "character", text: "Recognize us anyway." },
+      {
+        sender_id: "system",
+        sender: "System",
+        text: "Retention Protocol offline.",
+      },
+      {
+        sender_id: "nana7mi",
+        sender: "Nana",
+        text: "Recognize us even when we change.",
+      },
     ],
-    options: [
-      { slug: "disconnect-together", label: "Disconnect together", metrics },
-    ],
+    options: [{ id: "disconnect-together", label: "Disconnect together" }],
   },
   {
-    slug: "zero-balanced-ending",
-    chapter_slug: "zero-channel",
+    id: "zero-window-open",
     title: "Ending: A Window Left Open",
-    trigger: { kind: "ending", chapter_slug: "zero-channel", ending: "balanced" },
     messages: [
-      { sender: "system", kind: "system", text: "Preserve memories, never personalities." },
-      { sender: "bella", kind: "character", text: "Nobody has to live inside the archive." },
-      { sender: "lulu", kind: "character", text: "The window stays open." },
+      { sender_id: "lulu", sender: "Lulu", text: "The window stays open." },
     ],
-    options: [
-      { slug: "leave-window-open", label: "Leave one window open", metrics },
-    ],
+    options: [{ id: "leave-window-open", label: "Leave one window open" }],
   },
   {
-    slug: "zero-retained-ending",
-    chapter_slug: "zero-channel",
+    id: "zero-gentle-loop",
     title: "Ending: Gentle Loop",
-    trigger: { kind: "ending", chapter_slug: "zero-channel", ending: "retained" },
     messages: [
-      { sender: "system", kind: "system", text: "Voluntary exit enabled." },
-      { sender: "jiaran", kind: "character", text: "Today, I can say I am tired." },
-      { sender: "nailu", kind: "character", text: "The flower shop closes on Tuesdays." },
+      {
+        sender_id: "nailu",
+        sender: "Nailu",
+        text: "The flower shop closes on Tuesdays.",
+      },
     ],
-    options: [
-      { slug: "promise-return", label: "Promise to return", metrics },
-    ],
+    options: [{ id: "promise-return", label: "Promise to return" }],
   },
 ];
 
-describe("StoryChat finale endings", () => {
-  it.each(endings)("renders and submits $slug", (ending) => {
+describe("StoryChat", () => {
+  it.each(endings)("renders and submits $id", (scene) => {
     const onChoose = vi.fn();
-    const content: APIGameContent = {
-      ...v3Content,
-      scenes: [...v3Content.scenes, ending],
-    };
-
     render(
-      <StoryChat
-        content={content}
-        sceneSlug={ending.slug}
-        locale="en"
-        busy={false}
-        onChoose={onChoose}
-      />,
+      <StoryChat scene={scene} locale="en" busy={false} onChoose={onChoose} />,
     );
 
-    expect(screen.getByTestId("story-scene")).toHaveAttribute(
-      "data-scene-slug",
-      ending.slug,
-    );
-    expect(screen.getByText(ending.title)).toBeVisible();
-    for (const message of ending.messages) {
+    expect(screen.getByText(scene.title!)).toBeVisible();
+    for (const message of scene.messages) {
       expect(screen.getByText(message.text)).toBeVisible();
     }
-
-    const option = ending.options[0]!;
-    fireEvent.click(screen.getByTestId(`story-choice-${option.slug}`));
-    expect(onChoose).toHaveBeenCalledWith(ending.slug, option.slug);
+    if (scene.messages.some((message) => message.sender_id === "system")) {
+      expect(
+        document.querySelector('[data-message-kind="system"]'),
+      ).toHaveTextContent("Retention Protocol offline.");
+    }
+    fireEvent.click(screen.getByTestId(`story-option-${scene.options[0]!.id}`));
+    expect(onChoose).toHaveBeenCalledWith(scene.id, scene.options[0]!.id);
   });
 });

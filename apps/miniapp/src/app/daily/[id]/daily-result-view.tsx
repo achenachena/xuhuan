@@ -13,8 +13,8 @@ type DailyResultViewProps = {
     "en" | "zh-CN",
     {
       readonly characters: Record<string, string>;
-      readonly modules: Record<string, string>;
-      readonly plugins: Record<string, string>;
+      readonly effects: Record<string, string>;
+      readonly companions: Record<string, string>;
     }
   >;
 };
@@ -68,22 +68,20 @@ const DailyResultView = ({ result, labels }: DailyResultViewProps) => {
             {text("dailyShareBuild")}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {result.modules.map((module) => (
+            {result.show_effects.map((effect) => (
               <span
-                key={module.slug}
+                key={effect}
                 className="border border-violet-300/30 bg-violet-400/10 px-2 py-1 font-mono text-[10px] text-violet-100"
               >
-                {localized.modules[module.slug] ?? module.slug}
-                {" · "}
-                {text("levelShort")} {module.level}
+                {localized.effects[effect] ?? effect}
               </span>
             ))}
-            {result.plugins.map((plugin) => (
+            {result.companion_slugs.map((companion) => (
               <span
-                key={plugin}
+                key={companion}
                 className="border border-amber-300/30 bg-amber-400/10 px-2 py-1 font-mono text-[10px] text-amber-100"
               >
-                {localized.plugins[plugin] ?? plugin}
+                {localized.companions[companion] ?? companion}
               </span>
             ))}
           </div>

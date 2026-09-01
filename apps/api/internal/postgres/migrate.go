@@ -23,6 +23,12 @@ const (
 	migrationStatementTimeout = 4 * time.Minute
 	migrationLockTimeout      = 15 * time.Second
 	migrationRollbackTimeout  = 5 * time.Second
+
+	// These two fixed PostgreSQL advisory-lock keys identify only the schema
+	// migration critical section. They are coordination constants, not hashes,
+	// credentials, tokens, or values derived from player data.
+	migrationLockClassID  int32 = 0x58554855 // "XUHU"
+	migrationLockObjectID int32 = 0x414E0001 // migration namespace, version 1
 )
 
 type migration struct {
@@ -32,6 +38,13 @@ type migration struct {
 }
 
 func (d *Database) Migrate(ctx context.Context, files fs.FS) error {
+	return d.MigrateTo(ctx, files, 0)
+}
+
+// MigrateTo applies migrations through target. A zero target means the newest
+// available migration. Explicit targets make the prepare/cleanup production
+// boundary enforceable instead of relying on a partially copied filesystem.
+func (d *Database) MigrateTo(ctx context.Context, files fs.FS, target int64) error {
 	ctx, cancel := boundedMigrationContext(ctx)
 	defer cancel()
 
@@ -42,13 +55,66 @@ func (d *Database) Migrate(ctx context.Context, files fs.FS) error {
 	if err := d.ensureMigrationTable(ctx); err != nil {
 		return err
 	}
+	var current int64
+	if err := d.pool.QueryRow(ctx, `SELECT COALESCE(max(version), 0) FROM schema_migrations`).Scan(&current); err != nil {
+		return fmt.Errorf("read current migration version: %w", err)
+	}
+	migrations, err = migrationPlan(migrations, target, current)
+	if err != nil {
+		return err
+	}
 
 	for _, item := range migrations {
 		if err := d.applyMigration(ctx, item); err != nil {
 			return err
 		}
 	}
+	if target > 0 {
+		// Verify the target while holding the same migration lock used by DDL.
+		// This prevents a concurrent broader migration plan from making a
+		// targeted prepare command report success at the cleanup boundary.
+		if err := d.verifyMigrationTarget(ctx, target); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (d *Database) verifyMigrationTarget(ctx context.Context, target int64) error {
+	tx, err := d.beginMigrationTransaction(ctx)
+	if err != nil {
+		return err
+	}
+	defer rollbackMigration(tx)
+
+	var current int64
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(max(version), 0) FROM schema_migrations`).Scan(&current); err != nil {
+		return fmt.Errorf("verify migration target: %w", err)
+	}
+	if current != target {
+		return fmt.Errorf("migration target %d was superseded by concurrent migration %d", target, current)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit migration target verification: %w", err)
+	}
+	return nil
+}
+
+func migrationPlan(available []migration, target, current int64) ([]migration, error) {
+	if target < 0 {
+		return nil, errors.New("migration target cannot be negative")
+	}
+	if target > 0 && current > target {
+		return nil, fmt.Errorf("database is already at migration %d, cannot target %d", current, target)
+	}
+	if target == 0 {
+		return available, nil
+	}
+	index := sort.Search(len(available), func(index int) bool { return available[index].version >= target })
+	if index >= len(available) || available[index].version != target {
+		return nil, fmt.Errorf("migration target %d does not exist", target)
+	}
+	return available[:index+1], nil
 }
 
 func boundedMigrationContext(ctx context.Context) (context.Context, context.CancelFunc) {
@@ -132,7 +198,10 @@ func (d *Database) beginMigrationTransaction(ctx context.Context) (pgx.Tx, error
 
 	lockContext, cancel := context.WithTimeout(ctx, migrationLockTimeout)
 	defer cancel()
-	if _, err := tx.Exec(lockContext, "SELECT pg_advisory_xact_lock(hashtext('xuhuan_schema_migrations'))"); err != nil {
+	// The transaction-scoped advisory lock serializes concurrent migration
+	// runners. Fixed integer keys keep that coordination explicit and avoid
+	// deriving or storing any extra identifier.
+	if _, err := tx.Exec(lockContext, "SELECT pg_advisory_xact_lock($1, $2)", migrationLockClassID, migrationLockObjectID); err != nil {
 		rollbackOnFailure()
 		return nil, fmt.Errorf("lock migrations: %w", err)
 	}

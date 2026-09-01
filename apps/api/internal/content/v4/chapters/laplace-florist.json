@@ -1,0 +1,31 @@
+{
+  "chapter": {
+    "id":"laplace-florist","order":7,"title_key":"chapter.florist.title","subtitle_key":"chapter.florist.subtitle","featured_character":"nailu","unlock_companion":"nailu-assist","background_url":"/game/v4/backgrounds/laplace-florist.webp",
+    "segments":[
+      {"id":"florist-photo","duration_ticks":1080,"wave_id":"florist-wave-1","background_url":"/game/v4/backgrounds/laplace-florist.webp","reward_stage":"weapon"},
+      {"id":"florist-unlisted-door","duration_ticks":1200,"wave_id":"florist-wave-2","background_url":"/game/v4/backgrounds/laplace-florist.webp","reward_stage":"companion"},
+      {"id":"florist-memory-bed","duration_ticks":1320,"wave_id":"florist-wave-3","background_url":"/game/v4/backgrounds/laplace-florist.webp","reward_stage":"rescue"}
+    ],
+    "waves":[
+      {"id":"florist-wave-1","spawns":[{"at_tick":20,"enemy_id":"gift-thief","count":3,"formation":"fan","interval_ticks":30},{"at_tick":330,"enemy_id":"caption-blob","count":3,"formation":"sweep","interval_ticks":24}]},
+      {"id":"florist-wave-2","spawns":[{"at_tick":15,"enemy_id":"censor-frame","count":2,"formation":"center","interval_ticks":44},{"at_tick":280,"enemy_id":"black-screen-ghost","count":3,"formation":"staggered","interval_ticks":35},{"at_tick":600,"enemy_id":"gift-thief","count":3,"formation":"pincer","interval_ticks":29}]},
+      {"id":"florist-wave-3","spawns":[{"at_tick":20,"enemy_id":"spam-bot","count":5,"formation":"line","interval_ticks":14},{"at_tick":300,"enemy_id":"clip-cutter","count":4,"formation":"pincer","interval_ticks":18},{"at_tick":640,"enemy_id":"censor-frame","count":2,"formation":"sweep","interval_ticks":42}]}
+    ],
+    "boss":{"id":"reality-auditor","name_key":"boss.reality_auditor.name","description_key":"boss.reality_auditor.description","sprite_url":"/game/v4/bosses/reality-auditor.webp","max_health":1260,"duration_ticks":1800,"stages":[
+      {"id":"receipt-check","health_threshold":100,"move_pattern":"anchor","shot_pattern":"beam","shot_interval":75,"projectile_speed":112,"projectile_damage":1,"telegraph_ticks":30,"special":"prove-the-address"},
+      {"id":"photo-inspection","health_threshold":66,"move_pattern":"mirror","shot_pattern":"delayed","shot_interval":44,"projectile_speed":116,"projectile_damage":1,"telegraph_ticks":24,"special":"erase-the-flowers"},
+      {"id":"memory-denied","health_threshold":33,"move_pattern":"orbit","shot_pattern":"ring","shot_interval":34,"projectile_speed":124,"projectile_damage":1,"telegraph_ticks":27,"special":"nothing-happened"}
+    ]},
+    "story":{
+      "prelude":[{"sender":"nailu","text_key":"story.florist.prelude.1"},{"sender":"lulu","text_key":"story.florist.prelude.2"}],
+      "intermission":{"after_segment":2,"prompt_key":"story.florist.intermission.prompt","messages":[{"sender":"nailu","text_key":"story.florist.intermission.1"},{"sender":"system","text_key":"story.florist.intermission.2"}],"choices":[
+        {"id":"hold-future-photo","label_key":"story.florist.choice.hold.label","result_key":"story.florist.choice.hold.result","tag":"held-future-photo","show_effect_id":"snack-drop"},
+        {"id":"recreate-photo-later","label_key":"story.florist.choice.recreate.label","result_key":"story.florist.choice.recreate.result","tag":"recreated-photo-later","show_effect_id":"sticky-comment"}
+      ]},
+      "epilogue":[{"sender":"nailu","text_key":"story.florist.epilogue.1"},{"sender":"xingtong","text_key":"story.florist.epilogue.2"}],
+      "replay_recap":[{"sender":"nailu","text_key":"story.florist.recap.1"}]
+    },
+    "encore":[{"id":"florist-wild-growth","name_key":"encore.florist_wild_growth.name","description_key":"encore.florist_wild_growth.description","enemy_speed_percent":6,"projectile_speed_percent":12,"special_charge_penalty_percent":12}],
+    "endings":[]
+  }
+}

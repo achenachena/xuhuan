@@ -1,0 +1,13 @@
+{
+  "id":"daily-aftershow",
+  "title_key":"daily.aftershow.title",
+  "subtitle_key":"daily.aftershow.subtitle",
+  "seed_timezone":"UTC",
+  "segment_duration_ticks":900,
+  "segment_count":2,
+  "show_choice_count":1,
+  "rotation_characters":["nana7mi","jiaran","xiangwan","bella","lulu","xingtong","nailu"],
+  "wave_ids":["dock-wave-2","cheer-wave-1","loss-wave-1","captain-wave-2","localization-wave-1","original-wave-2","florist-wave-1","zero-wave-1"],
+  "boss_ids":["optimal-nana","always-on-idol","perfect-highlight","perfect-captain","approved-translation","physical-original","reality-auditor","auto-archive-system"],
+  "encore_modifier_ids":["dock-crosswind","cheer-no-dead-air","loss-second-take","captain-overtime","localization-double-caption","original-mirror-take","florist-wild-growth","zero-late-aftershow"]
+}

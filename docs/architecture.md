@@ -1,155 +1,129 @@
-# Xuhuan V3 architecture
+# Xuhuan V4 architecture
 
 ## System intent
 
-Xuhuan is a single-player, server-authoritative action story roguelite embedded in Telegram. The browser owns rendering, controls, audio, and local prediction. Go owns deterministic encounter replay, map generation, rewards, story projection, progression, daily scoring, and every durable outcome. PostgreSQL is the system of record; Redis is a fail-open distributed rate limiter and never stores game truth.
+Xuhuan is a single-player portrait shooter and story campaign inside Telegram. The Mini App owns controls, presentation, audio, haptics, and prediction. Go owns deterministic room replay, enemy behavior, damage, pickups, rewards, chapter progression, story revisions, and every durable result. PostgreSQL is the system of record. Redis stores only disposable distributed rate-limit counters.
 
-The public REST namespace is `/v2`. The current authored catalog is `v3`, and its deterministic rules contract is `action-v2`. These versions are intentionally independent:
+Three version labels have separate purposes:
 
-- HTTP `v2` describes the stable resource and idempotency surface.
-- Content `v3` identifies the immutable authored bundle used by a Run.
-- Protocol `action-v2` identifies the simulation and command semantics required to replay that bundle.
+- `/v2` is the stable HTTP namespace.
+- `v4` identifies the immutable authored content bundle stored with a Run.
+- `shooter-v1` identifies the deterministic simulation and trace semantics.
 
-## Target topology
+## Runtime topology
 
 ```text
 Telegram WebView
-  -> Next.js 16 / React 19 on Vercel
-      |  Canvas 2D prediction and presentation
-      |  localized content fetched with immutable caching
+  -> Next.js / React on Vercel
+      | Canvas 2D rendering and local prediction
+      | English or Simplified Chinese presentation
       v
     HTTPS JSON + raw Telegram initData
       v
 Go modular monolith on arm64 AWS Lambda
-  |-- authentication, transport, idempotency, and rate limiting
-  |-- deterministic action, run, map, story, and progression domains
-  |-- embedded V3 manifest, shared catalog, chapters, and locales
-  |-- Neon PostgreSQL: players, progression, runs, commands, and daily results
-  `-- Upstash Redis: disposable rate-limit counters
+  | authentication, transport, idempotency, and rate limiting
+  | deterministic shooter, campaign, story, and progression domains
+  | embedded V4 manifest, chapters, rules, and locales
+  | Neon PostgreSQL: authoritative durable state
+  ` Upstash Redis: fail-open rate-limit counters
 ```
 
-The Lambda is exposed through a Function URL bound to a stable alias. There is no third-party game-engine runtime, WebSocket server, VPC, NAT Gateway, API Gateway, load balancer, queue, Kubernetes cluster, RDS, or ElastiCache dependency.
+The deployment has no WebSocket service, game-engine server, queue, VPC, NAT Gateway, API Gateway, load balancer, container cluster, RDS, or ElastiCache.
 
-## Trust boundary and deterministic replay
+## Identity and trust boundary
 
-1. Telegram signs raw Mini App `initData`; the browser forwards it unchanged.
-2. The API validates the HMAC, timestamp, and Telegram identity before creating or loading a player.
-3. `GET /v2/game` projects story state plus at most one active campaign Run and one active daily Run.
-4. Entering a room stores the encounter slug, derived seed, objective, duration, hard Tick cap, risk, reward bias, and hazards in the Run snapshot.
-5. The browser simulates at 30 Hz for responsive presentation and records only quantized direction, magnitude, and Warp presses.
-6. Room completion submits one `rle8-v1` input trace under the global 64 KiB request limit. The client does not submit authoritative positions, damage, kills, drops, score, or outcomes.
-7. Go decodes and replays the trace with fixed-point coordinates, seeded randomness, stable entity order, and hard entity limits. The replay result is authoritative; the browser sends no client-authored health, damage, reward, or prediction checksum.
-8. PostgreSQL locks the player-owned Run, checks `expected_version` and `Idempotency-Key`, appends an immutable command result, writes the new JSONB snapshot, and commits atomically.
+Production player identity is verified exclusively with Telegram Mini App `initData`:
 
-Malformed, oversized, non-canonical, or incomplete traces cannot advance a Run. Closing the WebView loses only predicted frames; reopening restarts the current room from the stored encounter seed.
+1. The browser forwards raw `initData` without interpreting it as authority.
+2. Go verifies Telegram's HMAC, checks the authentication age, and reads the signed Telegram user ID.
+3. The API loads or creates that player and scopes all Run, story, and progression access to the verified owner.
 
-## Domain layout
+The project does not add JWTs, login cookies, paid authentication, OAuth accounts, payment providers, or a second session service. Development may use one fixed synthetic player when `APP_ENV=development`; production builds cannot enable it.
+
+The cryptography and opaque values that remain each solve a concrete problem:
+
+- Telegram HMAC verification proves the production player identity.
+- An idempotency key makes a retried mutation apply once.
+- A Run UUID identifies a player-owned resource without exposing Telegram identity.
+- A seeded deterministic PRNG reproduces the same wave and reward choices.
+- Deployment credentials let GitHub publish to AWS and Vercel; they are not game accounts.
+
+There is no payment token, share-token table, capability-token subsystem, or session hash. Public daily results may reuse a safe opaque completed-Run UUID rather than creating another credential.
+
+## Deterministic room replay
+
+The logical arena is `3600 x 6400` integer units and advances at 30 Ticks per second. The player remains at Y `5200`; input chooses one of 128 horizontal columns and maps the player directly to that column on the next Tick. There is no catch-up step, acceleration, velocity tail, vertical control, or two-dimensional joystick.
+
+The Mini App predicts the same fixed-step rules for responsiveness and records only:
+
+- horizontal control column;
+- special-button state; and
+- the number of consecutive Ticks for that control.
+
+The canonical `x-position-rle-v1` payload is a JSON array of `[control, count]` tuples. The control byte uses the low seven bits for columns `0..127` and the remaining bit for the special. The browser submits one capped trace after a room; it never submits authoritative health, hits, kills, pickups, score, or rewards.
+
+Go decodes and replays the trace with fixed-point coordinates, seeded randomness, stable iteration, and manifest entity caps. It determines whether the wave or boss was completed. A malformed, oversized, out-of-range, or incomplete trace cannot advance the Run. If Telegram closes mid-room, only predicted frames disappear; the room restarts from the same stored seed.
+
+## Simulation responsibilities
+
+The shared deterministic model is split by concept rather than one oversized engine:
 
 ```text
-apps/api/internal/
-  action/        fixed-step simulation, traces, objectives, signals, protocols
-  run/           map generation, phase machine, rewards, events, rest, daily mode
-  content/       embedded V3 files, indexes, localization, reference validation
-  story/         pending-scene projection and ending selection
-  progression/   chapter state, unlocks, immutable choices, campaign metrics
-  game/          authenticated application orchestration
-  api/           HTTP v2 transport and localized response mapping
-  postgres/      pgx repositories, row locks, migrations, daily results
-  platform/      configuration, structured logging, and rate limiting
+simulation    fixed step, state, collision, damage, fixed-time waves, entity caps
+specials      seven character-specific charged actions
+companions    event-triggered support behavior
+enemies       six chassis, movement, shot patterns, and traits
+bosses        three scripted health stages per chapter
+trace         canonical RLE decoding and bounds
 ```
 
-The `action` and `run` packages do not call databases, clocks, networks, or process-global random functions. Date selection for daily mode occurs in the application service; the resulting UTC date, seed, chapter, and character are stored before replay.
+The browser implements prediction for the same concepts but does not become authoritative. Golden fixtures generated from Go compare the complete canonical state: player, enemies, projectiles, pickups, delayed effects, and seeded random state. They are test data, not a client-submitted verification hash.
 
-## `action-v2` simulation runtime
+## Content boundary
 
-The logical arena is 360 by 640 units represented as integer tenths. Pointer displacement from an anchored touch origin continuously controls the character while held; releasing clears the input for the next Tick without retained velocity. A tap activates Warp toward that arena position. Automatic attacks still target the nearest live enemy, while Warp provides displacement, 12 invulnerable Ticks, projectile clearing along the path, and damage.
+`apps/api/internal/content/v4` contains immutable JSON:
 
-Three fixed signal locations yield Surge, Guard, and Echo. Collecting three signals refreshes Warp and arms a protocol:
+- `manifest.json`: versions, locales, rules, assets, chapter order;
+- `shared.json`: 12 one-level show effects, seven characters and specials, seven companions, and six enemy chassis;
+- `chapters/*.json`: exactly three waves, one three-stage boss, one two-choice intermission, recap, and encore rule per chapter;
+- `daily.json`: Daily Aftershow rotation and UTC seed inputs; and
+- `locales/en.json` and `locales/zh-CN.json`: exact-key translations, with English canonical.
 
-| Weave | Protocol | Authoritative effect |
-| --- | --- | --- |
-| At least two Surge | Surge Break | wide damaging Warp path |
-| At least two Guard | Guard Aegis | shield, bullet clear, and invulnerability |
-| At least two Echo | Echo Replay | damaging replay along the Warp path |
-| One of each | Resonance | character-specific kit effect |
+The loader fails closed on invalid references, unsupported behavior IDs, missing translations, missing stages, duplicate IDs, unregistered assets, and runtime limits. A Run records its immutable content version, whose manifest fixes the matching simulation protocol, so a later bundle cannot silently reinterpret its replay.
 
-Grazing raises Distortion. At 60, automatic attacks gain an overclock bonus. At 100, the player takes 12 damage, hostile projectiles clear, and Distortion returns to 40, 45, 50, or 55 according to Noise. Distortion decays after the player stops grazing.
+## Durable state and transactions
 
-Enemy definitions compose movement (`chase`, `orbit`, `strafe`, `charge`, `flee`, `stationary`, or `wander`), attacks, and traits. Encounters add one of six objectives plus optional narrow-arena, distortion-rain, signal-decay, or crossfire hazards. The runtime caps enemies, hostile projectiles, player projectiles, pickups, and effects at the values declared in the V3 manifest.
+PostgreSQL stores Telegram identity and language separately from resettable campaign state. At most one campaign Run and one daily Run may be active for a player.
 
-## Run and campaign state
+Every state-dependent mutation includes:
 
-A campaign map is generated before play. Its six layers combine combat, an event or alternate combat route, elite versus rest, a midpoint story event, another combat choice, and a boss. Selecting a node locks its sibling in the same layer. The first chapter prepends the tutorial encounter. Noise 2 narrows route connectivity; Noise 3 replaces the rest branch with an elite.
+- the target player-owned Run UUID;
+- `expected_version`; and
+- an `Idempotency-Key` unique to the user's intended operation.
 
-After a non-boss encounter, the server offers up to three modules. Each Run starts with one reroll; effects can grant more. A Run holds no more than six module slugs, and each module applies three cumulative authored levels. Elite completion also grants one eligible plugin. Rest either repairs 30 percent of maximum health or advances one owned module level.
+The repository locks the Run row, checks ownership/version/idempotency, replays or applies the command, appends the immutable command result, and commits the snapshot and progression changes in one transaction. A repeated idempotency key returns the stored result. A stale version returns a conflict and the client reloads authoritative state.
 
-Campaign completion updates the chapter's clear count, best score, and highest unlocked Noise level, then advances to the next chapter and unlocks its character. Seven character chapters unlock the Zero Channel finale. Finale completion records one of three endings from cumulative Authenticity and Retention and unlocks daily mode.
+Story choices are append-only revisions identified by concrete option IDs. The latest revision changes the current projection; history is not converted into hidden personality scores. Finale endings match explicit selected option IDs.
 
-Daily mode derives a stable seed from the UTC date, rotates through the seven character chapters, and uses a three-room combat -> elite -> boss map. The best result for a player/date retains its score and build snapshot, while consecutive UTC-day clears form a streak. A public share reuses the completed daily Run UUID already present in the result screen. No share record, token, mutation, cleanup task, or additional database write exists. The public endpoint returns only the anonymous best result for that Run's player and UTC date, and successful reads may be cached for five minutes.
+## Data ownership
 
-## Versioned content
+| Concern | Owner |
+| --- | --- |
+| Telegram identity verification | Go authentication boundary |
+| Telegram profile language | PostgreSQL player profile |
+| Mini App language override | Browser local storage |
+| Wave seeds and definitions | V4 content + Go campaign domain |
+| Hits, health, wave or boss completion, score | Go replay |
+| Run snapshot and command history | PostgreSQL |
+| Story choice revisions | PostgreSQL |
+| Rendering, sound, animation, haptics | Mini App |
+| Responsive local prediction | Mini App, verified against Go vectors |
+| Distributed request throttling | Redis, fail-open and non-authoritative |
 
-The `apps/api/internal/content/v3/` tree contains:
+Browser storage may remember presentation preferences and retain an unsent completed trace for retry. It never decides progression or rewards.
 
-```text
-manifest.json             v3/action-v2 identity, locales, chapter order, caps
-shared.json               7 characters, 7 kits, 68 modules, 20 plugins
-chapters/*.json           7 character chapters plus the Zero Channel finale
-locales/en.json           620 English strings
-locales/zh-CN.json        the same 620 keys in Simplified Chinese
-```
+## Operational safety
 
-Loading uses strict JSON decoding and rejects unknown fields, duplicate slugs, locale-key drift, missing text, undeclared asset URLs, invalid enum values, invalid effects, broken content references, incorrect chapter succession, or the wrong fixed counts. CI additionally requires exact parity between the immutable asset manifest and the public V3 WebP tree. The assembled bundle contains 36 enemies, 47 encounters, 28 events, and 34 story scenes.
+Runtime database, Redis, and Telegram credentials remain in AWS SSM `SecureString` parameters. GitHub obtains short-lived AWS credentials through OIDC. The scoped Vercel deployment credential is used only by the protected release job.
 
-See [content-authoring.md](content-authoring.md) for the authoring contract. The runtime supports only the current embedded catalog. Run snapshots retain their content label and seed, while a deployment that changes deterministic encounter inputs may restart the current room under the new rules.
-
-## PostgreSQL model after V3 migration
-
-| Table | Responsibility | Important constraints |
-| --- | --- | --- |
-| `players` | Telegram user ID, language, and timestamps | unique Telegram user; retained across V3 reset; no names or profile data |
-| `player_campaign_progress` | current chapter, story flags/version, three metrics, ending, daily unlock | one row per player; optimistic version |
-| `player_chapter_progress` | per-chapter Noise, clears, and best score | unique player/chapter |
-| `player_unlocks` | character, module, plugin, and starter-module unlocks | unique player/type/slug |
-| `story_choices` | immutable scene revisions and metric deltas | unique player/scene/revision; direct update/delete rejected |
-| `runs` | content version, mode/date, status, seed, and JSONB snapshot | one active Run per player and mode |
-| `run_commands` | immutable route, trace, reward, event, rest, and reroll history | unique sequence and idempotency identity |
-| `daily_results` | best score, build, and streak for a UTC day | unique player/date and Run |
-| `schema_migrations` | ordered migration history | unique numeric version |
-
-Migrations 001–006 are the ordered path from an empty database to the current schema. Migration 005 performed the one-time V3 reset and migration 006 removed the retired gameplay schema. They remain embedded as database history, but current runtime and release code support only the completed migration-6 schema.
-
-## HTTP surface
-
-Public endpoints:
-
-- `GET /healthz`
-- `GET /readyz`
-- `GET /v2/content/v3?locale=en|zh-CN`
-- `GET /v2/daily/results/{run-id}`
-
-Telegram-authenticated endpoints:
-
-- `GET /v2/game`
-- `POST /v2/runs`
-- `GET /v2/runs/{id}`
-- `POST /v2/runs/{id}/commands`
-- `POST /v2/story/choices`
-
-Run commands are `choose_node`, `complete_encounter`, `choose_module_reward`, `reroll_module_reward`, `resolve_event`, `rest`, and `abandon_run`. Mutations are idempotent; state-dependent writes are version checked. Content responses are localized, ETagged, and immutable-cacheable.
-
-## Mini App boundaries
-
-The App Router page remains a Server Component and mounts a small client boundary. The Canvas runtime owns high-frequency mutable entities outside React; React receives lower-frequency HUD snapshots, story, map, reward, and phase transitions. Content and player state can load in parallel, but no browser cache is authoritative.
-
-The interface targets a 320 by 568 portrait viewport, Telegram safe areas, pointer capture, `touch-action: none`, capped device-pixel ratio, and visibility pause. Assets are local under `apps/miniapp/public/game/v3/`; no third-party game runtime is required.
-
-## Release and operational boundaries
-
-Production uses one protected exact-SHA workflow and rejects stale ancestors of the current `main` HEAD. It requires successful CI, verifies that both Neon URLs expose the complete migration-6 schema, stages and checks immutable Vercel and Lambda artifacts, promotes them, and verifies `healthz`, `readyz`, CORS, and both localized V3 catalogs. Signed API and headless-Chrome journeys use one collision-checked synthetic Telegram identity; an always-running cleanup removes only that player and cascading game records. See [action-v3-release.md](action-v3-release.md).
-
-Responses carry `X-Request-ID`. Structured logs use route templates and bounded reason labels, never raw init data, credentials, database URLs, SQL arguments, full traces, or player/run identifiers. PostgreSQL gates readiness. Redis failures fall back to a bounded in-process limiter. AWS-native Lambda and CloudWatch signals cover production health without an unused application telemetry exporter.
-
-## Identity and dependency policy
-
-Production player identity comes only from Telegram Mini App `initData`; the project has no paid authentication provider, JWT/session service, payment integration, or cookie-based login. `APP_ENV=development` enables one fixed synthetic player for credential-free local and browser E2E requests. Test and production environments never enable that fallback, and it has no request header or public OpenAPI surface. New identity services, capability-token tables, or cryptographic layers require a concrete product or correctness need rather than speculative future use.
+Logs contain request IDs, route templates, latency, status, and bounded error reasons. They must not contain Telegram `initData`, bot tokens, database or Redis URLs, traces, or player and Run identifiers. Content and static assets contain no secrets.
