@@ -49,7 +49,7 @@ The 30 Hz shooter simulation runs locally for immediate input and rendering. The
 
 ## Delivery and quality
 
-- Pull requests run Go format/vet/tests, PostgreSQL and Redis integration checks, OpenAPI drift checks, Vitest, lint, type checking, Next.js production build, content validation, Terraform validation, a Playwright browser-to-database journey, dependency audit, and `govulncheck`.
+- Pull requests run Go format/vet/tests, PostgreSQL and Redis integration checks, OpenAPI drift checks, Vitest, lint, type checking, a Next.js production build, content validation, Terraform validation, isolated Playwright browser journeys, dependency audit, and `govulncheck`.
 - Production builds from an explicit current `main` commit, publishes an immutable Lambda version, deploys the Vercel artifact, and checks API health, content, portfolio, and demo routes.
 - Database migrations run only when a release actually changes schema; historical migrations remain preserved.
 

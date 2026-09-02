@@ -1,13 +1,11 @@
 {
   "extends": "@tsconfig/next/tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
       ]
-    },
-    "moduleDetection": "force"
+    }
   },
   "include": [
     "next-env.d.ts",
@@ -19,4 +17,3 @@
     "node_modules"
   ]
 }
-

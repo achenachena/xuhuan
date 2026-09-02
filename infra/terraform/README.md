@@ -54,8 +54,9 @@ Create exactly one production project/database in each provider.
 
 Lambda's pgx pool uses at most four connections per execution environment and
 keeps zero minimum connections, allowing Neon compute to suspend while idle.
-The direct URL is read from Parameter Store for schema validation and synthetic
-smoke cleanup. It is never added to the Lambda runtime environment.
+The direct URL stays in Parameter Store for the explicit migration command used
+only when a release changes the schema. It is never added to the Lambda runtime
+environment.
 
 ### Upstash Redis
 

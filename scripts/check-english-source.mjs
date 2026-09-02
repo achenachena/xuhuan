@@ -30,10 +30,7 @@ const textExtensions = new Set([
   ".yml",
 ]);
 const textBasenames = new Set([
-  ".dockerignore",
   ".gitignore",
-  ".vercelignore",
-  "Dockerfile",
   "Makefile",
   "env.example",
 ]);

@@ -23,7 +23,7 @@ GitHub OIDC provides short-lived AWS credentials. Long-lived AWS access keys are
 6. It builds and deploys the Next.js production artifact with the pinned Vercel CLI.
 7. It checks API health, readiness, V4 content, the portfolio, and the browser demo.
 
-The workflow does not repeat the entire CI suite or create a synthetic player. CI already covers contracts, repositories, frontend behavior, and the browser-to-database journey.
+The workflow does not repeat the entire CI suite or create a synthetic player. CI already covers contracts, repositories, PostgreSQL and Redis integration, and browser behavior.
 
 ## Database migrations
 

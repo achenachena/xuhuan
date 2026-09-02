@@ -1,43 +1,22 @@
 SHELL := /bin/sh
+LOAD_ENV = set -a; [ ! -f .env ] || . ./.env; set +a;
 
-.PHONY: help install db-up migrate api miniapp up down logs lambda-package test test-go test-frontend test-integration e2e-install e2e
-
-help:
-	@echo "install           Install Node dependencies"
-	@echo "db-up             Start PostgreSQL"
-	@echo "migrate           Apply all PostgreSQL migrations"
-	@echo "api               Run the Go API on the host"
-	@echo "miniapp           Run the Next.js Mini App on the host"
-	@echo "up                 Build and start PostgreSQL plus the Go API"
-	@echo "lambda-package     Build the arm64 provided.al2023 bootstrap archive"
-	@echo "test               Run unit, contract, and frontend tests"
-	@echo "test-integration   Run Go tests against local PostgreSQL"
-	@echo "e2e                Start the API stack and run the Playwright journey"
-	@echo "down               Stop local containers"
-
-install:
-	npm ci
+.PHONY: db-up db-down migrate api miniapp lambda-package test test-go test-frontend test-integration e2e-install e2e
 
 db-up:
-	docker compose up -d postgres redis
+	docker compose up -d --wait postgres redis
 
 migrate:
-	docker compose run --rm migrate
+	$(LOAD_ENV) cd apps/api && go run ./cmd/migrate
 
 api:
-	cd apps/api && go run ./cmd/api
+	$(LOAD_ENV) cd apps/api && go run ./cmd/api
 
 miniapp:
-	npm run dev --workspace @xuhuan/miniapp
+	$(LOAD_ENV) npm run dev --workspace @xuhuan/miniapp
 
-up:
-	docker compose up --build -d api
-
-down:
+db-down:
 	docker compose down
-
-logs:
-	docker compose logs -f api
 
 lambda-package:
 	mkdir -p apps/api/build
@@ -57,7 +36,6 @@ test-frontend:
 	npm run check:api-types --workspace @xuhuan/miniapp
 	npm run test --workspace @xuhuan/miniapp
 	npm run lint --workspace @xuhuan/miniapp
-	npm run typecheck --workspace @xuhuan/miniapp
 	npm run build --workspace @xuhuan/miniapp
 
 test-integration: db-up
@@ -67,13 +45,4 @@ e2e-install:
 	npx playwright install chromium
 
 e2e:
-	@set -eu; \
-		export RATE_LIMIT_PLAYER_REQUESTS=10000; \
-		export RATE_LIMIT_IP_REQUESTS=20000; \
-		trap 'docker compose down' EXIT; \
-		docker compose up --build -d api; \
-		docker compose exec -T postgres psql \
-			--username "$${POSTGRES_USER:-xuhuan}" \
-			--dbname "$${POSTGRES_DB:-xuhuan}" \
-			--command "DELETE FROM players WHERE telegram_user_id = 42424242" > /dev/null; \
-		npm run test:e2e --workspace @xuhuan/miniapp
+	npm run test:e2e --workspace @xuhuan/miniapp
