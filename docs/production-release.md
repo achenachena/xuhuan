@@ -2,6 +2,8 @@
 
 The protected **Release Production V4** workflow publishes one exact `main` commit to Vercel and AWS Lambda. The V4 cutover is forward-only because migration 007 resets gameplay progress and migration 008 removes retired Action V3 columns.
 
+The public browser portfolio and `/demo` are static Vercel surfaces. They require no schema migration or second authentication path. CI verifies that the checked-in `demo-v1` manifests still match the Go V4 catalog before building the frontend.
+
 ## Release contract
 
 - HTTP namespace: `/v2`
@@ -80,6 +82,7 @@ Record the workflow URL, commit SHA, Lambda immutable version, staged Vercel dep
 
 ## Post-release checks
 
+- Open the production origin in a normal browser. Confirm that the portfolio renders without calling `/v2/game`, both public links work, and `/demo` completes a wave, one show-effect choice, and the Boss showcase without any API mutation.
 - Open the Mini App through Telegram and verify English default, Chinese switching, safe-area layout, direct horizontal movement, special timing, one chapter resume, and a story choice revision.
 - Confirm `/healthz`, `/readyz`, and `/v2/content/v4?locale=en` return the V4 contract.
 - Confirm Lambda errors and throttles remain at baseline.

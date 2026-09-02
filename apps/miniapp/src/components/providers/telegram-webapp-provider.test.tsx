@@ -8,6 +8,7 @@ const webApp = vi.hoisted(() => ({
   safeAreaInset: { top: 20, bottom: 8, left: 0, right: 0 },
   contentSafeAreaInset: { top: 84, bottom: 16, left: 0, right: 0 },
   platform: "ios",
+  initData: "query_id=test&hash=verified-by-api",
   isVersionAtLeast: vi.fn(() => true),
   disableVerticalSwipes: vi.fn(),
   enableVerticalSwipes: vi.fn(),
@@ -47,6 +48,7 @@ describe("TelegramWebAppProvider", () => {
     webApp.isExpanded = false;
     webApp.isFullscreen = false;
     webApp.platform = "ios";
+    webApp.initData = "query_id=test&hash=verified-by-api";
     webApp.safeAreaInset = { top: 20, bottom: 8, left: 0, right: 0 };
     webApp.contentSafeAreaInset = { top: 84, bottom: 16, left: 0, right: 0 };
     document.documentElement.removeAttribute("data-telegram-host");

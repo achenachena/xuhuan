@@ -1,0 +1,717 @@
+{
+  "version": "demo-v1",
+  "locale": "en",
+  "content": {
+    "version": "v4",
+    "protocol": "shooter-v1",
+    "locale": "en",
+    "rules": {
+      "tick_rate": 30,
+      "logical_width": 3600,
+      "logical_height": 6400,
+      "player_y": 5200,
+      "input_columns": 128,
+      "starting_hearts": 3,
+      "max_enemies": 14,
+      "max_enemy_projectiles": 120,
+      "max_player_projectiles": 48,
+      "max_pickups": 12,
+      "max_effects": 24,
+      "special_charge_max": 100,
+      "graze_charge": 4,
+      "waves_per_chapter": 3,
+      "boss_stages": 3
+    },
+    "show_effects": [
+      {
+        "id": "double-take",
+        "name": "Double Take",
+        "description": "Add a second narrow shot to every volley.",
+        "archetype": "power",
+        "behavior": "twin_shot",
+        "amount": 1
+      },
+      {
+        "id": "safety-chat",
+        "name": "Safety Chat",
+        "description": "Using a special grants one brief guard.",
+        "archetype": "guard",
+        "behavior": "guard_on_special",
+        "amount": 1
+      }
+    ],
+    "characters": [
+      {
+        "id": "nana7mi",
+        "name": "Nana",
+        "biography": "A quick-witted digital host who noticed the aftershow never actually ended.",
+        "playstyle": "Steady straight-up fire and a special that tears open a safe lane through dense patterns.",
+        "color_theme": "#59e5ff",
+        "portrait_url": "/game/v4/players/nana7mi.webp",
+        "sprite_url": "/game/v4/players/nana7mi.webp",
+        "base_stats": {
+          "max_health": 3,
+          "shot_damage": 12,
+          "shot_interval": 9,
+          "move_limit": 1520
+        },
+        "special": {
+          "id": "nana-route-break",
+          "name": "Route Break",
+          "description": "Cut a bright lane through bullets and strike everything above it.",
+          "charge_cost": 100,
+          "behavior": "barrage_break",
+          "power": 34,
+          "duration_ticks": 90
+        }
+      }
+    ],
+    "companions": [],
+    "enemies": [],
+    "chapters": [
+      {
+        "id": "seventh-dock",
+        "order": 1,
+        "title": "No Sea at the Seventh Dock",
+        "subtitle": "A withdrawn seven-second voice note teaches autoreply to speak as Nana.",
+        "featured_character": "nana7mi",
+        "unlock_companion": "nana7mi-assist",
+        "background_url": "/game/v4/backgrounds/seventh-dock.webp",
+        "segments": [],
+        "waves": [],
+        "boss": {
+          "id": "optimal-nana",
+          "name": "Optimal Nana",
+          "description": "A reply model that learned a flawless Nana from seven seconds she withdrew.",
+          "sprite_url": "/game/v4/bosses/optimal-nana.webp",
+          "max_health": 900,
+          "duration_ticks": 1800,
+          "stages": [
+            {
+              "id": "polite-opening",
+              "health_threshold": 100,
+              "move_pattern": "sweep",
+              "shot_pattern": "fan",
+              "shot_interval": 48,
+              "projectile_speed": 92,
+              "projectile_damage": 1,
+              "telegraph_ticks": 18,
+              "special": "tidy-intro"
+            },
+            {
+              "id": "perfect-reaction",
+              "health_threshold": 66,
+              "move_pattern": "mirror",
+              "shot_pattern": "delayed",
+              "shot_interval": 42,
+              "projectile_speed": 102,
+              "projectile_damage": 1,
+              "telegraph_ticks": 21,
+              "special": "copied-laugh"
+            },
+            {
+              "id": "no-sea",
+              "health_threshold": 33,
+              "move_pattern": "dive",
+              "shot_pattern": "ring",
+              "shot_interval": 36,
+              "projectile_speed": 112,
+              "projectile_damage": 1,
+              "telegraph_ticks": 24,
+              "special": "empty-horizon"
+            }
+          ]
+        },
+        "story": {
+          "prelude": null,
+          "intermission": {
+            "after_segment": 0,
+            "prompt": "",
+            "messages": null,
+            "choices": null
+          },
+          "epilogue": null,
+          "replay_recap": null
+        },
+        "encore": [],
+        "endings": []
+      }
+    ],
+    "daily": {
+      "id": "daily-aftershow",
+      "title": "Daily Aftershow",
+      "subtitle": "One quick wave, one show choice, one boss, one UTC seed, and the same snack wrapper by the microphone.",
+      "seed_timezone": "UTC",
+      "segment_duration_ticks": 900,
+      "segment_count": 2,
+      "show_choice_count": 1,
+      "rotation_characters": [
+        "nana7mi",
+        "jiaran",
+        "xiangwan",
+        "bella",
+        "lulu",
+        "xingtong",
+        "nailu"
+      ],
+      "wave_ids": [
+        "dock-wave-2",
+        "cheer-wave-1",
+        "loss-wave-1",
+        "captain-wave-2",
+        "localization-wave-1",
+        "original-wave-2",
+        "florist-wave-1",
+        "zero-wave-1"
+      ],
+      "boss_ids": [
+        "optimal-nana",
+        "always-on-idol",
+        "perfect-highlight",
+        "perfect-captain",
+        "approved-translation",
+        "physical-original",
+        "reality-auditor",
+        "auto-archive-system"
+      ],
+      "encore_modifier_ids": [
+        "dock-crosswind",
+        "cheer-no-dead-air",
+        "loss-second-take",
+        "captain-overtime",
+        "localization-double-caption",
+        "original-mirror-take",
+        "florist-wild-growth",
+        "zero-late-aftershow"
+      ]
+    }
+  },
+  "wave": {
+    "segment_slug": "portfolio-demo-wave",
+    "segment_index": 0,
+    "seed": "portfolio-demo-wave-v1",
+    "duration_ticks": 900,
+    "wave_id": "dock-wave-1",
+    "background_url": "/game/v4/backgrounds/seventh-dock.webp",
+    "runtime_config": {
+      "seed": "portfolio-demo-wave-v1",
+      "duration_ticks": 900,
+      "player_health": 3,
+      "starting_rescue_charge": 35,
+      "encore_level": 0,
+      "daily": false,
+      "special_charge_penalty_percent": 0,
+      "kit": {
+        "id": "nana7mi",
+        "max_health": 3,
+        "attack_damage": 12,
+        "fire_interval": 9,
+        "rescue_damage": 34,
+        "starting_shield": 1,
+        "move_limit": 1520,
+        "special_behavior": "barrage_break",
+        "special_duration": 90
+      },
+      "companions": [],
+      "show_effects": [],
+      "enemies": [
+        {
+          "id": "spam-bot",
+          "chassis": "spam-bot",
+          "health": 26,
+          "speed": 90,
+          "contact_damage": 1,
+          "move_pattern": "drift",
+          "shot_pattern": "aimed",
+          "fire_interval": 48,
+          "projectile_speed": 90,
+          "damage": 1,
+          "score": 104,
+          "telegraph_ticks": 15,
+          "traits": []
+        },
+        {
+          "id": "clip-cutter",
+          "chassis": "clip-cutter",
+          "health": 34,
+          "speed": 130,
+          "contact_damage": 1,
+          "move_pattern": "dive",
+          "shot_pattern": "lane",
+          "fire_interval": 120,
+          "projectile_speed": 120,
+          "damage": 1,
+          "score": 136,
+          "telegraph_ticks": 18,
+          "traits": []
+        },
+        {
+          "id": "caption-blob",
+          "chassis": "caption-blob",
+          "health": 46,
+          "speed": 65,
+          "contact_damage": 1,
+          "move_pattern": "sweep",
+          "shot_pattern": "fan",
+          "fire_interval": 54,
+          "projectile_speed": 82,
+          "damage": 1,
+          "score": 184,
+          "telegraph_ticks": 20,
+          "traits": []
+        },
+        {
+          "id": "black-screen-ghost",
+          "chassis": "black-screen-ghost",
+          "health": 40,
+          "speed": 80,
+          "contact_damage": 1,
+          "move_pattern": "mirror",
+          "shot_pattern": "delayed",
+          "fire_interval": 66,
+          "projectile_speed": 96,
+          "damage": 1,
+          "score": 160,
+          "telegraph_ticks": 24,
+          "traits": []
+        },
+        {
+          "id": "gift-thief",
+          "chassis": "gift-thief",
+          "health": 38,
+          "speed": 115,
+          "contact_damage": 1,
+          "move_pattern": "orbit",
+          "shot_pattern": "ring",
+          "fire_interval": 72,
+          "projectile_speed": 78,
+          "damage": 1,
+          "score": 152,
+          "telegraph_ticks": 21,
+          "traits": [
+            "steal_pickup"
+          ]
+        },
+        {
+          "id": "censor-frame",
+          "chassis": "censor-frame",
+          "health": 62,
+          "speed": 35,
+          "contact_damage": 1,
+          "move_pattern": "anchor",
+          "shot_pattern": "beam",
+          "fire_interval": 84,
+          "projectile_speed": 110,
+          "damage": 1,
+          "score": 248,
+          "telegraph_ticks": 30,
+          "traits": [
+            "armor"
+          ]
+        }
+      ],
+      "wave": {
+        "id": "dock-wave-1",
+        "spawns": [
+          {
+            "at_tick": 30,
+            "enemy_id": "spam-bot",
+            "count": 4,
+            "formation": "line",
+            "interval_ticks": 18
+          },
+          {
+            "at_tick": 300,
+            "enemy_id": "clip-cutter",
+            "count": 2,
+            "formation": "pincer",
+            "interval_ticks": 24
+          }
+        ]
+      },
+      "limits": {
+        "enemies": 14,
+        "enemy_projectiles": 120,
+        "player_projectiles": 48,
+        "pickups": 12,
+        "effects": 24
+      }
+    }
+  },
+  "options": [
+    {
+      "id": "double-take",
+      "name": "Double Take",
+      "description": "Add a second narrow shot to every volley.",
+      "boss": {
+        "segment_slug": "portfolio-demo-boss-double-take",
+        "segment_index": 1,
+        "seed": "portfolio-demo-boss-v1:double-take",
+        "duration_ticks": 900,
+        "boss_id": "optimal-nana",
+        "background_url": "/game/v4/backgrounds/seventh-dock.webp",
+        "runtime_config": {
+          "seed": "portfolio-demo-boss-v1:double-take",
+          "duration_ticks": 900,
+          "player_health": 3,
+          "starting_rescue_charge": 55,
+          "encore_level": 0,
+          "daily": false,
+          "special_charge_penalty_percent": 0,
+          "kit": {
+            "id": "nana7mi",
+            "max_health": 3,
+            "attack_damage": 12,
+            "fire_interval": 9,
+            "rescue_damage": 34,
+            "starting_shield": 1,
+            "move_limit": 1520,
+            "special_behavior": "barrage_break",
+            "special_duration": 90
+          },
+          "companions": [],
+          "show_effects": [
+            {
+              "kind": "twin_shot",
+              "amount": 1
+            }
+          ],
+          "enemies": [
+            {
+              "id": "spam-bot",
+              "chassis": "spam-bot",
+              "health": 26,
+              "speed": 90,
+              "contact_damage": 1,
+              "move_pattern": "drift",
+              "shot_pattern": "aimed",
+              "fire_interval": 48,
+              "projectile_speed": 90,
+              "damage": 1,
+              "score": 104,
+              "telegraph_ticks": 15,
+              "traits": []
+            },
+            {
+              "id": "clip-cutter",
+              "chassis": "clip-cutter",
+              "health": 34,
+              "speed": 130,
+              "contact_damage": 1,
+              "move_pattern": "dive",
+              "shot_pattern": "lane",
+              "fire_interval": 60,
+              "projectile_speed": 120,
+              "damage": 1,
+              "score": 136,
+              "telegraph_ticks": 18,
+              "traits": []
+            },
+            {
+              "id": "caption-blob",
+              "chassis": "caption-blob",
+              "health": 46,
+              "speed": 65,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "fan",
+              "fire_interval": 54,
+              "projectile_speed": 82,
+              "damage": 1,
+              "score": 184,
+              "telegraph_ticks": 20,
+              "traits": []
+            },
+            {
+              "id": "black-screen-ghost",
+              "chassis": "black-screen-ghost",
+              "health": 40,
+              "speed": 80,
+              "contact_damage": 1,
+              "move_pattern": "mirror",
+              "shot_pattern": "delayed",
+              "fire_interval": 66,
+              "projectile_speed": 96,
+              "damage": 1,
+              "score": 160,
+              "telegraph_ticks": 24,
+              "traits": []
+            },
+            {
+              "id": "gift-thief",
+              "chassis": "gift-thief",
+              "health": 38,
+              "speed": 115,
+              "contact_damage": 1,
+              "move_pattern": "orbit",
+              "shot_pattern": "ring",
+              "fire_interval": 72,
+              "projectile_speed": 78,
+              "damage": 1,
+              "score": 152,
+              "telegraph_ticks": 21,
+              "traits": [
+                "steal_pickup"
+              ]
+            },
+            {
+              "id": "censor-frame",
+              "chassis": "censor-frame",
+              "health": 62,
+              "speed": 35,
+              "contact_damage": 1,
+              "move_pattern": "anchor",
+              "shot_pattern": "beam",
+              "fire_interval": 84,
+              "projectile_speed": 110,
+              "damage": 1,
+              "score": 248,
+              "telegraph_ticks": 30,
+              "traits": [
+                "armor"
+              ]
+            }
+          ],
+          "wave": {
+            "id": "optimal-nana",
+            "spawns": []
+          },
+          "boss": {
+            "id": "optimal-nana",
+            "health": 360,
+            "score": 4500,
+            "stages": [
+              {
+                "id": "polite-opening",
+                "health_threshold": 100,
+                "move_pattern": "sweep",
+                "shot_pattern": "fan",
+                "fire_interval": 48,
+                "projectile_speed": 92,
+                "damage": 1,
+                "telegraph_ticks": 18,
+                "special": "tidy-intro"
+              },
+              {
+                "id": "perfect-reaction",
+                "health_threshold": 66,
+                "move_pattern": "mirror",
+                "shot_pattern": "delayed",
+                "fire_interval": 42,
+                "projectile_speed": 102,
+                "damage": 1,
+                "telegraph_ticks": 21,
+                "special": "copied-laugh"
+              },
+              {
+                "id": "no-sea",
+                "health_threshold": 33,
+                "move_pattern": "dive",
+                "shot_pattern": "ring",
+                "fire_interval": 36,
+                "projectile_speed": 112,
+                "damage": 1,
+                "telegraph_ticks": 24,
+                "special": "empty-horizon"
+              }
+            ]
+          },
+          "limits": {
+            "enemies": 14,
+            "enemy_projectiles": 120,
+            "player_projectiles": 48,
+            "pickups": 12,
+            "effects": 24
+          }
+        }
+      }
+    },
+    {
+      "id": "safety-chat",
+      "name": "Safety Chat",
+      "description": "Using a special grants one brief guard.",
+      "boss": {
+        "segment_slug": "portfolio-demo-boss-safety-chat",
+        "segment_index": 1,
+        "seed": "portfolio-demo-boss-v1:safety-chat",
+        "duration_ticks": 900,
+        "boss_id": "optimal-nana",
+        "background_url": "/game/v4/backgrounds/seventh-dock.webp",
+        "runtime_config": {
+          "seed": "portfolio-demo-boss-v1:safety-chat",
+          "duration_ticks": 900,
+          "player_health": 3,
+          "starting_rescue_charge": 55,
+          "encore_level": 0,
+          "daily": false,
+          "special_charge_penalty_percent": 0,
+          "kit": {
+            "id": "nana7mi",
+            "max_health": 3,
+            "attack_damage": 12,
+            "fire_interval": 9,
+            "rescue_damage": 34,
+            "starting_shield": 1,
+            "move_limit": 1520,
+            "special_behavior": "barrage_break",
+            "special_duration": 90
+          },
+          "companions": [],
+          "show_effects": [
+            {
+              "kind": "guard_on_special",
+              "amount": 1
+            }
+          ],
+          "enemies": [
+            {
+              "id": "spam-bot",
+              "chassis": "spam-bot",
+              "health": 26,
+              "speed": 90,
+              "contact_damage": 1,
+              "move_pattern": "drift",
+              "shot_pattern": "aimed",
+              "fire_interval": 48,
+              "projectile_speed": 90,
+              "damage": 1,
+              "score": 104,
+              "telegraph_ticks": 15,
+              "traits": []
+            },
+            {
+              "id": "clip-cutter",
+              "chassis": "clip-cutter",
+              "health": 34,
+              "speed": 130,
+              "contact_damage": 1,
+              "move_pattern": "dive",
+              "shot_pattern": "lane",
+              "fire_interval": 60,
+              "projectile_speed": 120,
+              "damage": 1,
+              "score": 136,
+              "telegraph_ticks": 18,
+              "traits": []
+            },
+            {
+              "id": "caption-blob",
+              "chassis": "caption-blob",
+              "health": 46,
+              "speed": 65,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "fan",
+              "fire_interval": 54,
+              "projectile_speed": 82,
+              "damage": 1,
+              "score": 184,
+              "telegraph_ticks": 20,
+              "traits": []
+            },
+            {
+              "id": "black-screen-ghost",
+              "chassis": "black-screen-ghost",
+              "health": 40,
+              "speed": 80,
+              "contact_damage": 1,
+              "move_pattern": "mirror",
+              "shot_pattern": "delayed",
+              "fire_interval": 66,
+              "projectile_speed": 96,
+              "damage": 1,
+              "score": 160,
+              "telegraph_ticks": 24,
+              "traits": []
+            },
+            {
+              "id": "gift-thief",
+              "chassis": "gift-thief",
+              "health": 38,
+              "speed": 115,
+              "contact_damage": 1,
+              "move_pattern": "orbit",
+              "shot_pattern": "ring",
+              "fire_interval": 72,
+              "projectile_speed": 78,
+              "damage": 1,
+              "score": 152,
+              "telegraph_ticks": 21,
+              "traits": [
+                "steal_pickup"
+              ]
+            },
+            {
+              "id": "censor-frame",
+              "chassis": "censor-frame",
+              "health": 62,
+              "speed": 35,
+              "contact_damage": 1,
+              "move_pattern": "anchor",
+              "shot_pattern": "beam",
+              "fire_interval": 84,
+              "projectile_speed": 110,
+              "damage": 1,
+              "score": 248,
+              "telegraph_ticks": 30,
+              "traits": [
+                "armor"
+              ]
+            }
+          ],
+          "wave": {
+            "id": "optimal-nana",
+            "spawns": []
+          },
+          "boss": {
+            "id": "optimal-nana",
+            "health": 360,
+            "score": 4500,
+            "stages": [
+              {
+                "id": "polite-opening",
+                "health_threshold": 100,
+                "move_pattern": "sweep",
+                "shot_pattern": "fan",
+                "fire_interval": 48,
+                "projectile_speed": 92,
+                "damage": 1,
+                "telegraph_ticks": 18,
+                "special": "tidy-intro"
+              },
+              {
+                "id": "perfect-reaction",
+                "health_threshold": 66,
+                "move_pattern": "mirror",
+                "shot_pattern": "delayed",
+                "fire_interval": 42,
+                "projectile_speed": 102,
+                "damage": 1,
+                "telegraph_ticks": 21,
+                "special": "copied-laugh"
+              },
+              {
+                "id": "no-sea",
+                "health_threshold": 33,
+                "move_pattern": "dive",
+                "shot_pattern": "ring",
+                "fire_interval": 36,
+                "projectile_speed": 112,
+                "damage": 1,
+                "telegraph_ticks": 24,
+                "special": "empty-horizon"
+              }
+            ]
+          },
+          "limits": {
+            "enemies": 14,
+            "enemy_projectiles": 120,
+            "player_projectiles": 48,
+            "pickups": 12,
+            "effects": 24
+          }
+        }
+      }
+    }
+  ]
+}

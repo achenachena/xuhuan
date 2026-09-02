@@ -51,6 +51,8 @@ jobs:
         run: go vet ./...
       - name: Unit and OpenAPI contract tests
         run: go test -race ./...
+      - name: Verify generated browser demo manifests
+        run: go run ./cmd/export-portfolio-demo --check ../miniapp/public/game/v4/demo
       - name: Verify release-only authority trace helper
         run: |
           if go list -f '{{range .GoFiles}}{{println .}}{{end}}' ./internal/shooter | grep -qx 'smoke_autoplay.go'; then

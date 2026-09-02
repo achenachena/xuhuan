@@ -2,7 +2,7 @@
 
 ## System intent
 
-Xuhuan is a single-player portrait shooter and story campaign inside Telegram. The Mini App owns controls, presentation, audio, haptics, and prediction. Go owns deterministic room replay, enemy behavior, damage, pickups, rewards, chapter progression, story revisions, and every durable result. PostgreSQL is the system of record. Redis stores only disposable distributed rate-limit counters.
+Xuhuan is a single-player portrait shooter and story campaign inside Telegram, with a public browser portfolio and non-persistent showcase. The Mini App owns controls, presentation, audio, haptics, and prediction. Go owns deterministic room replay, enemy behavior, damage, pickups, rewards, chapter progression, story revisions, and every durable result. PostgreSQL is the system of record. Redis stores only disposable distributed rate-limit counters.
 
 Three version labels have separate purposes:
 
@@ -29,6 +29,13 @@ Go modular monolith on arm64 AWS Lambda
 ```
 
 The deployment has no WebSocket service, game-engine server, queue, VPC, NAT Gateway, API Gateway, load balancer, container cluster, RDS, or ElastiCache.
+
+The same Vercel origin has two deliberately separate execution paths:
+
+- a browser receives a server-rendered portfolio and may open `/demo`, which runs a fixed local wave and Boss configuration from static versioned JSON; and
+- a Telegram WebView mounts the campaign only after the SDK exposes non-empty `initData`, then forwards that raw value for server verification.
+
+Go generates the bilingual `demo-v1` manifests from the same V4 catalog and runtime resolver used by real Runs. The showcase reuses the TypeScript simulation and Canvas renderer, but discards its trace and result locally. It creates no player, cookie, session, token, database row, Redis key, or authoritative claim.
 
 ## Identity and trust boundary
 
@@ -121,6 +128,8 @@ Story choices are append-only revisions identified by concrete option IDs. The l
 | Distributed request throttling | Redis, fail-open and non-authoritative |
 
 Browser storage may remember presentation preferences and retain an unsent completed trace for retry. It never decides progression or rewards.
+
+The public portfolio demo stores nothing beyond the existing language preference. Its score is explicitly labeled local and is never mixed with campaign or Daily results.
 
 ## Operational safety
 
