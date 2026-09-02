@@ -7,7 +7,7 @@
     "apps/*"
   ],
   "devDependencies": {
-    "eslint": "9.39.5",
+    "eslint": "10.9.1",
     "eslint-config-next": "16.3.0"
   },
   "overrides": {
