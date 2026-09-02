@@ -147,9 +147,9 @@ jobs:
           test "$(curl --fail --silent --retry 5 "$api/healthz" | jq -r .version)" = "$RELEASE_SHA"
           test "$(curl --fail --silent --retry 5 "$api/readyz" | jq -r .status)" = "ready"
           test "$(curl --fail --silent --retry 5 "$api/v2/content/v4?locale=en" | jq -r .protocol)" = "shooter-v1"
-          vercel curl / --deployment "$FRONTEND_URL" --token="$VERCEL_TOKEN" -- \
+          vercel curl / --deployment "$FRONTEND_URL" -- \
             --fail --silent | grep --fixed-strings --quiet "CONTENT-V4 / SHOOTER-V1"
-          vercel curl /demo --deployment "$FRONTEND_URL" --token="$VERCEL_TOKEN" -- \
+          vercel curl /demo --deployment "$FRONTEND_URL" -- \
             --fail --silent > /dev/null
 
       - name: Release summary
