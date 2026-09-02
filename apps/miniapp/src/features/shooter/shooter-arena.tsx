@@ -36,26 +36,18 @@ import {
   createShooterSimulation,
 } from "@/features/shooter/simulation";
 import { ShooterHUD } from "@/features/shooter/shooter-hud";
-import { ShooterTraceRecorder } from "@/features/shooter/trace";
 import type { ShooterSnapshot } from "@/features/shooter/types";
 import type { ShooterResult } from "@/features/shooter/types";
 import { enterTelegramCombatMode } from "@/lib/telegram-combat-mode";
 import { playTelegramHaptic } from "@/lib/telegram-haptics";
-import type {
-  ShooterContent,
-  ShooterGameRun,
-  ShooterTrace,
-} from "@/lib/api/types";
+import type { ShooterContent, ShooterGameRun } from "@/lib/api/types";
 
 type Props = {
   readonly content: ShooterContent;
   readonly run: ShooterGameRun;
   readonly busy: boolean;
   readonly embedded?: boolean;
-  readonly onComplete: (
-    trace: ShooterTrace,
-    result: ShooterResult,
-  ) => Promise<boolean>;
+  readonly onComplete: (result: ShooterResult) => Promise<boolean>;
 };
 
 export const shooterTutorialKey = (
@@ -114,7 +106,6 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
   const keysRef = useRef(new Set<string>());
   const submittingRef = useRef(false);
   const pausedRef = useRef(false);
-  const pendingTraceRef = useRef<ShooterTrace | null>(null);
   const pendingResultRef = useRef<ShooterResult | null>(null);
   const mountedRef = useRef(true);
   const [hudSnapshot, setHudSnapshot] = useState<ShooterSnapshot | null>(() =>
@@ -190,16 +181,15 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
     };
   }, []);
 
-  const submitTrace = useCallback(async (trace: ShooterTrace, result: ShooterResult) => {
+  const submitResult = useCallback(async (result: ShooterResult) => {
     if (submittingRef.current) return;
     submittingRef.current = true;
-    pendingTraceRef.current = trace;
     pendingResultRef.current = result;
     setSubmitting(true);
     setSubmissionFailed(false);
     let accepted = false;
     try {
-      accepted = await completeRef.current(trace, result);
+      accepted = await completeRef.current(result);
     } finally {
       submittingRef.current = false;
     }
@@ -209,14 +199,12 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
   }, []);
 
   const retry = useCallback(() => {
-    const trace = pendingTraceRef.current;
     const result = pendingResultRef.current;
-    if (trace && result) void submitTrace(trace, result);
-  }, [submitTrace]);
+    if (result) void submitResult(result);
+  }, [submitResult]);
 
   useEffect(() => {
     const simulation = createShooterSimulation(runtime);
-    const recorder = new ShooterTraceRecorder();
     let frame = 0;
     let previousTime = performance.now();
     let accumulator = 0;
@@ -226,19 +214,14 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
     let lastHUDTick = -10;
     let lastBossWarning = -120;
     submittingRef.current = false;
-    pendingTraceRef.current = null;
     pendingResultRef.current = null;
 
     const finish = () => {
       if (finished) return;
       finished = true;
-      const neutral = sampleShooterInput(controlRef.current, false);
-      recorder.pad(neutral, runtime.config.duration_ticks);
-      const trace = recorder.encode();
-      pendingTraceRef.current = trace;
       const result = simulation.result();
       audioRef.current.playSound(result?.won ? "victory" : "defeat");
-      if (result) void submitTrace(trace, result);
+      if (result) void submitResult(result);
     };
 
     const update = () => {
@@ -263,7 +246,6 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
         rescueQueuedRef.current,
       );
       rescueQueuedRef.current = false;
-      recorder.push(input);
       previousSnapshot = currentSnapshot;
       const events = simulation.step(input);
       currentSnapshot = simulation.snapshot();
@@ -326,7 +308,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
-  }, [embedded, runtime, sources, submitTrace]);
+  }, [embedded, runtime, sources, submitResult]);
 
   const queueRescue = () => {
     if ((hudSnapshot?.rescue_charge ?? 0) >= 100 && !submitting) {

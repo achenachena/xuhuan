@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { APIGameContent } from "@/lib/api/client";
-import type { ShooterTrace } from "@/lib/api/types";
+import type { ShooterSegmentOutcome } from "@/lib/api/types";
 import {
   createV4Game,
   createV4Run,
@@ -26,11 +26,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
 
 import { useGameController } from "@/features/game/use-game-controller";
 
-const trace: ShooterTrace = {
-  encoding: "x-position-rle-v1",
-  ticks: 12,
-  runs: [[64, 12]],
-};
+const outcome: ShooterSegmentOutcome = { won: true, health: 3, score: 100 };
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -118,7 +114,7 @@ describe("useGameController shooter-v1 orchestration", () => {
         mode: "campaign",
         version: 1,
         idempotencyKey: "pending-key",
-        trace,
+        outcome,
       }),
     );
     dependencies.getGame.mockResolvedValue(
@@ -131,14 +127,14 @@ describe("useGameController shooter-v1 orchestration", () => {
 
     expect(dependencies.createRunCommand).toHaveBeenCalledWith(
       current.id,
-      { type: "complete_segment", expected_version: 1, trace },
+      { type: "complete_segment", expected_version: 1, segment_outcome: outcome },
       "pending-key",
     );
     expect(result.current.game?.campaign_run?.state.phase).toBe("show_choice");
     expect(window.sessionStorage.getItem("xuhuan.pending-segment.v4")).toBeNull();
   });
 
-  it("reuses the original segment trace after a transient failure", async () => {
+  it("reuses the original segment result after a transient failure", async () => {
     const current = createV4Run();
     const gate = createV4Run({
       version: 2,
@@ -161,13 +157,13 @@ describe("useGameController shooter-v1 orchestration", () => {
     await act(async () => {
       await result.current.command("campaign", {
         type: "complete_segment",
-        trace,
+        segment_outcome: outcome,
       });
     });
     await act(async () => {
       await result.current.command("campaign", {
         type: "complete_segment",
-        trace: { ...trace, runs: [[0, 12]] },
+        segment_outcome: { ...outcome, score: 200 },
       });
     });
 
@@ -186,7 +182,7 @@ describe("useGameController shooter-v1 orchestration", () => {
         mode: "campaign",
         version: 1,
         idempotencyKey: "pending-key",
-        trace: { ...trace, runs: [[64, 0]] },
+        outcome: { ...outcome, health: 9 },
       }),
     );
     dependencies.getGame.mockResolvedValue(

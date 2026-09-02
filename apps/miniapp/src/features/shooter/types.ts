@@ -1,12 +1,4 @@
 import type {
-  APIShooterEffectSnapshot,
-  APIShooterEnemySnapshot,
-  APIShooterPickupSnapshot,
-  APIShooterPosition,
-  APIShooterProjectileSnapshot,
-  APIShooterResult,
-  APIShooterSnapshot,
-  APIShooterThreatSnapshot,
   ShooterBoss,
   ShooterContent,
   ShooterEnemySpec,
@@ -14,14 +6,82 @@ import type {
   ShooterRuntimeConfig,
 } from "@/lib/api/types";
 
-export type ShooterPosition = APIShooterPosition;
-export type ShooterEnemySnapshot = APIShooterEnemySnapshot;
-export type ShooterProjectileSnapshot = APIShooterProjectileSnapshot;
-export type ShooterPickupSnapshot = APIShooterPickupSnapshot;
-export type ShooterThreatSnapshot = APIShooterThreatSnapshot;
-export type ShooterEffectSnapshot = APIShooterEffectSnapshot;
-export type ShooterSnapshot = APIShooterSnapshot;
-export type ShooterResult = APIShooterResult;
+export type ShooterPosition = { readonly x: number; readonly y: number };
+export type ShooterEnemySnapshot = {
+  readonly id: number;
+  readonly spec_id: string;
+  readonly chassis: ShooterEnemySpec["chassis"];
+  readonly position: ShooterPosition;
+  readonly health: number;
+  readonly max_health: number;
+  readonly boss: boolean;
+  readonly stage?: number;
+  readonly intent?: string;
+  readonly marks?: number;
+};
+export type ShooterProjectileSnapshot = {
+  readonly id: number;
+  readonly position: ShooterPosition;
+  readonly velocity: ShooterPosition;
+  readonly hostile: boolean;
+  readonly kind?: string;
+  readonly radius?: number;
+  readonly width?: number;
+  readonly health?: number;
+};
+export type ShooterPickupSnapshot = {
+  readonly id: number;
+  readonly kind: "support_note";
+  readonly position: ShooterPosition;
+  readonly value: number;
+};
+export type ShooterThreatSnapshot = {
+  readonly source_id: number;
+  readonly kind: string;
+  readonly ticks_remaining: number;
+  readonly origin: ShooterPosition;
+  readonly target: ShooterPosition;
+  readonly radius?: number;
+  readonly width?: number;
+};
+export type ShooterEffectSnapshot = {
+  readonly id: number;
+  readonly kind: string;
+  readonly position: ShooterPosition;
+  readonly ticks: number;
+  readonly power?: number;
+};
+export type ShooterSnapshot = {
+  readonly tick: number;
+  readonly player_x: number;
+  readonly health: number;
+  readonly max_health: number;
+  readonly shield: number;
+  readonly invulnerable_ticks: number;
+  readonly rescue_charge: number;
+  readonly rescues_used: number;
+  readonly graze_count: number;
+  readonly combo: number;
+  readonly score: number;
+  readonly daily_variant?: string;
+  readonly enemies: readonly ShooterEnemySnapshot[];
+  readonly enemy_projectiles: readonly ShooterProjectileSnapshot[];
+  readonly player_projectiles: readonly ShooterProjectileSnapshot[];
+  readonly pickups: readonly ShooterPickupSnapshot[];
+  readonly threats: readonly ShooterThreatSnapshot[];
+  readonly effects: readonly ShooterEffectSnapshot[];
+};
+export type ShooterResult = {
+  readonly won: boolean;
+  readonly health: number;
+  readonly ticks: number;
+  readonly kills: number;
+  readonly rescues_used: number;
+  readonly grazes: number;
+  readonly score: number;
+  readonly daily_variant?: string;
+  readonly final: ShooterSnapshot;
+};
 
 export type ShooterResolvedRuntime = {
   damage: number;

@@ -110,7 +110,7 @@ describe("V4 API client", () => {
     );
   });
 
-  it("retries a complete segment with the exact tuple trace and key", async () => {
+  it("retries a complete segment with the same bounded result and key", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockRejectedValueOnce(new TypeError("temporary"))
@@ -123,14 +123,7 @@ describe("V4 API client", () => {
     const body = {
       type: "complete_segment" as const,
       expected_version: 4,
-      trace: {
-        encoding: "x-position-rle-v1" as const,
-        ticks: 260,
-        runs: [
-          [64, 255],
-          [64, 5],
-        ] as [number, number][],
-      },
+      segment_outcome: { won: true, health: 2, score: 800 },
     };
 
     await createRunCommand(

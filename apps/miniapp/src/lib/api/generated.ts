@@ -450,15 +450,6 @@ export interface components {
             ending: "open-archive" | "shared-cut" | "quiet-signoff" | null;
             daily_unlocked: boolean;
         };
-        InputTrace: {
-            /** @constant */
-            encoding: "x-position-rle-v1";
-            ticks: number;
-            runs: [
-                number,
-                number
-            ][];
-        };
         RuntimeEffect: {
             /** @enum {string} */
             kind: "twin_shot" | "piercing_shot" | "spread_shot" | "graze_charge" | "guard_on_special" | "pickup_magnet" | "echo_volley" | "boss_break" | "low_health_power" | "combo_extend" | "companion_charge" | "recovery_drop";
@@ -587,90 +578,10 @@ export interface components {
             ending_id?: "open-archive" | "shared-cut" | "quiet-signoff";
             daily_variant?: string;
         };
-        Position: {
-            x: number;
-            y: number;
-        };
-        EnemySnapshot: {
-            id: number;
-            spec_id: string;
-            /** @enum {string} */
-            chassis: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
-            position: components["schemas"]["Position"];
-            health: number;
-            max_health: number;
-            boss: boolean;
-            stage?: number;
-            /** @enum {string} */
-            intent?: "fire" | "charge";
-            marks?: number;
-        };
-        ProjectileSnapshot: {
-            id: number;
-            position: components["schemas"]["Position"];
-            velocity: components["schemas"]["Position"];
-            hostile: boolean;
-            kind?: string;
-            radius?: number;
-            width?: number;
-            health?: number;
-        };
-        PickupSnapshot: {
-            id: number;
-            /** @constant */
-            kind: "support_note";
-            position: components["schemas"]["Position"];
-            value: number;
-        };
-        ThreatSnapshot: {
-            source_id: number;
-            /** @enum {string} */
-            kind: "charge_lane" | "horizontal_cut" | "caption_block" | "black_wall" | "censor_gap" | "aimed_line" | "danger_lane" | "fan_cone" | "radial_burst" | "delayed_echo";
-            ticks_remaining: number;
-            origin: components["schemas"]["Position"];
-            target: components["schemas"]["Position"];
-            radius?: number;
-            width?: number;
-        };
-        VisualEffectSnapshot: {
-            id: number;
-            /** @enum {string} */
-            kind: "route_mark" | "mark_detonation" | "cadence_volley" | "subtitle_rewrite" | "alignment_beam" | "memory_plant" | "memory_bloom" | "afterimage_replay" | "captain_parry" | "subtitle_flip" | "prism_shift" | "choice_assist" | "boss_cut" | "wall_hit" | "wall_break";
-            position: components["schemas"]["Position"];
-            ticks: number;
-            power?: number;
-        };
-        ShooterSnapshot: {
-            tick: number;
-            player_x: number;
-            health: number;
-            /** @constant */
-            max_health: 3;
-            shield: number;
-            invulnerable_ticks: number;
-            rescue_charge: number;
-            rescues_used: number;
-            graze_count: number;
-            combo: number;
-            score: number;
-            daily_variant?: string;
-            enemies: components["schemas"]["EnemySnapshot"][];
-            enemy_projectiles: components["schemas"]["ProjectileSnapshot"][];
-            player_projectiles: components["schemas"]["ProjectileSnapshot"][];
-            pickups: components["schemas"]["PickupSnapshot"][];
-            threats: components["schemas"]["ThreatSnapshot"][];
-            effects: components["schemas"]["VisualEffectSnapshot"][];
-        };
-        ShooterResult: {
+        SegmentOutcome: {
             won: boolean;
             health: number;
-            ticks: number;
-            kills: number;
-            rescues_used: number;
-            grazes: number;
             score: number;
-            daily_variant?: string;
-            final: components["schemas"]["ShooterSnapshot"];
         };
         RunEvent: {
             /** @enum {string} */
@@ -686,7 +597,6 @@ export interface components {
             next_character_slug?: components["schemas"]["Slug"];
             /** @enum {string} */
             ending_id?: "open-archive" | "shared-cut" | "quiet-signoff";
-            segment_result?: components["schemas"]["ShooterResult"];
         };
         GameRun: {
             /** Format: uuid */
@@ -757,7 +667,7 @@ export interface components {
             type: "complete_segment";
             /** Format: int64 */
             expected_version: number;
-            trace: components["schemas"]["InputTrace"];
+            segment_outcome: components["schemas"]["SegmentOutcome"];
         };
         ChooseShowOptionCommand: {
             /**

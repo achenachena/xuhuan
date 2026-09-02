@@ -172,8 +172,15 @@ const GameShell = () => {
             content={content}
             run={run}
             busy={busy}
-            onComplete={async (trace) =>
-              (await command({ type: "complete_segment", trace })) !== null
+            onComplete={async (result) =>
+              (await command({
+                type: "complete_segment",
+                segment_outcome: {
+                  won: result.won,
+                  health: result.health,
+                  score: result.score,
+                },
+              })) !== null
             }
           />
         );

@@ -4,9 +4,6 @@ type Schemas = components["schemas"];
 
 export type GameLocale = Schemas["GameContent"]["locale"];
 
-export type ShooterTraceRun = Schemas["InputTrace"]["runs"][number];
-export type ShooterTrace = Schemas["InputTrace"];
-
 export type ShooterEffectKind = Schemas["RuntimeEffect"]["kind"];
 export type ShooterEffect = Schemas["RuntimeEffect"];
 export type ShooterKit = Schemas["RuntimeKit"];
@@ -59,14 +56,6 @@ export type ShooterRunCommandInput = ShooterRunCommand extends infer Command
 
 export type ShooterRunEvent = Schemas["RunEvent"];
 export type ShooterRunCommandResponse = Schemas["RunCommandResponse"];
+export type ShooterSegmentOutcome = Schemas["SegmentOutcome"];
 export type APIDailyResult = Schemas["DailyResult"];
 export type APIErrorEnvelope = Schemas["ErrorEnvelope"];
-
-export type APIShooterPosition = Schemas["Position"];
-export type APIShooterEnemySnapshot = Schemas["EnemySnapshot"];
-export type APIShooterProjectileSnapshot = Schemas["ProjectileSnapshot"];
-export type APIShooterPickupSnapshot = Schemas["PickupSnapshot"];
-export type APIShooterThreatSnapshot = Schemas["ThreatSnapshot"];
-export type APIShooterEffectSnapshot = Schemas["VisualEffectSnapshot"];
-export type APIShooterSnapshot = Schemas["ShooterSnapshot"];
-export type APIShooterResult = Schemas["ShooterResult"];

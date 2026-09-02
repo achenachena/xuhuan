@@ -150,7 +150,7 @@ export const BrowserDemo = () => {
             content={manifest.content}
             run={waveRun}
             busy={false}
-            onComplete={async (_trace, localResult) => {
+            onComplete={async (localResult) => {
               setWaveScore(localResult.score);
               setResult(localResult);
               setPhase(localResult.won ? "choice" : "result");
@@ -190,7 +190,7 @@ export const BrowserDemo = () => {
             content={manifest.content}
             run={bossRun}
             busy={false}
-            onComplete={async (_trace, localResult) => {
+            onComplete={async (localResult) => {
               setResult({ ...localResult, score: waveScore + localResult.score });
               setPhase("result");
               return true;

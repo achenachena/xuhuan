@@ -8,7 +8,7 @@ import { AudioProvider } from "@/components/providers/audio-provider";
 export const metadata: Metadata = {
   metadataBase: new URL("https://xuhuan-miniapp.vercel.app"),
   title: "Xuhuan: Only One Online",
-  description: "A server-authoritative one-thumb shooter for Telegram, with a playable browser portfolio demo.",
+  description: "A one-thumb Telegram shooter with transactional Go progression and a playable browser portfolio demo.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "Xuhuan: Only One Online",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Xuhuan: Only One Online",
-    description: "A playable browser demo and server-authoritative Telegram Mini App.",
+    description: "A playable browser demo and production-deployed Telegram Mini App.",
     images: ["/game/v4/backgrounds/seventh-dock.webp"],
   },
 };

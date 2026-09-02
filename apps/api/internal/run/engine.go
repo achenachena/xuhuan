@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
-	"github.com/achenachena/xuhuan/apps/api/internal/shooter"
 )
 
 const bossSegmentIndex = 3
@@ -49,13 +48,13 @@ func Apply(current State, seed string, mode Mode, command Command, catalog *game
 	var err error
 	switch command.Type {
 	case CompleteSegment:
-		err = completeSegment(&state, seed, mode, command.Trace, catalog, &events, &outcome)
+		err = completeSegment(&state, seed, mode, command.SegmentOutcome, catalog, &events, &outcome)
 	case ChooseShowOption:
 		err = chooseShowOption(&state, seed, mode, command.OptionID, catalog, &events)
 	case ChooseIntermissionReply:
 		err = chooseIntermissionReply(&state, seed, mode, command.SceneID, command.OptionID, catalog, &events, &outcome)
 	case AbandonRun:
-		if state.Phase == CompletedPhase || command.Trace != nil || command.OptionID != "" || command.SceneID != "" {
+		if state.Phase == CompletedPhase || command.SegmentOutcome != nil || command.OptionID != "" || command.SceneID != "" {
 			err = ErrInvalidCommand
 		} else {
 			state.Phase, state.Segment, state.Story = CompletedPhase, nil, nil
@@ -72,19 +71,21 @@ func Apply(current State, seed string, mode Mode, command Command, catalog *game
 	return Resolution{State: state, Events: events}, outcome, nil
 }
 
-func completeSegment(state *State, seed string, mode Mode, trace *shooter.InputTrace, catalog *gamecontent.V4Catalog, events *[]Event, outcome **Outcome) error {
-	if state.Phase != SegmentPhase || state.Segment == nil || trace == nil {
+func completeSegment(state *State, seed string, mode Mode, segmentOutcome *SegmentOutcome, catalog *gamecontent.V4Catalog, events *[]Event, outcome **Outcome) error {
+	if state.Phase != SegmentPhase || state.Segment == nil || segmentOutcome == nil {
 		return ErrInvalidCommand
 	}
-	result, err := shooter.Simulate(state.Segment.RuntimeConfig, *trace)
-	if err != nil {
-		return err
+	if segmentOutcome.Health < 0 || segmentOutcome.Health > state.MaxHearts || segmentOutcome.Score < 0 || segmentOutcome.Score > 1_000_000 {
+		return ErrInvalidCommand
 	}
-	state.Hearts = result.Health
-	state.Score += result.Score
-	state.DailyVariant = result.DailyVariant
-	*events = append(*events, Event{Kind: "segment_completed", SegmentSlug: state.Segment.SegmentSlug, EncounterResult: &result})
-	if !result.Won {
+	if segmentOutcome.Won && segmentOutcome.Health == 0 {
+		return ErrInvalidCommand
+	}
+	state.Hearts = segmentOutcome.Health
+	state.Score += segmentOutcome.Score
+	state.DailyVariant = state.Segment.RuntimeConfig.DailyModifierID
+	*events = append(*events, Event{Kind: "segment_completed", SegmentSlug: state.Segment.SegmentSlug})
+	if !segmentOutcome.Won {
 		state.Phase, state.Segment = CompletedPhase, nil
 		value := Failed
 		*outcome = &value

@@ -19,9 +19,8 @@ import type {
   ShooterRunCommand,
   ShooterRunCommandInput,
   ShooterRunCommandResponse,
-  ShooterTrace,
+  ShooterSegmentOutcome,
 } from "@/lib/api/types";
-import { validateShooterTrace } from "@/features/shooter/trace";
 
 export type RunMode = "campaign" | "daily";
 
@@ -38,11 +37,25 @@ type PendingSegment = {
   readonly mode: RunMode;
   readonly version: number;
   readonly idempotencyKey: string;
-  readonly trace: ShooterTrace;
+  readonly outcome: ShooterSegmentOutcome;
 };
 
 const pendingSegmentStorageKey = "xuhuan.pending-segment.v4";
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/;
+
+const validSegmentOutcome = (value: unknown): value is ShooterSegmentOutcome => {
+  if (!value || typeof value !== "object") return false;
+  const outcome = value as Partial<ShooterSegmentOutcome>;
+  return (
+    typeof outcome.won === "boolean" &&
+    Number.isSafeInteger(outcome.health) &&
+    (outcome.health ?? -1) >= 0 &&
+    (outcome.health ?? 4) <= 3 &&
+    Number.isSafeInteger(outcome.score) &&
+    (outcome.score ?? -1) >= 0 &&
+    (outcome.score ?? 1_000_001) <= 1_000_000
+  );
+};
 
 const initialState: ControllerState = {
   content: null,
@@ -79,8 +92,7 @@ const parsePendingSegment = (): PendingSegment | null => {
       !Number.isSafeInteger(value.version) ||
       (value.version ?? 0) < 1 ||
       !idempotencyKeyPattern.test(value.idempotencyKey ?? "") ||
-      !value.trace ||
-      !validateShooterTrace(value.trace)
+      !validSegmentOutcome(value.outcome)
     ) {
       window.sessionStorage.removeItem(pendingSegmentStorageKey);
       return null;
@@ -124,7 +136,7 @@ const replayPendingSegment = async (
       {
         type: "complete_segment",
         expected_version: pending.version,
-        trace: pending.trace,
+        segment_outcome: pending.outcome,
       },
       pending.idempotencyKey,
     );
@@ -238,7 +250,7 @@ export const useGameController = (locale: GameLocale) => {
           fullBody = {
             type: "complete_segment",
             expected_version: pending.version,
-            trace: pending.trace,
+            segment_outcome: pending.outcome,
           };
         } else {
           savePendingSegment({
@@ -246,7 +258,7 @@ export const useGameController = (locale: GameLocale) => {
             mode,
             version: currentRun.version,
             idempotencyKey,
-            trace: body.trace,
+            outcome: body.segment_outcome,
           });
         }
       }
@@ -284,7 +296,7 @@ export const useGameController = (locale: GameLocale) => {
               return { run: synchronizedRun, events: [] };
             }
           } catch {
-            // Keep the original failure and exact pending trace for an explicit retry.
+            // Keep the original failure and pending result for an explicit retry.
           }
         }
         if (error instanceof APIError && error.code === "version_conflict") {

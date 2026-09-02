@@ -2,7 +2,7 @@
 
 ## Principles
 
-V4 content is immutable, embedded in the Go binary, English-first, bilingual, deterministic, and fail-closed. The browser does not interpret arbitrary effect formulas. Content selects from behavior IDs implemented and tested in both authoritative Go replay and TypeScript prediction.
+V4 content is embedded in the Go binary, English-first, bilingual, and fail-closed. The browser does not interpret arbitrary formulas: content selects from behavior IDs implemented and tested by the TypeScript game runtime, while Go resolves the authored values into a bounded runtime configuration.
 
 Do not add payment gates, account tokens, hidden story scores, runtime scripts, remote assets, or per-frame network behavior through content.
 
@@ -43,7 +43,7 @@ JSON decoding rejects unknown fields. All IDs use lowercase ASCII words separate
 
 The current runtime contract is 30 Hz, a `3600 x 6400` logical arena, player Y `5200`, 128 horizontal input columns, and three starting hearts. Entity caps are 14 enemies, 120 hostile projectiles, 48 player projectiles, 12 pickups, and 24 effects.
 
-Changing a replay-affecting rule requires a new protocol or content version and new cross-language vectors. Do not edit a released manifest in place.
+Changing the wire shape of a runtime rule requires a protocol or content-version review. Do not edit a released manifest in place when that would make active Runs ambiguous.
 
 ## Shared content
 

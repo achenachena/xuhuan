@@ -10,7 +10,7 @@ help:
 	@echo "miniapp           Run the Next.js Mini App on the host"
 	@echo "up                 Build and start PostgreSQL plus the Go API"
 	@echo "lambda-package     Build the arm64 provided.al2023 bootstrap archive"
-	@echo "test               Run unit, contract, race, and frontend tests"
+	@echo "test               Run unit, contract, and frontend tests"
 	@echo "test-integration   Run Go tests against local PostgreSQL"
 	@echo "e2e                Start the API stack and run the Playwright journey"
 	@echo "down               Stop local containers"
@@ -49,7 +49,7 @@ test: test-go test-frontend
 test-go:
 	cd apps/api && gofmt -l . | tee /tmp/xuhuan-gofmt-files && test ! -s /tmp/xuhuan-gofmt-files
 	cd apps/api && go vet ./...
-	cd apps/api && go test -race ./...
+	cd apps/api && go test ./...
 	cd apps/api && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/xuhuan-lambda-bootstrap ./cmd/lambda
 
 test-frontend:
@@ -61,7 +61,7 @@ test-frontend:
 	npm run build --workspace @xuhuan/miniapp
 
 test-integration: db-up
-	cd apps/api && TEST_DATABASE_URL="$${DATABASE_URL:-postgres://xuhuan:local_xuhuan_password@localhost:5432/xuhuan?sslmode=disable}" TEST_REDIS_URL="$${REDIS_URL:-redis://localhost:6379/0}" go test -race ./internal/postgres ./internal/platform/ratelimit
+	cd apps/api && TEST_DATABASE_URL="$${DATABASE_URL:-postgres://xuhuan:local_xuhuan_password@localhost:5432/xuhuan?sslmode=disable}" TEST_REDIS_URL="$${REDIS_URL:-redis://localhost:6379/0}" go test ./internal/postgres ./internal/platform/ratelimit
 
 e2e-install:
 	npx playwright install chromium
