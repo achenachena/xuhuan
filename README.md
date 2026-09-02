@@ -2,6 +2,8 @@
 
 *Xuhuan: Only One Online* is a one-thumb portrait shooter built for Telegram Mini Apps. A stream has ended, seven fictional digital performers are still in the backstage group, and an automatic archive is quietly replacing their awkward, funny, unfinished moments with perfect highlights.
 
+The production URL is also a public engineering portfolio. A normal browser receives an English-first project overview and a short, anonymous Canvas demo; Telegram users with valid Mini App `initData` enter the authoritative campaign. The browser demo creates no account, stores no progress, and makes no protected API calls.
+
 The V4 campaign is deliberately easy to enter: move only left and right, fire straight upward automatically, collect friendly support notes, and tap one special when it is ready. Each chapter contains three short waves, a concrete two-choice aftershow intermission, and a three-stage boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
 
 ## Why it fits Telegram
@@ -78,7 +80,14 @@ In another terminal:
 make miniapp
 ```
 
-Open `http://localhost:3000`. Development mode uses one fixed synthetic local player when Telegram `initData` is absent. That identity is disabled in production and is not a login product or public credential.
+Open `http://localhost:3000` for the public portfolio or `/demo` for the browser showcase. The full campaign is mounted only when the Telegram SDK supplies `initData`; the E2E harness provides a signed Telegram host fixture and the development API maps that fixture to one fixed synthetic player. That identity is disabled in production and is not a login product or public credential.
+
+In a production-mode browser, `/` renders the public portfolio and `/demo` runs the static 60-second showcase. Generate its immutable manifests from the Go catalog after relevant shooter or content changes:
+
+```sh
+npm run generate:portfolio-demo
+npm run check:portfolio-demo
+```
 
 ## Verify a change
 

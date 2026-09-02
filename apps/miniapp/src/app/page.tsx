@@ -1,5 +1,5 @@
 import LanguageToggle from "@/components/language-toggle";
-import GameShell from "@/features/game/game-shell";
+import { HostExperience } from "@/features/portfolio/host-experience";
 
 const HomePage = () => (
   <>
@@ -9,7 +9,7 @@ const HomePage = () => (
     >
       CONTENT-V4 / SHOOTER-V1
     </span>
-    <GameShell />
+    <HostExperience />
     <LanguageToggle />
   </>
 );

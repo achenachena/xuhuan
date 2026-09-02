@@ -53,6 +53,7 @@ test-go:
 	cd apps/api && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/xuhuan-lambda-bootstrap ./cmd/lambda
 
 test-frontend:
+	npm run check:portfolio-demo
 	npm run check:api-types --workspace @xuhuan/miniapp
 	npm run test --workspace @xuhuan/miniapp
 	npm run lint --workspace @xuhuan/miniapp

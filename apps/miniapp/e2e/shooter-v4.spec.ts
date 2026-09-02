@@ -203,6 +203,19 @@ const installAPI = async (
   page: Page,
   { content = v4Content, game = createV4Game(), mismatched = false }: InstallOptions = {},
 ) => {
+  // Match Telegram's documented launch parameters so the real SDK exposes a
+  // non-empty initData value. API responses remain intercepted below; this is
+  // a host fixture, not an alternate production authentication path.
+  await page.addInitScript(() => {
+    window.sessionStorage.setItem(
+      "__telegram__initParams",
+      JSON.stringify({
+        tgWebAppData: "query_id=e2e&hash=verified-by-test-api",
+        tgWebAppVersion: "8.0",
+        tgWebAppPlatform: "android",
+      }),
+    );
+  });
   let snapshot = game;
 
   const replaceRun = (run: ShooterGameRun) => {

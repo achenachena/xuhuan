@@ -38,6 +38,7 @@ import {
 import { ShooterHUD } from "@/features/shooter/shooter-hud";
 import { ShooterTraceRecorder } from "@/features/shooter/trace";
 import type { ShooterSnapshot } from "@/features/shooter/types";
+import type { ShooterResult } from "@/features/shooter/types";
 import { enterTelegramCombatMode } from "@/lib/telegram-combat-mode";
 import { playTelegramHaptic } from "@/lib/telegram-haptics";
 import type {
@@ -50,7 +51,11 @@ type Props = {
   readonly content: ShooterContent;
   readonly run: ShooterGameRun;
   readonly busy: boolean;
-  readonly onComplete: (trace: ShooterTrace) => Promise<boolean>;
+  readonly embedded?: boolean;
+  readonly onComplete: (
+    trace: ShooterTrace,
+    result: ShooterResult,
+  ) => Promise<boolean>;
 };
 
 export const shooterTutorialKey = (
@@ -70,7 +75,7 @@ export const shooterTutorialKey = (
   return "tutorialRescue";
 };
 
-export const ShooterArena = ({ content, run, busy, onComplete }: Props) => {
+export const ShooterArena = ({ content, run, busy, embedded = false, onComplete }: Props) => {
   const { language } = useLocale();
   const audio = useAudio();
   const segment = run.state.segment;
@@ -106,9 +111,11 @@ export const ShooterArena = ({ content, run, busy, onComplete }: Props) => {
   const pointerStartedRef = useRef(false);
   const movementDistanceRef = useRef(0);
   const rescueUsedRef = useRef(false);
+  const keysRef = useRef(new Set<string>());
   const submittingRef = useRef(false);
   const pausedRef = useRef(false);
   const pendingTraceRef = useRef<ShooterTrace | null>(null);
+  const pendingResultRef = useRef<ShooterResult | null>(null);
   const mountedRef = useRef(true);
   const [hudSnapshot, setHudSnapshot] = useState<ShooterSnapshot | null>(() =>
     createShooterSimulation(runtime).snapshot(),
@@ -131,7 +138,27 @@ export const ShooterArena = ({ content, run, busy, onComplete }: Props) => {
       mountedRef.current = false;
     };
   }, []);
-  useEffect(() => enterTelegramCombatMode(), []);
+  useEffect(() => (embedded ? undefined : enterTelegramCombatMode()), [embedded]);
+
+  useEffect(() => {
+    if (!embedded) return;
+    const activeKeys = keysRef.current;
+    const keyDown = (event: KeyboardEvent) => {
+      if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD", "Space"].includes(event.code)) {
+        event.preventDefault();
+        activeKeys.add(event.code);
+        if (event.code === "Space") rescueQueuedRef.current = true;
+      }
+    };
+    const keyUp = (event: KeyboardEvent) => activeKeys.delete(event.code);
+    window.addEventListener("keydown", keyDown);
+    window.addEventListener("keyup", keyUp);
+    return () => {
+      window.removeEventListener("keydown", keyDown);
+      window.removeEventListener("keyup", keyUp);
+      activeKeys.clear();
+    };
+  }, [embedded]);
 
   useEffect(() => {
     let active = true;
@@ -163,15 +190,16 @@ export const ShooterArena = ({ content, run, busy, onComplete }: Props) => {
     };
   }, []);
 
-  const submitTrace = useCallback(async (trace: ShooterTrace) => {
+  const submitTrace = useCallback(async (trace: ShooterTrace, result: ShooterResult) => {
     if (submittingRef.current) return;
     submittingRef.current = true;
     pendingTraceRef.current = trace;
+    pendingResultRef.current = result;
     setSubmitting(true);
     setSubmissionFailed(false);
     let accepted = false;
     try {
-      accepted = await completeRef.current(trace);
+      accepted = await completeRef.current(trace, result);
     } finally {
       submittingRef.current = false;
     }
@@ -182,7 +210,8 @@ export const ShooterArena = ({ content, run, busy, onComplete }: Props) => {
 
   const retry = useCallback(() => {
     const trace = pendingTraceRef.current;
-    if (trace) void submitTrace(trace);
+    const result = pendingResultRef.current;
+    if (trace && result) void submitTrace(trace, result);
   }, [submitTrace]);
 
   useEffect(() => {
@@ -198,6 +227,7 @@ export const ShooterArena = ({ content, run, busy, onComplete }: Props) => {
     let lastBossWarning = -120;
     submittingRef.current = false;
     pendingTraceRef.current = null;
+    pendingResultRef.current = null;
 
     const finish = () => {
       if (finished) return;
@@ -208,11 +238,26 @@ export const ShooterArena = ({ content, run, busy, onComplete }: Props) => {
       pendingTraceRef.current = trace;
       const result = simulation.result();
       audioRef.current.playSound(result?.won ? "victory" : "defeat");
-      void submitTrace(trace);
+      if (result) void submitTrace(trace, result);
     };
 
     const update = () => {
       if (finished) return;
+      if (embedded && controlRef.current.pointer === null) {
+        const keys = keysRef.current;
+        const direction =
+          (keys.has("ArrowRight") || keys.has("KeyD") ? 1 : 0) -
+          (keys.has("ArrowLeft") || keys.has("KeyA") ? 1 : 0);
+        if (direction !== 0) {
+          controlRef.current = {
+            ...controlRef.current,
+            playerX: Math.max(
+              controlRef.current.minimumX,
+              Math.min(controlRef.current.maximumX, controlRef.current.playerX + direction * 95),
+            ),
+          };
+        }
+      }
       const input = sampleShooterInput(
         controlRef.current,
         rescueQueuedRef.current,
@@ -281,7 +326,7 @@ export const ShooterArena = ({ content, run, busy, onComplete }: Props) => {
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
-  }, [runtime, sources, submitTrace]);
+  }, [embedded, runtime, sources, submitTrace]);
 
   const queueRescue = () => {
     if ((hudSnapshot?.rescue_charge ?? 0) >= 100 && !submitting) {
@@ -342,7 +387,7 @@ export const ShooterArena = ({ content, run, busy, onComplete }: Props) => {
   };
 
   return (
-    <main data-game-surface="true" className="fixed inset-0 overflow-hidden bg-[#02050e]">
+    <main data-game-surface="true" className={`${embedded ? "absolute" : "fixed"} inset-0 overflow-hidden bg-[#02050e]`}>
       <div
         data-testid="shooter-battlefield"
         data-segment-slug={segment.segment_slug}

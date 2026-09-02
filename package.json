@@ -17,6 +17,8 @@
     "check:content-assets": "node scripts/check-content-assets.mjs",
     "check:english-source": "node scripts/check-english-source.mjs",
     "check:v4-cleanup": "node scripts/check-v4-cleanup.mjs",
+    "check:portfolio-demo": "cd apps/api && go run ./cmd/export-portfolio-demo --check ../miniapp/public/game/v4/demo",
+    "generate:portfolio-demo": "cd apps/api && go run ./cmd/export-portfolio-demo ../miniapp/public/game/v4/demo",
     "dev": "npm run dev --workspace @xuhuan/miniapp",
     "lint": "npm run lint --workspace @xuhuan/miniapp",
     "typecheck": "npm run typecheck --workspace @xuhuan/miniapp",

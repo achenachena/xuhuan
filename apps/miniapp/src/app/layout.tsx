@@ -6,8 +6,31 @@ import LocaleProvider from "@/components/providers/locale-provider";
 import { AudioProvider } from "@/components/providers/audio-provider";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://xuhuan-miniapp.vercel.app"),
   title: "Xuhuan: Only One Online",
-  description: "A server-authoritative one-thumb live rescue shooter for Telegram.",
+  description: "A server-authoritative one-thumb shooter for Telegram, with a playable browser portfolio demo.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "Xuhuan: Only One Online",
+    description: "Keep the last impossible livestream online in this deterministic Go and Canvas 2D shooter.",
+    url: "/",
+    siteName: "Xuhuan: Only One Online",
+    type: "website",
+    images: [
+      {
+        url: "/game/v4/backgrounds/seventh-dock.webp",
+        width: 1024,
+        height: 1024,
+        alt: "Xuhuan browser demo at the Seventh Dock",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Xuhuan: Only One Online",
+    description: "A playable browser demo and server-authoritative Telegram Mini App.",
+    images: ["/game/v4/backgrounds/seventh-dock.webp"],
+  },
 };
 
 export const viewport = {

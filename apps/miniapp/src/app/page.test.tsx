@@ -9,6 +9,7 @@ const dependencies = vi.hoisted(() => ({
   createRunCommand: vi.fn(),
 }));
 const localeState = vi.hoisted(() => ({ language: "en" as "en" | "zh-CN" }));
+const hostState = vi.hoisted(() => ({ kind: "telegram" as "telegram" | "browser" }));
 
 vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
@@ -17,6 +18,9 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
 }));
 vi.mock("@/components/providers/use-locale", () => ({
   default: () => ({ language: localeState.language, setLanguage: vi.fn() }),
+}));
+vi.mock("@/components/providers/use-telegram-host", () => ({
+  default: () => hostState.kind,
 }));
 vi.mock("@/components/providers/audio-provider", () => ({
   useAudio: () => ({
@@ -51,8 +55,19 @@ describe("Shooter V4 game shell", () => {
   beforeEach(() => {
     Object.values(dependencies).forEach((mock) => mock.mockReset());
     localeState.language = "en";
+    hostState.kind = "telegram";
     dependencies.getGameContent.mockResolvedValue(v4Content);
     dependencies.getGame.mockResolvedValue(createV4Game());
+  });
+
+  it("renders the public portfolio without protected API calls in a browser", async () => {
+    hostState.kind = "browser";
+    render(<HomePage />);
+
+    expect(await screen.findByText("Keep the last impossible livestream online.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Play 60-second demo" })).toHaveAttribute("href", "/demo");
+    expect(dependencies.getGame).not.toHaveBeenCalled();
+    expect(dependencies.getGameContent).not.toHaveBeenCalled();
   });
 
   it("keeps the release marker in server-renderable page output", async () => {

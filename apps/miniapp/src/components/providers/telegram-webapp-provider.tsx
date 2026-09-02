@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
+import TelegramHostContext, {
+  type HostKind,
+} from "@/components/providers/telegram-host-context";
 import { applyTelegramTheme } from "@/lib/telegram-theme";
 
 const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => {
+  const [host, setHost] = useState<HostKind>("detecting");
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -19,10 +24,17 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
       }
       applyTelegramTheme(WebApp.themeParams);
       const root = document.documentElement;
-      const isTelegramHost = WebApp.platform !== "unknown";
+      // A non-empty initData payload is the only client-side signal used to
+      // mount the authenticated game. The Go API still verifies its HMAC;
+      // this check only prevents public browsers from making protected calls.
+      const isTelegramHost =
+        WebApp.platform !== "unknown" &&
+        typeof WebApp.initData === "string" &&
+        WebApp.initData.length > 0;
       if (isTelegramHost) {
         root.dataset.telegramHost = "true";
       }
+      setHost(isTelegramHost ? "telegram" : "browser");
       WebApp.ready();
       if (!WebApp.isExpanded) {
         WebApp.expand();
@@ -120,7 +132,9 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
       };
     };
 
-    void bootstrap();
+    void bootstrap().catch(() => {
+      if (isMounted) setHost("browser");
+    });
 
     return () => {
       isMounted = false;
@@ -129,7 +143,11 @@ const TelegramWebAppProvider = ({ children }: { children: React.ReactNode }) => 
       }
     };
   }, []);
-  return <>{children}</>;
+  return (
+    <TelegramHostContext.Provider value={host}>
+      {children}
+    </TelegramHostContext.Provider>
+  );
 };
 
 export default TelegramWebAppProvider;
