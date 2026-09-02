@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -15,7 +14,7 @@ import { ShooterArena } from "@/features/shooter/shooter-arena";
 import type { ShooterResult } from "@/features/shooter/types";
 import type { ShooterGameRun } from "@/lib/api/types";
 
-type DemoPhase = "intro" | "wave" | "choice" | "boss" | "result";
+type DemoPhase = "wave" | "choice" | "boss" | "result";
 
 const telegramURL =
   process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL ?? "https://t.me/xuhuangamebot";
@@ -69,7 +68,7 @@ export const BrowserDemo = () => {
   const { language } = useLocale();
   const [manifest, setManifest] = useState<PortfolioDemoManifest | null>(null);
   const [errorLocale, setErrorLocale] = useState<string | null>(null);
-  const [phase, setPhase] = useState<DemoPhase>("intro");
+  const [phase, setPhase] = useState<DemoPhase>("wave");
   const [choice, setChoice] = useState<PortfolioDemoOption | null>(null);
   const [waveScore, setWaveScore] = useState(0);
   const [result, setResult] = useState<ShooterResult | null>(null);
@@ -99,7 +98,7 @@ export const BrowserDemo = () => {
   }, [language]);
 
   const reset = () => {
-    setPhase("intro");
+    setPhase("wave");
     setChoice(null);
     setWaveScore(0);
     setResult(null);
@@ -128,21 +127,6 @@ export const BrowserDemo = () => {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(6,182,212,.15),transparent_35%),#02050e] sm:grid sm:place-items-center sm:p-6">
       <div className="relative mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden bg-[#02050e] shadow-[0_30px_100px_rgba(0,0,0,.65)] sm:h-[min(760px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-cyan-200/25">
-        {phase === "intro" ? (
-          <section className="absolute inset-0 grid content-end overflow-hidden p-6 pb-10 text-white">
-            <Image alt="Seventh Dock browser demo" className="object-cover opacity-70" fill priority sizes="420px" src="/game/v4/backgrounds/seventh-dock.webp" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#02050e] via-[#02050e]/65 to-transparent" />
-            <div className="relative z-10">
-              <p className="font-mono text-xs tracking-[.2em] text-cyan-300">{text("portfolioDemoEyebrow")}</p>
-              <h1 className="mt-3 text-4xl font-black">{text("demoTitle")}</h1>
-              <p className="mt-4 leading-7 text-slate-200">{text("demoIntro")}</p>
-              <button data-testid="start-browser-demo" className="mt-7 w-full bg-cyan-200 px-5 py-4 font-black text-slate-950 active:translate-y-px" onClick={() => setPhase("wave")}>{text("demoStart")}</button>
-              <p className="mt-4 text-center text-[11px] leading-5 text-slate-400">{text("demoLocalNotice")}</p>
-              <Link className="mt-4 block text-center text-sm text-cyan-200 underline underline-offset-4" href="/">{text("demoBack")}</Link>
-            </div>
-          </section>
-        ) : null}
-
         {phase === "wave" && waveRun ? (
           <ShooterArena
             key={`wave:${language}`}

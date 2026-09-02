@@ -25,9 +25,8 @@ test.describe("public browser portfolio", () => {
     });
 
     await page.goto("/demo", { waitUntil: "networkidle" });
-    await expect(page.getByRole("heading", { name: "Portfolio Demo" })).toBeVisible({ timeout: 10_000 });
-    await page.getByTestId("start-browser-demo").click();
-    await expect(page.locator("canvas")).toBeVisible();
+    await expect(page.locator("canvas")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Portfolio Demo")).toHaveCount(0);
     await page.waitForTimeout(500);
     expect(protectedRequests).toEqual([]);
   });

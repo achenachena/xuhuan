@@ -1,5 +1,6 @@
 export type SoundEffectType =
   | "pickup"
+  | "enemyHit"
   | "hit"
   | "shield"
   | "combo"
@@ -21,6 +22,10 @@ const sounds: Record<SoundEffectType, readonly Tone[]> = {
   pickup: [
     { frequency: 660, duration: 0.05, volume: 0.035 },
     { frequency: 990, duration: 0.08, offset: 0.045, volume: 0.03 },
+  ],
+  enemyHit: [
+    { frequency: 210, duration: 0.025, volume: 0.018, wave: "square" },
+    { frequency: 520, duration: 0.035, offset: 0.012, volume: 0.014, wave: "triangle" },
   ],
   hit: [{ frequency: 105, duration: 0.09, volume: 0.055, wave: "square" }],
   shield: [

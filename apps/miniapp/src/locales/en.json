@@ -83,18 +83,12 @@
   "portfolioFanNotice": "Unofficial, non-commercial fan work and technical portfolio demonstration. Not affiliated with or endorsed by the referenced performers or platforms.",
   "portfolioBuiltBy": "Designed and engineered by Mingchen Liang",
   "portfolioDetecting": "Checking the broadcast host…",
-  "demoTitle": "Portfolio Demo",
-  "demoIntro": "One finger. Stay on air for 30 seconds, choose one show effect, then face Optimal Nana.",
-  "demoStart": "Start demo",
-  "demoWave": "Live segment",
   "demoChoose": "Choose the next show effect",
   "demoChooseHint": "Pick one clear upgrade for the Boss segment.",
-  "demoBoss": "Boss segment",
   "demoCleared": "The channel stayed live",
   "demoFailed": "The demo signal dropped",
   "demoScore": "Local demo score",
   "demoRetry": "Play again",
   "demoFullGame": "Continue in Telegram",
-  "demoLocalNotice": "This portfolio demo runs entirely in your browser. It creates no player account and saves no progress.",
   "demoBack": "Back to project"
 }
