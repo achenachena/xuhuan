@@ -1,13 +1,13 @@
 module github.com/achenachena/xuhuan/apps/api
 
-go 1.25.0
+go 1.26
 
 toolchain go1.26.6
 
 require (
-	github.com/aws/aws-lambda-go v1.54.0
-	github.com/getkin/kin-openapi v0.146.0
-	github.com/go-chi/chi/v5 v5.3.1
+	github.com/aws/aws-lambda-go v1.55.0
+	github.com/getkin/kin-openapi v0.149.0
+	github.com/go-chi/chi/v5 v5.3.2
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/redis/go-redis/v9 v9.22.0
 )
@@ -23,7 +23,7 @@ require (
 	github.com/oasdiff/yaml v0.1.1 // indirect
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
