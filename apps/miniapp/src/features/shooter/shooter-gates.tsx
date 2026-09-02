@@ -53,6 +53,7 @@ const gateIndexForX = (x: number): number | null => {
 export const ShooterGates = ({ content, run, busy, onChoose }: Props) => {
   const { language } = useLocale();
   const audio = useAudio();
+  const setMusicActive = audio.setMusicActive;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const controlRef = useRef<ShooterControl>(
@@ -76,6 +77,10 @@ export const ShooterGates = ({ content, run, busy, onChoose }: Props) => {
   }, [onChoose]);
 
   useEffect(() => enterTelegramCombatMode(), []);
+  useEffect(() => {
+    setMusicActive(true);
+    return () => setMusicActive(false);
+  }, [setMusicActive]);
 
   useEffect(() => {
     let active = true;

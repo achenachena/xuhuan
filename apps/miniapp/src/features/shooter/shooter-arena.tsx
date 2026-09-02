@@ -70,6 +70,7 @@ export const shooterTutorialKey = (
 export const ShooterArena = ({ content, run, busy, embedded = false, onComplete }: Props) => {
   const { language } = useLocale();
   const audio = useAudio();
+  const setMusicActive = audio.setMusicActive;
   const segment = run.state.segment;
   if (!segment) throw new Error("Shooter segment state is missing");
   const runtime = useMemo(
@@ -130,6 +131,10 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
     };
   }, []);
   useEffect(() => (embedded ? undefined : enterTelegramCombatMode()), [embedded]);
+  useEffect(() => {
+    setMusicActive(true);
+    return () => setMusicActive(false);
+  }, [setMusicActive]);
 
   useEffect(() => {
     if (!embedded) return;
@@ -270,7 +275,12 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
         lastHUDTick = currentSnapshot.tick;
         setHudSnapshot(currentSnapshot);
       }
-      if (currentSnapshot.tick >= runtime.config.duration_ticks) finish();
+      if (
+        currentSnapshot.health <= 0 ||
+        currentSnapshot.tick >= runtime.config.duration_ticks
+      ) {
+        finish();
+      }
     };
 
     const draw = () => {

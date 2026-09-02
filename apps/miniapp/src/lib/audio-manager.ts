@@ -62,6 +62,10 @@ class AudioManager {
   private context: AudioContext | null = null;
   private interacted = false;
   private muted = false;
+  private musicRequested = false;
+  private musicPaused = false;
+  private musicStep = 0;
+  private musicTimer: number | null = null;
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -71,6 +75,7 @@ class AudioManager {
 
   markUserInteracted(): void {
     this.interacted = true;
+    this.startMusicScheduler();
   }
 
   isMuted(): boolean {
@@ -82,6 +87,20 @@ class AudioManager {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(muteStorageKey, String(muted));
     }
+    if (muted) this.stopMusicScheduler();
+    else this.startMusicScheduler();
+  }
+
+  setMusicActive(active: boolean): void {
+    this.musicRequested = active;
+    if (active) this.startMusicScheduler();
+    else this.stopMusicScheduler();
+  }
+
+  setMusicPaused(paused: boolean): void {
+    this.musicPaused = paused;
+    if (paused) this.stopMusicScheduler();
+    else this.startMusicScheduler();
   }
 
   playSound(type: SoundEffectType): void {
@@ -103,6 +122,54 @@ class AudioManager {
       this.context = null;
     }
     return this.context;
+  }
+
+  private startMusicScheduler(): void {
+    if (
+      this.musicTimer !== null ||
+      !this.musicRequested ||
+      this.musicPaused ||
+      !this.interacted ||
+      this.muted ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+    const context = this.audioContext();
+    if (!context) return;
+    if (context.state === "suspended") void context.resume().catch(() => undefined);
+    this.playMusicStep(context);
+    this.musicTimer = window.setInterval(() => this.playMusicStep(context), 240);
+  }
+
+  private stopMusicScheduler(): void {
+    if (this.musicTimer === null) return;
+    window.clearInterval(this.musicTimer);
+    this.musicTimer = null;
+  }
+
+  private playMusicStep(context: AudioContext): void {
+    const melody = [659, 0, 784, 880, 0, 784, 659, 587, 659, 0, 988, 880, 784, 0, 659, 587] as const;
+    const bass = [110, 110, 147, 147, 98, 98, 131, 131] as const;
+    const melodyNote = melody[this.musicStep % melody.length] ?? 0;
+    const start = context.currentTime + 0.01;
+    if (melodyNote > 0) {
+      this.playTone(context, start, {
+        frequency: melodyNote,
+        duration: 0.15,
+        volume: 0.006,
+        wave: "square",
+      });
+    }
+    if ((this.musicStep & 1) === 0) {
+      this.playTone(context, start, {
+        frequency: bass[Math.floor(this.musicStep / 2) % bass.length]!,
+        duration: 0.38,
+        volume: 0.008,
+        wave: "triangle",
+      });
+    }
+    this.musicStep = (this.musicStep + 1) % melody.length;
   }
 
   private playTone(context: AudioContext, start: number, tone: Tone): void {
