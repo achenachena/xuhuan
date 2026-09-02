@@ -134,9 +134,14 @@ const drawThreat = (context: CanvasRenderingContext2D, threat: ShooterThreatSnap
     ["horizontal_cut", "caption_block", "black_wall"].includes(threat.kind)
   ) {
     const width = Math.max(180, threat.width ?? 180);
-    context.lineWidth = 18;
-    context.fillRect(threat.target.x - width / 2, threat.origin.y, width, PLAYER_Y - threat.origin.y);
-    context.strokeRect(threat.target.x - width / 2, PLAYER_Y - 220, width, 440);
+    const left = threat.target.x - width / 2;
+    context.lineWidth = 14;
+    context.fillRect(left, threat.origin.y, width, PLAYER_Y - threat.origin.y);
+    context.setLineDash([]);
+    for (let x = left + 30; x < left + width - 30; x += 120) {
+      context.fillRect(x, PLAYER_Y - 230, 56, 18);
+      context.fillRect(x + 28, PLAYER_Y + 212, 56, 18);
+    }
   } else if (threat.radius) {
     context.lineWidth = 18;
     context.beginPath();
@@ -150,6 +155,130 @@ const drawThreat = (context: CanvasRenderingContext2D, threat: ShooterThreatSnap
     context.stroke();
   }
   context.restore();
+};
+
+const pixelFramePath = (
+  context: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+  notch: number,
+): void => {
+  context.beginPath();
+  context.moveTo(left + notch, top);
+  context.lineTo(right - notch, top);
+  context.lineTo(right, top + notch);
+  context.lineTo(right, bottom - notch);
+  context.lineTo(right - notch, bottom);
+  context.lineTo(left + notch, bottom);
+  context.lineTo(left, bottom - notch);
+  context.lineTo(left, top + notch);
+  context.closePath();
+};
+
+const drawWideHostileProjectile = (
+  context: CanvasRenderingContext2D,
+  projectile: ShooterProjectileSnapshot,
+  x: number,
+  y: number,
+  width: number,
+  radius: number,
+): void => {
+  const left = Math.round(x - width / 2);
+  const right = Math.round(x + width / 2);
+  const top = Math.round(y - radius);
+  const bottom = Math.round(y + radius);
+  const blackWall = projectile.kind === "black_wall";
+  const notch = Math.min(42, Math.max(18, Math.round(radius / 3)));
+  const outer = blackWall ? "#d946ef" : "#fb7185";
+  const core = blackWall ? "#160b2d" : "#3b1026";
+  const bright = blackWall ? "#67e8f9" : "#fecdd3";
+
+  context.shadowColor = outer;
+  context.shadowBlur = blackWall ? 54 : 38;
+  pixelFramePath(context, left, top, right, bottom, notch);
+  context.fillStyle = core;
+  context.globalAlpha = blackWall ? 0.92 : 0.88;
+  context.fill();
+  context.globalAlpha = 1;
+  context.strokeStyle = outer;
+  context.lineWidth = 16;
+  context.stroke();
+  context.shadowBlur = 0;
+
+  const innerTop = top + 28;
+  const innerBottom = bottom - 28;
+  context.fillStyle = blackWall ? "#261044" : "#661735";
+  context.fillRect(left + notch, innerTop, Math.max(0, width - notch * 2), Math.max(8, innerBottom - innerTop));
+  context.fillStyle = bright;
+  context.globalAlpha = 0.9;
+  context.fillRect(left + notch + 18, top + 14, Math.max(0, width - notch * 2 - 36), 10);
+  context.globalAlpha = 1;
+
+  const cell = blackWall ? 96 : 132;
+  for (let offset = notch + 32; offset < width - notch - 24; offset += cell) {
+    const cellLeft = left + offset;
+    if (blackWall) {
+      context.fillStyle = (Math.floor(offset / cell) & 1) === 0 ? "#7e22ce" : "#0e7490";
+      context.globalAlpha = 0.55;
+      context.fillRect(cellLeft, top + 40, 48, Math.max(14, radius * 2 - 80));
+      context.fillRect(cellLeft + 48, top + 40, 24, Math.max(14, radius - 54));
+    } else {
+      context.fillStyle = (Math.floor(offset / cell) & 1) === 0 ? "#f9a8d4" : "#fdba74";
+      context.globalAlpha = 0.72;
+      context.fillRect(cellLeft, y - 14, 54, 28);
+      context.fillRect(cellLeft + 38, y - 36, 24, 72);
+      context.fillStyle = "#20091a";
+      context.fillRect(cellLeft + 16, y - 7, 24, 14);
+    }
+  }
+  context.globalAlpha = 1;
+
+  context.fillStyle = bright;
+  for (const endX of [left + notch, right - notch - 26]) {
+    context.fillRect(endX, y - 38, 26, 76);
+    context.fillRect(endX - 12, y - 18, 50, 36);
+  }
+  if ((projectile.health ?? 0) > 0) {
+    context.fillStyle = "#071225";
+    context.fillRect(left, top - 44, width, 20);
+    context.fillStyle = "#67e8f9";
+    context.fillRect(left, top - 44, width, 14);
+  }
+};
+
+const drawHostileShard = (
+  context: CanvasRenderingContext2D,
+  projectile: ShooterProjectileSnapshot,
+  x: number,
+  y: number,
+  radius: number,
+): void => {
+  const angle = Math.atan2(projectile.velocity.y, projectile.velocity.x) - Math.PI / 2;
+  const size = Math.max(44, radius);
+  context.translate(x, y);
+  context.rotate(angle);
+  context.shadowColor = "#fb7185";
+  context.shadowBlur = 34;
+  context.fillStyle = "#4c102d";
+  context.beginPath();
+  context.moveTo(0, -size * 1.35);
+  context.lineTo(size * 0.72, -size * 0.2);
+  context.lineTo(size * 0.48, size * 0.82);
+  context.lineTo(0, size * 1.12);
+  context.lineTo(-size * 0.48, size * 0.82);
+  context.lineTo(-size * 0.72, -size * 0.2);
+  context.closePath();
+  context.fill();
+  context.strokeStyle = "#fb7185";
+  context.lineWidth = 14;
+  context.stroke();
+  context.shadowBlur = 0;
+  context.fillStyle = "#fecdd3";
+  context.fillRect(-size * 0.18, -size * 0.72, size * 0.36, size * 0.72);
+  context.fillStyle = "rgba(244,114,182,.45)";
+  context.fillRect(-size * 0.24, size * 1.15, size * 0.48, size * 0.7);
 };
 
 const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapshot, previous: readonly ShooterEnemySnapshot[], alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals): void => {
@@ -180,20 +309,9 @@ const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterPr
   const radius = Math.max(42, projectile.radius ?? 0);
   const width = projectile.width ?? 0;
   if (projectile.hostile && width > 0) {
-    context.globalAlpha = projectile.kind === "black_wall" ? 0.86 : 0.68;
-    context.fillStyle = projectile.kind === "black_wall" ? "#3b164f" : color;
-    context.fillRect(point.x - width / 2, point.y - radius, width, radius * 2);
-    context.strokeStyle = projectile.kind === "black_wall" ? "#e879f9" : "#fecdd3";
-    context.lineWidth = 18;
-    context.strokeRect(point.x - width / 2, point.y - radius, width, radius * 2);
-    if ((projectile.health ?? 0) > 0) {
-      context.fillStyle = "#67e8f9";
-      context.fillRect(point.x - width / 2, point.y - radius - 34, width, 18);
-    }
+    drawWideHostileProjectile(context, projectile, point.x, point.y, width, radius);
   } else if (projectile.hostile) {
-    context.translate(point.x, point.y);
-    context.rotate(Math.PI / 4);
-    context.fillRect(-radius, -radius, radius * 2, radius * 2);
+    drawHostileShard(context, projectile, point.x, point.y, radius);
   } else context.fillRect(point.x - 23, point.y - 95, 46, 175);
   context.restore();
 };
@@ -266,6 +384,14 @@ export const drawShooterArena = (
   context.globalAlpha = current.invulnerable_ticks > 0 && current.tick % 4 < 2 ? 0.35 : 1;
   drawSprite(context, visuals.get(sources.player), playerX, PLAYER_Y, 540, "#67e8f9");
   context.globalAlpha = 1;
+  const healthWidth = 330;
+  const healthLeft = playerX - healthWidth / 2;
+  context.fillStyle = "rgba(2,6,23,.9)";
+  context.fillRect(healthLeft - 12, PLAYER_Y + 292, healthWidth + 24, 62);
+  for (let heart = 0; heart < current.max_health; heart += 1) {
+    context.fillStyle = heart < current.health ? "#6ee7b7" : "#35172b";
+    context.fillRect(healthLeft + heart * (healthWidth / current.max_health) + 8, PLAYER_Y + 308, healthWidth / current.max_health - 16, 30);
+  }
   if (tutorial) {
     context.fillStyle = "rgba(2,6,23,.82)";
     context.fillRect(390, 90, 2_820, 230);

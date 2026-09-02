@@ -193,7 +193,9 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
   let cachedResult: ShooterResult | null = null;
 
   const step = (input: ShooterInput): ShooterStepEvents => {
-    if (state.tick >= state.config.duration_ticks) return emptyStepEvents();
+    if (state.tick >= state.config.duration_ticks || state.health <= 0) {
+      return emptyStepEvents();
+    }
     const before = {
       health: state.health,
       shield: state.shield,
@@ -234,7 +236,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
   };
 
   const result = (): ShooterResult | null => {
-    if (state.tick < state.config.duration_ticks) return null;
+    if (state.health > 0 && state.tick < state.config.duration_ticks) return null;
     if (cachedResult) return cachedResult;
     const aliveBoss = state.enemies.some((enemy) => enemy.boss && enemy.health > 0);
     const won = state.health > 0 && (!state.config.boss || !aliveBoss);

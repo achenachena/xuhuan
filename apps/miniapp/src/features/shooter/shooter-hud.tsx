@@ -55,15 +55,17 @@ export const ShooterHUD = ({
         }}
       >
         <div className="grid h-12 grid-cols-[auto_1fr] items-center gap-2 border border-cyan-200/25 bg-[#020713]/90 px-2 pr-11 shadow-[0_3px_0_rgba(34,211,238,.12)] backdrop-blur-sm">
-        <div className="min-w-[65px]" aria-label={`${gameText(language, "onAir")}: ${health}`}>
-          <p className="font-mono text-[7px] font-black tracking-[.16em] text-rose-200">
-            {gameText(language, "onAir")}
+        <div className="min-w-[82px]" aria-label={`${gameText(language, "onAir")}: ${health}/3`}>
+          <p className="flex justify-between font-mono text-[7px] font-black tracking-[.12em] text-rose-200">
+            <span>{gameText(language, "onAir")}</span>
+            <span>{health}/3</span>
           </p>
-          <div className="mt-0.5 flex gap-0.5 text-[13px] leading-none">
-            {[0, 1, 2].map((heart) => (
-              <span key={heart} className={heart < health ? "text-rose-400" : "text-slate-700"}>
-                ♥
-              </span>
+          <div className="mt-1 grid grid-cols-3 gap-0.5">
+            {[0, 1, 2].map((segment) => (
+              <span
+                key={segment}
+                className={`h-1.5 border ${segment < health ? "border-emerald-200 bg-emerald-300" : "border-rose-950 bg-slate-800"}`}
+              />
             ))}
           </div>
         </div>
