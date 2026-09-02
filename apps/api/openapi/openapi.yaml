@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Xuhuan Live Rescue API
   version: 4.0.0
-  description: Server-authoritative Telegram Mini App fixed-step shooter API.
+  description: Telegram Mini App API for identity, progression, content, and durable game state.
 servers: [{ url: / }]
 paths:
   /healthz:

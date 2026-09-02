@@ -13,7 +13,7 @@ The V4 campaign is deliberately easy to enter: move only left and right, fire st
 - Automatic fire keeps attention on dodging, support-note routes, and special timing.
 - Three hearts, strong attack telegraphs, short waves, and one obvious special keep the first session readable.
 - A room submits one bounded completion result when it ends; normal play sends no frame-by-frame requests.
-- Closing Telegram restarts only the current room from its stored seed. PostgreSQL remains authoritative.
+- Closing Telegram restarts only the current room from its stored seed. PostgreSQL remains authoritative for durable progress.
 
 ## V4 content
 
@@ -56,31 +56,33 @@ Production identity is exclusively Telegram Mini App `initData`. The repository 
 ## Repository layout
 
 ```text
-apps/api/                         Go API, deterministic shooter, migrations
+apps/api/                         Go API, progression rules, content, migrations
 apps/api/internal/content/v4/     Immutable V4 content and locales
 apps/miniapp/                     Next.js Mini App and local V4 assets
-docs/                             Design, architecture, authoring, release notes
+docs/                             Design, architecture, authoring, and operations
 infra/terraform/                  Lambda, IAM, SSM, and operational alarms
 scripts/                          Content, asset, and source-policy checks
 ```
 
 ## Run locally
 
-Prerequisites: Docker Compose v2, Node.js 20+, npm 10+, and the Go toolchain selected by `apps/api/go.mod`.
+Prerequisites: Docker Compose v2, Node.js 20+, npm 10+, and the Go toolchain selected by `apps/api/go.mod`. Compose runs only the local PostgreSQL and Redis dependencies; the application processes run directly on the host.
 
 ```sh
 cp env.example .env
-make install
-make up
+npm ci
+make db-up
+make migrate
 ```
 
-In another terminal:
+Start the API and Mini App in separate terminals:
 
 ```sh
+make api
 make miniapp
 ```
 
-Open `http://localhost:3000` for the public portfolio or `/demo` for the browser showcase. The full campaign is mounted only when the Telegram SDK supplies `initData`; the E2E harness provides a signed Telegram host fixture and the development API maps that fixture to one fixed synthetic player. That identity is disabled in production and is not a login product or public credential.
+Open `http://localhost:3000` for the public portfolio or `/demo` for the browser showcase. The full campaign is mounted only when the Telegram SDK supplies `initData`. Playwright supplies an isolated Telegram host and API fixture; it does not create a development login or public credential.
 
 In a production-mode browser, `/` renders the public portfolio and `/demo` runs the static 60-second showcase. Generate its immutable manifests from the Go catalog after relevant shooter or content changes:
 

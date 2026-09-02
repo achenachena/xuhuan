@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   openGraph: {
     title: "Xuhuan: Only One Online",
-    description: "Keep the last impossible livestream online in this deterministic Go and Canvas 2D shooter.",
+    description: "Keep the last impossible livestream online in this production-deployed Go and Canvas 2D shooter.",
     url: "/",
     siteName: "Xuhuan: Only One Online",
     type: "website",

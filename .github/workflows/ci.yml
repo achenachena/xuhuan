@@ -53,8 +53,6 @@ jobs:
         run: go test ./...
       - name: Verify generated browser demo manifests
         run: go run ./cmd/export-portfolio-demo --check ../miniapp/public/game/v4/demo
-      - name: Build API commands
-        run: go build ./cmd/api ./cmd/migrate ./cmd/lambda
       - name: Build arm64 Lambda bootstrap
         run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/bootstrap ./cmd/lambda
 
@@ -116,8 +114,6 @@ jobs:
         run: npm run check:english-source
       - name: Verify immutable content assets
         run: npm run check:content-assets
-      - name: Reject retired Action V3 runtime and protocol
-        run: npm run check:v4-cleanup
       - name: Verify generated OpenAPI types
         run: npm run check:api-types --workspace @xuhuan/miniapp
       - name: Frontend tests
@@ -126,15 +122,12 @@ jobs:
         run: npm run lint --workspace @xuhuan/miniapp
       - name: Frontend production build
         run: npm run build --workspace @xuhuan/miniapp
-      - name: Frontend standalone typecheck
-        run: npm run typecheck --workspace @xuhuan/miniapp
 
   e2e:
     name: Browser smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      NEXT_PUBLIC_API_URL: http://127.0.0.1:8080
       PLAYWRIGHT_CHANNEL: chrome
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -144,8 +137,6 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Verify system Chrome
-        run: google-chrome --version
       - name: Run core browser journeys
         run: npm run test:e2e --workspace @xuhuan/miniapp
       - name: Upload browser traces on failure

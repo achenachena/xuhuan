@@ -58,6 +58,9 @@ if (!isDevelopment) {
 
 /** @type {import('next').NextConfig} */
 const config = {
+  // Playwright and local device testing open the dev server through 127.0.0.1
+  // while Next binds it as localhost. Without this explicit development origin,
+  // Next blocks client chunks and Telegram host detection cannot run.
   allowedDevOrigins: ["127.0.0.1"],
   // Telegram owns the viewport corners. The development toolbar would cover
   // the language control and make local touch testing differ from production.
@@ -69,7 +72,6 @@ const config = {
     ];
   },
   poweredByHeader: false,
-  reactStrictMode: true,
   typedRoutes: true
 };
 
