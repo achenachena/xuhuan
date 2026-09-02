@@ -29,6 +29,7 @@ import {
   drawShooterArena,
   preloadShooterVisuals,
   resolveShooterVisualSources,
+  type ShooterEnemyImpact,
   type ShooterVisuals,
 } from "@/features/shooter/renderer";
 import {
@@ -104,7 +105,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
   const pointerStartedRef = useRef(false);
   const movementDistanceRef = useRef(0);
   const rescueUsedRef = useRef(false);
-  const enemyHitUntilRef = useRef(new Map<number, number>());
+  const enemyImpactsRef = useRef(new Map<number, ShooterEnemyImpact>());
   const keysRef = useRef(new Set<string>());
   const submittingRef = useRef(false);
   const pausedRef = useRef(false);
@@ -256,15 +257,32 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
       const events = simulation.step(input);
       currentSnapshot = simulation.snapshot();
       for (const enemyID of events.enemyHitIDs) {
-        enemyHitUntilRef.current.set(enemyID, currentSnapshot.tick + 3);
+        const enemy = currentSnapshot.enemies.find(
+          (candidate) => candidate.id === enemyID,
+        );
+        if (enemy) {
+          const destroyed = events.enemyDefeatedIDs.includes(enemyID);
+          enemyImpactsRef.current.set(enemyID, {
+            enemyID,
+            x: enemy.position.x,
+            y: enemy.position.y,
+            boss: enemy.boss,
+            destroyed,
+            untilTick: currentSnapshot.tick + (destroyed ? 8 : 4),
+          });
+        }
       }
-      enemyHitUntilRef.current.forEach((untilTick, enemyID) => {
-        if (untilTick < currentSnapshot.tick) {
-          enemyHitUntilRef.current.delete(enemyID);
+      enemyImpactsRef.current.forEach((impact, enemyID) => {
+        if (impact.untilTick < currentSnapshot.tick) {
+          enemyImpactsRef.current.delete(enemyID);
         }
       });
       if (events.pickup) audioRef.current.playSound("pickup");
-      if (events.enemyHitIDs.length > 0) audioRef.current.playSound("enemyHit");
+      if (events.enemyDefeatedIDs.length > 0) {
+        audioRef.current.playSound("enemyBreak");
+      } else if (events.enemyHitIDs.length > 0) {
+        audioRef.current.playSound("enemyHit");
+      }
       if (events.hit) audioRef.current.playSound("hit");
       if (events.shield) audioRef.current.playSound("shield");
       if (events.combo) audioRef.current.playSound("combo");
@@ -285,10 +303,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
         lastHUDTick = currentSnapshot.tick;
         setHudSnapshot(currentSnapshot);
       }
-      if (
-        currentSnapshot.health <= 0 ||
-        currentSnapshot.tick >= runtime.config.duration_ticks
-      ) {
+      if (simulation.result()) {
         finish();
       }
     };
@@ -310,7 +325,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
         visualsRef.current,
         key ? gameText(languageRef.current, key) : null,
         controlRef.current.playerX,
-        enemyHitUntilRef.current,
+        enemyImpactsRef.current,
       );
     };
 

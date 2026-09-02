@@ -34,6 +34,14 @@ export type ShooterVisualSources = {
 };
 
 export type ShooterVisuals = ReadonlyMap<string, HTMLImageElement>;
+export type ShooterEnemyImpact = {
+  readonly enemyID: number;
+  readonly x: number;
+  readonly y: number;
+  readonly boss: boolean;
+  readonly destroyed: boolean;
+  readonly untilTick: number;
+};
 const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
 
 const loadImage = (source: string): Promise<HTMLImageElement | null> => {
@@ -283,31 +291,61 @@ const drawHostileShard = (
 
 const drawEnemyImpact = (
   context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  boss: boolean,
+  impact: ShooterEnemyImpact,
+  tick: number,
 ): void => {
-  const scale = boss ? 1.35 : 1;
+  const remaining = Math.max(1, impact.untilTick - tick + 1);
+  const scale = (impact.boss ? 1.35 : 1) * (impact.destroyed ? 1.35 : 1);
+  const spread = (impact.destroyed ? 38 : 22) * (9 - Math.min(8, remaining));
   context.save();
-  context.translate(x, y);
+  context.translate(impact.x, impact.y);
   context.fillStyle = "#f8fafc";
   context.shadowColor = "#67e8f9";
   context.shadowBlur = 40;
-  context.fillRect(-70 * scale, -12, 140 * scale, 24);
-  context.fillRect(-12, -70 * scale, 24, 140 * scale);
-  const offsets = [-1, 1] as const;
-  for (const horizontal of offsets) {
-    for (const vertical of offsets) {
-      context.fillStyle = horizontal === vertical ? "#67e8f9" : "#f9a8d4";
-      context.fillRect(
-        horizontal * 105 * scale - 18,
-        vertical * 76 * scale - 18,
-        36,
-        36,
-      );
-    }
+  context.globalAlpha = Math.min(1, remaining / 3);
+  context.fillRect(-80 * scale, -14, 160 * scale, 28);
+  context.fillRect(-14, -80 * scale, 28, 160 * scale);
+  const directions = [
+    [-1, -1],
+    [0, -1],
+    [1, -1],
+    [-1, 0],
+    [1, 0],
+    [-1, 1],
+    [0, 1],
+    [1, 1],
+  ] as const;
+  for (let index = 0; index < directions.length; index += 1) {
+    const [horizontal, vertical] = directions[index]!;
+    context.fillStyle = index % 2 === 0 ? "#67e8f9" : "#f9a8d4";
+    const distance = (100 + spread) * scale;
+    const size = impact.destroyed ? 46 : 34;
+    context.fillRect(
+      horizontal * distance - size / 2,
+      vertical * distance * 0.72 - size / 2,
+      size,
+      size,
+    );
   }
   context.restore();
+};
+
+const drawEnemyHealth = (
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  health: number,
+  maxHealth: number,
+): void => {
+  if (health <= 0 || health >= maxHealth) return;
+  const width = 260;
+  const ratio = clamp(health / Math.max(1, maxHealth), 0, 1);
+  context.fillStyle = "rgba(2,6,23,.88)";
+  context.fillRect(x - width / 2 - 10, y, width + 20, 42);
+  context.fillStyle = "#3f142f";
+  context.fillRect(x - width / 2, y + 10, width, 22);
+  context.fillStyle = "#f472b6";
+  context.fillRect(x - width / 2, y + 10, width * ratio, 22);
 };
 
 const drawBossHealth = (
@@ -342,14 +380,15 @@ const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapsho
   const point = entityPosition(enemy, previous, alpha);
   const impactOffset = wasHit ? (tick % 2 === 0 ? -18 : 18) : 0;
   const source = enemy.boss ? sources.boss : sources.enemies[enemy.chassis];
-  drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y, enemy.boss ? 900 : 460, enemy.boss ? "#f472b6" : "#fb7185");
+  const baseSize = enemy.boss ? 900 : 460;
+  const renderedSize = wasHit ? Math.round(baseSize * 1.1) : baseSize;
+  drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y, renderedSize, enemy.boss ? "#f472b6" : "#fb7185");
   if (wasHit) {
     context.save();
     context.globalAlpha = 0.72;
     context.filter = "brightness(3) saturate(.25)";
     drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y, enemy.boss ? 900 : 460, "#f8fafc");
     context.restore();
-    drawEnemyImpact(context, point.x, point.y, enemy.boss);
   }
   if (enemy.marks) {
     context.fillStyle = "#67e8f9";
@@ -359,6 +398,8 @@ const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapsho
   }
   if (enemy.boss) {
     drawBossHealth(context, point.x, point.y + 500, enemy.health, enemy.max_health);
+  } else {
+    drawEnemyHealth(context, point.x, point.y + 260, enemy.health, enemy.max_health);
   }
 };
 
@@ -429,7 +470,7 @@ export const drawShooterArena = (
   visuals: ShooterVisuals,
   tutorial: string | null,
   presentationX: number,
-  enemyHitUntil: ReadonlyMap<number, number>,
+  enemyImpacts: ReadonlyMap<number, ShooterEnemyImpact>,
 ): void => {
   const context = prepare(canvas);
   if (!context) return;
@@ -446,10 +487,15 @@ export const drawShooterArena = (
       alpha,
       sources,
       visuals,
-      (enemyHitUntil.get(enemy.id) ?? -1) >= current.tick,
+      (enemyImpacts.get(enemy.id)?.untilTick ?? -1) >= current.tick,
       current.tick,
     );
   }
+  enemyImpacts.forEach((impact) => {
+    if (impact.untilTick >= current.tick) {
+      drawEnemyImpact(context, impact, current.tick);
+    }
+  });
   for (const effect of current.effects) drawEffect(context, effect);
   const playerX = presentationX || current.player_x;
   if (current.shield > 0) {
