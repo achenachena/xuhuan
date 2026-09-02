@@ -2,7 +2,7 @@
 
 *Xuhuan: Only One Online* is a one-thumb portrait shooter built for Telegram Mini Apps. A stream has ended, seven fictional digital performers are still in the backstage group, and an automatic archive is quietly replacing their awkward, funny, unfinished moments with perfect highlights.
 
-The production URL is also a public engineering portfolio. A normal browser receives an English-first project overview and a short, anonymous Canvas demo; Telegram users with valid Mini App `initData` enter the authoritative campaign. The browser demo creates no account, stores no progress, and makes no protected API calls.
+The production URL is also a public engineering portfolio. A normal browser receives an English-first project overview and a short, anonymous Canvas demo; Telegram users with valid Mini App `initData` enter the persistent campaign. The browser demo creates no account, stores no progress, and makes no protected API calls.
 
 The V4 campaign is deliberately easy to enter: move only left and right, fire straight upward automatically, collect friendly support notes, and tap one special when it is ready. Each chapter contains three short waves, a concrete two-choice aftershow intermission, and a three-stage boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
 
@@ -12,7 +12,7 @@ The V4 campaign is deliberately easy to enter: move only left and right, fire st
 - The character stays on a fixed vertical line and follows the finger horizontally without inertia.
 - Automatic fire keeps attention on dodging, support-note routes, and special timing.
 - Three hearts, strong attack telegraphs, short waves, and one obvious special keep the first session readable.
-- A room submits one compact input trace when it ends; normal play sends no frame-by-frame requests.
+- A room submits one bounded completion result when it ends; normal play sends no frame-by-frame requests.
 - Closing Telegram restarts only the current room from its stored seed. PostgreSQL remains authoritative.
 
 ## V4 content
@@ -49,7 +49,7 @@ Telegram Mini App
               -> Upstash Redis: disposable rate-limit counters only
 ```
 
-The browser predicts a fixed 30 Hz simulation for immediate presentation. It records 128-column horizontal input, special presses, and run length as a capped `x-position-rle-v1` trace. Go decodes and replays the same room and alone decides hits, pickups, wave or boss completion, score, rewards, and progression. A command uses an idempotency key and expected Run version so retries cannot apply a completed room twice.
+The browser runs a fixed 30 Hz simulation for immediate input and rendering. At the end of a room it sends a bounded result containing win state, remaining hearts, and score. This is an intentional single-player trade-off: the game has no economy or global leaderboard, so frame-by-frame server replay would add more parity risk than useful protection. Go still owns legal phase transitions, reward selection, story choices, unlocks, and durable progression. A command uses an idempotency key and expected Run version so retries cannot apply a completed room twice.
 
 Production identity is exclusively Telegram Mini App `initData`. The repository intentionally contains no paid authentication provider, JWT or cookie session system, payment integration, share-token table, or second identity service. See [architecture.md](docs/architecture.md) for trust boundaries and ownership.
 
@@ -110,7 +110,7 @@ The V4 loader and CI reject missing chapters, boss stages, translations, referen
 
 ## Production release
 
-Merging does not silently publish production. The protected production workflow pins one exact `main` commit, builds immutable Vercel and Lambda artifacts, verifies the `v4`/`shooter-v1` handshake, promotes the staged frontend, switches the Lambda alias, and runs a disposable signed Telegram smoke journey. See [production-release.md](docs/production-release.md).
+Merging does not silently publish production. The protected workflow builds one explicit current `main` commit, publishes an immutable Lambda version, deploys the Vercel artifact, and checks API health, content, portfolio, and demo routes. Database migrations run separately only when a release actually changes schema. See [production-release.md](docs/production-release.md).
 
 Runtime secrets stay in AWS SSM `SecureString` parameters. GitHub uses short-lived AWS OIDC credentials; Vercel deployment uses the existing scoped deployment credential. These are deployment requirements, not player accounts or game tokens.
 

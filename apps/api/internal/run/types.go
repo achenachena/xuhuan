@@ -111,25 +111,33 @@ const (
 )
 
 type Command struct {
-	Type     CommandType         `json:"type"`
-	OptionID string              `json:"option_id,omitempty"`
-	SceneID  string              `json:"scene_id,omitempty"`
-	Trace    *shooter.InputTrace `json:"trace,omitempty"`
+	Type           CommandType     `json:"type"`
+	OptionID       string          `json:"option_id,omitempty"`
+	SceneID        string          `json:"scene_id,omitempty"`
+	SegmentOutcome *SegmentOutcome `json:"segment_outcome,omitempty"`
+}
+
+// SegmentOutcome is the bounded local result needed to advance durable state.
+// Moment-to-moment combat stays on the device; the API remains authoritative
+// over phases, rewards, unlocks, and atomic persistence.
+type SegmentOutcome struct {
+	Won    bool `json:"won"`
+	Health int  `json:"health"`
+	Score  int  `json:"score"`
 }
 
 type Event struct {
-	Kind              string          `json:"kind"`
-	SegmentSlug       string          `json:"segment_slug,omitempty"`
-	ShowEffectID      string          `json:"show_effect_id,omitempty"`
-	SceneID           string          `json:"scene_id,omitempty"`
-	ChoiceID          string          `json:"choice_id,omitempty"`
-	ChoiceTag         string          `json:"choice_tag,omitempty"`
-	CompanionID       string          `json:"companion_id,omitempty"`
-	ChapterSlug       string          `json:"chapter_slug,omitempty"`
-	NextChapterSlug   string          `json:"next_chapter_slug,omitempty"`
-	NextCharacterSlug string          `json:"next_character_slug,omitempty"`
-	EndingID          string          `json:"ending_id,omitempty"`
-	EncounterResult   *shooter.Result `json:"segment_result,omitempty"`
+	Kind              string `json:"kind"`
+	SegmentSlug       string `json:"segment_slug,omitempty"`
+	ShowEffectID      string `json:"show_effect_id,omitempty"`
+	SceneID           string `json:"scene_id,omitempty"`
+	ChoiceID          string `json:"choice_id,omitempty"`
+	ChoiceTag         string `json:"choice_tag,omitempty"`
+	CompanionID       string `json:"companion_id,omitempty"`
+	ChapterSlug       string `json:"chapter_slug,omitempty"`
+	NextChapterSlug   string `json:"next_chapter_slug,omitempty"`
+	NextCharacterSlug string `json:"next_character_slug,omitempty"`
+	EndingID          string `json:"ending_id,omitempty"`
 }
 
 type Resolution struct {

@@ -14,10 +14,10 @@ vi.mock("next/image", () => ({
   default: ({ alt }: { alt?: string }) => <span role="img" aria-label={alt} />,
 }));
 vi.mock("@/features/shooter/shooter-arena", () => ({
-  ShooterArena: ({ run, onComplete }: { run: { state: { segment?: { segment_slug: string } } }; onComplete: (trace: unknown, result: ShooterResult) => Promise<boolean> }) => (
+  ShooterArena: ({ run, onComplete }: { run: { state: { segment?: { segment_slug: string } } }; onComplete: (result: ShooterResult) => Promise<boolean> }) => (
     <button
       data-testid={`finish-${run.state.segment?.segment_slug}`}
-      onClick={() => void onComplete({}, result)}
+      onClick={() => void onComplete(result)}
     >
       FINISH
     </button>

@@ -19,8 +19,7 @@ func TestCampaignFlowUsesThreeGatesIntermissionAndExplicitBossClear(t *testing.T
 	showChoices := 0
 
 	for segmentIndex := 0; segmentIndex < 3; segmentIndex++ {
-		makeSafeSegment(&state, false)
-		resolution, outcome, err := Apply(state, seed, CampaignMode, Command{Type: CompleteSegment, Trace: traceForTicks(state.Segment.DurationTicks, 63)}, catalog)
+		resolution, outcome, err := Apply(state, seed, CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(state.Hearts)}, catalog)
 		if err != nil || outcome != nil || resolution.State.Phase != ShowChoicePhase || len(resolution.State.PendingShowOptions) != 2 {
 			t.Fatalf("segment %d completion state=%#v outcome=%v err=%v", segmentIndex, resolution.State, outcome, err)
 		}
@@ -47,8 +46,7 @@ func TestCampaignFlowUsesThreeGatesIntermissionAndExplicitBossClear(t *testing.T
 	if showChoices != 3 || state.Phase != SegmentPhase || state.SegmentIndex != 3 || state.Segment == nil || state.Segment.BossID != "optimal-nana" {
 		t.Fatalf("boss gate state=%#v show_choices=%d", state, showChoices)
 	}
-	makeSafeSegment(&state, true)
-	resolution, outcome, err := Apply(state, seed, CampaignMode, Command{Type: CompleteSegment, Trace: traceForTicks(state.Segment.DurationTicks, 63)}, catalog)
+	resolution, outcome, err := Apply(state, seed, CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(state.Hearts)}, catalog)
 	if err != nil || outcome == nil || *outcome != Cleared || resolution.State.Phase != CompletedPhase || !slices.ContainsFunc(resolution.Events, func(event Event) bool { return event.Kind == "chapter_cleared" }) {
 		t.Fatalf("boss resolution=%#v outcome=%v err=%v", resolution, outcome, err)
 	}
@@ -63,8 +61,7 @@ func TestDailyIsOneSegmentOneShowChoiceThenBoss(t *testing.T) {
 	if state.Segment == nil || state.Segment.DurationTicks != catalog.Daily.SegmentDurationTicks || state.Segment.RuntimeConfig.DurationTicks != catalog.Daily.SegmentDurationTicks {
 		t.Fatalf("daily act duration=%#v, want %d ticks", state.Segment, catalog.Daily.SegmentDurationTicks)
 	}
-	makeSafeSegment(&state, false)
-	resolution, outcome, err := Apply(state, "daily-flow-seed", DailyMode, Command{Type: CompleteSegment, Trace: traceForTicks(state.Segment.DurationTicks, 63)}, catalog)
+	resolution, outcome, err := Apply(state, "daily-flow-seed", DailyMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(state.Hearts)}, catalog)
 	if err != nil || outcome != nil || resolution.State.Phase != ShowChoicePhase {
 		t.Fatalf("daily segment resolution=%#v outcome=%v err=%v", resolution, outcome, err)
 	}
@@ -78,26 +75,23 @@ func TestDailyIsOneSegmentOneShowChoiceThenBoss(t *testing.T) {
 	if !ok || state.Segment.DurationTicks != boss.DurationTicks || state.Segment.RuntimeConfig.DurationTicks != boss.DurationTicks || boss.DurationTicks != 1800 {
 		t.Fatalf("daily Boss duration=%#v boss=%#v, want authored 1800 ticks", state.Segment, boss)
 	}
-	makeSafeSegment(&state, true)
-	resolution, outcome, err = Apply(state, "daily-flow-seed", DailyMode, Command{Type: CompleteSegment, Trace: traceForTicks(state.Segment.DurationTicks, 63)}, catalog)
+	resolution, outcome, err = Apply(state, "daily-flow-seed", DailyMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(state.Hearts)}, catalog)
 	if err != nil || outcome == nil || *outcome != Cleared || resolution.State.Phase != CompletedPhase {
 		t.Fatalf("daily boss resolution=%#v outcome=%v err=%v", resolution, outcome, err)
 	}
 }
 
-func TestCompleteSegmentRejectsInexactTraceAndFailsUnclearedBoss(t *testing.T) {
+func TestCompleteSegmentValidatesBoundedOutcomeAndHandlesFailure(t *testing.T) {
 	catalog := gamecontent.MustLoadV4()
-	state, err := NewState(StartInput{ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", Seed: "trace-failure-seed", Mode: CampaignMode}, catalog)
+	state, err := NewState(StartInput{ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", Seed: "outcome-failure-seed", Mode: CampaignMode}, catalog)
 	if err != nil {
 		t.Fatal(err)
 	}
-	makeSafeSegment(&state, false)
-	bad := traceForTicks(state.Segment.DurationTicks-1, 63)
-	if _, _, err := Apply(state, "trace-failure-seed", CampaignMode, Command{Type: CompleteSegment, Trace: bad}, catalog); !errors.Is(err, shooter.ErrInvalidTrace) {
-		t.Fatalf("inexact trace error=%v", err)
+	bad := &SegmentOutcome{Won: true, Health: 4, Score: 1}
+	if _, _, err := Apply(state, "outcome-failure-seed", CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: bad}, catalog); !errors.Is(err, ErrInvalidCommand) {
+		t.Fatalf("invalid outcome error=%v", err)
 	}
-	state.Segment.RuntimeConfig.Boss = testRunBoss(999999)
-	resolution, outcome, err := Apply(state, "trace-failure-seed", CampaignMode, Command{Type: CompleteSegment, Trace: traceForTicks(state.Segment.DurationTicks, 63)}, catalog)
+	resolution, outcome, err := Apply(state, "outcome-failure-seed", CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: &SegmentOutcome{Won: false, Health: 0, Score: 50}}, catalog)
 	if err != nil || outcome == nil || *outcome != Failed || resolution.State.Phase != CompletedPhase {
 		t.Fatalf("failed segment resolution=%#v outcome=%v err=%v", resolution, outcome, err)
 	}
@@ -145,8 +139,7 @@ func TestEveryIntermissionChoiceReachesTwoOptionThirdGateAndRevisesScene(t *test
 				if slices.Contains(state.SelectedChoiceIDs, prior) || !slices.Contains(state.SelectedChoiceIDs, selected.ID) || state.Segment.RuntimeConfig.StoryChoiceID != selected.ID {
 					t.Fatalf("choice revision/projected runtime=%#v", state)
 				}
-				makeSafeSegment(&state, false)
-				resolution, outcome, err = Apply(state, "choice-matrix:"+chapter.ID, CampaignMode, Command{Type: CompleteSegment, Trace: traceForTicks(state.Segment.DurationTicks, 63)}, catalog)
+				resolution, outcome, err = Apply(state, "choice-matrix:"+chapter.ID, CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(state.Hearts)}, catalog)
 				if err != nil || outcome != nil || resolution.State.Phase != ShowChoicePhase || len(resolution.State.PendingShowOptions) != 2 || resolution.State.PendingShowOptions[0] == resolution.State.PendingShowOptions[1] {
 					t.Fatalf("third gate options=%#v outcome=%v err=%v", resolution.State.PendingShowOptions, outcome, err)
 				}
@@ -255,37 +248,6 @@ func TestBossRuntimeConfigUsesBossSlugForItsEmptyWave(t *testing.T) {
 	}
 }
 
-func makeSafeSegment(state *State, boss bool) {
-	state.Segment.DurationTicks = 30
-	state.Segment.RuntimeConfig.DurationTicks = 30
-	state.Segment.RuntimeConfig.Wave.Spawns = []shooter.Spawn{}
-	state.Segment.RuntimeConfig.PlayerHealth = state.Hearts
-	if boss {
-		state.Segment.RuntimeConfig.Kit.AttackDamage = 100
-		state.Segment.RuntimeConfig.Kit.FireInterval = 1
-		state.Segment.RuntimeConfig.Boss = testRunBoss(1)
-	} else {
-		state.Segment.RuntimeConfig.Boss = nil
-	}
-}
-
-func testRunBoss(health int) *shooter.Boss {
-	return &shooter.Boss{ID: shooter.BossOptimalNana, Health: health, Score: 1000, Stages: []shooter.BossStage{
-		{ID: "opening", HealthThreshold: 100, MovePattern: "anchor", ShotPattern: "aimed", FireInterval: 31, ProjectileSpeed: 1, Damage: 1, TelegraphTicks: 1},
-		{ID: "middle", HealthThreshold: 66, MovePattern: "anchor", ShotPattern: "fan", FireInterval: 31, ProjectileSpeed: 1, Damage: 1, TelegraphTicks: 1},
-		{ID: "final", HealthThreshold: 33, MovePattern: "anchor", ShotPattern: "ring", FireInterval: 31, ProjectileSpeed: 1, Damage: 1, TelegraphTicks: 1},
-	}}
-}
-
-func traceForTicks(ticks int, control uint8) *shooter.InputTrace {
-	runs := make([]shooter.TraceRun, 0, ticks/255+1)
-	for remaining := ticks; remaining > 0; {
-		count := remaining
-		if count > 255 {
-			count = 255
-		}
-		runs = append(runs, shooter.TraceRun{control, uint8(count)})
-		remaining -= count
-	}
-	return &shooter.InputTrace{Encoding: shooter.TraceEncoding, Ticks: ticks, Runs: runs}
+func successfulSegmentOutcome(health int) *SegmentOutcome {
+	return &SegmentOutcome{Won: true, Health: health, Score: 100}
 }

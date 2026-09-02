@@ -147,12 +147,12 @@ func TestV2CreateRunRequiresExplicitMode(t *testing.T) {
 	}
 }
 
-func TestV2RejectsTraceTupleWithExtraValues(t *testing.T) {
+func TestV2RejectsOutOfRangeSegmentOutcome(t *testing.T) {
 	router, _ := v2TestRouter(t)
 	runID := "10000000-0000-4000-8000-000000000001"
-	request := httptest.NewRequest(http.MethodPost, "/v2/runs/"+runID+"/commands", strings.NewReader(`{"type":"complete_segment","expected_version":1,"trace":{"encoding":"x-position-rle-v1","ticks":1,"runs":[[63,1,99]]}}`))
+	request := httptest.NewRequest(http.MethodPost, "/v2/runs/"+runID+"/commands", strings.NewReader(`{"type":"complete_segment","expected_version":1,"segment_outcome":{"won":true,"health":4,"score":10}}`))
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Idempotency-Key", "strict-trace-tuple-001")
+	request.Header.Set("Idempotency-Key", "bounded-segment-outcome-001")
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest {

@@ -90,8 +90,6 @@ Configure the `Production` environment with these non-secret variables:
 - `AWS_LAMBDA_FUNCTION` from `lambda_function_name`
 - `AWS_LAMBDA_ALIAS` from `lambda_alias_name`
 - `AWS_DATABASE_URL_PARAMETER` from `database_url_parameter_name`
-- `AWS_DATABASE_MIGRATION_URL_PARAMETER` from
-  `database_migration_url_parameter_name`
 - `AWS_REDIS_URL_PARAMETER` from `redis_url_parameter_name`
 - `AWS_TELEGRAM_TOKEN_PARAMETER` from `telegram_token_parameter_name`
 - `API_BASE_URL` from `api_url`
@@ -103,10 +101,10 @@ team. It is the only long-lived deployment credential consumed by GitHub; AWS
 access remains short-lived through OIDC.
 
 The deploy workflow exchanges GitHub's OIDC token for short-lived AWS
-credentials, verifies the complete current schema through both PostgreSQL URLs,
-stages and checks an exact-SHA Vercel artifact, reads the SecureStrings, replaces
-`$LATEST` code and configuration, publishes a numbered Lambda version, promotes
-the frontend, switches the `live` alias, and runs production smoke tests.
+credentials, reads the runtime SecureStrings, publishes a numbered Lambda
+version, switches the `live` alias, deploys the Vercel artifact, and runs basic
+production smoke tests. The migration URL remains in SSM for the separate,
+explicit migration command used only by releases that change the schema.
 
 ## Cost and operational guardrails
 

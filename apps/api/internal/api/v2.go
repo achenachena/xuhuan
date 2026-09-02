@@ -6,14 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 	"github.com/achenachena/xuhuan/apps/api/internal/game"
 	"github.com/achenachena/xuhuan/apps/api/internal/progression"
 	"github.com/achenachena/xuhuan/apps/api/internal/repository"
 	gameRun "github.com/achenachena/xuhuan/apps/api/internal/run"
-	"github.com/achenachena/xuhuan/apps/api/internal/shooter"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -26,11 +24,11 @@ type createRunRequest struct {
 }
 
 type runCommandRequest struct {
-	Type            gameRun.CommandType `json:"type"`
-	ExpectedVersion int64               `json:"expected_version"`
-	OptionID        string              `json:"option_id,omitempty"`
-	SceneID         string              `json:"scene_id,omitempty"`
-	Trace           *shooter.InputTrace `json:"trace,omitempty"`
+	Type            gameRun.CommandType     `json:"type"`
+	ExpectedVersion int64                   `json:"expected_version"`
+	OptionID        string                  `json:"option_id,omitempty"`
+	SceneID         string                  `json:"scene_id,omitempty"`
+	SegmentOutcome  *gameRun.SegmentOutcome `json:"segment_outcome,omitempty"`
 }
 
 type storyChoiceRequest struct {
@@ -216,7 +214,7 @@ func createRunCommandHandler(service GameService, logger *slog.Logger) http.Hand
 		}
 		result, replayed, err := service.Command(r.Context(), principal.User, game.CommandInput{
 			RunID: runID, ExpectedVersion: request.ExpectedVersion, IdempotencyKey: key,
-			Command: gameRun.Command{Type: request.Type, OptionID: request.OptionID, SceneID: request.SceneID, Trace: request.Trace},
+			Command: gameRun.Command{Type: request.Type, OptionID: request.OptionID, SceneID: request.SceneID, SegmentOutcome: request.SegmentOutcome},
 		})
 		if err != nil {
 			writeV2Error(w, r, logger, "run_command_failed", err)
@@ -233,13 +231,17 @@ func validRunCommandRequest(request runCommandRequest) bool {
 	}
 	switch request.Type {
 	case gameRun.CompleteSegment:
-		return request.Trace != nil && request.OptionID == "" && request.SceneID == ""
+		return request.SegmentOutcome != nil &&
+			request.SegmentOutcome.Health >= 0 && request.SegmentOutcome.Health <= 3 &&
+			request.SegmentOutcome.Score >= 0 && request.SegmentOutcome.Score <= 1_000_000 &&
+			(!request.SegmentOutcome.Won || request.SegmentOutcome.Health > 0) &&
+			request.OptionID == "" && request.SceneID == ""
 	case gameRun.ChooseShowOption:
-		return request.Trace == nil && validSlugValue(request.OptionID) && request.SceneID == ""
+		return request.SegmentOutcome == nil && validSlugValue(request.OptionID) && request.SceneID == ""
 	case gameRun.ChooseIntermissionReply:
-		return request.Trace == nil && validSlugValue(request.OptionID) && validSlugValue(request.SceneID)
+		return request.SegmentOutcome == nil && validSlugValue(request.OptionID) && validSlugValue(request.SceneID)
 	case gameRun.AbandonRun:
-		return request.Trace == nil && request.OptionID == "" && request.SceneID == ""
+		return request.SegmentOutcome == nil && request.OptionID == "" && request.SceneID == ""
 	default:
 		return false
 	}
@@ -270,9 +272,7 @@ func writeV2Error(w http.ResponseWriter, r *http.Request, logger *slog.Logger, e
 		writeError(w, r, http.StatusForbidden, "content_locked", "The requested chapter, character, or Encore level is locked")
 	case errors.Is(err, progression.ErrSceneNotFound):
 		writeError(w, r, http.StatusNotFound, "story_not_found", "The story scene or option was not found")
-	case errors.Is(err, shooter.ErrInvalidTrace):
-		writeError(w, r, http.StatusBadRequest, "invalid_trace", "The segment input trace is invalid")
-	case errors.Is(err, gameRun.ErrInvalidCommand), strings.HasPrefix(err.Error(), "shooter:"):
+	case errors.Is(err, gameRun.ErrInvalidCommand):
 		writeError(w, r, http.StatusBadRequest, "invalid_command", "The command is invalid for the current state")
 	default:
 		logger.ErrorContext(r.Context(), event, "request_id", requestIDFromContext(r.Context()), "error_class", "internal")

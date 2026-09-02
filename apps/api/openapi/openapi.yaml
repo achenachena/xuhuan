@@ -431,24 +431,6 @@ components:
         chapters: { type: array, items: { $ref: "#/components/schemas/ChapterProgress" } }
         ending: { type: [string, "null"], enum: [open-archive, shared-cut, quiet-signoff, null] }
         daily_unlocked: { type: boolean }
-    InputTrace:
-      type: object
-      additionalProperties: false
-      required: [encoding, ticks, runs]
-      properties:
-        encoding: { type: string, const: x-position-rle-v1 }
-        ticks: { type: integer, minimum: 1, maximum: 2700 }
-        runs:
-          type: array
-          minItems: 1
-          maxItems: 2700
-          items:
-            type: array
-            prefixItems:
-              - { type: integer, minimum: 0, maximum: 255 }
-              - { type: integer, minimum: 1, maximum: 255 }
-            minItems: 2
-            maxItems: 2
     RuntimeEffect:
       type: object
       additionalProperties: false
@@ -594,109 +576,14 @@ components:
         score: { type: integer, minimum: 0 }
         ending_id: { type: string, enum: [open-archive, shared-cut, quiet-signoff] }
         daily_variant: { type: string }
-    Position:
+    SegmentOutcome:
       type: object
       additionalProperties: false
-      required: [x, y]
-      properties:
-        x: { type: integer }
-        y: { type: integer }
-    EnemySnapshot:
-      type: object
-      additionalProperties: false
-      required: [id, spec_id, chassis, position, health, max_health, boss]
-      properties:
-        id: { type: integer, minimum: 1 }
-        spec_id: { type: string }
-        chassis: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame] }
-        position: { $ref: "#/components/schemas/Position" }
-        health: { type: integer, minimum: 0 }
-        max_health: { type: integer, minimum: 1 }
-        boss: { type: boolean }
-        stage: { type: integer, minimum: 1, maximum: 3 }
-        intent: { type: string, enum: [fire, charge] }
-        marks: { type: integer, minimum: 1, maximum: 3 }
-    ProjectileSnapshot:
-      type: object
-      additionalProperties: false
-      required: [id, position, velocity, hostile]
-      properties:
-        id: { type: integer, minimum: 1 }
-        position: { $ref: "#/components/schemas/Position" }
-        velocity: { $ref: "#/components/schemas/Position" }
-        hostile: { type: boolean }
-        kind: { type: string }
-        radius: { type: integer, minimum: 0 }
-        width: { type: integer, minimum: 0 }
-        health: { type: integer, minimum: 0 }
-    PickupSnapshot:
-      type: object
-      additionalProperties: false
-      required: [id, kind, position, value]
-      properties:
-        id: { type: integer, minimum: 1 }
-        kind: { type: string, const: support_note }
-        position: { $ref: "#/components/schemas/Position" }
-        value: { type: integer, minimum: 1 }
-    ThreatSnapshot:
-      type: object
-      additionalProperties: false
-      required: [source_id, kind, ticks_remaining, origin, target]
-      properties:
-        source_id: { type: integer, minimum: 1 }
-        kind: { type: string, enum: [charge_lane, horizontal_cut, caption_block, black_wall, censor_gap, aimed_line, danger_lane, fan_cone, radial_burst, delayed_echo] }
-        ticks_remaining: { type: integer, minimum: 1 }
-        origin: { $ref: "#/components/schemas/Position" }
-        target: { $ref: "#/components/schemas/Position" }
-        radius: { type: integer, minimum: 1 }
-        width: { type: integer, minimum: 1 }
-    VisualEffectSnapshot:
-      type: object
-      additionalProperties: false
-      required: [id, kind, position, ticks]
-      properties:
-        id: { type: integer, minimum: 1 }
-        kind: { type: string, enum: [route_mark, mark_detonation, cadence_volley, subtitle_rewrite, alignment_beam, memory_plant, memory_bloom, afterimage_replay, captain_parry, subtitle_flip, prism_shift, choice_assist, boss_cut, wall_hit, wall_break] }
-        position: { $ref: "#/components/schemas/Position" }
-        ticks: { type: integer, minimum: 1 }
-        power: { type: integer }
-    ShooterSnapshot:
-      type: object
-      additionalProperties: false
-      required: [tick, player_x, health, max_health, shield, invulnerable_ticks, rescue_charge, rescues_used, graze_count, combo, score, enemies, enemy_projectiles, player_projectiles, pickups, threats, effects]
-      properties:
-        tick: { type: integer, minimum: 0 }
-        player_x: { type: integer }
-        health: { type: integer, minimum: 0, maximum: 3 }
-        max_health: { type: integer, const: 3 }
-        shield: { type: integer, minimum: 0 }
-        invulnerable_ticks: { type: integer, minimum: 0, maximum: 60 }
-        rescue_charge: { type: integer, minimum: 0, maximum: 100 }
-        rescues_used: { type: integer, minimum: 0 }
-        graze_count: { type: integer, minimum: 0 }
-        combo: { type: integer, minimum: 0 }
-        score: { type: integer, minimum: 0 }
-        daily_variant: { type: string }
-        enemies: { type: array, maxItems: 14, items: { $ref: "#/components/schemas/EnemySnapshot" } }
-        enemy_projectiles: { type: array, maxItems: 120, items: { $ref: "#/components/schemas/ProjectileSnapshot" } }
-        player_projectiles: { type: array, maxItems: 48, items: { $ref: "#/components/schemas/ProjectileSnapshot" } }
-        pickups: { type: array, maxItems: 12, items: { $ref: "#/components/schemas/PickupSnapshot" } }
-        threats: { type: array, maxItems: 14, items: { $ref: "#/components/schemas/ThreatSnapshot" } }
-        effects: { type: array, maxItems: 24, items: { $ref: "#/components/schemas/VisualEffectSnapshot" } }
-    ShooterResult:
-      type: object
-      additionalProperties: false
-      required: [won, health, ticks, kills, rescues_used, grazes, score, final]
+      required: [won, health, score]
       properties:
         won: { type: boolean }
         health: { type: integer, minimum: 0, maximum: 3 }
-        ticks: { type: integer, minimum: 1, maximum: 2700 }
-        kills: { type: integer, minimum: 0 }
-        rescues_used: { type: integer, minimum: 0 }
-        grazes: { type: integer, minimum: 0 }
-        score: { type: integer, minimum: 0 }
-        daily_variant: { type: string }
-        final: { $ref: "#/components/schemas/ShooterSnapshot" }
+        score: { type: integer, minimum: 0, maximum: 1000000 }
     RunEvent:
       type: object
       additionalProperties: false
@@ -713,7 +600,6 @@ components:
         next_chapter_slug: { $ref: "#/components/schemas/Slug" }
         next_character_slug: { $ref: "#/components/schemas/Slug" }
         ending_id: { type: string, enum: [open-archive, shared-cut, quiet-signoff] }
-        segment_result: { $ref: "#/components/schemas/ShooterResult" }
     GameRun:
       type: object
       additionalProperties: false
@@ -780,11 +666,11 @@ components:
     CompleteSegmentCommand:
       type: object
       additionalProperties: false
-      required: [type, expected_version, trace]
+      required: [type, expected_version, segment_outcome]
       properties:
         type: { type: string, const: complete_segment }
         expected_version: { type: integer, format: int64, minimum: 1 }
-        trace: { $ref: "#/components/schemas/InputTrace" }
+        segment_outcome: { $ref: "#/components/schemas/SegmentOutcome" }
     ChooseShowOptionCommand:
       type: object
       additionalProperties: false

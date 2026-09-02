@@ -18,8 +18,7 @@ export type APIRunCommandResponse = ShooterRunCommandResponse;
 export type APICreateRunRequest = ShooterCreateRunRequest;
 export type { APIDailyResult } from "@/lib/api/types";
 const requestTimeoutMilliseconds = 20_000;
-const encounterReplayTimeoutMilliseconds = 20_000;
-const encounterReplayAttempts = 3;
+const segmentResultAttempts = 3;
 const retryDelaysMilliseconds = [250, 750] as const;
 
 let cachedWebApp: (typeof import("@twa-dev/sdk"))["default"] | null = null;
@@ -177,9 +176,7 @@ export const createRunCommand = (
     `/v2/runs/${encodeURIComponent(runId)}/commands`,
     body,
     idempotencyKey,
-    body.type === "complete_segment"
-      ? encounterReplayTimeoutMilliseconds
-      : requestTimeoutMilliseconds,
-    body.type === "complete_segment" ? encounterReplayAttempts : 1,
+    requestTimeoutMilliseconds,
+    body.type === "complete_segment" ? segmentResultAttempts : 1,
   );
 };

@@ -19,6 +19,11 @@ const forbiddenPaths = [
   "apps/miniapp/src/features/game/screens/rest-screen.tsx",
   "apps/miniapp/src/features/game/screens/reward-screen.tsx",
   "docs/action-v3-release.md",
+  "apps/api/cmd/smoke-trace/",
+  "apps/api/internal/shooter/testdata/",
+  "apps/miniapp/src/features/shooter/trace.ts",
+  "apps/miniapp/src/features/shooter/trace.test.ts",
+  "apps/miniapp/scripts/smoke-trace-helper.mjs",
 ];
 
 const stalePaths = files.filter((file) =>
@@ -47,8 +52,9 @@ const forbiddenMarkers = [
   "choose_module_reward",
   "reroll_module_reward",
   "incomplete_encounter",
-  "prediction_digest",
   "rle8-v1",
+  "x-position-rle-v1",
+  "prediction_digest",
   "retention-protocol",
   "companion_ids",
   "show_option_ids",
@@ -105,54 +111,6 @@ if (stalePaths.length > 0 || staleMarkers.length > 0) {
   if (staleMarkers.length > 0) {
     console.error(`Stale active-source markers:\n${staleMarkers.join("\n")}`);
   }
-  process.exit(1);
-}
-
-const releaseWorkflow = readFileSync(
-  ".github/workflows/release-production.yml",
-  "utf8",
-);
-const orderedReleaseMarkers = [
-  "go run ./cmd/migrate -target=7",
-  "- name: Switch live alias to the immutable candidate",
-  "- name: Run signed production V4 journey",
-  "go run ./cmd/migrate -target=8",
-  "- name: Remove synthetic production smoke player",
-];
-let previousReleaseMarker = -1;
-for (const marker of orderedReleaseMarkers) {
-  const index = releaseWorkflow.indexOf(marker);
-  if (index <= previousReleaseMarker) {
-    console.error(
-      `Production release safety order is missing or invalid at: ${marker}`,
-    );
-    process.exit(1);
-  }
-  previousReleaseMarker = index;
-}
-const ownershipCheck = releaseWorkflow.indexOf(
-  'if test "$identity_available" != "t"',
-);
-const cleanupTarget = releaseWorkflow.indexOf(
-  'echo "synthetic_telegram_user_id=$smoke_telegram_user_id" >> "$GITHUB_OUTPUT"',
-);
-if (ownershipCheck < 0 || cleanupTarget <= ownershipCheck) {
-  console.error(
-    "Synthetic smoke cleanup target must be exposed only after its ownership check.",
-  );
-  process.exit(1);
-}
-const migrationCommands = releaseWorkflow.match(
-  /go run \.\/cmd\/migrate(?:\s|$)[^;|\n]*/gu,
-) ?? [];
-if (
-  migrationCommands.length !== 2 ||
-  !migrationCommands.some((command) => command.includes("-target=7")) ||
-  !migrationCommands.some((command) => command.includes("-target=8"))
-) {
-  console.error(
-    "Production migrations must use exactly the explicit prepare and cleanup targets.",
-  );
   process.exit(1);
 }
 
