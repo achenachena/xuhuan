@@ -203,6 +203,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
       pickups: state.pickupsCollected,
       rescues: state.rescuesUsed,
       warnings: threatSnapshots(state).length,
+      enemyHealth: new Map(state.enemies.map((enemy) => [enemy.id, enemy.health])),
     };
     state.tick += 1;
     if (state.invulnerableTicks > 0) state.invulnerableTicks -= 1;
@@ -225,8 +226,15 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     else state.combo = 0;
     if (state.health < 0) state.health = 0;
     const warnings = threatSnapshots(state).length;
+    const enemyHitIDs = state.enemies
+      .filter(
+        (enemy) =>
+          (before.enemyHealth.get(enemy.id) ?? enemy.maxHealth) > enemy.health,
+      )
+      .map((enemy) => enemy.id);
     return {
       pickup: state.pickupsCollected > before.pickups,
+      enemyHitIDs,
       hit: state.health < before.health,
       shield: state.shield < before.shield && state.health === before.health,
       combo: state.combo > before.combo,

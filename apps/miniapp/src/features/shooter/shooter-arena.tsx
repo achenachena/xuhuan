@@ -104,6 +104,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
   const pointerStartedRef = useRef(false);
   const movementDistanceRef = useRef(0);
   const rescueUsedRef = useRef(false);
+  const enemyHitUntilRef = useRef(new Map<number, number>());
   const keysRef = useRef(new Set<string>());
   const submittingRef = useRef(false);
   const pausedRef = useRef(false);
@@ -254,7 +255,16 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
       previousSnapshot = currentSnapshot;
       const events = simulation.step(input);
       currentSnapshot = simulation.snapshot();
+      for (const enemyID of events.enemyHitIDs) {
+        enemyHitUntilRef.current.set(enemyID, currentSnapshot.tick + 3);
+      }
+      enemyHitUntilRef.current.forEach((untilTick, enemyID) => {
+        if (untilTick < currentSnapshot.tick) {
+          enemyHitUntilRef.current.delete(enemyID);
+        }
+      });
       if (events.pickup) audioRef.current.playSound("pickup");
+      if (events.enemyHitIDs.length > 0) audioRef.current.playSound("enemyHit");
       if (events.hit) audioRef.current.playSound("hit");
       if (events.shield) audioRef.current.playSound("shield");
       if (events.combo) audioRef.current.playSound("combo");
@@ -300,6 +310,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
         visualsRef.current,
         key ? gameText(languageRef.current, key) : null,
         controlRef.current.playerX,
+        enemyHitUntilRef.current,
       );
     };
 

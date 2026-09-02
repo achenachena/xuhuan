@@ -120,7 +120,6 @@ describe("browser portfolio demo", () => {
   it("runs a local wave, one clear choice, and a boss without API writes", async () => {
     render(<BrowserDemo />);
 
-    fireEvent.click(await screen.findByTestId("start-browser-demo"));
     fireEvent.click(await screen.findByTestId("finish-portfolio-demo-wave"));
     fireEvent.click(await screen.findByTestId("demo-option-double-take"));
     fireEvent.click(await screen.findByTestId("finish-portfolio-demo-boss-double-take"));

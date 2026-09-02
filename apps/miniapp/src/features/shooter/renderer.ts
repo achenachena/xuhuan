@@ -281,10 +281,76 @@ const drawHostileShard = (
   context.fillRect(-size * 0.24, size * 1.15, size * 0.48, size * 0.7);
 };
 
-const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapshot, previous: readonly ShooterEnemySnapshot[], alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals): void => {
+const drawEnemyImpact = (
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  boss: boolean,
+): void => {
+  const scale = boss ? 1.35 : 1;
+  context.save();
+  context.translate(x, y);
+  context.fillStyle = "#f8fafc";
+  context.shadowColor = "#67e8f9";
+  context.shadowBlur = 40;
+  context.fillRect(-70 * scale, -12, 140 * scale, 24);
+  context.fillRect(-12, -70 * scale, 24, 140 * scale);
+  const offsets = [-1, 1] as const;
+  for (const horizontal of offsets) {
+    for (const vertical of offsets) {
+      context.fillStyle = horizontal === vertical ? "#67e8f9" : "#f9a8d4";
+      context.fillRect(
+        horizontal * 105 * scale - 18,
+        vertical * 76 * scale - 18,
+        36,
+        36,
+      );
+    }
+  }
+  context.restore();
+};
+
+const drawBossHealth = (
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  health: number,
+  maxHealth: number,
+): void => {
+  const width = 720;
+  const height = 58;
+  const left = x - width / 2;
+  const ratio = clamp(health / Math.max(1, maxHealth), 0, 1);
+  context.fillStyle = "rgba(2,6,23,.88)";
+  context.fillRect(left - 18, y - 16, width + 36, height + 32);
+  context.strokeStyle = "#f9a8d4";
+  context.lineWidth = 10;
+  context.strokeRect(left - 18, y - 16, width + 36, height + 32);
+  context.fillStyle = "#32132d";
+  context.fillRect(left, y, width, height);
+  context.fillStyle = "#f472b6";
+  context.fillRect(left, y, Math.round(width * ratio), height);
+  context.fillStyle = "rgba(255,255,255,.55)";
+  context.fillRect(left + 10, y + 9, Math.max(0, Math.round((width - 20) * ratio)), 10);
+  context.fillStyle = "rgba(2,6,23,.7)";
+  for (let segment = 1; segment < 6; segment += 1) {
+    context.fillRect(left + (width * segment) / 6 - 5, y, 10, height);
+  }
+};
+
+const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapshot, previous: readonly ShooterEnemySnapshot[], alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals, wasHit: boolean, tick: number): void => {
   const point = entityPosition(enemy, previous, alpha);
+  const impactOffset = wasHit ? (tick % 2 === 0 ? -18 : 18) : 0;
   const source = enemy.boss ? sources.boss : sources.enemies[enemy.chassis];
-  drawSprite(context, source ? visuals.get(source) : undefined, point.x, point.y, enemy.boss ? 900 : 460, enemy.boss ? "#f472b6" : "#fb7185");
+  drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y, enemy.boss ? 900 : 460, enemy.boss ? "#f472b6" : "#fb7185");
+  if (wasHit) {
+    context.save();
+    context.globalAlpha = 0.72;
+    context.filter = "brightness(3) saturate(.25)";
+    drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y, enemy.boss ? 900 : 460, "#f8fafc");
+    context.restore();
+    drawEnemyImpact(context, point.x, point.y, enemy.boss);
+  }
   if (enemy.marks) {
     context.fillStyle = "#67e8f9";
     context.font = "bold 120px monospace";
@@ -292,10 +358,7 @@ const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapsho
     context.fillText("◆".repeat(enemy.marks), point.x, point.y - 270);
   }
   if (enemy.boss) {
-    context.fillStyle = "rgba(2,6,23,.85)";
-    context.fillRect(850, point.y + 470, 1_900, 74);
-    context.fillStyle = "#f472b6";
-    context.fillRect(862, point.y + 482, Math.round(1_876 * clamp(enemy.health / Math.max(1, enemy.max_health), 0, 1)), 50);
+    drawBossHealth(context, point.x, point.y + 500, enemy.health, enemy.max_health);
   }
 };
 
@@ -366,6 +429,7 @@ export const drawShooterArena = (
   visuals: ShooterVisuals,
   tutorial: string | null,
   presentationX: number,
+  enemyHitUntil: ReadonlyMap<number, number>,
 ): void => {
   const context = prepare(canvas);
   if (!context) return;
@@ -374,7 +438,18 @@ export const drawShooterArena = (
   for (const pickup of current.pickups) drawPickup(context, pickup, previous?.pickups ?? [], alpha, sources, visuals);
   for (const shot of current.enemy_projectiles) drawProjectile(context, shot, previous?.enemy_projectiles ?? [], alpha);
   for (const shot of current.player_projectiles) drawProjectile(context, shot, previous?.player_projectiles ?? [], alpha);
-  for (const enemy of current.enemies) drawEnemy(context, enemy, previous?.enemies ?? [], alpha, sources, visuals);
+  for (const enemy of current.enemies) {
+    drawEnemy(
+      context,
+      enemy,
+      previous?.enemies ?? [],
+      alpha,
+      sources,
+      visuals,
+      (enemyHitUntil.get(enemy.id) ?? -1) >= current.tick,
+      current.tick,
+    );
+  }
   for (const effect of current.effects) drawEffect(context, effect);
   const playerX = presentationX || current.player_x;
   if (current.shield > 0) {

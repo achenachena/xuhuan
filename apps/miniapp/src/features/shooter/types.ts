@@ -202,6 +202,7 @@ export type ShooterMutableState = {
 
 export type ShooterStepEvents = {
   readonly pickup: boolean;
+  readonly enemyHitIDs: readonly number[];
   readonly hit: boolean;
   readonly shield: boolean;
   readonly combo: boolean;
@@ -258,6 +259,7 @@ export const resolveShooterGateOptions = (
 
 export const emptyStepEvents = (): ShooterStepEvents => ({
   pickup: false,
+  enemyHitIDs: [],
   hit: false,
   shield: false,
   combo: false,
