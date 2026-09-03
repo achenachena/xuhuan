@@ -14,6 +14,7 @@ import {
 import type {
   ShooterEnemyEntity,
   ShooterMutableState,
+  ShooterPickupPower,
   ShooterThreatSnapshot,
 } from "@/features/shooter/types";
 import type { ShooterEnemySpec } from "@/lib/api/types";
@@ -339,7 +340,14 @@ export const damagePlayer = (state: ShooterMutableState, amount: number): void =
 const dropSupportNote = (state: ShooterMutableState, x: number, y: number, value: number): void => {
   if (state.pickups.length >= state.config.limits.pickups) return;
   state.nextPickupID += 1;
-  state.pickups.push({ id: state.nextPickupID, x, y, value: Math.max(1, value) });
+  const kinds: readonly ShooterPickupPower[] = ["rapid", "spread", "pierce"];
+  state.pickups.push({
+    id: state.nextPickupID,
+    x,
+    y,
+    value: Math.max(1, value),
+    kind: kinds[(state.nextPickupID - 1) % kinds.length]!,
+  });
 };
 
 export const removeDefeatedEnemies = (state: ShooterMutableState): void => {
@@ -418,6 +426,16 @@ export const updatePickups = (state: ShooterMutableState): void => {
       state.lastPickupTick = state.tick;
       earnRescue(state, pickup.value);
       state.score += 40 * Math.max(1, state.combo);
+      state.pickupPower = pickup.kind;
+      state.pickupPowerTicks = 150;
+      addShooterEffect(
+        state,
+        `support_powerup_${pickup.kind}`,
+        state.playerX,
+        PLAYER_Y,
+        24,
+        pickup.value,
+      );
     } else if (pickup.y <= SHOOTER_HEIGHT + 70) {
       kept.push(pickup);
     }

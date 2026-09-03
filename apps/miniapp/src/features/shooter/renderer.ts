@@ -4,6 +4,7 @@ import type {
   ShooterEnemySnapshot,
   ShooterGateOption,
   ShooterPickupSnapshot,
+  ShooterPickupPower,
   ShooterProjectileSnapshot,
   ShooterSnapshot,
   ShooterThreatSnapshot,
@@ -23,6 +24,11 @@ const pickupAssets = [
   "/game/v4/pickups/support-pink.webp",
   "/game/v4/pickups/support-gold.webp",
 ] as const;
+const pickupVisuals: Record<ShooterPickupPower, { asset: number; color: string }> = {
+  rapid: { asset: 0, color: "#67e8f9" },
+  spread: { asset: 1, color: "#f9a8d4" },
+  pierce: { asset: 2, color: "#fde68a" },
+};
 
 export type ShooterVisualSources = {
   readonly background: string;
@@ -541,15 +547,39 @@ const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterPr
     drawWideHostileProjectile(context, projectile, point.x, point.y, width, radius);
   } else if (projectile.hostile) {
     drawHostileShard(context, projectile, point.x, point.y, radius);
+  } else if (projectile.kind === "rapid") {
+    context.shadowBlur = 24;
+    context.fillStyle = "#e0fbff";
+    context.fillRect(point.x - 15, point.y - 80, 30, 120);
+    context.fillStyle = "#22d3ee";
+    context.fillRect(point.x - 27, point.y + 12, 54, 42);
+  } else if (projectile.kind === "spread") {
+    context.shadowColor = "#f9a8d4";
+    context.shadowBlur = 28;
+    context.fillStyle = "#f9a8d4";
+    context.translate(point.x, point.y);
+    context.rotate(Math.atan2(projectile.velocity.y, projectile.velocity.x) + Math.PI / 2);
+    context.fillRect(-34, -68, 68, 136);
+    context.fillStyle = "#ffffff";
+    context.fillRect(-14, -46, 28, 92);
+  } else if (projectile.kind === "pierce") {
+    context.shadowColor = "#fde68a";
+    context.shadowBlur = 34;
+    context.fillStyle = "#f59e0b";
+    context.fillRect(point.x - 46, point.y - 120, 92, 210);
+    context.fillStyle = "#fff7c2";
+    context.fillRect(point.x - 18, point.y - 150, 36, 250);
+    context.fillRect(point.x - 64, point.y - 86, 128, 34);
   } else context.fillRect(point.x - 23, point.y - 95, 46, 175);
   context.restore();
 };
 
 const drawPickup = (context: CanvasRenderingContext2D, pickup: ShooterPickupSnapshot, previous: readonly ShooterPickupSnapshot[], alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals): void => {
   const point = entityPosition(pickup, previous, alpha);
-  const source = sources.pickups[(pickup.id - 1) % sources.pickups.length]!;
+  const pickupVisual = pickupVisuals[pickup.kind];
+  const source = sources.pickups[pickupVisual.asset]!;
   drawSprite(context, visuals.get(source), point.x, point.y, 300, "#fde68a");
-  context.strokeStyle = ["#67e8f9", "#f9a8d4", "#fde68a"][(pickup.id - 1) % 3]!;
+  context.strokeStyle = pickupVisual.color;
   context.globalAlpha = 0.55;
   context.lineWidth = 14;
   context.beginPath();
@@ -560,6 +590,22 @@ const drawPickup = (context: CanvasRenderingContext2D, pickup: ShooterPickupSnap
 
 const drawEffect = (context: CanvasRenderingContext2D, effect: ShooterEffectSnapshot): void => {
   context.save();
+  if (effect.kind.startsWith("support_powerup_")) {
+    const power = effect.kind.slice("support_powerup_".length) as ShooterPickupPower;
+    const color = pickupVisuals[power]?.color ?? "#67e8f9";
+    const age = Math.max(0, 24 - effect.ticks);
+    context.translate(effect.position.x, effect.position.y);
+    context.strokeStyle = color;
+    context.fillStyle = color;
+    context.globalAlpha = clamp(effect.ticks / 12, 0.2, 1);
+    context.lineWidth = 18;
+    context.strokeRect(-180 - age * 8, -180 - age * 8, 360 + age * 16, 360 + age * 16);
+    for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+      context.fillRect(x * (210 + age * 12) - 18, y * (150 + age * 10) - 18, 36, 36);
+    }
+    context.restore();
+    return;
+  }
   context.strokeStyle = effect.kind.includes("memory") ? "#fde68a" : effect.kind.includes("subtitle") ? "#f9a8d4" : "#67e8f9";
   context.globalAlpha = clamp(effect.ticks / 45, 0.12, 0.85);
   context.lineWidth = 16;
@@ -623,6 +669,21 @@ export const drawShooterArena = (
   });
   for (const effect of current.effects) drawEffect(context, effect);
   const playerX = presentationX || current.player_x;
+  if (current.pickup_power && (current.pickup_power_ticks ?? 0) > 0) {
+    const visual = pickupVisuals[current.pickup_power];
+    const pulse = current.tick % 20 < 10 ? 0 : 14;
+    context.save();
+    context.strokeStyle = visual.color;
+    context.globalAlpha = 0.45 + 0.25 * ((current.pickup_power_ticks ?? 0) / 150);
+    context.lineWidth = 16;
+    const radius = 245 + pulse;
+    for (const rotation of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      context.beginPath();
+      context.arc(playerX, PLAYER_Y, radius, rotation + 0.12, rotation + 0.68);
+      context.stroke();
+    }
+    context.restore();
+  }
   if (current.shield > 0) {
     context.strokeStyle = "#93c5fd"; context.lineWidth = 20; context.globalAlpha = 0.65;
     context.beginPath(); context.arc(playerX, PLAYER_Y, 235, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1;

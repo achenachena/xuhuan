@@ -7,6 +7,7 @@ import type {
 } from "@/lib/api/types";
 
 export type ShooterPosition = { readonly x: number; readonly y: number };
+export type ShooterPickupPower = "rapid" | "spread" | "pierce";
 export type ShooterEnemySnapshot = {
   readonly id: number;
   readonly spec_id: string;
@@ -31,7 +32,7 @@ export type ShooterProjectileSnapshot = {
 };
 export type ShooterPickupSnapshot = {
   readonly id: number;
-  readonly kind: "support_note";
+  readonly kind: ShooterPickupPower;
   readonly position: ShooterPosition;
   readonly value: number;
 };
@@ -63,6 +64,8 @@ export type ShooterSnapshot = {
   readonly graze_count: number;
   readonly combo: number;
   readonly score: number;
+  readonly pickup_power?: ShooterPickupPower;
+  readonly pickup_power_ticks?: number;
   readonly daily_variant?: string;
   readonly enemies: readonly ShooterEnemySnapshot[];
   readonly enemy_projectiles: readonly ShooterProjectileSnapshot[];
@@ -150,6 +153,7 @@ export type ShooterPickupEntity = {
   x: number;
   y: number;
   value: number;
+  kind: ShooterPickupPower;
 };
 
 export type ShooterEffectEntity = {
@@ -196,6 +200,8 @@ export type ShooterMutableState = {
   pickups: ShooterPickupEntity[];
   pickupsCollected: number;
   lastPickupTick: number;
+  pickupPower: ShooterPickupPower | null;
+  pickupPowerTicks: number;
   pressureQuietTicks: number;
   effects: ShooterEffectEntity[];
 };

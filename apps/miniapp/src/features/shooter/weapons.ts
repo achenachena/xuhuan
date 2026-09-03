@@ -9,6 +9,7 @@ import { storyChoiceMode } from "@/features/shooter/story";
 import type {
   ShooterEffectEntity,
   ShooterMutableState,
+  ShooterPickupPower,
   ShooterResolvedRuntime,
   ShooterRuntime,
 } from "@/features/shooter/types";
@@ -102,6 +103,7 @@ export const addPlayerProjectile = (
     vy: number;
     damage: number;
     pierce?: number;
+    kind?: string;
   },
 ): boolean => {
   if (state.playerProjectiles.length >= state.config.limits.player_projectiles) {
@@ -119,7 +121,7 @@ export const addPlayerProjectile = (
     radius: 0,
     width: 0,
     health: 0,
-    kind: "",
+    kind: values.kind ?? "",
     hostile: false,
     grazed: false,
   });
@@ -141,22 +143,53 @@ export const addShooterEffect = (
   state.effects.push({ id: state.nextEffectID, kind, x, y, ticks, power });
 };
 
+export const resolvePickupWeapon = (
+  power: ShooterPickupPower | null,
+  runtime: Pick<
+    ShooterResolvedRuntime,
+    "damage" | "fireInterval" | "multishot" | "pierce" | "spread"
+  >,
+) => ({
+  fireInterval:
+    power === "rapid"
+      ? Math.max(3, goDivide(runtime.fireInterval * 2, 3))
+      : runtime.fireInterval,
+  damage:
+    power === "pierce"
+      ? runtime.damage + Math.max(1, goDivide(runtime.damage, 2))
+      : runtime.damage,
+  shotCount: clamp(
+    power === "rapid"
+      ? Math.max(2, runtime.multishot)
+      : power === "spread"
+        ? Math.max(3, runtime.multishot)
+        : runtime.multishot,
+    1,
+    5,
+  ),
+  pierce: runtime.pierce + (power === "pierce" ? 2 : 0),
+  spread: power === "spread" ? 14 : runtime.spread > 0 ? 5 + runtime.spread * 2 : 0,
+  projectileKind: power ?? "",
+});
+
 export const updateWeapons = (state: ShooterMutableState): void => {
   state.attackClock += 1;
+  const pickupPower = state.pickupPowerTicks > 0 ? state.pickupPower : null;
+  const pickupWeapon = resolvePickupWeapon(pickupPower, state.runtime);
   if (
-    state.attackClock < state.runtime.fireInterval ||
+    state.attackClock < pickupWeapon.fireInterval ||
     state.playerProjectiles.length >= state.config.limits.player_projectiles
   ) {
     return;
   }
   state.attackClock = 0;
   state.attackSequence += 1;
-  let damage = state.runtime.damage;
+  let damage = pickupWeapon.damage;
   if (state.health === 1) damage += state.runtime.lowHealthPower;
   if (state.config.kit.id === "jiaran" && state.combo >= 6) {
     damage += Math.max(1, goDivide(damage, 4));
   }
-  const count = state.runtime.multishot;
+  const count = pickupWeapon.shotCount;
   for (let index = 0; index < count; index += 1) {
     const lane = index * 2 - (count - 1);
     if (
@@ -168,12 +201,13 @@ export const updateWeapons = (state: ShooterMutableState): void => {
         ),
         y: PLAYER_Y,
         vx:
-          state.runtime.spread > 0
-            ? lane * (5 + state.runtime.spread * 2)
-            : 0,
+          pickupWeapon.spread > 0 ? lane * pickupWeapon.spread : 0,
         vy: -190,
         damage,
-        pierce: state.runtime.pierce,
+        pierce: pickupWeapon.pierce,
+        ...(pickupWeapon.projectileKind
+          ? { kind: pickupWeapon.projectileKind }
+          : {}),
       })
     ) break;
   }
