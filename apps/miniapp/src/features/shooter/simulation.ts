@@ -80,6 +80,8 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   pickups: [],
   pickupsCollected: 0,
   lastPickupTick: 0,
+  pickupPower: null,
+  pickupPowerTicks: 0,
   pressureQuietTicks: 0,
   effects: [],
 });
@@ -129,6 +131,12 @@ const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
   graze_count: state.grazeCount,
   combo: state.combo,
   score: state.score,
+  ...(state.pickupPower && state.pickupPowerTicks > 0
+    ? {
+        pickup_power: state.pickupPower,
+        pickup_power_ticks: state.pickupPowerTicks,
+      }
+    : {}),
   ...(state.dailyVariant ? { daily_variant: state.dailyVariant } : {}),
   enemies: state.enemies.map((enemy) => {
     const spec = enemy.boss ? null : state.config.enemies[enemy.specIndex]!;
@@ -174,7 +182,7 @@ const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
   })),
   pickups: state.pickups.map((item) => ({
     id: item.id,
-    kind: "support_note" as const,
+    kind: item.kind,
     position: { x: item.x, y: item.y },
     value: item.value,
   })),
@@ -222,6 +230,8 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     updateProjectiles(state);
     updatePickups(state);
     updateEffects(state);
+    if (state.pickupPowerTicks > 0) state.pickupPowerTicks -= 1;
+    if (state.pickupPowerTicks === 0) state.pickupPower = null;
     if (state.comboClock > 0) state.comboClock -= 1;
     else state.combo = 0;
     if (state.health < 0) state.health = 0;
