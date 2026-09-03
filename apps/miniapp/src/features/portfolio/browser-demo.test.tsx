@@ -126,6 +126,11 @@ describe("browser portfolio demo", () => {
 
     expect(await screen.findByText("The channel stayed live")).toBeVisible();
     expect(screen.getByText("1000")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Play again" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Continue in Telegram" })).toHaveAttribute(
+      "href",
+      "https://t.me/xuhuangamebot",
+    );
     expect(fetch).toHaveBeenCalledWith(
       "/game/v4/demo/demo-v1.en.json",
       expect.objectContaining({ cache: "force-cache" }),

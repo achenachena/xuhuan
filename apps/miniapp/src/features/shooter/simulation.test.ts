@@ -43,4 +43,43 @@ describe("local shooter simulation", () => {
     expect(result).toMatchObject({ won: false, health: 0 });
     expect(result!.ticks).toBeLessThan(600);
   });
+
+  it("ends a boss segment immediately when the boss is defeated", () => {
+    const simulation = createShooterSimulationFromConfig({
+      ...v4Runtime,
+      duration_ticks: 600,
+      wave: { ...v4Runtime.wave, spawns: [] },
+      kit: {
+        ...v4Runtime.kit,
+        attack_damage: 100,
+        fire_interval: 1,
+      },
+      boss: {
+        id: "optimal-nana",
+        health: 1,
+        score: 100,
+        stages: [
+          {
+            id: "opening",
+            health_threshold: 100,
+            move_pattern: "anchor",
+            shot_pattern: "aimed",
+            fire_interval: 30,
+            projectile_speed: 35,
+            damage: 1,
+            telegraph_ticks: 10,
+          },
+        ],
+      },
+    });
+
+    let result = simulation.result();
+    for (let tick = 0; tick < 599 && result === null; tick += 1) {
+      simulation.step({ x: 64, rescue: false });
+      result = simulation.result();
+    }
+
+    expect(result).toMatchObject({ won: true });
+    expect(result!.ticks).toBeLessThan(600);
+  });
 });

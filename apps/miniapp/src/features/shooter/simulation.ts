@@ -232,9 +232,17 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
           (before.enemyHealth.get(enemy.id) ?? enemy.maxHealth) > enemy.health,
       )
       .map((enemy) => enemy.id);
+    const enemyDefeatedIDs = state.enemies
+      .filter(
+        (enemy) =>
+          enemy.health <= 0 &&
+          (before.enemyHealth.get(enemy.id) ?? enemy.maxHealth) > 0,
+      )
+      .map((enemy) => enemy.id);
     return {
       pickup: state.pickupsCollected > before.pickups,
       enemyHitIDs,
+      enemyDefeatedIDs,
       hit: state.health < before.health,
       shield: state.shield < before.shield && state.health === before.health,
       combo: state.combo > before.combo,
@@ -244,9 +252,18 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
   };
 
   const result = (): ShooterResult | null => {
-    if (state.health > 0 && state.tick < state.config.duration_ticks) return null;
-    if (cachedResult) return cachedResult;
     const aliveBoss = state.enemies.some((enemy) => enemy.boss && enemy.health > 0);
+    const bossDefeated = Boolean(
+      state.config.boss && state.spawnedBoss && !aliveBoss,
+    );
+    if (
+      state.health > 0 &&
+      state.tick < state.config.duration_ticks &&
+      !bossDefeated
+    ) {
+      return null;
+    }
+    if (cachedResult) return cachedResult;
     const won = state.health > 0 && (!state.config.boss || !aliveBoss);
     if (won) state.score += state.health * 10 + state.rescueCharge * 2;
     cachedResult = {
