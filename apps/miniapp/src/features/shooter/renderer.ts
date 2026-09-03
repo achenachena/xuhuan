@@ -198,13 +198,91 @@ const drawWideHostileProjectile = (
   const top = Math.round(y - radius);
   const bottom = Math.round(y + radius);
   const blackWall = projectile.kind === "black_wall";
+  const caption = projectile.kind === "caption_block";
+  const cut = /horizontal_cut|highlight_cut/.test(projectile.kind ?? "");
+  const frame = !blackWall && !caption && !cut;
   const notch = Math.min(42, Math.max(18, Math.round(radius / 3)));
   const outer = blackWall ? "#d946ef" : "#fb7185";
   const core = blackWall ? "#160b2d" : "#3b1026";
   const bright = blackWall ? "#67e8f9" : "#fecdd3";
 
   context.shadowColor = outer;
-  context.shadowBlur = blackWall ? 54 : 38;
+  context.shadowBlur = blackWall ? 34 : 22;
+
+  if (cut) {
+    // A moving strip of interlocking pixel blades: the full collision width is
+    // visible, but it no longer reads as a flat browser rectangle.
+    const tooth = Math.max(34, Math.round(radius * 0.7));
+    context.fillStyle = "rgba(45,10,31,.9)";
+    context.fillRect(left, y - tooth / 2, width, tooth);
+    context.strokeStyle = outer;
+    context.lineWidth = 12;
+    context.beginPath();
+    context.moveTo(left, y);
+    for (let bladeX = left; bladeX <= right; bladeX += tooth) {
+      context.lineTo(bladeX + tooth / 2, y - tooth);
+      context.lineTo(bladeX + tooth, y);
+    }
+    context.stroke();
+    context.beginPath();
+    context.moveTo(left, y);
+    for (let bladeX = left; bladeX <= right; bladeX += tooth) {
+      context.lineTo(bladeX + tooth / 2, y + tooth);
+      context.lineTo(bladeX + tooth, y);
+    }
+    context.stroke();
+    context.shadowBlur = 0;
+    context.fillStyle = bright;
+    for (let bladeX = left + tooth / 2; bladeX < right; bladeX += tooth * 2) {
+      context.fillRect(bladeX - 10, y - 10, 20, 20);
+    }
+    return;
+  }
+
+  if (caption) {
+    pixelFramePath(context, left, top, right, bottom - notch, notch);
+    context.fillStyle = "#2b1027";
+    context.fill();
+    context.strokeStyle = outer;
+    context.lineWidth = 14;
+    context.stroke();
+    context.shadowBlur = 0;
+    context.fillStyle = outer;
+    context.fillRect(left + notch, bottom - notch, notch * 2, notch);
+    context.fillRect(left + notch * 2, bottom, notch, notch);
+    context.fillStyle = bright;
+    const lineWidth = Math.max(40, width - notch * 3);
+    context.fillRect(left + notch * 1.5, y - 38, lineWidth, 16);
+    context.fillRect(left + notch * 1.5, y + 4, lineWidth * 0.65, 16);
+    return;
+  }
+
+  if (frame) {
+    // Censor gates are linked pixel seals, not luminous bars. Small gaps in
+    // the decoration preserve motion while the outlined envelope communicates
+    // the real collision area.
+    context.globalAlpha = 0.28;
+    pixelFramePath(context, left, top, right, bottom, notch);
+    context.fillStyle = core;
+    context.fill();
+    context.globalAlpha = 1;
+    context.strokeStyle = outer;
+    context.lineWidth = 12;
+    context.stroke();
+    context.shadowBlur = 0;
+    const seal = Math.max(44, Math.min(78, radius));
+    for (let sealX = left + notch; sealX < right - notch; sealX += seal * 1.8) {
+      context.fillStyle = "#2a0c25";
+      context.fillRect(sealX, y - seal / 2, seal, seal);
+      context.strokeStyle = outer;
+      context.lineWidth = 8;
+      context.strokeRect(sealX, y - seal / 2, seal, seal);
+      context.fillStyle = bright;
+      context.fillRect(sealX + seal * 0.28, y - seal * 0.22, seal * 0.44, seal * 0.44);
+    }
+    return;
+  }
+
   pixelFramePath(context, left, top, right, bottom, notch);
   context.fillStyle = core;
   context.globalAlpha = blackWall ? 0.92 : 0.88;
@@ -267,26 +345,66 @@ const drawHostileShard = (
   const size = Math.max(44, radius);
   context.translate(x, y);
   context.rotate(angle);
-  context.shadowColor = "#fb7185";
-  context.shadowBlur = 34;
-  context.fillStyle = "#4c102d";
-  context.beginPath();
-  context.moveTo(0, -size * 1.35);
-  context.lineTo(size * 0.72, -size * 0.2);
-  context.lineTo(size * 0.48, size * 0.82);
-  context.lineTo(0, size * 1.12);
-  context.lineTo(-size * 0.48, size * 0.82);
-  context.lineTo(-size * 0.72, -size * 0.2);
-  context.closePath();
-  context.fill();
-  context.strokeStyle = "#fb7185";
-  context.lineWidth = 14;
-  context.stroke();
-  context.shadowBlur = 0;
-  context.fillStyle = "#fecdd3";
-  context.fillRect(-size * 0.18, -size * 0.72, size * 0.36, size * 0.72);
-  context.fillStyle = "rgba(244,114,182,.45)";
-  context.fillRect(-size * 0.24, size * 1.15, size * 0.48, size * 0.7);
+  const pixel = Math.max(8, Math.round(size / 6));
+  const kind = projectile.kind ?? "enemy_shot";
+  const echo = /echo|translation|mirror|exposure/.test(kind);
+  const heart = /applause/.test(kind);
+  const spiral = /ring|spiral/.test(kind);
+  const outline = echo ? "#a855f7" : heart ? "#f43f8f" : "#e11d68";
+  const bright = echo ? "#67e8f9" : heart ? "#fde68a" : "#fecdd3";
+
+  // Crisp, low-resolution silhouettes match the authored pixel sprites. The
+  // glow is deliberately restrained so the projectile still reads as pixels.
+  context.shadowColor = outline;
+  context.shadowBlur = pixel * 1.5;
+  context.fillStyle = "#15091f";
+  context.strokeStyle = outline;
+  context.lineWidth = pixel;
+
+  if (heart) {
+    for (const [column, row] of [[-2, -1], [-1, -2], [0, -1], [1, -2], [2, -1], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [-1, 1], [0, 1], [1, 1], [0, 2]] as const) {
+      context.fillStyle = Math.abs(column) + Math.abs(row) < 2 ? bright : outline;
+      context.fillRect(column * pixel, row * pixel, pixel, pixel);
+    }
+  } else if (spiral) {
+    context.fillStyle = outline;
+    context.fillRect(-pixel, -pixel * 4, pixel * 2, pixel * 8);
+    context.fillRect(-pixel * 4, -pixel, pixel * 8, pixel * 2);
+    context.fillStyle = bright;
+    context.fillRect(-pixel, -pixel, pixel * 2, pixel * 2);
+    context.fillRect(-pixel * 3, -pixel * 3, pixel * 2, pixel * 2);
+    context.fillRect(pixel, pixel, pixel * 2, pixel * 2);
+  } else if (echo) {
+    pixelFramePath(context, -pixel * 3, -pixel * 4, pixel * 3, pixel * 3, pixel);
+    context.fill();
+    context.stroke();
+    context.shadowBlur = 0;
+    context.fillStyle = bright;
+    context.fillRect(-pixel * 2, -pixel * 2, pixel, pixel * 3);
+    context.fillRect(0, -pixel * 2, pixel * 2, pixel);
+    context.fillStyle = outline;
+    context.fillRect(-pixel, pixel * 3, pixel * 2, pixel * 2);
+  } else {
+    // A tiny hostile "chat dart": pointed head, dark shell and a two-frame
+    // pixel exhaust instead of an unrelated glowing dot.
+    context.beginPath();
+    context.moveTo(0, -pixel * 5);
+    context.lineTo(pixel * 3, -pixel);
+    context.lineTo(pixel * 2, pixel * 3);
+    context.lineTo(0, pixel * 4);
+    context.lineTo(-pixel * 2, pixel * 3);
+    context.lineTo(-pixel * 3, -pixel);
+    context.closePath();
+    context.fill();
+    context.stroke();
+    context.shadowBlur = 0;
+    context.fillStyle = bright;
+    context.fillRect(-pixel, -pixel * 3, pixel * 2, pixel * 3);
+    context.fillStyle = outline;
+    context.fillRect(-pixel * 2, pixel * 4, pixel * 4, pixel);
+    context.fillStyle = "rgba(103,232,249,.65)";
+    context.fillRect(-pixel, pixel * 6, pixel * 2, pixel * 2);
+  }
 };
 
 const drawEnemyImpact = (
@@ -296,15 +414,21 @@ const drawEnemyImpact = (
 ): void => {
   const remaining = Math.max(1, impact.untilTick - tick + 1);
   const scale = (impact.boss ? 1.35 : 1) * (impact.destroyed ? 1.35 : 1);
-  const spread = (impact.destroyed ? 38 : 22) * (9 - Math.min(8, remaining));
+  const age = (impact.destroyed ? 10 : 7) - Math.min(impact.destroyed ? 10 : 7, remaining);
+  const spread = (impact.destroyed ? 32 : 22) * age;
   context.save();
   context.translate(impact.x, impact.y);
   context.fillStyle = "#f8fafc";
   context.shadowColor = "#67e8f9";
   context.shadowBlur = 40;
-  context.globalAlpha = Math.min(1, remaining / 3);
-  context.fillRect(-80 * scale, -14, 160 * scale, 28);
-  context.fillRect(-14, -80 * scale, 28, 160 * scale);
+  context.globalAlpha = Math.min(1, remaining / 2);
+  const unit = impact.destroyed ? 30 : 22;
+  context.fillRect(-unit * 4 * scale, -unit / 2, unit * 8 * scale, unit);
+  context.fillRect(-unit / 2, -unit * 4 * scale, unit, unit * 8 * scale);
+  context.fillStyle = "#f9a8d4";
+  context.fillRect(-unit * 2, -unit * 2, unit * 4, unit * 4);
+  context.fillStyle = "#ffffff";
+  context.fillRect(-unit, -unit, unit * 2, unit * 2);
   const directions = [
     [-1, -1],
     [0, -1],
@@ -318,7 +442,7 @@ const drawEnemyImpact = (
   for (let index = 0; index < directions.length; index += 1) {
     const [horizontal, vertical] = directions[index]!;
     context.fillStyle = index % 2 === 0 ? "#67e8f9" : "#f9a8d4";
-    const distance = (100 + spread) * scale;
+    const distance = (70 + spread) * scale;
     const size = impact.destroyed ? 46 : 34;
     context.fillRect(
       horizontal * distance - size / 2,
@@ -378,16 +502,17 @@ const drawBossHealth = (
 
 const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapshot, previous: readonly ShooterEnemySnapshot[], alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals, wasHit: boolean, tick: number): void => {
   const point = entityPosition(enemy, previous, alpha);
-  const impactOffset = wasHit ? (tick % 2 === 0 ? -18 : 18) : 0;
+  const impactOffset = wasHit ? (tick % 2 === 0 ? -24 : 24) : 0;
+  const impactDrop = wasHit ? 30 : 0;
   const source = enemy.boss ? sources.boss : sources.enemies[enemy.chassis];
   const baseSize = enemy.boss ? 900 : 460;
-  const renderedSize = wasHit ? Math.round(baseSize * 1.1) : baseSize;
-  drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y, renderedSize, enemy.boss ? "#f472b6" : "#fb7185");
+  const renderedSize = wasHit ? Math.round(baseSize * 1.13) : baseSize;
+  drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y + impactDrop, renderedSize, enemy.boss ? "#f472b6" : "#fb7185");
   if (wasHit) {
     context.save();
-    context.globalAlpha = 0.72;
-    context.filter = "brightness(3) saturate(.25)";
-    drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y, enemy.boss ? 900 : 460, "#f8fafc");
+    context.globalAlpha = tick % 2 === 0 ? 0.88 : 0.55;
+    context.filter = "brightness(4) contrast(1.8) saturate(.15)";
+    drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y + impactDrop, enemy.boss ? 900 : 460, "#f8fafc");
     context.restore();
   }
   if (enemy.marks) {

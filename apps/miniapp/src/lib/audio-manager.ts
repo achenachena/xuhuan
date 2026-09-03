@@ -25,8 +25,9 @@ const sounds: Record<SoundEffectType, readonly Tone[]> = {
     { frequency: 990, duration: 0.08, offset: 0.045, volume: 0.03 },
   ],
   enemyHit: [
-    { frequency: 210, duration: 0.025, volume: 0.018, wave: "square" },
-    { frequency: 520, duration: 0.035, offset: 0.012, volume: 0.014, wave: "triangle" },
+    { frequency: 120, duration: 0.032, volume: 0.035, wave: "square" },
+    { frequency: 310, duration: 0.045, offset: 0.008, volume: 0.026, wave: "sawtooth" },
+    { frequency: 760, duration: 0.028, offset: 0.018, volume: 0.02, wave: "square" },
   ],
   enemyBreak: [
     { frequency: 150, duration: 0.06, volume: 0.025, wave: "square" },

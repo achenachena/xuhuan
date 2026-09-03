@@ -265,10 +265,12 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
           enemyImpactsRef.current.set(enemyID, {
             enemyID,
             x: enemy.position.x,
-            y: enemy.position.y,
+            // Player fire travels upward, so anchor the burst to the lower
+            // edge where the projectile actually meets the sprite.
+            y: enemy.position.y + (enemy.boss ? 310 : 155),
             boss: enemy.boss,
             destroyed,
-            untilTick: currentSnapshot.tick + (destroyed ? 8 : 4),
+            untilTick: currentSnapshot.tick + (destroyed ? 10 : 7),
           });
         }
       }
