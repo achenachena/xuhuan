@@ -27,6 +27,7 @@ import {
 } from "@/features/shooter/input";
 import {
   drawShooterArena,
+  observeShooterCanvas,
   preloadShooterVisuals,
   resolveShooterVisualSources,
   type ShooterEnemyImpact,
@@ -132,6 +133,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
       mountedRef.current = false;
     };
   }, []);
+  useEffect(() => observeShooterCanvas(canvasRef.current), []);
   useEffect(() => (embedded ? undefined : enterTelegramCombatMode()), [embedded]);
   useEffect(() => {
     setMusicActive(true);

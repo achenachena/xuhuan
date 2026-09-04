@@ -27,6 +27,7 @@ import {
 } from "@/features/shooter/input";
 import {
   drawShooterGates,
+  observeShooterCanvas,
   preloadShooterVisuals,
   resolveShooterVisualSources,
   type ShooterVisuals,
@@ -75,6 +76,8 @@ export const ShooterGates = ({ content, run, busy, onChoose }: Props) => {
   useEffect(() => {
     chooseRef.current = onChoose;
   }, [onChoose]);
+
+  useEffect(() => observeShooterCanvas(canvasRef.current), []);
 
   useEffect(() => enterTelegramCombatMode(), []);
   useEffect(() => {
