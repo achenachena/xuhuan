@@ -49,6 +49,15 @@ export type ShooterEnemyImpact = {
   readonly untilTick: number;
 };
 const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
+type PositionEntity = {
+  readonly id: number;
+  readonly position: { readonly x: number; readonly y: number };
+};
+type PositionIndex = ReadonlyMap<number, PositionEntity["position"]>;
+type CanvasMetrics = { readonly width: number; readonly height: number };
+const canvasMetrics = new WeakMap<HTMLCanvasElement, CanvasMetrics>();
+const positionIndexes = new WeakMap<readonly PositionEntity[], PositionIndex>();
+const emptyPositions: readonly PositionEntity[] = [];
 
 const loadImage = (source: string): Promise<HTMLImageElement | null> => {
   const cached = imageCache.get(source);
@@ -88,8 +97,7 @@ export const preloadShooterVisuals = async (sources: ShooterVisualSources): Prom
   return new Map(loaded.filter((entry): entry is readonly [string, HTMLImageElement] => entry[1] !== null));
 };
 
-const prepare = (canvas: HTMLCanvasElement | null): CanvasRenderingContext2D | null => {
-  if (!canvas) return null;
+const resizeCanvas = (canvas: HTMLCanvasElement): CanvasMetrics => {
   const rect = canvas.getBoundingClientRect();
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const width = Math.max(1, Math.round(rect.width * dpr));
@@ -98,6 +106,29 @@ const prepare = (canvas: HTMLCanvasElement | null): CanvasRenderingContext2D | n
     canvas.width = width;
     canvas.height = height;
   }
+  const metrics = { width, height };
+  canvasMetrics.set(canvas, metrics);
+  return metrics;
+};
+
+export const observeShooterCanvas = (
+  canvas: HTMLCanvasElement | null,
+): (() => void) | undefined => {
+  if (!canvas) return undefined;
+  const resize = () => resizeCanvas(canvas);
+  resize();
+  if (typeof ResizeObserver !== "undefined") {
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }
+  window.addEventListener("resize", resize);
+  return () => window.removeEventListener("resize", resize);
+};
+
+const prepare = (canvas: HTMLCanvasElement | null): CanvasRenderingContext2D | null => {
+  if (!canvas) return null;
+  const { width, height } = canvasMetrics.get(canvas) ?? resizeCanvas(canvas);
   const context = canvas.getContext("2d");
   if (!context) return null;
   context.imageSmoothingEnabled = false;
@@ -118,10 +149,26 @@ const drawSprite = (context: CanvasRenderingContext2D, image: HTMLImageElement |
   context.restore();
 };
 
-const entityPosition = <T extends { readonly id: number; readonly position: { readonly x: number; readonly y: number } }>(entity: T, previous: readonly T[], alpha: number) => {
-  const prior = previous.find((entry) => entry.id === entity.id);
+export const indexShooterPositions = (
+  entities: readonly PositionEntity[],
+): PositionIndex => {
+  const cached = positionIndexes.get(entities);
+  if (cached) return cached;
+  const index = new Map(entities.map((entity) => [entity.id, entity.position]));
+  positionIndexes.set(entities, index);
+  return index;
+};
+
+export const shouldUseDenseProjectileRendering = (count: number): boolean =>
+  count > 56;
+
+const entityPosition = <T extends PositionEntity>(entity: T, previous: PositionIndex, alpha: number) => {
+  const prior = previous.get(entity.id);
   return prior
-    ? { x: Math.round(prior.position.x + (entity.position.x - prior.position.x) * alpha), y: Math.round(prior.position.y + (entity.position.y - prior.position.y) * alpha) }
+    ? {
+        x: Math.round(prior.x + (entity.position.x - prior.x) * alpha),
+        y: Math.round(prior.y + (entity.position.y - prior.y) * alpha),
+      }
     : entity.position;
 };
 
@@ -198,6 +245,7 @@ const drawWideHostileProjectile = (
   y: number,
   width: number,
   radius: number,
+  dense: boolean,
 ): void => {
   const left = Math.round(x - width / 2);
   const right = Math.round(x + width / 2);
@@ -213,7 +261,7 @@ const drawWideHostileProjectile = (
   const bright = blackWall ? "#67e8f9" : "#fecdd3";
 
   context.shadowColor = outer;
-  context.shadowBlur = blackWall ? 34 : 22;
+  context.shadowBlur = dense ? 0 : blackWall ? 34 : 22;
 
   if (cut) {
     // A moving strip of interlocking pixel blades: the full collision width is
@@ -346,6 +394,7 @@ const drawHostileShard = (
   x: number,
   y: number,
   radius: number,
+  dense: boolean,
 ): void => {
   const angle = Math.atan2(projectile.velocity.y, projectile.velocity.x) - Math.PI / 2;
   const size = Math.max(44, radius);
@@ -362,7 +411,7 @@ const drawHostileShard = (
   // Crisp, low-resolution silhouettes match the authored pixel sprites. The
   // glow is deliberately restrained so the projectile still reads as pixels.
   context.shadowColor = outline;
-  context.shadowBlur = pixel * 1.5;
+  context.shadowBlur = dense ? 0 : pixel * 1.5;
   context.fillStyle = "#15091f";
   context.strokeStyle = outline;
   context.lineWidth = pixel;
@@ -506,7 +555,7 @@ const drawBossHealth = (
   }
 };
 
-const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapshot, previous: readonly ShooterEnemySnapshot[], alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals, wasHit: boolean, tick: number): void => {
+const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapshot, previous: PositionIndex, alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals, wasHit: boolean, tick: number): void => {
   const point = entityPosition(enemy, previous, alpha);
   const impactOffset = wasHit ? (tick % 2 === 0 ? -24 : 24) : 0;
   const impactDrop = wasHit ? 30 : 0;
@@ -514,7 +563,18 @@ const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapsho
   const baseSize = enemy.boss ? 900 : 460;
   const renderedSize = wasHit ? Math.round(baseSize * 1.13) : baseSize;
   drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y + impactDrop, renderedSize, enemy.boss ? "#f472b6" : "#fb7185");
-  if (wasHit) {
+  if (wasHit && enemy.boss) {
+    // Bosses are hit almost continuously. Re-filtering and redrawing the full
+    // 900px sprite every frame is expensive on mobile WebViews, so keep the
+    // feedback local to the projectile contact area.
+    context.save();
+    context.globalAlpha = tick % 2 === 0 ? 0.72 : 0.42;
+    context.fillStyle = "#f8fafc";
+    context.fillRect(point.x - 170, point.y + 250, 340, 32);
+    context.fillStyle = "#67e8f9";
+    context.fillRect(point.x - 92, point.y + 210, 184, 112);
+    context.restore();
+  } else if (wasHit) {
     context.save();
     context.globalAlpha = tick % 2 === 0 ? 0.88 : 0.55;
     context.filter = "brightness(4) contrast(1.8) saturate(.15)";
@@ -534,7 +594,7 @@ const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapsho
   }
 };
 
-const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterProjectileSnapshot, previous: readonly ShooterProjectileSnapshot[], alpha: number): void => {
+const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterProjectileSnapshot, previous: PositionIndex, alpha: number, dense: boolean): void => {
   const point = entityPosition(projectile, previous, alpha);
   context.save();
   const color = projectile.hostile ? "#fb7185" : "#67e8f9";
@@ -544,9 +604,9 @@ const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterPr
   const radius = Math.max(42, projectile.radius ?? 0);
   const width = projectile.width ?? 0;
   if (projectile.hostile && width > 0) {
-    drawWideHostileProjectile(context, projectile, point.x, point.y, width, radius);
+    drawWideHostileProjectile(context, projectile, point.x, point.y, width, radius, dense);
   } else if (projectile.hostile) {
-    drawHostileShard(context, projectile, point.x, point.y, radius);
+    drawHostileShard(context, projectile, point.x, point.y, radius, dense);
   } else if (projectile.kind === "rapid") {
     context.shadowBlur = 24;
     context.fillStyle = "#e0fbff";
@@ -574,7 +634,7 @@ const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterPr
   context.restore();
 };
 
-const drawPickup = (context: CanvasRenderingContext2D, pickup: ShooterPickupSnapshot, previous: readonly ShooterPickupSnapshot[], alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals): void => {
+const drawPickup = (context: CanvasRenderingContext2D, pickup: ShooterPickupSnapshot, previous: PositionIndex, alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals): void => {
   const point = entityPosition(pickup, previous, alpha);
   const pickupVisual = pickupVisuals[pickup.kind];
   const source = sources.pickups[pickupVisual.asset]!;
@@ -645,16 +705,27 @@ export const drawShooterArena = (
 ): void => {
   const context = prepare(canvas);
   if (!context) return;
+  const previousPickups = indexShooterPositions(previous?.pickups ?? emptyPositions);
+  const previousEnemyProjectiles = indexShooterPositions(
+    previous?.enemy_projectiles ?? emptyPositions,
+  );
+  const previousPlayerProjectiles = indexShooterPositions(
+    previous?.player_projectiles ?? emptyPositions,
+  );
+  const previousEnemies = indexShooterPositions(previous?.enemies ?? emptyPositions);
+  const denseProjectiles = shouldUseDenseProjectileRendering(
+    current.enemy_projectiles.length,
+  );
   drawBackground(context, sources.background, visuals, current.tick);
   for (const threat of current.threats) drawThreat(context, threat);
-  for (const pickup of current.pickups) drawPickup(context, pickup, previous?.pickups ?? [], alpha, sources, visuals);
-  for (const shot of current.enemy_projectiles) drawProjectile(context, shot, previous?.enemy_projectiles ?? [], alpha);
-  for (const shot of current.player_projectiles) drawProjectile(context, shot, previous?.player_projectiles ?? [], alpha);
+  for (const pickup of current.pickups) drawPickup(context, pickup, previousPickups, alpha, sources, visuals);
+  for (const shot of current.enemy_projectiles) drawProjectile(context, shot, previousEnemyProjectiles, alpha, denseProjectiles);
+  for (const shot of current.player_projectiles) drawProjectile(context, shot, previousPlayerProjectiles, alpha, false);
   for (const enemy of current.enemies) {
     drawEnemy(
       context,
       enemy,
-      previous?.enemies ?? [],
+      previousEnemies,
       alpha,
       sources,
       visuals,
