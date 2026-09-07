@@ -75,6 +75,7 @@ npm run check:english-source
 - Reviewed the 360 x 640 logical background at 1x and nearest-neighbor 2x, then the running demo at 320 x 568 and 1280 x 900. The display animation stays inside its bezel, and the HUD remains outside the combat plane. Chrome reported no browser errors.
 - TypeScript, ESLint, all 96 unit tests, all 22 Chrome browser regressions, English-source, asset, and diff checks passed. Campaign browser tests still use mocked API responses.
 - The replacement WebP is 52,106 bytes at 720 x 1280, down from 102,488 bytes. No new asset dependency or runtime service was added.
+- The first remote browser run caught a test-readiness race: a mouse press occurred under the asset-loading overlay. Pointer regressions now wait for that existing overlay to disappear and assert capture before movement, including every touch start. Runtime input behavior is unchanged.
 - These checks do not replace the human playtest gate below.
 
 ## Human playtest gate: pending

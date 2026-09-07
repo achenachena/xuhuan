@@ -35,6 +35,7 @@ test.describe("public browser portfolio", () => {
     await page.goto("/demo");
     const surface = page.getByTestId("shooter-control-surface");
     await expect(surface).toBeVisible();
+    await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
     const bounds = await surface.boundingBox();
     if (!bounds) throw new Error("Battlefield bounds unavailable");
     expect(bounds.width).toBeGreaterThan(280);
@@ -43,6 +44,7 @@ test.describe("public browser portfolio", () => {
     const startY = bounds.y + bounds.height * 0.72;
     await page.mouse.move(startX, startY);
     await page.mouse.down();
+    await expect(surface).toHaveAttribute("data-pointer-active", "true");
     for (const distance of [12, 24, 36]) {
       await page.mouse.move(startX + distance, startY, { steps: 3 });
       const position = Number(await surface.getAttribute("data-control-x"));
@@ -62,6 +64,7 @@ test.describe("public browser portfolio", () => {
     await page.goto("/demo");
     const surface = page.getByTestId("shooter-control-surface");
     await expect(surface).toBeVisible();
+    await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
     const bounds = await surface.boundingBox();
     if (!bounds) throw new Error("Battlefield bounds unavailable");
     const canvas = await page.getByTestId("shooter-canvas").elementHandle();
@@ -69,6 +72,7 @@ test.describe("public browser portfolio", () => {
     const x = bounds.x + bounds.width / 2;
     for (let index = 0; index < 20; index += 1) {
       await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x, y: bounds.y + bounds.height * 0.57 }] });
+      await expect(surface).toHaveAttribute("data-pointer-active", "true");
       await client.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: x + 1, y: bounds.y + bounds.height * 0.85 }] });
       await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     }
