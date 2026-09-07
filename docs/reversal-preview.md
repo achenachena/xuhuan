@@ -78,9 +78,11 @@ npm run check:english-source
 - The first remote browser run caught a test-readiness race: a mouse press occurred under the asset-loading overlay. Pointer regressions now wait for that existing overlay to disappear and assert capture before movement, including every touch start. Runtime input behavior is unchanged.
 - These checks do not replace the human playtest gate below.
 
-## Human playtest gate: pending
+## Human playtest: deferred for the initial release
 
-Do not promote production solely because automated tests pass. Recruit at least three people unfamiliar with the old game, and let each play twice without explaining the controls, upgrades, or objectives.
+On 2026-09-07, the project owner explicitly authorized publishing the entire reversal demo to production after being informed that the three-person playtest was still pending. This overrides the initial Preview-only release boundary for this release; it does not mean the human acceptance criteria passed.
+
+Retain the following playtest as product follow-up before expanding this approach to the campaign. Recruit at least three people unfamiliar with the old game, and let each play twice without explaining the controls, upgrades, or objectives.
 
 | Acceptance observation | Required result | Status |
 | --- | --- | --- |
@@ -91,4 +93,4 @@ Do not promote production solely because automated tests pass. Recruit at least 
 
 Record observed behavior and the exact Preview commit in the PR. Do not invent participants or substitute an agent playthrough for this gate. If the gate fails, improve this short slice before extending it to the campaign.
 
-Production promotion requires a separate decision after the gate passes. This change needs no migration, save reset, Lambda protocol switch, or player-data cleanup.
+This release needs no migration, save reset, Lambda protocol switch, or player-data cleanup. Automated deployment checks do not establish whether the game is fun.
