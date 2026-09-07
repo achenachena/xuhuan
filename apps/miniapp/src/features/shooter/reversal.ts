@@ -1,7 +1,7 @@
 import { PLAYER_Y, SHOOTER_WIDTH, clamp } from "@/features/shooter/constants";
 import { addEnemyHazard } from "@/features/shooter/enemies";
 import { addPlayerProjectile, addShooterEffect } from "@/features/shooter/weapons";
-import type { ReversalRole, ShooterEnemyEntity, ShooterMutableState, ShooterProjectileEntity, ShooterThreatSnapshot } from "@/features/shooter/types";
+import type { ReversalFanSnapshot, ReversalRole, ShooterEnemyEntity, ShooterMutableState, ShooterProjectileEntity, ShooterThreatSnapshot } from "@/features/shooter/types";
 
 /** Opt-in demo choreography. Campaign content continues to use its authored rules. */
 export const reversalHitbox = (enemy: Pick<ShooterEnemyEntity, "role">) => {
@@ -150,6 +150,16 @@ export const breakReversalCore = (state: ShooterMutableState, enemy: ShooterEnem
   if (!state.reversal || enemy.broken || enemy.groupID === undefined || enemy.role === "escort") return;
   enemy.broken = true;
   state.reversal.breaks += 1;
+  // A defeated machine joins the audience; it is never a collidable enemy again.
+  if ((enemy.role === "controller" || enemy.role === "arm") && enemy.health <= 0) {
+    const fans = state.reversal.fans;
+    if (fans.length >= 2) fans.shift();
+    const occupied = fans[0]?.side;
+    const side = occupied ? occupied === "left" ? "right" : "left" : enemy.x <= SHOOTER_WIDTH / 2 ? "left" : "right";
+    fans.push({ id: enemy.id, x: enemy.x, y: enemy.y,
+      side, age: 0, attackClock: 0, attackTicks: 0,
+    });
+  }
   const converted = state.enemyProjectiles.filter((bullet) => bullet.groupID === enemy.groupID);
   // Remove hostile entities immediately; the flip is purely a harmless effect.
   state.enemyProjectiles = state.enemyProjectiles.filter((bullet) => bullet.groupID !== enemy.groupID);
@@ -172,6 +182,49 @@ export const breakReversalCore = (state: ShooterMutableState, enemy: ShooterEnem
     const boss = state.enemies.find((candidate) => candidate.boss && candidate.health > 0);
     if (boss) { boss.disabledTicks = 60; boss.exposed = true; boss.health -= 50; }
   }
+};
+
+export const reversalFanPhase = (age: number): ReversalFanSnapshot["phase"] =>
+  age < 30 ? "joining" : age < 150 ? "cheering" : "leaving";
+
+export const updateReversalFans = (state: ShooterMutableState): void => {
+  if (!state.reversal) return;
+  state.reversal.fans = state.reversal.fans.filter((fan) => {
+    fan.age += 1;
+    if (fan.age >= 180) return false;
+    fan.attackTicks = Math.max(0, fan.attackTicks - 1);
+    const phase = reversalFanPhase(fan.age);
+    const dockX = fan.side === "left" ? 420 : 3_180;
+    if (phase === "joining") {
+      fan.x += clamp(dockX - fan.x, -120, 120);
+      fan.y += clamp(3_900 - fan.y, -120, 120);
+      return true;
+    }
+    if (phase === "leaving") {
+      fan.x += fan.side === "left" ? -24 : 24;
+      return true;
+    }
+    fan.attackClock += 1;
+    if (fan.age !== 30 && fan.attackClock < 18) return true;
+    let target: ShooterEnemyEntity | undefined;
+    let nearest = Infinity;
+    for (const enemy of state.enemies) {
+      if (enemy.health <= 0) continue;
+      const distance = (enemy.x - fan.x) ** 2 + (enemy.y - fan.y) ** 2;
+      if (distance < nearest) { target = enemy; nearest = distance; }
+    }
+    if (!target) return true;
+    const dx = target.x - fan.x, dy = target.y - fan.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    if (addPlayerProjectile(state, { x: fan.x, y: fan.y,
+      vx: Math.round(dx * 260 / distance), vy: Math.round(dy * 260 / distance),
+      damage: 2, radius: 28, kind: "reversal_fan",
+    })) {
+      fan.attackClock = 0;
+      fan.attackTicks = 6;
+    }
+    return true;
+  });
 };
 
 export const updateReversalWeapons = (state: ShooterMutableState): void => {

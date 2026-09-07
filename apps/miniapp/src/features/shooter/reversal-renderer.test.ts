@@ -1,7 +1,53 @@
-import { describe, expect, it } from "vitest";
-import { reversalPlayerFrame } from "@/features/shooter/reversal-renderer";
+import { describe, expect, it, vi } from "vitest";
+import { drawReversalArena, preloadReversalFrames, reversalPlayerFrame } from "@/features/shooter/reversal-renderer";
 import { resolveShooterVisualSources } from "@/features/shooter/renderer";
-import { createV4Run, v4Content } from "@/test/v4-fixtures";
+import { createShooterRuntime, createShooterSimulation } from "@/features/shooter/simulation";
+import type { ShooterSnapshot } from "@/features/shooter/types";
+import { createV4Run, v4Content, v4Runtime } from "@/test/v4-fixtures";
+
+const drawingContext = () => ({
+  save: vi.fn(), restore: vi.fn(), scale: vi.fn(), fillRect: vi.fn(),
+  drawImage: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
+  stroke: vi.fn(), setLineDash: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+  fillText: vi.fn(), globalAlpha: 1,
+});
+const emptyDemo = (): ShooterSnapshot => createShooterSimulation(createShooterRuntime({
+  ...v4Runtime, reversal: { weapon: "single", groups: [] },
+})).snapshot();
+const demoSources = { background: "stage", player: "nana", enemies: { equipment: "equipment" }, companions: {}, boss: "boss", pickups: [] };
+
+describe("clean demo actor rendering", () => {
+  it("does not draw shield cages or floating gun blocks around the player", () => {
+    const plain = drawingContext(), powered = drawingContext();
+    const snapshot = emptyDemo();
+    drawReversalArena(plain as unknown as CanvasRenderingContext2D, snapshot, null, 0, demoSources, new Map(), 1800, null, new Map());
+    drawReversalArena(powered as unknown as CanvasRenderingContext2D, {
+      ...snapshot, shield: 1, pickup_power_ticks: 200,
+    }, null, 0, demoSources, new Map(), 1800, null, new Map());
+    expect(powered.stroke).not.toHaveBeenCalled();
+    expect(powered.fillRect.mock.calls).toEqual(plain.fillRect.mock.calls);
+  });
+
+  it("draws a transformed fan once, not the defeated enemy and wreck as well", () => {
+    const equipment = new Image();
+    Object.defineProperties(equipment, { naturalWidth: { value: 8 }, naturalHeight: { value: 6 } });
+    const pixels = new Uint8ClampedArray(8 * 6 * 4).fill(255);
+    const prepareContext = { drawImage: vi.fn(), getImageData: () => ({ data: pixels }) };
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(prepareContext as unknown as CanvasRenderingContext2D);
+    const visuals = new Map([["equipment", equipment]]);
+    preloadReversalFrames(visuals, demoSources);
+    getContext.mockRestore();
+    const ctx = drawingContext();
+    const snapshot = emptyDemo();
+    drawReversalArena(ctx as unknown as CanvasRenderingContext2D, {
+      ...snapshot,
+      enemies: [{ id: 9, spec_id: "core", chassis: "spam-bot", position: { x: 1800, y: 1600 }, health: 0, max_health: 30, boss: false, role: "controller" }],
+      reversal: { breaks: 1, weapon: "single", fans: [{ id: 9, position: { x: 1800, y: 1600 }, side: "left", age: 0, phase: "joining", attack_ticks: 0 }] },
+    }, null, 0, demoSources, visuals, 1800, null, new Map([[9, { enemyID: 9, x: 1800, y: 1600, boss: false, role: "controller", destroyed: true, untilTick: 10 }]]));
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(ctx.drawImage.mock.calls[0]?.[0]).toBe(equipment);
+  });
+});
 
 describe("reversal sprite frame selection", () => {
   it("uses both idle frames when stationary between shots", () => {

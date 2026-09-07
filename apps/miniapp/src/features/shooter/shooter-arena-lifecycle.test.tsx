@@ -8,13 +8,14 @@ const dependencies = vi.hoisted(() => ({
   draw: vi.fn(),
   preload: vi.fn(),
   music: vi.fn(),
+  demoMusic: vi.fn(),
   sound: vi.fn(),
   sources: { background: "stage", player: "player", enemies: { equipment: "equipment" }, boss: "boss", reversal: false },
 }));
 
 vi.mock("@/components/providers/use-locale", () => ({ default: () => ({ language: "en" }) }));
 vi.mock("@/components/providers/audio-provider", () => ({
-  useAudio: () => ({ setMusicActive: dependencies.music, playSound: dependencies.sound }),
+  useAudio: () => ({ setMusicActive: dependencies.music, setDemoMusicProgress: dependencies.demoMusic, playSound: dependencies.sound }),
 }));
 vi.mock("@/features/shooter/renderer", () => ({
   drawShooterArena: dependencies.draw,
@@ -135,11 +136,13 @@ describe("ShooterArena input and local completion lifecycle", () => {
   });
 
   it("advances actual simulator completion through choice, Boss victory, and replay", async () => {
-    // A safe authored fixture exercises the real 40-second clock and scene
-    // transitions; enemy difficulty is covered by reversal simulation tests.
+    // One centered controller earns a real break without requiring a test bot.
+    // This covers the clock, inherited music, and terminal scene transitions.
     const manifest = structuredClone(demoManifest);
-    manifest.wave.runtime_config.reversal.groups = [];
+    manifest.wave.runtime_config.reversal.groups = [{ at_tick: 240, group_id: 1, x: 1_800, escorts: 0 }];
     for (const option of manifest.options) option.boss.runtime_config.boss.health = 1;
+    dependencies.sources.reversal = true;
+    dependencies.preload.mockResolvedValue(new Map(["stage", "player", "equipment", "boss"].map((key) => [key, new Image()])));
     const fetchManifest = vi.fn().mockResolvedValue({ ok: true, json: async () => manifest });
     vi.stubGlobal("fetch", fetchManifest);
     render(<BrowserDemo />);
@@ -147,13 +150,24 @@ describe("ShooterArena input and local completion lifecycle", () => {
     for (let index = 0; index < 1_001; index += 1) await advanceFrame();
     expect(await screen.findByRole("button", { name: "Twin Live Feed" })).toBeVisible();
     expect(screen.queryByText("SYNC…")).not.toBeInTheDocument();
+    const earnedBreaks = dependencies.draw.mock.lastCall?.[1].reversal.breaks as number;
+    expect(earnedBreaks).toBeGreaterThan(0);
+    expect(dependencies.draw.mock.lastCall?.[1].tick).toBe(1_200);
+    expect(frames.size).toBe(0);
+    const completedDraws = dependencies.draw.mock.calls.length;
+    await advanceFrame();
+    await advanceFrame();
+    expect(dependencies.draw).toHaveBeenCalledTimes(completedDraws);
+    dependencies.demoMusic.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Twin Live Feed" }));
+    expect(dependencies.demoMusic).toHaveBeenCalledWith(earnedBreaks);
     for (let index = 0; index < 20; index += 1) await advanceFrame();
-    expect(await screen.findByRole("button", { name: "Play again" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Continue in Telegram" })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Play again" }));
+    expect(await screen.findByRole("button", { name: "Restart" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open Telegram" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "GitHub" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
     expect(await screen.findByTestId("shooter-battlefield")).toHaveAttribute("data-segment-slug", "portfolio-demo-wave");
-    expect(screen.queryByRole("button", { name: "Play again" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
     expect(fetchManifest).toHaveBeenCalledTimes(1);
   });
 

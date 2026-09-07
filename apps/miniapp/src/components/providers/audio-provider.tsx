@@ -16,6 +16,7 @@ type AudioContextValue = {
   readonly muted: boolean;
   readonly playSound: (type: SoundEffectType) => void;
   readonly setMusicActive: (active: boolean) => void;
+  readonly setDemoMusicProgress: (breaks: number | null) => void;
   readonly toggleMuted: () => void;
 };
 
@@ -60,10 +61,14 @@ export const AudioProvider = ({ children }: { readonly children: ReactNode }) =>
     (active: boolean) => audioManager.setMusicActive(active),
     [],
   );
+  const setDemoMusicProgress = useCallback(
+    (breaks: number | null) => audioManager.setDemoMusicProgress(breaks),
+    [],
+  );
 
   const value = useMemo<AudioContextValue>(
-    () => ({ muted, playSound: (type) => audioManager.playSound(type), setMusicActive, toggleMuted }),
-    [muted, setMusicActive, toggleMuted],
+    () => ({ muted, playSound: (type) => audioManager.playSound(type), setMusicActive, setDemoMusicProgress, toggleMuted }),
+    [muted, setMusicActive, setDemoMusicProgress, toggleMuted],
   );
   return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;
 };

@@ -2,9 +2,12 @@
 
 import useTelegramHost from "@/components/providers/use-telegram-host";
 import GameShell from "@/features/game/game-shell";
-import { PortfolioLanding } from "@/features/portfolio/portfolio-landing";
+import { BrowserDemo } from "@/features/portfolio/browser-demo";
 
 export const HostExperience = () => {
   const host = useTelegramHost();
-  return host === "telegram" ? <GameShell /> : <PortfolioLanding />;
+  if (host === "detecting") {
+    return <main aria-busy="true" className="min-h-screen bg-[#02050e]" />;
+  }
+  return host === "telegram" ? <GameShell /> : <BrowserDemo />;
 };

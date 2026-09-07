@@ -2,7 +2,7 @@
 
 *Xuhuan: Only One Online* is a one-thumb portrait shooter built for Telegram Mini Apps. A stream has ended, seven fictional digital performers are still in the backstage group, and an automatic archive is quietly replacing their awkward, funny, unfinished moments with perfect highlights.
 
-The production URL is also a public engineering portfolio. A normal browser receives an English-first project overview and a short, anonymous Canvas demo; Telegram users with valid Mini App `initData` enter the persistent campaign. The browser demo creates no account, stores no progress, and makes no protected API calls.
+[Play in your browser](https://xuhuan-miniapp.vercel.app/) or [open the full game in Telegram](https://t.me/xuhuangamebot). A normal browser starts the anonymous Canvas demo directly; Telegram users with valid Mini App `initData` enter the persistent campaign. The browser demo creates no account, stores no progress, and makes no protected API calls.
 
 The V4 campaign is deliberately easy to enter: move only left and right, fire straight upward automatically, collect friendly support notes, and tap one special when it is ready. Each chapter contains three short waves, a concrete two-choice aftershow intermission, and a three-stage boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
 
@@ -82,16 +82,16 @@ make api
 make miniapp
 ```
 
-Open `http://localhost:3000` for the public portfolio or `/demo` for the browser showcase. The full campaign is mounted only when the Telegram SDK supplies `initData`. Playwright supplies an isolated Telegram host and API fixture; it does not create a development login or public credential.
+Open `http://localhost:3000` or `/demo` to play immediately. The full campaign is mounted only when the Telegram SDK supplies `initData`. Playwright supplies an isolated Telegram host and API fixture; it does not create a development login or public credential.
 
-In a production-mode browser, `/` renders the public portfolio and `/demo` runs the static showcase. The new `demo-v2` Preview slice lasts about 90 seconds: a 40-second authored wave, one visible weapon choice, and a Boss lasting at most 45 seconds. It adds formation-core reversals without changing the eight-chapter campaign. Generate its immutable manifests from the Go catalog after relevant shooter or content changes:
+Both public routes run `demo-v2`: a 40-second authored wave, one visible weapon choice, and a Boss lasting at most 45 seconds. Broken control cores turn their own formation's bullets into support; defeated machines become temporary penlight-waving allies. Each reversal restores another layer of the original local chiptune score. These demo mechanics do not change the eight-chapter campaign. Generate its static manifests from the Go catalog after relevant shooter or content changes:
 
 ```sh
 npm run generate:portfolio-demo
 npm run check:portfolio-demo
 ```
 
-The new demo is Preview-only until the [human playtest gate](docs/reversal-preview.md) passes. Automated tests verify correctness, not whether unfamiliar players find the game fun.
+See [browser-demo.md](docs/browser-demo.md) for its scope and assets. The owner authorized production release; the independent human playtest remains pending. Automated tests verify correctness, not whether unfamiliar players find the game fun.
 
 ## Verify a change
 
@@ -114,7 +114,7 @@ The V4 loader and CI reject missing chapters, boss stages, translations, referen
 
 ## Production release
 
-Merging does not silently publish production. The protected workflow builds one explicit current `main` commit, publishes an immutable Lambda version, deploys the Vercel artifact, and checks API health, content, portfolio, and demo routes. Database migrations run separately only when a release actually changes schema. See [production-release.md](docs/production-release.md).
+Merging does not silently publish production. The protected workflow builds one explicit current `main` commit, publishes an immutable Lambda version, deploys the Vercel artifact, and checks API health, content, public entry, and demo routes. Database migrations run separately only when a release actually changes schema. See [production-release.md](docs/production-release.md).
 
 Runtime secrets stay in AWS SSM `SecureString` parameters. GitHub uses short-lived AWS OIDC credentials; Vercel deployment uses the existing scoped deployment credential. These are deployment requirements, not player accounts or game tokens.
 

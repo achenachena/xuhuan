@@ -76,6 +76,22 @@ const sounds: Record<SoundEffectType, readonly Tone[]> = {
 };
 
 const muteStorageKey = "xuhuan.audio-muted.v1";
+const musicIntervalMs = 240;
+const maximumVoices = 24;
+
+// Original, local oscillator scores. The existing campaign arrangement stays
+// separate from the opt-in demo's gradually restored livestream arrangement.
+const campaignMelody = [659, 0, 784, 880, 0, 784, 659, 587, 659, 0, 988, 880, 784, 0, 659, 587] as const;
+const campaignBass = [110, 110, 147, 147, 98, 98, 131, 131] as const;
+const demoMelody = [523, 0, 659, 784, 659, 0, 587, 659, 440, 0, 523, 659, 587, 523, 392, 0] as const;
+const demoBass = [131, 131, 110, 110, 87, 87, 98, 98] as const;
+const demoHarmony = [330, 392, 262, 330, 220, 262, 294, 392] as const;
+
+type Voice = {
+  readonly oscillator: OscillatorNode;
+  readonly gain: GainNode;
+  readonly music: boolean;
+};
 
 class AudioManager {
   private context: AudioContext | null = null;
@@ -85,10 +101,19 @@ class AudioManager {
   private musicPaused = false;
   private musicStep = 0;
   private musicTimer: number | null = null;
+  private demoMusicProgress: number | null = null;
+  private demoFullUntil = 0;
+  private demoGlitchUntil = 0;
+  private demoGlitchCooldownUntil = 0;
+  private readonly voices = new Set<Voice>();
 
   constructor() {
     if (typeof window !== "undefined") {
-      this.muted = window.localStorage.getItem(muteStorageKey) === "true";
+      try {
+        this.muted = window.localStorage.getItem(muteStorageKey) === "true";
+      } catch {
+        // Restricted WebViews can still play audio without persisting mute.
+      }
     }
   }
 
@@ -104,9 +129,16 @@ class AudioManager {
   setMuted(muted: boolean): void {
     this.muted = muted;
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(muteStorageKey, String(muted));
+      try {
+        window.localStorage.setItem(muteStorageKey, String(muted));
+      } catch {
+        // Storage availability is not an audio permission boundary.
+      }
     }
-    if (muted) this.stopMusicScheduler();
+    if (muted) {
+      this.stopMusicScheduler();
+      this.stopVoices(false);
+    }
     else this.startMusicScheduler();
   }
 
@@ -118,16 +150,47 @@ class AudioManager {
 
   setMusicPaused(paused: boolean): void {
     this.musicPaused = paused;
-    if (paused) this.stopMusicScheduler();
+    if (paused) {
+      this.stopMusicScheduler();
+      this.stopVoices(false);
+    }
     else this.startMusicScheduler();
   }
 
+  // Only the browser demo opts in. The count is already-known game progress,
+  // not a second scoring system; null restores the unchanged campaign score.
+  setDemoMusicProgress(breaks: number | null): void {
+    const progress = breaks === null ? null : Math.max(0, Math.min(3, Math.floor(breaks) || 0));
+    const reset = (progress === null) !== (this.demoMusicProgress === null)
+      || (progress !== null && this.demoMusicProgress !== null && progress < this.demoMusicProgress);
+    this.demoMusicProgress = progress;
+    if (reset) {
+      this.musicStep = 0;
+      this.demoFullUntil = 0;
+      this.demoGlitchUntil = 0;
+      this.demoGlitchCooldownUntil = 0;
+      this.stopVoices(true);
+    }
+  }
+
   playSound(type: SoundEffectType): void {
-    if (!this.interacted || this.muted || typeof window === "undefined") return;
+    if (!this.interacted || this.muted || this.musicPaused || typeof window === "undefined") return;
     const context = this.audioContext();
     if (!context) return;
     if (context.state === "suspended") void context.resume().catch(() => undefined);
     const start = context.currentTime;
+    if (this.demoMusicProgress !== null) {
+      if (type === "rescue") {
+        this.demoFullUntil = start + 8;
+        this.demoGlitchUntil = 0;
+      } else if (type === "bossWarning" && start >= this.demoFullUntil && start >= this.demoGlitchCooldownUntil) {
+        // With the 240 ms scheduler, a 250 ms disruption restores the next
+        // phrase within 490 ms even when a warning lands between beats.
+        this.demoGlitchUntil = start + 0.25;
+        this.demoGlitchCooldownUntil = start + 10;
+        this.stopVoices(true);
+      }
+    }
     for (const tone of sounds[type]) this.playTone(context, start, tone);
   }
 
@@ -158,19 +221,22 @@ class AudioManager {
     if (!context) return;
     if (context.state === "suspended") void context.resume().catch(() => undefined);
     this.playMusicStep(context);
-    this.musicTimer = window.setInterval(() => this.playMusicStep(context), 240);
+    this.musicTimer = window.setInterval(() => this.playMusicStep(context), musicIntervalMs);
   }
 
   private stopMusicScheduler(): void {
-    if (this.musicTimer === null) return;
-    window.clearInterval(this.musicTimer);
+    if (this.musicTimer !== null) window.clearInterval(this.musicTimer);
     this.musicTimer = null;
+    this.stopVoices(true);
   }
 
   private playMusicStep(context: AudioContext): void {
-    const melody = [659, 0, 784, 880, 0, 784, 659, 587, 659, 0, 988, 880, 784, 0, 659, 587] as const;
-    const bass = [110, 110, 147, 147, 98, 98, 131, 131] as const;
-    const melodyNote = melody[this.musicStep % melody.length] ?? 0;
+    if (this.demoMusicProgress !== null) {
+      this.playDemoMusicStep(context);
+      this.musicStep = (this.musicStep + 1) % demoMelody.length;
+      return;
+    }
+    const melodyNote = campaignMelody[this.musicStep % campaignMelody.length] ?? 0;
     const start = context.currentTime + 0.01;
     if (melodyNote > 0) {
       this.playTone(context, start, {
@@ -178,22 +244,71 @@ class AudioManager {
         duration: 0.15,
         volume: 0.006,
         wave: "square",
-      });
+      }, true);
     }
     if ((this.musicStep & 1) === 0) {
       this.playTone(context, start, {
-        frequency: bass[Math.floor(this.musicStep / 2) % bass.length]!,
+        frequency: campaignBass[Math.floor(this.musicStep / 2) % campaignBass.length]!,
         duration: 0.38,
         volume: 0.008,
         wave: "triangle",
-      });
+      }, true);
     }
-    this.musicStep = (this.musicStep + 1) % melody.length;
+    this.musicStep = (this.musicStep + 1) % campaignMelody.length;
   }
 
-  private playTone(context: AudioContext, start: number, tone: Tone): void {
+  private playDemoMusicStep(context: AudioContext): void {
+    const start = context.currentTime + 0.01;
+    if (context.currentTime < this.demoGlitchUntil) {
+      this.playTone(context, start, { frequency: 82, duration: 0.04, volume: 0.004, wave: "square" }, true);
+      return;
+    }
+    const layers = context.currentTime < this.demoFullUntil ? 3 : this.demoMusicProgress ?? 0;
+    const beat = this.musicStep;
+    const melody = demoMelody[beat]!;
+    if (melody) {
+      this.playTone(context, start, { frequency: melody, duration: 0.17, volume: 0.006, wave: "square" }, true);
+    }
+    if (layers >= 1) {
+      // Short pitched envelopes provide kick/snare ticks without noise buffers.
+      this.playTone(context, start, {
+        frequency: beat % 4 === 0 ? 72 : beat % 4 === 2 ? 185 : 1_760,
+        duration: beat % 2 === 0 ? 0.07 : 0.018,
+        volume: beat % 2 === 0 ? 0.007 : 0.002,
+        wave: beat % 4 === 0 ? "triangle" : "square",
+      }, true);
+    }
+    if (layers >= 2 && beat % 2 === 0) {
+      this.playTone(context, start, { frequency: demoBass[beat / 2]!, duration: 0.32, volume: 0.008, wave: "triangle" }, true);
+    }
+    if (layers >= 3 && beat % 2 === 0) {
+      this.playTone(context, start, { frequency: demoHarmony[beat / 2]!, duration: 0.27, volume: 0.004, wave: "triangle" }, true);
+    }
+  }
+
+  private stopVoices(musicOnly: boolean): void {
+    this.voices.forEach((voice) => {
+      if (!musicOnly || voice.music) this.releaseVoice(voice, true);
+    });
+  }
+
+  private releaseVoice(voice: Voice, stop = false): void {
+    if (!this.voices.delete(voice)) return;
+    voice.oscillator.onended = null;
+    if (stop) {
+      try { voice.oscillator.stop(); } catch { /* An ended oscillator is already silent. */ }
+    }
+    voice.oscillator.disconnect();
+    voice.gain.disconnect();
+  }
+
+  private playTone(context: AudioContext, start: number, tone: Tone, music = false): void {
+    if (this.voices.size >= maximumVoices) return;
     const oscillator = context.createOscillator();
     const gain = context.createGain();
+    const voice: Voice = { oscillator, gain, music };
+    this.voices.add(voice);
+    oscillator.onended = () => this.releaseVoice(voice);
     const begins = start + (tone.offset ?? 0);
     const ends = begins + tone.duration;
     oscillator.type = tone.wave ?? "sine";

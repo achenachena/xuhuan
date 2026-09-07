@@ -148,9 +148,11 @@ jobs:
           test "$(curl --fail --silent --retry 5 "$api/readyz" | jq -r .status)" = "ready"
           test "$(curl --fail --silent --retry 5 "$api/v2/content/v4?locale=en" | jq -r .protocol)" = "shooter-v1"
           vercel curl / --deployment "$FRONTEND_URL" -- \
-            --fail --silent | grep --fixed-strings --quiet "CONTENT-V4 / SHOOTER-V1"
+            --fail --silent | grep --fixed-strings --quiet 'data-testid="game-entry"'
           vercel curl /demo --deployment "$FRONTEND_URL" -- \
             --fail --silent > /dev/null
+          test "$(vercel curl /game/v4/demo/demo-v2.en.json --deployment "$FRONTEND_URL" -- \
+            --fail --silent | jq -r .version)" = "demo-v2"
 
       - name: Release summary
         run: |

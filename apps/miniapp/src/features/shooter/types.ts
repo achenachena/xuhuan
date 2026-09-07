@@ -8,6 +8,14 @@ import type {
 export type ShooterPosition = { readonly x: number; readonly y: number };
 export type ShooterPickupPower = "rapid" | "spread" | "pierce" | "support";
 export type ReversalRole = "controller" | "escort" | "arm" | "boss";
+export type ReversalFanSnapshot = {
+  readonly id: number;
+  readonly position: ShooterPosition;
+  readonly side: "left" | "right";
+  readonly age: number;
+  readonly phase: "joining" | "cheering" | "leaving";
+  readonly attack_ticks: number;
+};
 export type ShooterEnemySnapshot = {
   readonly id: number;
   readonly spec_id: string;
@@ -71,7 +79,7 @@ export type ShooterSnapshot = {
   readonly graze_count: number;
   readonly combo: number;
   readonly score: number;
-  readonly reversal?: { breaks: number; weapon: "single" | "twin" | "pierce" };
+  readonly reversal?: { breaks: number; weapon: "single" | "twin" | "pierce"; fans: readonly ReversalFanSnapshot[] };
   readonly pickup_power?: ShooterPickupPower;
   readonly pickup_power_ticks?: number;
   readonly daily_variant?: string;
@@ -180,6 +188,16 @@ export type ShooterEffectEntity = {
   kind: ShooterEffectSnapshot["kind"];
 };
 
+export type ReversalFanEntity = {
+  id: number;
+  x: number;
+  y: number;
+  side: "left" | "right";
+  age: number;
+  attackClock: number;
+  attackTicks: number;
+};
+
 export type ShooterMutableState = {
   readonly config: ShooterRuntimeConfig;
   readonly runtime: ShooterResolvedRuntime;
@@ -222,6 +240,7 @@ export type ShooterMutableState = {
   reversal?: {
     breaks: number;
     chain: { enemyID: number; tick: number; damage: number }[];
+    fans: ReversalFanEntity[];
   };
 };
 
