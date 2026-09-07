@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/api"
 	"github.com/achenachena/xuhuan/apps/api/internal/application"
@@ -32,9 +31,7 @@ func run() error {
 		return err
 	}
 	defer func() {
-		shutdownContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := runtime.Close(shutdownContext); err != nil {
+		if err := runtime.Close(); err != nil {
 			runtime.Logger.Warn("runtime_shutdown_failed")
 		}
 	}()

@@ -9,14 +9,6 @@ import type {
   ShooterRunCommandResponse,
 } from "@/lib/api/types";
 
-export type APIGameContent = ShooterContent;
-export type APIGameSnapshot = ShooterGameSnapshot;
-export type APIGameRun = ShooterGameRun;
-export type APIRunState = ShooterGameRun["state"];
-export type APIRunCommand = ShooterRunCommand;
-export type APIRunCommandResponse = ShooterRunCommandResponse;
-export type APICreateRunRequest = ShooterCreateRunRequest;
-export type { APIDailyResult } from "@/lib/api/types";
 const requestTimeoutMilliseconds = 20_000;
 const segmentResultAttempts = 3;
 const retryDelaysMilliseconds = [250, 750] as const;

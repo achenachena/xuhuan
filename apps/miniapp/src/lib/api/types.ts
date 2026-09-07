@@ -4,22 +4,11 @@ type Schemas = components["schemas"];
 
 export type GameLocale = Schemas["GameContent"]["locale"];
 
-export type ShooterEffectKind = Schemas["RuntimeEffect"]["kind"];
-export type ShooterEffect = Schemas["RuntimeEffect"];
-export type ShooterKit = Schemas["RuntimeKit"];
-export type ShooterCompanion = Schemas["RuntimeCompanion"];
 export type ShooterEnemySpec = Schemas["RuntimeEnemy"];
-export type ShooterWaveSpawn = Schemas["Spawn"];
-export type ShooterWave = Schemas["Wave"];
 export type ShooterBossStage = Schemas["RuntimeBossStage"];
 export type ShooterBoss = Schemas["RuntimeBoss"];
-export type ShooterLimits = Schemas["RuntimeLimits"];
 export type ShooterRuntimeConfig = Schemas["RuntimeConfig"];
 
-export type ShooterRules = Schemas["Rules"];
-export type ShooterShowEffectContent = Schemas["LocalizedShowEffect"];
-export type ShooterCharacterContent = Schemas["LocalizedCharacter"];
-export type ShooterCompanionContent = Schemas["LocalizedCompanion"];
 export type ShooterChapterContent = Schemas["LocalizedChapter"];
 export type ShooterStoryMessage = Schemas["LocalizedBubble"];
 export type ShooterStoryOption = Pick<
@@ -39,11 +28,8 @@ export type ShooterStoryScene = {
 
 export type ShooterContent = Schemas["GameContent"];
 export type ShooterSegment = Schemas["SegmentState"];
-export type ShooterStoryState = Schemas["RunStory"];
 export type ShooterRunState = Schemas["RunState"];
 export type ShooterGameRun = Schemas["GameRun"];
-export type ShooterChapterProgress = Schemas["ChapterProgress"];
-export type ShooterGameProgress = Schemas["GameProgress"];
 export type ShooterGameSnapshot = Schemas["GameSnapshot"];
 export type ShooterCreateRunRequest = Schemas["CreateRunRequest"];
 export type ShooterRunCommand = Schemas["RunCommandRequest"];
@@ -54,7 +40,6 @@ export type ShooterRunCommandInput = ShooterRunCommand extends infer Command
     : never
   : never;
 
-export type ShooterRunEvent = Schemas["RunEvent"];
 export type ShooterRunCommandResponse = Schemas["RunCommandResponse"];
 export type ShooterSegmentOutcome = Schemas["SegmentOutcome"];
 export type APIDailyResult = Schemas["DailyResult"];

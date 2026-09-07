@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import type { APIDailyResult, APIGameContent } from "@/lib/api/client";
+import type { APIDailyResult, ShooterContent } from "@/lib/api/types";
 
 const runIDPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -34,8 +34,8 @@ export const getPublicDailyResult = cache(
 );
 
 export const getPublicGameContent = cache(
-  (locale: "en" | "zh-CN"): Promise<APIGameContent | null> =>
-    publicRequest<APIGameContent>(
+  (locale: "en" | "zh-CN"): Promise<ShooterContent | null> =>
+    publicRequest<ShooterContent>(
       `/v2/content/v4?locale=${encodeURIComponent(locale)}`,
       31_536_000,
     ),

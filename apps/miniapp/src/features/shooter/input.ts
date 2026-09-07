@@ -15,7 +15,6 @@ export type SurfaceBounds = {
 export type ShooterPointerState = {
   readonly pointerId: number;
   readonly xOffset: number;
-  readonly targetX: number;
 };
 
 export type ShooterControl = {
@@ -68,7 +67,6 @@ export const beginShooterPointer = (
     pointer: {
       pointerId,
       xOffset: control.playerX - pointerX,
-      targetX: control.playerX,
     },
   };
 };
@@ -89,7 +87,6 @@ export const moveShooterPointer = (
   return {
     ...control,
     playerX: targetX,
-    pointer: { ...control.pointer, targetX },
   };
 };
 
@@ -112,6 +109,3 @@ export const sampleShooterInput = (
   ),
   rescue,
 });
-
-export const isShooterPointerActive = (control: ShooterControl): boolean =>
-  control.pointer !== null;

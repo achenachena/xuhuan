@@ -50,13 +50,13 @@ Every write includes an `Idempotency-Key` and `expected_version` because Telegra
 4. applies the legal state transition; and
 5. commits the command record, Run snapshot, and any progress update in one transaction.
 
-Redis is never a source of game truth. If distributed rate limiting is unavailable, the API retains local protection and fails open for playability.
+Redis is never a source of game truth. If distributed rate limiting is unavailable, the API falls back to a bounded in-memory limiter in each server instance.
 
 ## Content
 
 `apps/api/internal/content/v4` contains the embedded English-first V4 catalog: shared effects, seven characters, six enemy chassis, eight chapters, Daily mode, and matching English and Simplified Chinese locale files. Startup and CI validate references, translations, asset paths, limits, and chapter structure.
 
-Go resolves authored content into a browser-ready `runtime_config`. TypeScript does not maintain a second content rules interpreter. The public demo manifests are generated from the same catalog.
+Go selects the kit, enemies, waves, Boss, companions, and show effects for each segment and returns them in `runtime_config`. The TypeScript simulation applies those effects to local combat parameters. The public demo manifests are generated from the same Go catalog.
 
 ## Deployment
 

@@ -27,7 +27,6 @@ export const createShooterRuntime = (
     maxHealth: config.kit.max_health,
     rescueCharge: config.starting_rescue_charge,
     rescueDamage: config.kit.rescue_damage,
-    companionPower: 0,
     grazeCharge: 4,
     spread: 0,
     guardOnSpecial: 0,
@@ -87,8 +86,6 @@ export const createShooterRuntime = (
 
   return {
     config,
-    enemySpecs: new Map(config.enemies.map((enemy) => [enemy.id, enemy])),
-    boss: config.boss ?? null,
     resolved,
     dailyVariant,
   };
@@ -321,10 +318,7 @@ export const updateCompanions = (state: ShooterMutableState): void => {
       !companionTriggered(state, companion.trigger)
     ) continue;
     state.companionClocks[index] = 0;
-    let amount = Math.max(
-      1,
-      companion.amount + state.runtime.companionPower,
-    );
+    let amount = Math.max(1, companion.amount);
     if (mode === 1) amount += Math.max(1, goDivide(amount, 2));
     activateCompanion(
       state,

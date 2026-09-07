@@ -5,7 +5,7 @@ import Link from "next/link";
 import LanguageToggle from "@/components/language-toggle";
 import useLocale from "@/components/providers/use-locale";
 import { gameText, type GameCopyKey } from "@/features/game/game-copy";
-import type { APIDailyResult } from "@/lib/api/client";
+import type { APIDailyResult } from "@/lib/api/types";
 
 type DailyResultViewProps = {
   readonly result: APIDailyResult;
