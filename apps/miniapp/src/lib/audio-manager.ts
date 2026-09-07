@@ -2,6 +2,7 @@ export type SoundEffectType =
   | "pickup"
   | "enemyHit"
   | "enemyBreak"
+  | "coreBreak"
   | "hit"
   | "shield"
   | "combo"
@@ -33,6 +34,12 @@ const sounds: Record<SoundEffectType, readonly Tone[]> = {
     { frequency: 150, duration: 0.06, volume: 0.025, wave: "square" },
     { frequency: 420, duration: 0.08, offset: 0.025, volume: 0.022, wave: "sawtooth" },
     { frequency: 760, duration: 0.1, offset: 0.05, volume: 0.018, wave: "triangle" },
+  ],
+  coreBreak: [
+    { frequency: 95, duration: 0.08, volume: 0.04, wave: "square" },
+    { frequency: 523, duration: 0.1, offset: 0.04, volume: 0.035, wave: "triangle" },
+    { frequency: 784, duration: 0.12, offset: 0.1, volume: 0.03, wave: "square" },
+    { frequency: 1046, duration: 0.15, offset: 0.18, volume: 0.02, wave: "triangle" },
   ],
   hit: [{ frequency: 105, duration: 0.09, volume: 0.055, wave: "square" }],
   shield: [

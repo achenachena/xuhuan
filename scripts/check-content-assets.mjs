@@ -68,6 +68,15 @@ const requiredAssets = [
     (slug) => `/game/v4/pickups/${slug}.webp`,
   ),
 ];
+// The browser-only preview has its own exact asset set. Do not mutate the
+// released campaign manifest just to make optional preview art available.
+const demoAssets = [
+  "/game/v4/reversal/stage.webp",
+  "/game/v4/reversal/nana-sheet.webp",
+  "/game/v4/reversal/equipment-sheet.webp",
+  "/game/v4/reversal/boss-sheet.webp",
+];
+const demoSpriteBudget = { maxWidth: 1024, maxHeight: 1024, maxBytes: 200 * 1024 };
 
 const readUInt24LE = (buffer, offset) =>
   buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
@@ -154,8 +163,10 @@ const actual = (await walk(publicRoot, ".webp"))
   )
   .sort();
 const actualSet = new Set(actual);
-const missing = listed.filter((asset) => !actualSet.has(asset));
-const unlisted = actual.filter((asset) => !listedSet.has(asset));
+const allAssets = [...listed, ...demoAssets];
+const allAssetSet = new Set(allAssets);
+const missing = allAssets.filter((asset) => !actualSet.has(asset));
+const unlisted = actual.filter((asset) => !allAssetSet.has(asset));
 if (missing.length > 0 || unlisted.length > 0) {
   throw new Error(
     `V4 asset manifest mismatch\nMissing: ${missing.join(", ") || "none"}\nUnlisted: ${unlisted.join(", ") || "none"}`,
@@ -165,9 +176,11 @@ if (missing.length > 0 || unlisted.length > 0) {
 let encodedBytes = 0;
 let decodedBytes = 0;
 await Promise.all(
-  listed.map(async (asset) => {
+  allAssets.map(async (asset) => {
     const category = asset.split("/")[3];
-    const budget = assetBudgets[category];
+    const budget = category === "reversal"
+      ? asset.endsWith("/stage.webp") ? assetBudgets.backgrounds : demoSpriteBudget
+      : assetBudgets[category];
     if (!budget) throw new Error(`Unknown V4 asset category: ${asset}`);
     const absolute = path.join(publicRoot, asset.slice("/game/v4/".length));
     const buffer = await readFile(absolute);
@@ -220,6 +233,19 @@ if (undeclaredReferences.length > 0) {
   );
 }
 
+for (const locale of ["en", "zh-CN"]) {
+  const demoFile = path.join(publicRoot, "demo", `demo-v2.${locale}.json`);
+  collectReferences(JSON.parse(await readFile(demoFile, "utf8")));
+}
+const missingDemoReferences = [...referenced].filter(
+  (asset) => !allAssetSet.has(asset),
+);
+if (missingDemoReferences.length > 0) {
+  throw new Error(
+    `Preview references undeclared assets: ${missingDemoReferences.join(", ")}`,
+  );
+}
+
 console.log(
-  `Verified ${listed.length} immutable V4 assets and ${referenced.size} authored references (${(encodedBytes / MEBIBYTE).toFixed(2)} MiB encoded, ${(decodedBytes / MEBIBYTE).toFixed(2)} MiB decoded catalog).`,
+  `Verified ${listed.length} immutable V4 assets, ${demoAssets.length} preview assets and ${referenced.size} authored references (${(encodedBytes / MEBIBYTE).toFixed(2)} MiB encoded, ${(decodedBytes / MEBIBYTE).toFixed(2)} MiB decoded catalog).`,
 );

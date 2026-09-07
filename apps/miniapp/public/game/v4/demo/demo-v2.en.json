@@ -1,6 +1,7 @@
 {
-  "version": "demo-v1",
+  "version": "demo-v2",
   "locale": "en",
+  "opening": "Where's my mod? ...Oh. Just you.",
   "content": {
     "version": "v4",
     "protocol": "shooter-v1",
@@ -32,11 +33,11 @@
         "amount": 1
       },
       {
-        "id": "safety-chat",
-        "name": "Safety Chat",
-        "description": "Using a special grants one brief guard.",
-        "archetype": "guard",
-        "behavior": "guard_on_special",
+        "id": "clean-cut",
+        "name": "Clean Cut",
+        "description": "Shots pierce one additional target.",
+        "archetype": "power",
+        "behavior": "piercing_shot",
         "amount": 1
       }
     ],
@@ -189,13 +190,13 @@
   "wave": {
     "segment_slug": "portfolio-demo-wave",
     "segment_index": 0,
-    "seed": "portfolio-demo-wave-v1",
-    "duration_ticks": 900,
-    "wave_id": "dock-wave-1",
-    "background_url": "/game/v4/backgrounds/seventh-dock.webp",
+    "seed": "portfolio-demo-wave-v2",
+    "duration_ticks": 1200,
+    "wave_id": "reversal-opening",
+    "background_url": "/game/v4/reversal/stage.webp",
     "runtime_config": {
-      "seed": "portfolio-demo-wave-v1",
-      "duration_ticks": 900,
+      "seed": "portfolio-demo-wave-v2",
+      "duration_ticks": 1200,
       "player_health": 3,
       "starting_rescue_charge": 35,
       "encore_level": 0,
@@ -204,8 +205,8 @@
       "kit": {
         "id": "nana7mi",
         "max_health": 3,
-        "attack_damage": 12,
-        "fire_interval": 9,
+        "attack_damage": 4,
+        "fire_interval": 6,
         "rescue_damage": 34,
         "starting_shield": 1,
         "move_limit": 1520,
@@ -311,21 +312,59 @@
         }
       ],
       "wave": {
-        "id": "dock-wave-1",
-        "spawns": [
+        "id": "reversal-opening",
+        "spawns": []
+      },
+      "reversal": {
+        "weapon": "single",
+        "groups": [
           {
             "at_tick": 30,
-            "enemy_id": "spam-bot",
-            "count": 4,
-            "formation": "line",
-            "interval_ticks": 18
+            "group_id": 1,
+            "x": 1800,
+            "escorts": 0
           },
           {
-            "at_tick": 300,
-            "enemy_id": "clip-cutter",
-            "count": 2,
-            "formation": "pincer",
-            "interval_ticks": 24
+            "at_tick": 120,
+            "group_id": 2,
+            "x": 1100,
+            "escorts": 0
+          },
+          {
+            "at_tick": 240,
+            "group_id": 3,
+            "x": 1800,
+            "escorts": 1
+          },
+          {
+            "at_tick": 480,
+            "group_id": 4,
+            "x": 950,
+            "escorts": 1
+          },
+          {
+            "at_tick": 480,
+            "group_id": 5,
+            "x": 2650,
+            "escorts": 1
+          },
+          {
+            "at_tick": 720,
+            "group_id": 6,
+            "x": 950,
+            "escorts": 2
+          },
+          {
+            "at_tick": 720,
+            "group_id": 7,
+            "x": 2650,
+            "escorts": 2
+          },
+          {
+            "at_tick": 900,
+            "group_id": 8,
+            "x": 1800,
+            "escorts": 2
           }
         ]
       },
@@ -333,7 +372,7 @@
         "enemies": 14,
         "enemy_projectiles": 120,
         "player_projectiles": 48,
-        "pickups": 12,
+        "pickups": 6,
         "effects": 24
       }
     }
@@ -341,18 +380,17 @@
   "options": [
     {
       "id": "double-take",
-      "name": "Double Take",
-      "description": "Add a second narrow shot to every volley.",
+      "name": "Twin Live Feed",
       "boss": {
         "segment_slug": "portfolio-demo-boss-double-take",
         "segment_index": 1,
-        "seed": "portfolio-demo-boss-v1:double-take",
-        "duration_ticks": 900,
+        "seed": "portfolio-demo-boss-v2:double-take",
+        "duration_ticks": 1350,
         "boss_id": "optimal-nana",
-        "background_url": "/game/v4/backgrounds/seventh-dock.webp",
+        "background_url": "/game/v4/reversal/stage.webp",
         "runtime_config": {
-          "seed": "portfolio-demo-boss-v1:double-take",
-          "duration_ticks": 900,
+          "seed": "portfolio-demo-boss-v2:double-take",
+          "duration_ticks": 1350,
           "player_health": 3,
           "starting_rescue_charge": 55,
           "encore_level": 0,
@@ -361,8 +399,8 @@
           "kit": {
             "id": "nana7mi",
             "max_health": 3,
-            "attack_damage": 12,
-            "fire_interval": 9,
+            "attack_damage": 4,
+            "fire_interval": 6,
             "rescue_damage": 34,
             "starting_shield": 1,
             "move_limit": 1520,
@@ -478,7 +516,7 @@
           },
           "boss": {
             "id": "optimal-nana",
-            "health": 360,
+            "health": 1050,
             "score": 4500,
             "stages": [
               {
@@ -516,30 +554,33 @@
               }
             ]
           },
+          "reversal": {
+            "weapon": "twin",
+            "groups": []
+          },
           "limits": {
             "enemies": 14,
             "enemy_projectiles": 120,
             "player_projectiles": 48,
-            "pickups": 12,
+            "pickups": 6,
             "effects": 24
           }
         }
       }
     },
     {
-      "id": "safety-chat",
-      "name": "Safety Chat",
-      "description": "Using a special grants one brief guard.",
+      "id": "clean-cut",
+      "name": "Piercing Cannon",
       "boss": {
-        "segment_slug": "portfolio-demo-boss-safety-chat",
+        "segment_slug": "portfolio-demo-boss-clean-cut",
         "segment_index": 1,
-        "seed": "portfolio-demo-boss-v1:safety-chat",
-        "duration_ticks": 900,
+        "seed": "portfolio-demo-boss-v2:clean-cut",
+        "duration_ticks": 1350,
         "boss_id": "optimal-nana",
-        "background_url": "/game/v4/backgrounds/seventh-dock.webp",
+        "background_url": "/game/v4/reversal/stage.webp",
         "runtime_config": {
-          "seed": "portfolio-demo-boss-v1:safety-chat",
-          "duration_ticks": 900,
+          "seed": "portfolio-demo-boss-v2:clean-cut",
+          "duration_ticks": 1350,
           "player_health": 3,
           "starting_rescue_charge": 55,
           "encore_level": 0,
@@ -548,8 +589,8 @@
           "kit": {
             "id": "nana7mi",
             "max_health": 3,
-            "attack_damage": 12,
-            "fire_interval": 9,
+            "attack_damage": 4,
+            "fire_interval": 6,
             "rescue_damage": 34,
             "starting_shield": 1,
             "move_limit": 1520,
@@ -559,7 +600,7 @@
           "companions": [],
           "show_effects": [
             {
-              "kind": "guard_on_special",
+              "kind": "piercing_shot",
               "amount": 1
             }
           ],
@@ -665,7 +706,7 @@
           },
           "boss": {
             "id": "optimal-nana",
-            "health": 360,
+            "health": 1050,
             "score": 4500,
             "stages": [
               {
@@ -703,11 +744,15 @@
               }
             ]
           },
+          "reversal": {
+            "weapon": "pierce",
+            "groups": []
+          },
           "limits": {
             "enemies": 14,
             "enemy_projectiles": 120,
             "player_projectiles": 48,
-            "pickups": 12,
+            "pickups": 6,
             "effects": 24
           }
         }

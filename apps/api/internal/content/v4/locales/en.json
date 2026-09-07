@@ -1,6 +1,9 @@
 {
   "locale": "en",
   "strings": {
+    "demo.reversal.opening": "Where's my mod? ...Oh. Just you.",
+    "demo.reversal.twin.name": "Twin Live Feed",
+    "demo.reversal.pierce.name": "Piercing Cannon",
     "chapter.seventh_dock.title": "No Sea at the Seventh Dock",
     "chapter.seventh_dock.subtitle": "A withdrawn seven-second voice note teaches autoreply to speak as Nana.",
     "chapter.always_cheerful.title": "Always Cheerful",

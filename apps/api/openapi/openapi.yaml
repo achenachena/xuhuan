@@ -513,6 +513,23 @@ components:
         player_projectiles: { type: integer, minimum: 1, maximum: 48 }
         pickups: { type: integer, minimum: 1, maximum: 12 }
         effects: { type: integer, minimum: 1, maximum: 24 }
+    RuntimeReversalGroup:
+      type: object
+      additionalProperties: false
+      required: [at_tick, group_id, x, escorts]
+      properties:
+        at_tick: { type: integer, minimum: 0, maximum: 1199 }
+        group_id: { type: integer, minimum: 1 }
+        x: { type: integer, minimum: 180, maximum: 3420 }
+        escorts: { type: integer, minimum: 0, maximum: 2 }
+    RuntimeReversal:
+      type: object
+      description: Opt-in authored browser preview; omitted from the persistent campaign.
+      additionalProperties: false
+      required: [weapon, groups]
+      properties:
+        weapon: { type: string, enum: [single, twin, pierce] }
+        groups: { type: array, maxItems: 8, items: { $ref: "#/components/schemas/RuntimeReversalGroup" } }
     RuntimeConfig:
       type: object
       additionalProperties: false
@@ -533,6 +550,7 @@ components:
         enemies: { type: array, minItems: 6, maxItems: 6, items: { $ref: "#/components/schemas/RuntimeEnemy" } }
         wave: { $ref: "#/components/schemas/Wave" }
         boss: { $ref: "#/components/schemas/RuntimeBoss" }
+        reversal: { $ref: "#/components/schemas/RuntimeReversal" }
         limits: { $ref: "#/components/schemas/RuntimeLimits" }
     SegmentState:
       type: object

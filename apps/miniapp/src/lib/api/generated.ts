@@ -523,6 +523,18 @@ export interface components {
             pickups: number;
             effects: number;
         };
+        RuntimeReversalGroup: {
+            at_tick: number;
+            group_id: number;
+            x: number;
+            escorts: number;
+        };
+        /** @description Opt-in authored browser preview; omitted from the persistent campaign. */
+        RuntimeReversal: {
+            /** @enum {string} */
+            weapon: "single" | "twin" | "pierce";
+            groups: components["schemas"]["RuntimeReversalGroup"][];
+        };
         RuntimeConfig: {
             seed: string;
             duration_ticks: number;
@@ -539,6 +551,7 @@ export interface components {
             enemies: components["schemas"]["RuntimeEnemy"][];
             wave: components["schemas"]["Wave"];
             boss?: components["schemas"]["RuntimeBoss"];
+            reversal?: components["schemas"]["RuntimeReversal"];
             limits: components["schemas"]["RuntimeLimits"];
         };
         SegmentState: {

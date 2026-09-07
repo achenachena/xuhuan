@@ -8,6 +8,7 @@ import {
 } from "@/features/shooter/constants";
 import type { ShooterMutableState } from "@/features/shooter/types";
 import { addPlayerProjectile, addShooterEffect } from "@/features/shooter/weapons";
+import { activateReversalRescue } from "@/features/shooter/reversal";
 
 export const earnRescue = (state: ShooterMutableState, amount: number): void => {
   if (amount <= 0) return;
@@ -36,6 +37,7 @@ export const activateRescue = (state: ShooterMutableState): boolean => {
   state.rescueCharge = 0;
   state.rescuesUsed += 1;
   state.lastRescueTick = state.tick;
+  if (state.config.reversal) { activateReversalRescue(state); return true; }
   let damage = state.runtime.rescueDamage;
   state.shield += state.runtime.guardOnSpecial;
   const behavior = state.config.kit.special_behavior || defaultBehavior[state.config.kit.id];

@@ -192,6 +192,20 @@ type Boss struct {
 	Stages []BossStage `json:"stages"`
 }
 
+// Reversal config is opt-in for the non-persistent browser preview. Existing
+// campaign configurations omit it and keep their published combat behavior.
+type Reversal struct {
+	Weapon string          `json:"weapon"`
+	Groups []ReversalGroup `json:"groups"`
+}
+
+type ReversalGroup struct {
+	AtTick  int `json:"at_tick"`
+	GroupID int `json:"group_id"`
+	X       int `json:"x"`
+	Escorts int `json:"escorts"`
+}
+
 type Config struct {
 	Seed                 string `json:"seed"`
 	DurationTicks        int    `json:"duration_ticks"`
@@ -210,5 +224,6 @@ type Config struct {
 	Enemies                     []EnemySpec `json:"enemies"`
 	Wave                        Wave        `json:"wave"`
 	Boss                        *Boss       `json:"boss,omitempty"`
+	Reversal                    *Reversal   `json:"reversal,omitempty"`
 	Limits                      Limits      `json:"limits"`
 }

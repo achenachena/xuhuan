@@ -7,9 +7,9 @@ import useLocale from "@/components/providers/use-locale";
 import { gameText } from "@/features/game/game-copy";
 import type {
   PortfolioDemoManifest,
-  PortfolioDemoOption,
   PortfolioDemoStage,
 } from "@/features/portfolio/demo-types";
+import { ShowChoicePreview } from "@/features/portfolio/show-choice-preview";
 import { ShooterArena } from "@/features/shooter/shooter-arena";
 import type { ShooterResult } from "@/features/shooter/types";
 import type { ShooterGameRun } from "@/lib/api/types";
@@ -22,23 +22,21 @@ const fixedTime = "2026-09-01T00:00:00Z";
 
 const demoRun = (
   stage: PortfolioDemoStage,
-  phase: "segment" | "show_choice",
-  optionIDs: readonly string[] = [],
 ): ShooterGameRun => ({
   id: "00000000-0000-4000-8000-000000000004",
   content_version: "v4",
   mode: "campaign",
   state: {
-    phase,
+    phase: "segment",
     chapter_slug: "seventh-dock",
     character_slug: "nana7mi",
     companion_slugs: [],
     encore_level: 0,
-    hearts: 3,
+    hearts: stage.runtime_config.player_health,
     max_hearts: 3,
     segment_index: stage.segment_index,
-    ...(phase === "segment" ? { segment: stage } : {}),
-    pending_show_options: [...optionIDs],
+    segment: stage,
+    pending_show_options: [],
     show_effects: [],
     selected_choice_ids: [],
     score: 0,
@@ -55,21 +53,27 @@ const isManifest = (value: unknown): value is PortfolioDemoManifest => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<PortfolioDemoManifest>;
   return (
-    candidate.version === "demo-v1" &&
+    candidate.version === "demo-v2" &&
     (candidate.locale === "en" || candidate.locale === "zh-CN") &&
     candidate.content?.version === "v4" &&
     candidate.content.protocol === "shooter-v1" &&
-    candidate.wave?.runtime_config?.duration_ticks === 900 &&
-    candidate.options?.length === 2
+    candidate.wave?.runtime_config?.duration_ticks === 1_200 &&
+    candidate.options?.length === 2 &&
+    candidate.options.every((option) => option.boss?.runtime_config?.duration_ticks === 1_350)
   );
 };
 
 export const BrowserDemo = () => {
   const { language } = useLocale();
+  // The first loaded configuration owns this session. Translating labels must
+  // not recreate the simulator, refill health, or discard a finished segment.
   const [manifest, setManifest] = useState<PortfolioDemoManifest | null>(null);
+  const [localizedManifest, setLocalizedManifest] = useState<PortfolioDemoManifest | null>(null);
   const [errorLocale, setErrorLocale] = useState<string | null>(null);
   const [phase, setPhase] = useState<DemoPhase>("wave");
-  const [choice, setChoice] = useState<PortfolioDemoOption | null>(null);
+  const [choiceID, setChoiceID] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [waveHealth, setWaveHealth] = useState(3);
   const [waveScore, setWaveScore] = useState(0);
   const [result, setResult] = useState<ShooterResult | null>(null);
   const text = useCallback(
@@ -79,7 +83,7 @@ export const BrowserDemo = () => {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(`/game/v4/demo/demo-v1.${language}.json`, {
+    void fetch(`/game/v4/demo/demo-v2.${language}.json`, {
       signal: controller.signal,
       cache: "force-cache",
     })
@@ -87,7 +91,9 @@ export const BrowserDemo = () => {
         if (!response.ok) throw new Error("Demo manifest is unavailable");
         const value: unknown = await response.json();
         if (!isManifest(value)) throw new Error("Demo manifest is invalid");
-        setManifest(value);
+        setManifest((current) => current ?? value);
+        setLocalizedManifest(value);
+        setErrorLocale(null);
       })
       .catch((error: unknown) => {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
@@ -99,21 +105,34 @@ export const BrowserDemo = () => {
 
   const reset = () => {
     setPhase("wave");
-    setChoice(null);
+    setChoiceID(null);
+    setAttempt((current) => current + 1);
+    setWaveHealth(3);
     setWaveScore(0);
     setResult(null);
   };
   const waveRun = useMemo(
-    () => (manifest ? demoRun(manifest.wave, "segment") : null),
+    () => (manifest ? demoRun(manifest.wave) : null),
     [manifest],
   );
   const bossRun = useMemo(
-    () => (choice ? demoRun(choice.boss, "segment") : null),
-    [choice],
+    () => {
+      const choice = manifest?.options.find((option) => option.id === choiceID);
+      return choice ? demoRun({
+        ...choice.boss,
+        runtime_config: { ...choice.boss.runtime_config, player_health: waveHealth },
+      }) : null;
+    },
+    [manifest, choiceID, waveHealth],
   );
+  const retrySegment = () => {
+    setAttempt((current) => current + 1);
+    setResult(null);
+    setPhase(choiceID ? "boss" : "wave");
+  };
 
   const loadError = errorLocale === language;
-  if (!manifest || manifest.locale !== language || loadError) {
+  if (!manifest) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#02050e] p-6 text-center text-white">
         <div>
@@ -123,53 +142,57 @@ export const BrowserDemo = () => {
       </main>
     );
   }
+  const displayedManifest = localizedManifest?.locale === language ? localizedManifest : manifest;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(6,182,212,.15),transparent_35%),#02050e] sm:grid sm:place-items-center sm:p-6">
       <div className="relative mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden bg-[#02050e] shadow-[0_30px_100px_rgba(0,0,0,.65)] sm:h-[min(760px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-cyan-200/25">
-        {phase === "wave" && waveRun ? (
+        {(phase === "wave" || phase === "choice") && waveRun ? (
+          <div inert={phase === "choice"}>
           <ShooterArena
-            key={`wave:${language}`}
+            key={`wave:${attempt}`}
             embedded
+            opening={displayedManifest.opening}
             content={manifest.content}
             run={waveRun}
             busy={false}
             onComplete={async (localResult) => {
               setWaveScore(localResult.score);
+              setWaveHealth(localResult.health);
               setResult(localResult);
               setPhase(localResult.won ? "choice" : "result");
               return true;
             }}
           />
+          </div>
         ) : null}
 
         {phase === "choice" ? (
-          <section className="absolute inset-0 grid content-center gap-4 bg-[#02050e] p-5 text-white">
-            <div className="text-center">
-              <p className="font-mono text-[10px] tracking-[.2em] text-cyan-300">SHOW EFFECT</p>
-              <h1 className="mt-2 text-2xl font-black">{text("demoChoose")}</h1>
-              <p className="mt-2 text-sm text-slate-400">{text("demoChooseHint")}</p>
-            </div>
-            {manifest.options.map((option, index) => (
+          <section aria-labelledby="demo-choice-title" className="absolute inset-0 z-40 flex flex-col justify-center bg-[#02050e]/30 p-4 text-white">
+            <h1 id="demo-choice-title" className="mx-auto mb-3 bg-[#07111f]/95 px-4 py-2 text-center text-lg font-black">{text("demoChoose")}</h1>
+            <div className="grid grid-cols-2 gap-3">
+            {displayedManifest.options.map((option, index) => (
               <button
+                type="button"
                 key={option.id}
                 data-testid={`demo-option-${option.id}`}
-                className={`border p-5 text-left transition active:scale-[.99] ${index === 0 ? "border-cyan-300/50 bg-cyan-950/40" : "border-fuchsia-300/50 bg-fuchsia-950/35"}`}
+                className={`overflow-hidden border-2 bg-[#0b1927] p-2 text-center transition hover:-translate-y-1 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[.98] ${index === 0 ? "border-cyan-200/80" : "border-amber-200/80"}`}
                 onClick={() => {
-                  setChoice(option);
+                  setChoiceID(option.id);
                   setPhase("boss");
                 }}
               >
-                <strong className="block text-xl text-white">{option.name}</strong>
-                <span className="mt-2 block text-sm leading-6 text-slate-300">{option.description}</span>
+                <ShowChoicePreview weapon={option.boss.runtime_config.reversal?.weapon === "pierce" ? "pierce" : "twin"} />
+                <strong className="grid min-h-12 place-items-center text-sm leading-5 text-white">{option.name}</strong>
               </button>
             ))}
+            </div>
           </section>
         ) : null}
 
         {phase === "boss" && bossRun ? (
           <ShooterArena
-            key={`boss:${choice?.id}:${language}`}
+            key={`boss:${choiceID}:${attempt}`}
             embedded
             content={manifest.content}
             run={bossRun}
@@ -183,12 +206,11 @@ export const BrowserDemo = () => {
         ) : null}
 
         {phase === "result" && result ? (
-          <section className="absolute inset-0 grid content-center bg-[radial-gradient(circle_at_center,rgba(34,211,238,.16),transparent_40%),#02050e] p-6 text-center text-white">
-            <p className="font-mono text-xs tracking-[.2em] text-cyan-300">DEMO COMPLETE</p>
+          <section className="absolute inset-0 grid content-center bg-[linear-gradient(rgba(2,5,14,.75),rgba(2,5,14,.96)),url('/game/v4/reversal/stage.webp')] bg-cover bg-center p-6 text-center text-white">
             <h1 className="mt-4 text-3xl font-black">{result.won ? text("demoCleared") : text("demoFailed")}</h1>
             <p className="mt-6 text-sm uppercase tracking-wider text-slate-400">{text("demoScore")}</p>
             <p className="mt-1 font-mono text-5xl font-black text-amber-200">{result.score}</p>
-            <button className="mt-8 bg-cyan-200 px-5 py-3 font-bold text-slate-950" onClick={reset}>{text("demoRetry")}</button>
+            <button className="mt-8 bg-cyan-200 px-5 py-3 font-bold text-slate-950" onClick={result.won ? reset : retrySegment}>{text(result.won ? "demoRetry" : "demoRetrySegment")}</button>
             <a className="mt-3 border border-fuchsia-300/50 bg-fuchsia-400/10 px-5 py-3 font-bold text-fuchsia-100" href={telegramURL} rel="noreferrer" target="_blank">{text("demoFullGame")}</a>
             <Link className="mt-5 text-sm text-slate-400 underline underline-offset-4" href="/">{text("demoBack")}</Link>
           </section>

@@ -1,139 +1,183 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PortfolioDemoManifest } from "@/features/portfolio/demo-types";
 import type { ShooterResult } from "@/features/shooter/types";
+import type { ShooterContent, ShooterGameRun } from "@/lib/api/types";
 import { v4BaseState, v4Content, v4Runtime } from "@/test/v4-fixtures";
 
 const localeState = vi.hoisted(() => ({ language: "en" as "en" | "zh-CN" }));
+const arenaState = vi.hoisted(() => ({
+  mounts: 0,
+  run: null as ShooterGameRun | null,
+  content: null as ShooterContent | null,
+}));
 
 vi.mock("@/components/providers/use-locale", () => ({
   default: () => ({ language: localeState.language, setLanguage: vi.fn() }),
 }));
-vi.mock("next/image", () => ({
-  default: ({ alt }: { alt?: string }) => <span role="img" aria-label={alt} />,
+vi.mock("@/features/portfolio/show-choice-preview", () => ({
+  ShowChoicePreview: ({ weapon }: { weapon: string }) => <canvas data-testid={`preview-${weapon}`} />,
 }));
-vi.mock("@/features/shooter/shooter-arena", () => ({
-  ShooterArena: ({ run, onComplete }: { run: { state: { segment?: { segment_slug: string } } }; onComplete: (result: ShooterResult) => Promise<boolean> }) => (
-    <button
-      data-testid={`finish-${run.state.segment?.segment_slug}`}
-      onClick={() => void onComplete(result)}
-    >
-      FINISH
-    </button>
-  ),
-}));
+vi.mock("@/features/shooter/shooter-arena", async () => {
+  const { useEffect } = await import("react");
+  return {
+    ShooterArena: ({ run, content, onComplete }: {
+      run: ShooterGameRun;
+      content: ShooterContent;
+      onComplete: (result: ShooterResult) => Promise<boolean>;
+    }) => {
+      useEffect(() => { arenaState.mounts += 1; }, []);
+      arenaState.run = run;
+      arenaState.content = content;
+      return <>
+        <button data-testid={`finish-${run.state.segment?.segment_slug}`} onClick={() => void onComplete(result)}>FINISH</button>
+        <button data-testid={`fail-${run.state.segment?.segment_slug}`} onClick={() => void onComplete({ ...result, won: false, health: 0 })}>FAIL</button>
+      </>;
+    },
+  };
+});
 
 import { BrowserDemo } from "@/features/portfolio/browser-demo";
 
 const result: ShooterResult = {
   won: true,
   health: 2,
-  ticks: 900,
+  ticks: 1_200,
   kills: 4,
   rescues_used: 1,
   grazes: 2,
   score: 500,
   final: {
-    tick: 900,
-    player_x: 1800,
-    health: 2,
-    max_health: 3,
-    shield: 0,
-    invulnerable_ticks: 0,
-    rescue_charge: 0,
-    rescues_used: 1,
-    graze_count: 2,
-    combo: 0,
-    score: 500,
-    enemies: [],
-    enemy_projectiles: [],
-    player_projectiles: [],
-    pickups: [],
-    threats: [],
-    effects: [],
-  },
-};
-
-const bossRuntime = {
-  ...v4Runtime,
-  seed: "portfolio-demo-boss-v1:double-take",
-  show_effects: [{ kind: "twin_shot" as const, amount: 1 }],
-  boss: {
-    id: "optimal-nana" as const,
-    health: 360,
-    score: 1_000,
-    stages: [],
+    tick: 1_200, player_x: 1_800, health: 2, max_health: 3,
+    shield: 0, invulnerable_ticks: 0, rescue_charge: 0,
+    rescues_used: 1, graze_count: 2, combo: 0, score: 500,
+    enemies: [], enemy_projectiles: [], player_projectiles: [],
+    pickups: [], threats: [], effects: [],
   },
 };
 
 const manifest: PortfolioDemoManifest = {
-  version: "demo-v1",
+  version: "demo-v2",
   locale: "en",
+  opening: "Where's the mod? ...Oh. Just you.",
   content: v4Content,
   wave: {
     ...v4BaseState.segment!,
-    segment_slug: "portfolio-demo-wave",
-    duration_ticks: 900,
-    runtime_config: { ...v4Runtime, duration_ticks: 900 },
+    segment_slug: "reversal-wave",
+    duration_ticks: 1_200,
+    runtime_config: { ...v4Runtime, duration_ticks: 1_200, reversal: { weapon: "single", groups: [] } },
   },
-  options: [
-    {
-      id: "double-take",
-      name: "Double Take",
-      description: "Add a second shot.",
-      boss: {
-        ...v4BaseState.segment!,
-        segment_slug: "portfolio-demo-boss-double-take",
-        segment_index: 1,
-        duration_ticks: 900,
-        boss_id: "optimal-nana",
-        wave_id: undefined,
-        reward_stage: undefined,
-        runtime_config: bossRuntime,
+  options: ([
+    ["double-take", "Twin Live Feed", "twin"],
+    ["clean-cut", "Piercing Cannon", "pierce"],
+  ] as const).map(([id, name, weapon]) => ({
+    id,
+    name,
+    boss: {
+      ...v4BaseState.segment!,
+      segment_slug: `reversal-boss-${id}`,
+      segment_index: 1,
+      duration_ticks: 1_350,
+      boss_id: "optimal-nana",
+      wave_id: undefined,
+      reward_stage: undefined,
+      runtime_config: {
+        ...v4Runtime,
+        seed: `reversal-boss:${id}`,
+        duration_ticks: 1_350,
+        reversal: { weapon, groups: [] },
+        boss: { id: "optimal-nana", health: 360, score: 1_000, stages: [] },
       },
     },
-    {
-      id: "safety-chat",
-      name: "Safety Chat",
-      description: "Rescue grants guard.",
-      boss: {
-        ...v4BaseState.segment!,
-        segment_slug: "portfolio-demo-boss-safety-chat",
-        segment_index: 1,
-        duration_ticks: 900,
-        boss_id: "optimal-nana",
-        wave_id: undefined,
-        reward_stage: undefined,
-        runtime_config: { ...bossRuntime, seed: "portfolio-demo-boss-v1:safety-chat", show_effects: [{ kind: "guard_on_special", amount: 1 }] },
-      },
-    },
-  ],
+  })),
 };
 
-describe("browser portfolio demo", () => {
+const translatedManifest: PortfolioDemoManifest = {
+  ...structuredClone(manifest),
+  locale: "zh-CN",
+  options: manifest.options.map((option, index) => ({ ...option, name: index === 0 ? "Twin translated" : "Pierce translated" })),
+};
+
+describe("browser reversal demo", () => {
   beforeEach(() => {
     localeState.language = "en";
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => manifest }));
+    arenaState.mounts = 0;
+    arenaState.run = null;
+    arenaState.content = null;
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async (url: string) => ({
+      ok: true,
+      json: async () => url.includes("zh-CN") ? translatedManifest : manifest,
+    })));
   });
 
-  it("runs a local wave, one clear choice, and a boss without API writes", async () => {
+  it.each(["double-take", "clean-cut"])("plays the local wave and %s Boss without API writes", async (optionID) => {
     render(<BrowserDemo />);
+    fireEvent.click(await screen.findByTestId("finish-reversal-wave"));
+    expect(screen.getByTestId("preview-twin")).toBeInTheDocument();
+    expect(screen.getByTestId("preview-pierce")).toBeInTheDocument();
+    expect(screen.getByTestId("finish-reversal-wave").closest("[inert]")).not.toBeNull();
+    expect(arenaState.mounts).toBe(1);
 
-    fireEvent.click(await screen.findByTestId("finish-portfolio-demo-wave"));
-    fireEvent.click(await screen.findByTestId("demo-option-double-take"));
-    fireEvent.click(await screen.findByTestId("finish-portfolio-demo-boss-double-take"));
+    fireEvent.click(screen.getByTestId(`demo-option-${optionID}`));
+    const boss = await screen.findByTestId(`finish-reversal-boss-${optionID}`);
+    expect(arenaState.run?.state.hearts).toBe(2);
+    expect(arenaState.run?.state.segment?.runtime_config.player_health).toBe(2);
+    expect(arenaState.run?.state.segment?.runtime_config.reversal?.weapon).toBe(optionID === "clean-cut" ? "pierce" : "twin");
+    fireEvent.click(boss);
 
     expect(await screen.findByText("The channel stayed live")).toBeVisible();
     expect(screen.getByText("1000")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Play again" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Continue in Telegram" })).toHaveAttribute(
-      "href",
-      "https://t.me/xuhuangamebot",
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "/game/v4/demo/demo-v1.en.json",
-      expect.objectContaining({ cache: "force-cache" }),
-    );
+    expect(screen.getByRole("link", { name: "Continue in Telegram" })).toHaveAttribute("href", "https://t.me/xuhuangamebot");
+    fireEvent.click(screen.getByRole("button", { name: "Play again" }));
+    expect(await screen.findByTestId("finish-reversal-wave")).toBeVisible();
+    expect(arenaState.run?.state.segment?.runtime_config.player_health).toBe(3);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith("/game/v4/demo/demo-v2.en.json", expect.objectContaining({ cache: "force-cache" }));
+  });
+
+  it("retries a failed wave immediately with a fresh simulation", async () => {
+    render(<BrowserDemo />);
+    fireEvent.click(await screen.findByTestId("fail-reversal-wave"));
+    fireEvent.click(await screen.findByRole("button", { name: "Retry this stage" }));
+    expect(await screen.findByTestId("finish-reversal-wave")).toBeVisible();
+    expect(arenaState.mounts).toBe(2);
+    expect(arenaState.run?.state.hearts).toBe(3);
+  });
+
+  it("retries a failed Boss with the selected weapon and entry health", async () => {
+    render(<BrowserDemo />);
+    fireEvent.click(await screen.findByTestId("finish-reversal-wave"));
+    fireEvent.click(screen.getByTestId("demo-option-clean-cut"));
+    fireEvent.click(await screen.findByTestId("fail-reversal-boss-clean-cut"));
+    fireEvent.click(await screen.findByRole("button", { name: "Retry this stage" }));
+    expect(await screen.findByTestId("finish-reversal-boss-clean-cut")).toBeVisible();
+    expect(arenaState.mounts).toBe(3);
+    expect(arenaState.run?.state.hearts).toBe(2);
+    expect(arenaState.run?.state.segment?.runtime_config.reversal?.weapon).toBe("pierce");
+    expect(screen.queryByTestId("finish-reversal-wave")).not.toBeInTheDocument();
+  });
+
+  it("translates choice labels without restarting or healing the active arena", async () => {
+    const view = render(<BrowserDemo />);
+    await screen.findByTestId("finish-reversal-wave");
+    const waveRun = arenaState.run;
+    const content = arenaState.content;
+    localeState.language = "zh-CN";
+    view.rerender(<BrowserDemo />);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(arenaState.run).toBe(waveRun);
+    expect(arenaState.content).toBe(content);
+    expect(arenaState.mounts).toBe(1);
+    fireEvent.click(screen.getByTestId("finish-reversal-wave"));
+    fireEvent.click(await screen.findByRole("button", { name: "Pierce translated" }));
+    await screen.findByTestId("finish-reversal-boss-clean-cut");
+    const bossRun = arenaState.run;
+    localeState.language = "en";
+    view.rerender(<BrowserDemo />);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+    expect(arenaState.run).toBe(bossRun);
+    expect(arenaState.run?.state.hearts).toBe(2);
+    expect(arenaState.mounts).toBe(2);
   });
 });

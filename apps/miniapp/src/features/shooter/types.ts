@@ -6,7 +6,8 @@ import type {
 } from "@/lib/api/types";
 
 export type ShooterPosition = { readonly x: number; readonly y: number };
-export type ShooterPickupPower = "rapid" | "spread" | "pierce";
+export type ShooterPickupPower = "rapid" | "spread" | "pierce" | "support";
+export type ReversalRole = "controller" | "escort" | "arm" | "boss";
 export type ShooterEnemySnapshot = {
   readonly id: number;
   readonly spec_id: string;
@@ -18,6 +19,12 @@ export type ShooterEnemySnapshot = {
   readonly stage?: number;
   readonly intent?: string;
   readonly marks?: number;
+  readonly group_id?: number;
+  readonly role?: ReversalRole;
+  readonly exposed?: boolean;
+  readonly disabled_ticks?: number;
+  readonly age?: number;
+  readonly hitbox?: { width: number; height: number; core_width: number; core_height: number; core_offset_y: number };
 };
 export type ShooterProjectileSnapshot = {
   readonly id: number;
@@ -28,6 +35,7 @@ export type ShooterProjectileSnapshot = {
   readonly radius?: number;
   readonly width?: number;
   readonly health?: number;
+  readonly group_id?: number;
 };
 export type ShooterPickupSnapshot = {
   readonly id: number;
@@ -63,6 +71,7 @@ export type ShooterSnapshot = {
   readonly graze_count: number;
   readonly combo: number;
   readonly score: number;
+  readonly reversal?: { breaks: number; weapon: "single" | "twin" | "pierce" };
   readonly pickup_power?: ShooterPickupPower;
   readonly pickup_power_ticks?: number;
   readonly daily_variant?: string;
@@ -126,6 +135,14 @@ export type ShooterEnemyEntity = {
   volley: number;
   marks: number;
   boss: boolean;
+  groupID?: number;
+  role?: ReversalRole;
+  exposed?: boolean;
+  disabledTicks?: number;
+  coreHealth?: number;
+  aimX?: number;
+  anchorX?: number;
+  broken?: boolean;
 };
 
 export type ShooterProjectileEntity = {
@@ -142,6 +159,8 @@ export type ShooterProjectileEntity = {
   kind: string;
   hostile: boolean;
   grazed: boolean;
+  groupID?: number;
+  hitEnemyIDs?: number[];
 };
 
 export type ShooterPickupEntity = {
@@ -200,6 +219,10 @@ export type ShooterMutableState = {
   pickupPowerTicks: number;
   pressureQuietTicks: number;
   effects: ShooterEffectEntity[];
+  reversal?: {
+    breaks: number;
+    chain: { enemyID: number; tick: number; damage: number }[];
+  };
 };
 
 export type ShooterStepEvents = {

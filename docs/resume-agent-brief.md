@@ -4,7 +4,7 @@
 
 Xuhuan is a production-deployed, bilingual Telegram Mini App shooter and story campaign. It combines a Go REST API on AWS Lambda, a Next.js/Canvas frontend on Vercel, PostgreSQL persistence on Neon, and Redis rate limiting on Upstash.
 
-The normal browser URL is an English-first engineering portfolio with a static 60-second demo. Telegram users enter the complete eight-chapter game after server-side verification of Mini App `initData`.
+The normal browser URL is an English-first engineering portfolio with a short static demo. Telegram users enter the complete eight-chapter game after server-side verification of Mini App `initData`. A roughly 90-second formation-reversal demo is being validated in Preview; do not describe it as production-released until its human playtest gate passes.
 
 ## Verified scope
 

@@ -4,6 +4,7 @@ import { shooterSeedFromString } from "@/features/shooter/random";
 import { storyChoiceMode } from "@/features/shooter/story";
 import type { ShooterEnemyEntity, ShooterMutableState } from "@/features/shooter/types";
 import type { ShooterBossStage } from "@/lib/api/types";
+import { updateReversalBoss } from "@/features/shooter/reversal";
 
 export const spawnBoss = (state: ShooterMutableState): void => {
   const boss = state.config.boss;
@@ -126,6 +127,7 @@ const fireBossPattern = (state: ShooterMutableState, enemy: ShooterEnemyEntity, 
 };
 
 export const updateBoss = (state: ShooterMutableState, enemy: ShooterEnemyEntity): void => {
+  if (state.config.reversal) { updateReversalBoss(state, enemy); return; }
   const boss = state.config.boss;
   if (!boss || enemy.health <= 0) return;
   const previousPhase = enemy.phase, index = bossStageIndex(enemy.health, enemy.maxHealth, boss.stages);

@@ -22,6 +22,7 @@ import { shooterSeedFromString } from "@/features/shooter/random";
 import { earnRescue } from "@/features/shooter/specials";
 import { storyChoiceMode } from "@/features/shooter/story";
 import { addShooterEffect, addPlayerProjectile } from "@/features/shooter/weapons";
+import { breakReversalCore, reversalThreats, updateReversalPlayerProjectiles } from "@/features/shooter/reversal";
 
 export const hasTrait = (
   spec: ShooterEnemySpec,
@@ -69,6 +70,7 @@ export const addEnemyHazard = (
   radius: number,
   width: number,
   health: number,
+  groupID?: number,
 ): void => {
   if (state.enemyProjectiles.length >= state.config.limits.enemy_projectiles) return;
   const limit = structuredHazardLimit(kind);
@@ -97,6 +99,7 @@ export const addEnemyHazard = (
     kind,
     hostile: true,
     grazed: false,
+    ...(groupID !== undefined ? { groupID } : {}),
   });
 };
 
@@ -346,7 +349,7 @@ const dropSupportNote = (state: ShooterMutableState, x: number, y: number, value
     x,
     y,
     value: Math.max(1, value),
-    kind: kinds[(state.nextPickupID - 1) % kinds.length]!,
+    kind: state.config.reversal ? "support" : kinds[(state.nextPickupID - 1) % kinds.length]!,
   });
 };
 
@@ -362,6 +365,7 @@ export const removeDefeatedEnemies = (state: ShooterMutableState): void => {
       continue;
     }
     if (enemy.health > 0) continue;
+    if (state.config.reversal) breakReversalCore(state, enemy);
     state.kills += 1;
     state.combo += 1;
     state.comboClock = 90 + state.runtime.comboExtend;
@@ -371,7 +375,7 @@ export const removeDefeatedEnemies = (state: ShooterMutableState): void => {
     } else if (enemy.specIndex >= 0 && enemy.specIndex < state.config.enemies.length) {
       const spec = state.config.enemies[enemy.specIndex]!;
       score = Math.max(50, spec.score);
-      if (hasTrait(spec, "split") && alive.length < state.config.limits.enemies - 1) {
+      if (!state.config.reversal && hasTrait(spec, "split") && alive.length < state.config.limits.enemies - 1) {
         for (const offset of [-160, 160]) {
           state.nextEnemyID += 1;
           const health = Math.max(1, goDivide(enemy.maxHealth, 3));
@@ -405,7 +409,7 @@ export const removeDefeatedEnemies = (state: ShooterMutableState): void => {
       noteValue = 30;
       state.score += 200;
     }
-    dropSupportNote(state, enemy.x, enemy.y, noteValue);
+    if (!state.config.reversal || enemy.role === "escort") dropSupportNote(state, enemy.x, enemy.y, noteValue);
     if (state.runtime.recoveryDrop > 0 && state.kills % Math.max(2, 6 - state.runtime.recoveryDrop) === 0) {
       state.health = Math.min(state.runtime.maxHealth, state.health + 1);
     }
@@ -417,7 +421,7 @@ export const updatePickups = (state: ShooterMutableState): void => {
   const kept = [];
   for (const pickup of state.pickups) {
     pickup.y += 70;
-    const magnetRange = 220 + state.runtime.pickupMagnet;
+    const magnetRange = (state.config.reversal ? 380 : 220) + state.runtime.pickupMagnet;
     if (pickup.y >= PLAYER_Y - 900 && Math.abs(pickup.x - state.playerX) <= magnetRange) {
       pickup.x += clamp(state.playerX - pickup.x, -90, 90);
     }
@@ -427,7 +431,7 @@ export const updatePickups = (state: ShooterMutableState): void => {
       earnRescue(state, pickup.value);
       state.score += 40 * Math.max(1, state.combo);
       state.pickupPower = pickup.kind;
-      state.pickupPowerTicks = 150;
+      state.pickupPowerTicks = state.config.reversal ? 240 : 150;
       addShooterEffect(
         state,
         `support_powerup_${pickup.kind}`,
@@ -506,7 +510,7 @@ const hostileHitsPlayer = (
   );
 };
 
-export const updateProjectiles = (state: ShooterMutableState): void => {
+const updateCampaignPlayerProjectiles = (state: ShooterMutableState): void => {
   const playerShots = [];
   let bossDefeated = false;
   for (const shot of state.playerProjectiles) {
@@ -538,7 +542,11 @@ export const updateProjectiles = (state: ShooterMutableState): void => {
     state.enemyProjectiles = [];
     addShooterEffect(state, "boss_cut", SHOOTER_WIDTH / 2, PLAYER_Y / 2, 30, 1);
   }
+};
 
+export const updateProjectiles = (state: ShooterMutableState): void => {
+  if (state.config.reversal) updateReversalPlayerProjectiles(state);
+  else updateCampaignPlayerProjectiles(state);
   const hostile = [];
   for (const bullet of state.enemyProjectiles) {
     if (bullet.kind === "black_wall" && bullet.health <= 0) continue;
@@ -760,6 +768,7 @@ const bossSpecialThreat = (
 };
 
 export const threatSnapshots = (state: ShooterMutableState): ShooterThreatSnapshot[] => {
+  if (state.config.reversal) return reversalThreats(state);
   const result: ShooterThreatSnapshot[] = [];
   for (const enemy of state.enemies) {
     if (enemy.health <= 0) continue;
