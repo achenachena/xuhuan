@@ -4,20 +4,26 @@ import (
 	"fmt"
 
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
+	"github.com/achenachena/xuhuan/apps/api/internal/shooter"
 )
 
-const portfolioDemoTicks = 900
+const (
+	portfolioDemoVersion    = "demo-v2"
+	portfolioDemoWaveTicks  = 1200
+	portfolioDemoBossTicks  = 1350
+	portfolioDemoBackground = "/game/v4/reversal/stage.webp"
+)
 
 type PortfolioDemoOption struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Boss        SegmentState `json:"boss"`
+	ID   string       `json:"id"`
+	Name string       `json:"name"`
+	Boss SegmentState `json:"boss"`
 }
 
 type PortfolioDemo struct {
 	Version string                        `json:"version"`
 	Locale  string                        `json:"locale"`
+	Opening string                        `json:"opening"`
 	Content gamecontent.V4LocalizedBundle `json:"content"`
 	Wave    SegmentState                  `json:"wave"`
 	Options []PortfolioDemoOption         `json:"options"`
@@ -36,55 +42,73 @@ func BuildPortfolioDemo(catalog *gamecontent.V4Catalog, locale string) (Portfoli
 		Hearts: 3, MaxHearts: 3, PendingShowOptions: []string{}, ShowEffects: []string{},
 		SelectedChoiceIDs: []string{}, CompanionSlugs: []string{},
 	}
-	wave := chapter.Waves[0]
-	waveConfig, err := buildShooterConfig(state, catalog, "portfolio-demo-wave-v1", portfolioDemoTicks, wave, nil, false)
+	wave := gamecontent.V4Wave{ID: "reversal-opening"}
+	waveConfig, err := buildShooterConfig(state, catalog, "portfolio-demo-wave-v2", portfolioDemoWaveTicks, wave, nil, false)
 	if err != nil {
 		return PortfolioDemo{}, err
 	}
-	waveConfig.DurationTicks = portfolioDemoTicks
+	waveConfig.Reversal = &shooter.Reversal{Weapon: "single", Groups: []shooter.ReversalGroup{
+		{AtTick: 30, GroupID: 1, X: 1800, Escorts: 0},
+		{AtTick: 120, GroupID: 2, X: 1100, Escorts: 0},
+		{AtTick: 240, GroupID: 3, X: 1800, Escorts: 1},
+		{AtTick: 480, GroupID: 4, X: 950, Escorts: 1},
+		{AtTick: 480, GroupID: 5, X: 2650, Escorts: 1},
+		{AtTick: 720, GroupID: 6, X: 950, Escorts: 2},
+		{AtTick: 720, GroupID: 7, X: 2650, Escorts: 2},
+		{AtTick: 900, GroupID: 8, X: 1800, Escorts: 2},
+	}}
 	waveConfig.StartingRescueCharge = 35
 	waveConfig.Kit.StartingShield = 1
+	waveConfig.Kit.AttackDamage = 4
+	waveConfig.Kit.FireInterval = 6
+	waveConfig.Limits.Pickups = 6
 	waveState := SegmentState{
 		SegmentSlug: "portfolio-demo-wave", SegmentIndex: 0,
-		Seed: waveConfig.Seed, DurationTicks: portfolioDemoTicks, WaveID: wave.ID,
-		BackgroundURL: chapter.BackgroundURL, RuntimeConfig: waveConfig,
+		Seed: waveConfig.Seed, DurationTicks: portfolioDemoWaveTicks, WaveID: wave.ID,
+		BackgroundURL: portfolioDemoBackground, RuntimeConfig: waveConfig,
 	}
 
 	options := make([]PortfolioDemoOption, 0, 2)
-	for _, optionID := range []string{"double-take", "safety-chat"} {
-		effect, exists := catalog.ShowEffect(optionID)
+	for _, option := range []struct{ id, weapon, nameKey string }{
+		{"double-take", "twin", "demo.reversal.twin.name"},
+		{"clean-cut", "pierce", "demo.reversal.pierce.name"},
+	} {
+		optionID := option.id
+		_, exists := catalog.ShowEffect(optionID)
 		if !exists {
 			return PortfolioDemo{}, fmt.Errorf("run: portfolio demo effect %q is missing", optionID)
 		}
 		bossState := state
 		bossState.SegmentIndex = len(chapter.Segments)
 		bossState.ShowEffects = []string{optionID}
-		bossConfig, buildErr := buildShooterConfig(bossState, catalog, "portfolio-demo-boss-v1:"+optionID, portfolioDemoTicks, gamecontent.V4Wave{ID: string(chapter.Boss.ID)}, &chapter.Boss, false)
+		bossConfig, buildErr := buildShooterConfig(bossState, catalog, "portfolio-demo-boss-v2:"+optionID, portfolioDemoBossTicks, gamecontent.V4Wave{ID: string(chapter.Boss.ID)}, &chapter.Boss, false)
 		if buildErr != nil {
 			return PortfolioDemo{}, buildErr
 		}
-		bossConfig.DurationTicks = portfolioDemoTicks
+		bossConfig.Reversal = &shooter.Reversal{Weapon: option.weapon, Groups: []shooter.ReversalGroup{}}
 		bossConfig.StartingRescueCharge = 55
 		bossConfig.Kit.StartingShield = 1
+		bossConfig.Kit.AttackDamage = 4
+		bossConfig.Kit.FireInterval = 6
+		bossConfig.Limits.Pickups = 6
 		if bossConfig.Boss == nil {
 			return PortfolioDemo{}, fmt.Errorf("run: portfolio demo boss is missing")
 		}
-		bossConfig.Boss.Health = 360
+		bossConfig.Boss.Health = 1050
 		options = append(options, PortfolioDemoOption{
-			ID:          optionID,
-			Name:        catalog.Text(locale, effect.NameKey),
-			Description: catalog.Text(locale, effect.DescriptionKey),
+			ID:   optionID,
+			Name: catalog.Text(locale, option.nameKey),
 			Boss: SegmentState{
 				SegmentSlug:  "portfolio-demo-boss-" + optionID,
-				SegmentIndex: 1, Seed: bossConfig.Seed, DurationTicks: portfolioDemoTicks,
-				BossID: string(chapter.Boss.ID), BackgroundURL: chapter.BackgroundURL,
+				SegmentIndex: 1, Seed: bossConfig.Seed, DurationTicks: portfolioDemoBossTicks,
+				BossID: string(chapter.Boss.ID), BackgroundURL: portfolioDemoBackground,
 				RuntimeConfig: bossConfig,
 			},
 		})
 	}
 
 	localized := catalog.Localized(locale)
-	localized.ShowEffects = filterLocalizedShowEffects(localized.ShowEffects, "double-take", "safety-chat")
+	localized.ShowEffects = filterLocalizedShowEffects(localized.ShowEffects, "double-take", "clean-cut")
 	localized.Characters = filterLocalizedCharacters(localized.Characters, "nana7mi")
 	localized.Companions = []gamecontent.V4LocalizedCompanion{}
 	localized.Enemies = []gamecontent.V4LocalizedEnemy{}
@@ -100,7 +124,7 @@ func BuildPortfolioDemo(catalog *gamecontent.V4Catalog, locale string) (Portfoli
 	}
 
 	return PortfolioDemo{
-		Version: "demo-v1", Locale: locale, Content: localized,
+		Version: portfolioDemoVersion, Locale: locale, Opening: catalog.Text(locale, "demo.reversal.opening"), Content: localized,
 		Wave: waveState, Options: options,
 	}, nil
 }

@@ -8,13 +8,13 @@ export type PortfolioDemoStage = ShooterSegment;
 export type PortfolioDemoOption = {
   readonly id: string;
   readonly name: string;
-  readonly description: string;
   readonly boss: PortfolioDemoStage;
 };
 
 export type PortfolioDemoManifest = {
-  readonly version: "demo-v1";
+  readonly version: "demo-v2";
   readonly locale: "en" | "zh-CN";
+  readonly opening: string;
   readonly content: ShooterContent;
   readonly wave: PortfolioDemoStage;
   readonly options: readonly PortfolioDemoOption[];

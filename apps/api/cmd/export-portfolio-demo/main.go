@@ -31,7 +31,7 @@ func main() {
 			panic(err)
 		}
 		data = append(data, '\n')
-		filename := filepath.Join(outputDirectory, "demo-v1."+locale+".json")
+		filename := filepath.Join(outputDirectory, demo.Version+"."+locale+".json")
 		if check {
 			current, readErr := os.ReadFile(filename)
 			if readErr != nil || string(current) != string(data) {

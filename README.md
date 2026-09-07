@@ -84,12 +84,14 @@ make miniapp
 
 Open `http://localhost:3000` for the public portfolio or `/demo` for the browser showcase. The full campaign is mounted only when the Telegram SDK supplies `initData`. Playwright supplies an isolated Telegram host and API fixture; it does not create a development login or public credential.
 
-In a production-mode browser, `/` renders the public portfolio and `/demo` runs the static 60-second showcase. Generate its immutable manifests from the Go catalog after relevant shooter or content changes:
+In a production-mode browser, `/` renders the public portfolio and `/demo` runs the static showcase. The new `demo-v2` Preview slice lasts about 90 seconds: a 40-second authored wave, one visible weapon choice, and a Boss lasting at most 45 seconds. It adds formation-core reversals without changing the eight-chapter campaign. Generate its immutable manifests from the Go catalog after relevant shooter or content changes:
 
 ```sh
 npm run generate:portfolio-demo
 npm run check:portfolio-demo
 ```
+
+The new demo is Preview-only until the [human playtest gate](docs/reversal-preview.md) passes. Automated tests verify correctness, not whether unfamiliar players find the game fun.
 
 ## Verify a change
 

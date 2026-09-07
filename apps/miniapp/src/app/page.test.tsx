@@ -65,7 +65,7 @@ describe("Shooter V4 game shell", () => {
     render(<HomePage />);
 
     expect(await screen.findByText("Keep the last impossible livestream online.")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Play 60-second demo" })).toHaveAttribute("href", "/demo");
+    expect(screen.getByRole("link", { name: "Play 90-second demo" })).toHaveAttribute("href", "/demo");
     expect(dependencies.getGame).not.toHaveBeenCalled();
     expect(dependencies.getGameContent).not.toHaveBeenCalled();
   });

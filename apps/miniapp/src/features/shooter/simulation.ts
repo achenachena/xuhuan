@@ -34,6 +34,7 @@ import { emptyStepEvents } from "@/features/shooter/types";
 import { createShooterRuntime, updateCompanions, updateWeapons } from "@/features/shooter/weapons";
 import { spawnWave } from "@/features/shooter/waves";
 import type { ShooterRuntimeConfig } from "@/lib/api/types";
+import { reversalHitbox, updateReversalChain, updateReversalEnemy } from "@/features/shooter/reversal";
 
 export { createShooterRuntime } from "@/features/shooter/weapons";
 
@@ -49,7 +50,7 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   random: new ShooterRandom(runtime.config.seed),
   tick: 0,
   playerX: SHOOTER_WIDTH / 2,
-  health: runtime.config.player_health,
+  health: runtime.config.reversal ? clamp(runtime.config.player_health, 0, 3) : runtime.config.player_health,
   shield: runtime.resolved.startingShield,
   invulnerableTicks: 0,
   rescueCharge: clamp(runtime.resolved.rescueCharge, 0, 100),
@@ -84,12 +85,14 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   pickupPowerTicks: 0,
   pressureQuietTicks: 0,
   effects: [],
+  ...(runtime.config.reversal ? { reversal: { breaks: 0, chain: [] } } : {}),
 });
 
 const updateEnemies = (state: ShooterMutableState): void => {
   for (const enemy of state.enemies) {
     if (enemy.health <= 0) continue;
     enemy.age += 1;
+    if (updateReversalEnemy(state, enemy)) continue;
     if (enemy.boss) {
       updateBoss(state, enemy);
       continue;
@@ -131,6 +134,10 @@ const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
   graze_count: state.grazeCount,
   combo: state.combo,
   score: state.score,
+  ...(state.reversal && state.config.reversal ? { reversal: {
+    breaks: state.reversal.breaks,
+    weapon: state.config.reversal.weapon,
+  } } : {}),
   ...(state.pickupPower && state.pickupPowerTicks > 0
     ? {
         pickup_power: state.pickupPower,
@@ -158,6 +165,14 @@ const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
       ...(enemy.phase ? { stage: enemy.phase } : {}),
       ...(intent ? { intent } : {}),
       ...(enemy.marks ? { marks: enemy.marks } : {}),
+      ...(state.config.reversal ? {
+        group_id: enemy.groupID,
+        role: enemy.role,
+        exposed: Boolean(enemy.exposed),
+        disabled_ticks: enemy.disabledTicks ?? 0,
+        age: enemy.age,
+        hitbox: reversalHitbox(enemy),
+      } : {}),
     };
   }),
   enemy_projectiles: state.enemyProjectiles.map((item) => ({
@@ -169,6 +184,7 @@ const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
     ...(item.radius ? { radius: item.radius } : {}),
     ...(item.width ? { width: item.width } : {}),
     ...(item.health > 0 ? { health: item.health } : {}),
+    ...(item.groupID !== undefined ? { group_id: item.groupID } : {}),
   })),
   player_projectiles: state.playerProjectiles.map((item) => ({
     id: item.id,
@@ -199,9 +215,12 @@ const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
 export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulation => {
   const state = createInitialState(runtime);
   let cachedResult: ShooterResult | null = null;
+  const bossIsDefeated = () => Boolean(
+    state.config.boss && state.spawnedBoss && !state.enemies.some((enemy) => enemy.boss && enemy.health > 0),
+  );
 
   const step = (input: ShooterInput): ShooterStepEvents => {
-    if (state.tick >= state.config.duration_ticks || state.health <= 0) {
+    if (cachedResult || state.tick >= state.config.duration_ticks || state.health <= 0 || bossIsDefeated()) {
       return emptyStepEvents();
     }
     const before = {
@@ -223,14 +242,17 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     state.rescueHeld = input.rescue;
     spawnWave(state);
     spawnBoss(state);
+    updateReversalChain(state);
     updateWeapons(state);
     updateCompanions(state);
     updateEnemies(state);
     updateKitPassives(state);
     updateProjectiles(state);
+    // Expire the previous support after this tick's shot, before a new pickup refreshes it.
+    if (state.config.reversal && state.pickupPowerTicks > 0) state.pickupPowerTicks -= 1;
     updatePickups(state);
     updateEffects(state);
-    if (state.pickupPowerTicks > 0) state.pickupPowerTicks -= 1;
+    if (!state.config.reversal && state.pickupPowerTicks > 0) state.pickupPowerTicks -= 1;
     if (state.pickupPowerTicks === 0) state.pickupPower = null;
     if (state.comboClock > 0) state.comboClock -= 1;
     else state.combo = 0;
@@ -263,9 +285,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
 
   const result = (): ShooterResult | null => {
     const aliveBoss = state.enemies.some((enemy) => enemy.boss && enemy.health > 0);
-    const bossDefeated = Boolean(
-      state.config.boss && state.spawnedBoss && !aliveBoss,
-    );
+    const bossDefeated = bossIsDefeated();
     if (
       state.health > 0 &&
       state.tick < state.config.duration_ticks &&
@@ -274,6 +294,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
       return null;
     }
     if (cachedResult) return cachedResult;
+    if (state.config.reversal) removeDefeatedEnemies(state);
     const won = state.health > 0 && (!state.config.boss || !aliveBoss);
     if (won) state.score += state.health * 10 + state.rescueCharge * 2;
     cachedResult = {

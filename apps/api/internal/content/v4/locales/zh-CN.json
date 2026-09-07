@@ -1,6 +1,9 @@
 {
   "locale": "zh-CN",
   "strings": {
+    "demo.reversal.opening": "场控呢？……哦，就你一个。",
+    "demo.reversal.twin.name": "双路连射",
+    "demo.reversal.pierce.name": "穿透主炮",
     "chapter.seventh_dock.title": "第七码头没有海",
     "chapter.seventh_dock.subtitle": "一条撤回的七秒语音，让自动回复学会了用七海的声音说话。",
     "chapter.always_cheerful.title": "永远元气",

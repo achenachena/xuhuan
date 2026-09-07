@@ -56,7 +56,7 @@ export const ShooterHUD = ({
       >
         <div className="grid h-12 grid-cols-[auto_1fr] items-center gap-2 border border-cyan-200/25 bg-[#020713]/90 px-2 pr-11 shadow-[0_3px_0_rgba(34,211,238,.12)] backdrop-blur-sm">
         <div className="min-w-[82px]" aria-label={`${gameText(language, "onAir")}: ${health}/3`}>
-          <p className="flex justify-between font-mono text-[7px] font-black tracking-[.12em] text-rose-200">
+          <p className="flex justify-between font-mono text-[9px] font-black tracking-[.08em] text-rose-200">
             <span>{gameText(language, "onAir")}</span>
             <span>{health}/3</span>
           </p>
@@ -70,7 +70,7 @@ export const ShooterHUD = ({
           </div>
         </div>
         <div className="min-w-0">
-          <div className="flex justify-between gap-1 font-mono text-[7px] font-bold tracking-wider text-slate-300">
+          <div className="flex justify-between gap-1 font-mono text-[9px] font-bold tracking-wide text-slate-300">
             <span className="truncate">{segment}</span>
             {showMeter ? <span>{hype}%</span> : null}
           </div>

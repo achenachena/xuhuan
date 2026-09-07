@@ -49,6 +49,7 @@ type Props = {
   readonly run: ShooterGameRun;
   readonly busy: boolean;
   readonly embedded?: boolean;
+  readonly opening?: string;
   readonly onComplete: (result: ShooterResult) => Promise<boolean>;
 };
 
@@ -69,7 +70,7 @@ export const shooterTutorialKey = (
   return "tutorialRescue";
 };
 
-export const ShooterArena = ({ content, run, busy, embedded = false, onComplete }: Props) => {
+export const ShooterArena = ({ content, run, busy, embedded = false, opening, onComplete }: Props) => {
   const { language } = useLocale();
   const audio = useAudio();
   const setMusicActive = audio.setMusicActive;
@@ -99,9 +100,11 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
     ),
   );
   const visualsRef = useRef<ShooterVisuals>(new Map());
+  const assetsReadyRef = useRef(!sources.reversal);
   const completeRef = useRef(onComplete);
   const audioRef = useRef(audio);
   const languageRef = useRef(language);
+  const openingRef = useRef(opening);
   const rescueQueuedRef = useRef(false);
   const pointerStartedRef = useRef(false);
   const movementDistanceRef = useRef(0);
@@ -117,6 +120,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
   );
   const [submitting, setSubmitting] = useState(false);
   const [submissionFailed, setSubmissionFailed] = useState(false);
+  const [assetState, setAssetState] = useState<"loading" | "ready" | "error">(sources.reversal ? "loading" : "ready");
 
   useEffect(() => {
     completeRef.current = onComplete;
@@ -127,6 +131,9 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
   useEffect(() => {
     languageRef.current = language;
   }, [language]);
+  useEffect(() => {
+    openingRef.current = opening;
+  }, [opening]);
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -163,7 +170,13 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
   useEffect(() => {
     let active = true;
     void preloadShooterVisuals(sources).then((visuals) => {
-      if (active) visualsRef.current = visuals;
+      if (!active) return;
+      visualsRef.current = visuals;
+      const ready = !sources.reversal || [sources.background, sources.player, sources.boss ?? "", sources.enemies.equipment ?? ""].every((url) => visuals.has(url));
+      assetsReadyRef.current = ready;
+      setAssetState(ready ? "ready" : "error");
+    }).catch(() => {
+      if (active) setAssetState("error");
     });
     return () => {
       active = false;
@@ -173,20 +186,29 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
   useEffect(() => {
     const pause = () => {
       pausedRef.current = true;
+      controlRef.current = { ...controlRef.current, pointer: null };
+      keysRef.current.clear();
+      rescueQueuedRef.current = false;
+      if (surfaceRef.current) surfaceRef.current.dataset.pointerActive = "false";
     };
     const resume = () => {
       pausedRef.current = document.hidden;
     };
     const visibility = () => {
-      pausedRef.current = document.hidden;
+      if (document.hidden) pause();
+      else resume();
     };
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("xuhuan:deactivated", pause);
     window.addEventListener("xuhuan:activated", resume);
+    window.addEventListener("blur", pause);
+    window.addEventListener("focus", resume);
     return () => {
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("xuhuan:deactivated", pause);
       window.removeEventListener("xuhuan:activated", resume);
+      window.removeEventListener("blur", pause);
+      window.removeEventListener("focus", resume);
     };
   }, []);
 
@@ -222,12 +244,17 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
     let finished = false;
     let lastHUDTick = -10;
     let lastBossWarning = -120;
+    let wasPaused = false;
     submittingRef.current = false;
     pendingResultRef.current = null;
 
     const finish = () => {
       if (finished) return;
       finished = true;
+      keysRef.current.clear();
+      controlRef.current = { ...controlRef.current, pointer: null };
+      rescueQueuedRef.current = false;
+      setHudSnapshot(currentSnapshot);
       const result = simulation.result();
       audioRef.current.playSound(result?.won ? "victory" : "defeat");
       if (result) void submitResult(result);
@@ -269,10 +296,11 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
             x: enemy.position.x,
             // Player fire travels upward, so anchor the burst to the lower
             // edge where the projectile actually meets the sprite.
-            y: enemy.position.y + (enemy.boss ? 310 : 155),
+            y: enemy.position.y + (runtime.config.reversal ? 0 : enemy.boss ? 310 : 155),
             boss: enemy.boss,
+            role: enemy.role,
             destroyed,
-            untilTick: currentSnapshot.tick + (destroyed ? 10 : 7),
+            untilTick: currentSnapshot.tick + (destroyed ? 10 : runtime.config.reversal ? 3 : 7),
           });
         }
       }
@@ -282,7 +310,10 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
         }
       });
       if (events.pickup) audioRef.current.playSound("pickup");
-      if (events.enemyDefeatedIDs.length > 0) {
+      if ((currentSnapshot.reversal?.breaks ?? 0) > (previousSnapshot.reversal?.breaks ?? 0)) {
+        audioRef.current.playSound("coreBreak");
+        void playTelegramHaptic("rescue");
+      } else if (events.enemyDefeatedIDs.length > 0) {
         audioRef.current.playSound("enemyBreak");
       } else if (events.enemyHitIDs.length > 0) {
         audioRef.current.playSound("enemyHit");
@@ -313,13 +344,19 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
     };
 
     const draw = () => {
-      const key = shooterTutorialKey(
+      const key = runtime.config.reversal ? null : shooterTutorialKey(
         runtime.config.starting_rescue_charge,
         currentSnapshot,
         pointerStartedRef.current,
         movementDistanceRef.current,
         rescueUsedRef.current,
       );
+      const tutorial = runtime.config.reversal
+        ? currentSnapshot.tick < 90 && !runtime.config.boss
+          ? openingRef.current ?? null
+          : currentSnapshot.tick < 240 && !runtime.config.boss
+            ? gameText(languageRef.current, "demoMoveHint") : null
+        : key ? gameText(languageRef.current, key) : null;
       drawShooterArena(
         canvasRef.current,
         currentSnapshot,
@@ -327,7 +364,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
         Math.min(1, accumulator / (1_000 / SHOOTER_TPS)),
         sources,
         visualsRef.current,
-        key ? gameText(languageRef.current, key) : null,
+        tutorial,
         controlRef.current.playerX,
         enemyImpactsRef.current,
       );
@@ -336,7 +373,9 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
     const loop = (now: number) => {
       const delta = Math.min(100, now - previousTime);
       previousTime = now;
-      if (!pausedRef.current && !finished) accumulator += delta;
+      if (pausedRef.current || wasPaused || !assetsReadyRef.current) accumulator = 0;
+      else if (!finished) accumulator += delta;
+      wasPaused = pausedRef.current;
       let updates = 0;
       while (accumulator >= 1_000 / SHOOTER_TPS && updates < 5 && !finished) {
         accumulator -= 1_000 / SHOOTER_TPS;
@@ -344,7 +383,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
         updates += 1;
       }
       draw();
-      frame = requestAnimationFrame(loop);
+      if (!finished) frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
@@ -359,6 +398,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
   const bounds = () => surfaceRef.current?.getBoundingClientRect() ?? null;
   const begin = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
+    if (submitting || pausedRef.current || !assetsReadyRef.current) return;
     const rect = bounds();
     if (!rect) return;
     const next = beginShooterPointer(
@@ -441,12 +481,20 @@ export const ShooterArena = ({ content, run, busy, embedded = false, onComplete 
       <ShooterHUD
         snapshot={hudSnapshot}
         segmentIndex={run.state.segment_index}
+        segmentTotal={runtime.config.reversal ? 1 : 3}
         durationTicks={runtime.config.duration_ticks}
         boss={Boolean(segment.boss_id)}
         busy={busy || submitting}
         onRescue={queueRescue}
       />
-      {submitting ? (
+      {assetState !== "ready" ? (
+        <div className="absolute inset-0 z-40 grid place-items-center bg-[#0b1827] p-6 text-center font-mono text-sm text-cyan-100" role="status">
+          {assetState === "error" ? (
+            <button className="border border-cyan-200 bg-slate-900 px-5 py-3" onClick={() => window.location.reload()}>{gameText(language, "retry")}</button>
+          ) : gameText(language, "connecting")}
+        </div>
+      ) : null}
+      {submitting && !embedded ? (
         <p
           aria-live="polite"
           className="pointer-events-none absolute bottom-[var(--xuhuan-host-safe-bottom)] left-1/2 z-30 -translate-x-1/2 border border-cyan-200/20 bg-[#020713]/90 px-3 py-1.5 font-mono text-[9px] text-cyan-100"

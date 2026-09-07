@@ -14,6 +14,7 @@ import type {
   ShooterRuntime,
 } from "@/features/shooter/types";
 import type { ShooterRuntimeConfig } from "@/lib/api/types";
+import { updateReversalWeapons } from "@/features/shooter/reversal";
 
 export const createShooterRuntime = (
   config: ShooterRuntimeConfig,
@@ -81,6 +82,10 @@ export const createShooterRuntime = (
   }
   resolved.fireInterval = Math.max(3, resolved.fireInterval);
   resolved.multishot = clamp(resolved.multishot, 1, 5);
+  if (config.reversal) {
+    resolved.maxHealth = 3;
+    resolved.startingShield = clamp(resolved.startingShield, 0, 1);
+  }
 
   const dailyVariant = config.daily ? (config.daily_modifier_id ?? "") : "";
 
@@ -101,6 +106,7 @@ export const addPlayerProjectile = (
     damage: number;
     pierce?: number;
     kind?: string;
+    radius?: number;
   },
 ): boolean => {
   if (state.playerProjectiles.length >= state.config.limits.player_projectiles) {
@@ -115,7 +121,7 @@ export const addPlayerProjectile = (
     vy: values.vy,
     damage: values.damage,
     pierce: values.pierce ?? 0,
-    radius: 0,
+    radius: values.radius ?? 0,
     width: 0,
     health: 0,
     kind: values.kind ?? "",
@@ -170,6 +176,7 @@ export const resolvePickupWeapon = (
 });
 
 export const updateWeapons = (state: ShooterMutableState): void => {
+  if (state.config.reversal) { updateReversalWeapons(state); return; }
   state.attackClock += 1;
   const pickupPower = state.pickupPowerTicks > 0 ? state.pickupPower : null;
   const pickupWeapon = resolvePickupWeapon(pickupPower, state.runtime);
@@ -268,7 +275,7 @@ const activateCompanion = (
   amount: number,
 ): void => {
   if (behavior === "shield") {
-    state.shield += amount;
+    state.shield = state.config.reversal ? Math.min(1, state.shield + amount) : state.shield + amount;
     return;
   }
   if (behavior === "clear_lane") {

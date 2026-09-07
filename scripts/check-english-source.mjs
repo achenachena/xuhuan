@@ -48,7 +48,7 @@ const allowedHanFiles = new Set([
   "apps/api/migrations/006_remove_action_v2.sql",
   "apps/miniapp/src/locales/zh-CN.json",
   // Generated from the canonical Go zh-CN catalog; never hand-authored.
-  "apps/miniapp/public/game/v4/demo/demo-v1.zh-CN.json",
+  "apps/miniapp/public/game/v4/demo/demo-v2.zh-CN.json",
 ]);
 const hanPattern = /\p{Script=Han}/u;
 

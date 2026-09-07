@@ -10,6 +10,9 @@ import type {
   ShooterThreatSnapshot,
 } from "@/features/shooter/types";
 import type { ShooterContent, ShooterGameRun } from "@/lib/api/types";
+import { drawReversalArena, preloadReversalFrames } from "@/features/shooter/reversal-renderer";
+import { indexShooterPositions, interpolateShooterPosition as entityPosition, type PositionIndex } from "@/features/shooter/render-positions";
+export { indexShooterPositions } from "@/features/shooter/render-positions";
 
 const chassisAssets = {
   "spam-bot": "/game/v4/enemies/spam-bot.webp",
@@ -25,12 +28,14 @@ const pickupAssets = [
   "/game/v4/pickups/support-gold.webp",
 ] as const;
 const pickupVisuals: Record<ShooterPickupPower, { asset: number; color: string }> = {
+  support: { asset: 2, color: "#fde68a" },
   rapid: { asset: 0, color: "#67e8f9" },
   spread: { asset: 1, color: "#f9a8d4" },
   pierce: { asset: 2, color: "#fde68a" },
 };
 
 export type ShooterVisualSources = {
+  readonly reversal?: boolean;
   readonly background: string;
   readonly player: string;
   readonly enemies: Readonly<Record<string, string>>;
@@ -46,18 +51,13 @@ export type ShooterEnemyImpact = {
   readonly y: number;
   readonly boss: boolean;
   readonly destroyed: boolean;
+  readonly role?: ShooterEnemySnapshot["role"];
   readonly untilTick: number;
 };
 const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
-type PositionEntity = {
-  readonly id: number;
-  readonly position: { readonly x: number; readonly y: number };
-};
-type PositionIndex = ReadonlyMap<number, PositionEntity["position"]>;
 type CanvasMetrics = { readonly width: number; readonly height: number };
 const canvasMetrics = new WeakMap<HTMLCanvasElement, CanvasMetrics>();
-const positionIndexes = new WeakMap<readonly PositionEntity[], PositionIndex>();
-const emptyPositions: readonly PositionEntity[] = [];
+const emptyPositions = [] as const;
 
 const loadImage = (source: string): Promise<HTMLImageElement | null> => {
   const cached = imageCache.get(source);
@@ -78,6 +78,17 @@ export const resolveShooterVisualSources = (
   content: ShooterContent,
   run: ShooterGameRun,
 ): ShooterVisualSources => {
+  if (run.state.segment?.runtime_config.reversal) {
+    return {
+      reversal: true,
+      background: "/game/v4/reversal/stage.webp",
+      player: "/game/v4/reversal/nana-sheet.webp",
+      enemies: { equipment: "/game/v4/reversal/equipment-sheet.webp" },
+      companions: {},
+      boss: "/game/v4/reversal/boss-sheet.webp",
+      pickups: [],
+    };
+  }
   const chapter = content.chapters.find((entry) => entry.id === run.state.chapter_slug);
   const character = content.characters.find((entry) => entry.id === run.state.character_slug);
   const bossID = run.state.segment?.boss_id;
@@ -94,7 +105,9 @@ export const resolveShooterVisualSources = (
 export const preloadShooterVisuals = async (sources: ShooterVisualSources): Promise<ShooterVisuals> => {
   const urls = new Set([sources.background, sources.player, ...Object.values(sources.enemies), ...Object.values(sources.companions), ...sources.pickups, ...(sources.boss ? [sources.boss] : [])]);
   const loaded = await Promise.all(Array.from(urls, async (source) => [source, await loadImage(source)] as const));
-  return new Map(loaded.filter((entry): entry is readonly [string, HTMLImageElement] => entry[1] !== null));
+  const visuals = new Map(loaded.filter((entry): entry is readonly [string, HTMLImageElement] => entry[1] !== null));
+  if (sources.reversal) preloadReversalFrames(visuals, sources);
+  return visuals;
 };
 
 const resizeCanvas = (canvas: HTMLCanvasElement): CanvasMetrics => {
@@ -149,28 +162,8 @@ const drawSprite = (context: CanvasRenderingContext2D, image: HTMLImageElement |
   context.restore();
 };
 
-export const indexShooterPositions = (
-  entities: readonly PositionEntity[],
-): PositionIndex => {
-  const cached = positionIndexes.get(entities);
-  if (cached) return cached;
-  const index = new Map(entities.map((entity) => [entity.id, entity.position]));
-  positionIndexes.set(entities, index);
-  return index;
-};
-
 export const shouldUseDenseProjectileRendering = (count: number): boolean =>
   count > 56;
-
-const entityPosition = <T extends PositionEntity>(entity: T, previous: PositionIndex, alpha: number) => {
-  const prior = previous.get(entity.id);
-  return prior
-    ? {
-        x: Math.round(prior.x + (entity.position.x - prior.x) * alpha),
-        y: Math.round(prior.y + (entity.position.y - prior.y) * alpha),
-      }
-    : entity.position;
-};
 
 const drawThreat = (context: CanvasRenderingContext2D, threat: ShooterThreatSnapshot): void => {
   const urgency = 1 - clamp(threat.ticks_remaining / 30, 0, 1);
@@ -705,6 +698,10 @@ export const drawShooterArena = (
 ): void => {
   const context = prepare(canvas);
   if (!context) return;
+  if (current.reversal) {
+    drawReversalArena(context, current, previous, alpha, sources, visuals, presentationX, tutorial, enemyImpacts);
+    return;
+  }
   const previousPickups = indexShooterPositions(previous?.pickups ?? emptyPositions);
   const previousEnemyProjectiles = indexShooterPositions(
     previous?.enemy_projectiles ?? emptyPositions,

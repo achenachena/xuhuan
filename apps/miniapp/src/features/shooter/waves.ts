@@ -6,6 +6,7 @@ import {
 } from "@/features/shooter/constants";
 import { shooterSeedFromString } from "@/features/shooter/random";
 import type { ShooterMutableState } from "@/features/shooter/types";
+import { spawnReversalGroups } from "@/features/shooter/reversal";
 
 const formationX = (
   formation: string,
@@ -116,6 +117,7 @@ const spawnLatePressure = (state: ShooterMutableState): void => {
 };
 
 export const spawnWave = (state: ShooterMutableState): void => {
+  if (state.config.reversal) { spawnReversalGroups(state); return; }
   for (const spawn of state.config.wave.spawns) {
     const count = Math.max(1, spawn.count);
     const every = Math.max(1, spawn.interval_ticks);
