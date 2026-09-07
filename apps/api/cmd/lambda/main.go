@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/application"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
@@ -44,9 +43,7 @@ func run() error {
 		return err
 	}
 	defer func() {
-		shutdownContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := runtime.Close(shutdownContext); err != nil {
+		if err := runtime.Close(); err != nil {
 			runtime.Logger.Warn("runtime_shutdown_failed")
 		}
 	}()

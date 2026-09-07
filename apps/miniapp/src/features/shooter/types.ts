@@ -1,5 +1,4 @@
 import type {
-  ShooterBoss,
   ShooterContent,
   ShooterEnemySpec,
   ShooterGameRun,
@@ -95,7 +94,6 @@ export type ShooterResolvedRuntime = {
   maxHealth: number;
   rescueCharge: number;
   rescueDamage: number;
-  companionPower: number;
   grazeCharge: number;
   spread: number;
   guardOnSpecial: number;
@@ -110,8 +108,6 @@ export type ShooterResolvedRuntime = {
 
 export type ShooterRuntime = {
   readonly config: ShooterRuntimeConfig;
-  readonly enemySpecs: ReadonlyMap<string, ShooterEnemySpec>;
-  readonly boss: ShooterBoss | null;
   readonly resolved: ShooterResolvedRuntime;
   readonly dailyVariant: string;
 };

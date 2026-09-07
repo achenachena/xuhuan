@@ -103,11 +103,6 @@ html[data-shooter-encounter="true"] [data-language-toggle="true"] {
   opacity: 0.78;
 }
 
-#__next {
-  width: 100%;
-  min-height: var(--xuhuan-stable-height, 100dvh);
-}
-
 button {
   -webkit-tap-highlight-color: transparent;
 }

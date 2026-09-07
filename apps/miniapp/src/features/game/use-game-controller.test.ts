@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { APIGameContent } from "@/lib/api/client";
+import type { ShooterContent } from "@/lib/api/types";
 import type { ShooterSegmentOutcome } from "@/lib/api/types";
 import {
   createV4Game,
@@ -45,8 +45,8 @@ describe("useGameController shooter-v1 orchestration", () => {
   });
 
   it("ignores stale localized content after the locale changes", async () => {
-    const english = deferred<APIGameContent>();
-    const chinese = deferred<APIGameContent>();
+    const english = deferred<ShooterContent>();
+    const chinese = deferred<ShooterContent>();
     dependencies.getGameContent.mockImplementation((locale) =>
       locale === "en" ? english.promise : chinese.promise,
     );

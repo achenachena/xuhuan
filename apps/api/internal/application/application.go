@@ -7,14 +7,12 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"time"
 
 	apihttp "github.com/achenachena/xuhuan/apps/api/internal/api"
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 	"github.com/achenachena/xuhuan/apps/api/internal/game"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/config"
-	"github.com/achenachena/xuhuan/apps/api/internal/platform/logging"
 	"github.com/achenachena/xuhuan/apps/api/internal/platform/ratelimit"
 	"github.com/achenachena/xuhuan/apps/api/internal/postgres"
 )
@@ -33,7 +31,7 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 	if cfg.Environment == config.Development {
 		level = slog.LevelDebug
 	}
-	logger := logging.New(output, level)
+	logger := slog.New(slog.NewJSONHandler(output, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
 
 	if cfg.DatabaseURL == "" {
@@ -49,9 +47,7 @@ func New(ctx context.Context, cfg config.Config, output io.Writer) (*Runtime, er
 		database: database,
 	}
 	cleanup := func(cause error) (*Runtime, error) {
-		closeContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		return nil, errors.Join(cause, runtime.Close(closeContext))
+		return nil, errors.Join(cause, runtime.Close())
 	}
 
 	var telegramVerifier *auth.TelegramVerifier
@@ -110,7 +106,7 @@ func (runtime *Runtime) Check(ctx context.Context) error {
 	return runtime.database.Check(ctx)
 }
 
-func (runtime *Runtime) Close(_ context.Context) error {
+func (runtime *Runtime) Close() error {
 	if runtime == nil {
 		return nil
 	}
