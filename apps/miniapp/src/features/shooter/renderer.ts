@@ -737,25 +737,6 @@ export const drawShooterArena = (
   });
   for (const effect of current.effects) drawEffect(context, effect);
   const playerX = presentationX || current.player_x;
-  if (current.pickup_power && (current.pickup_power_ticks ?? 0) > 0) {
-    const visual = pickupVisuals[current.pickup_power];
-    const pulse = current.tick % 20 < 10 ? 0 : 14;
-    context.save();
-    context.strokeStyle = visual.color;
-    context.globalAlpha = 0.45 + 0.25 * ((current.pickup_power_ticks ?? 0) / 150);
-    context.lineWidth = 16;
-    const radius = 245 + pulse;
-    for (const rotation of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
-      context.beginPath();
-      context.arc(playerX, PLAYER_Y, radius, rotation + 0.12, rotation + 0.68);
-      context.stroke();
-    }
-    context.restore();
-  }
-  if (current.shield > 0) {
-    context.strokeStyle = "#93c5fd"; context.lineWidth = 20; context.globalAlpha = 0.65;
-    context.beginPath(); context.arc(playerX, PLAYER_Y, 235, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1;
-  }
   context.globalAlpha = current.invulnerable_ticks > 0 && current.tick % 4 < 2 ? 0.35 : 1;
   drawSprite(context, visuals.get(sources.player), playerX, PLAYER_Y, 540, "#67e8f9");
   context.globalAlpha = 1;
@@ -934,7 +915,6 @@ const drawGatePortal = (
   option: ShooterGateOption,
   index: number,
   active: boolean,
-  dwellProgress: number,
   tick: number,
   visuals: ShooterVisuals,
 ): void => {
@@ -977,15 +957,6 @@ const drawGatePortal = (
   }
 
   context.shadowBlur = 0;
-  context.fillStyle = "rgba(15,23,42,.9)";
-  context.fillRect(x - 500, 4_190, 1_000, 54);
-  context.fillStyle = active ? "#fde68a" : "rgba(103,232,249,.35)";
-  context.fillRect(
-    x - 500,
-    4_190,
-    1_000 * (active ? clamp(dwellProgress, 0, 1) : 0.08),
-    54,
-  );
   context.restore();
 };
 
@@ -995,10 +966,7 @@ export const drawShooterGates = (
   visuals: ShooterVisuals,
   options: readonly ShooterGateOption[],
   selectedIndex: number | null,
-  dwellProgress: number,
-  instruction: string,
   animationTick: number,
-  playerX: number,
 ): void => {
   const context = prepare(canvas);
   if (!context) return;
@@ -1013,23 +981,12 @@ export const drawShooterGates = (
         option,
         index,
         selectedIndex === index,
-        dwellProgress,
         animationTick,
         visuals,
       ),
     );
 
-  context.fillStyle = "rgba(2,6,23,.82)";
-  context.fillRect(520, 120, 2_560, 230);
-  context.strokeStyle = "rgba(103,232,249,.5)";
-  context.lineWidth = 12;
-  context.strokeRect(520, 120, 2_560, 230);
-  context.fillStyle = "#e0f2fe";
-  context.font = "bold 88px monospace";
-  context.textAlign = "center";
-  context.fillText(instruction, SHOOTER_WIDTH / 2, 268, 2_320);
-
   context.globalAlpha = 0.9;
-  drawSprite(context, visuals.get(sources.player), playerX, PLAYER_Y, 510, "#67e8f9");
+  drawSprite(context, visuals.get(sources.player), SHOOTER_WIDTH / 2, PLAYER_Y, 510, "#67e8f9");
   context.globalAlpha = 1;
 };

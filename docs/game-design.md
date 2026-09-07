@@ -28,9 +28,9 @@ The player remains near the bottom of a `360 x 640` portrait arena.
 
 Pointer Capture and `touch-action: none` apply only to the arena. The Telegram host adapter disables vertical WebView swipes only during combat and restores them on every exit, blur, or unmount path.
 
-## The 35-to-45-second wave loop
+## Short waves with automatic progression
 
-Every normal segment is fixed-duration survival. Killing enemies creates room and score, while the screen presents one progress strip: survive until the aftershow connection stabilizes.
+Normal segments have a 35-to-45-second time cap (30 seconds for Nana's first tutorial). Clearing the final scheduled formation ends the segment early; a temporary gap before a later formation does not. Surviving until the cap also wins. Killing enemies creates room and score without leaving the player waiting in an empty arena.
 
 During a wave, the player balances three readable goals:
 
@@ -40,7 +40,9 @@ During a wave, the player balances three readable goals:
 
 Enemies appear in authored formations. A dangerous attack always shows a line, lane, fan edge, or charge warning before it can damage the player. The runtime permits at most 14 enemies, 120 hostile projectiles, 48 friendly projectiles, 12 pickups, and 24 visual effects.
 
-The player has three hearts. Damage removes one heart and grants a short invulnerable window. A completed wave cannot be invalidated by waiting enemies; surviving its fixed duration is sufficient.
+The player has three hearts and can hold at most one guard, which absorbs the next hit. Damage grants a short invulnerable window; guards do not accumulate into hidden extra lives. The first Nana segment starts with one training guard.
+
+After a win, combat stops for a harmless 450 ms beat and advances automatically. Rescue is optional and never acts as a continue button. Only a show choice, story reply, or result-screen decision waits for player input. If result delivery fails, the stopped segment offers an explicit network retry without repeating combat.
 
 ## Staged build decisions
 
@@ -52,7 +54,11 @@ Every chapter contains three normal segments followed by a boss. The reward afte
 | 2 | `companion` | Choose one guest performer to provide a triggered assist for this attempt. |
 | 3 | `rescue` | Choose a guard or recovery effect before the boss. |
 
-This sequence teaches one system at a time and prevents three cards with tiny numeric differences from appearing together. V4 has 12 shared, one-level show effects. Each behavior changes a visible rule: twin shot, pierce, spread, stronger graze charge, special guard, pickup magnet, echo volley, boss break, last-heart power, longer combo, faster companion assist, or recovery drops.
+The first pair is drawn only from twin shot, piercing shot, and angled spread: the next volley must visibly change. Conditional damage bonuses remain available through story rewards and later effects, but cannot replace this first firing-shape choice. Choices already saved in an active Run remain valid.
+
+Each pair uses a short animation preview and a direct tap or click. It does not require dragging into a target or holding a position. The selected companion's name and short description explain when that support acts.
+
+V4 has 12 shared, one-level show effects: twin shot, pierce, spread, stronger graze charge, special guard, pickup magnet, echo volley, boss damage, last-heart power, longer combo, Rescue charge from companion assists, and recovery drops.
 
 There is no upgrade level, duplicate stacking, reroll currency, shop, or six-slot inventory. A chapter attempt is short enough that three meaningful choices are sufficient.
 
@@ -60,30 +66,30 @@ There is no upgrade level, duplicate stacking, reroll currency, shop, or six-slo
 
 | Character | Special | Combat identity |
 | --- | --- | --- |
-| Nana | Route Break | Opens a safe lane through dense patterns. |
-| Jiaran (Diana) | Cheer Check | Converts pressure into a guard and friendly pulse. |
+| Nana | Route Break | Clears bullets and detonates marks on enemies. |
+| Jiaran (Diana) | Cheer Check | Clears bullets and adds one guard with a friendly pulse. |
 | Xiangwan (Ava) | Second Take | Replays the most recent attack line. |
-| Bella | Take Five | Parries nearby bullets and counters. |
+| Bella | Take Five | Clears bullets, counters, and adds one guard. |
 | Lulu | Caption Flip | Converts hostile shots into friendly glitches. |
 | Xingtong | Prism Call | Focuses a piercing beam through one lane. |
 | Nailu | Memory Bloom | Creates a damaging temporary safe garden. |
 
-Clearing each character chapter unlocks that performer as a companion. Companion assists are event-driven and automatic, so they add relationship and build texture without adding another button. Triggers include a wave clear, low health, special use, graze streak, pickup chain, boss stage change, and segment start.
+Clearing each character chapter unlocks that performer as a starting companion for replays. The second gate may invite another guest for the current attempt. Companion assists are event-driven and automatic, with no additional button: Nana and Xiangwan follow Rescue, Jiaran protects the last heart, Bella clears the player's lane after near misses, Lulu converts bullets after a pickup chain, Xingtong responds to a Boss phase, and Nailu restores a missing heart when the segment starts. A saved older Nana assist still works without discarding its Run.
 
 ## Enemy language
 
-Six visual chassis combine one movement rule, one attack rule, and optional traits:
+Six visual chassis have distinct built-in movement and hazard patterns:
 
 | Chassis | Movement | Primary attack | Readable twist |
 | --- | --- | --- | --- |
-| Spam Bot | drift | aimed shot | Simple positioning check. |
-| Clip Cutter | dive | lane shot | Splits after destruction. |
-| Caption Blob | sweep | fan | Leaves a delayed echo. |
-| Black-Screen Ghost | mirror | delayed shot | Briefly jams presentation. |
-| Gift Thief | orbit | ring | Steals unattended support notes. |
-| Censor Frame | anchor | beam | Links and protects nearby enemies. |
+| Spam Bot | descends in a column | straight stream | Move away from its firing column. |
+| Clip Cutter | sweeps sideways | wide cutting strip | Use the opening beside the strip. |
+| Caption Blob | drifts across the stage | subtitle block | Vacate the targeted lane. |
+| Black-Screen Ghost | mirrors the player | breakable black-screen wall | Shoot a passage through the wall. |
+| Gift Thief | enters, steals, and flees | no direct shot | Catch it before it takes support offstage. |
+| Censor Frame | anchors above the stage | framed volley with one gap | Find the open lane. |
 
-Waves compose these roles rather than introducing a new rule every ten seconds. A pincer of Clip Cutters asks for timing; a Censor Frame plus drifting Spam Bots asks for target priority; a Gift Thief changes the safest support-note route.
+Waves compose these roles rather than introducing a new rule every ten seconds. A pincer of Clip Cutters asks for timing; a Censor Frame plus descending Spam Bots asks the player to read the remaining safe lane; a Gift Thief changes the safest support-note route.
 
 ## Boss structure
 
@@ -107,11 +113,13 @@ The final stage raises pattern density but retains telegraphs. A boss is defeate
 Chapters unlock linearly and may be replayed. Every chapter contains:
 
 - a prelude of at most three short group-chat bubbles;
-- three fixed-duration waves and staged build choices;
+- three capped waves, early formation clears, and staged build choices;
 - one concrete two-option intermission after the second wave;
 - a three-stage boss;
 - a short epilogue; and
 - a replay recap that acknowledges the chapter is already known.
+
+Cleared and failed attempts both lead to an explicit result screen. Players can start another attempt or return to the group, where the next unlocked chapter is available after a clear. Retrying a failed attempt starts a fresh Run, not a hidden restart of only its final room.
 
 The intermission stores an explicit selected option ID and durable tag. It never adds invisible morality or personality points. Replaying a chapter appends a new choice revision; the latest revision changes the current story projection without erasing history.
 

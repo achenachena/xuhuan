@@ -94,23 +94,29 @@ const parsePendingSegment = (): PendingSegment | null => {
       !idempotencyKeyPattern.test(value.idempotencyKey ?? "") ||
       !validSegmentOutcome(value.outcome)
     ) {
-      window.sessionStorage.removeItem(pendingSegmentStorageKey);
+      clearPendingSegment();
       return null;
     }
     return value as PendingSegment;
   } catch {
-    window.sessionStorage.removeItem(pendingSegmentStorageKey);
+    clearPendingSegment();
     return null;
   }
 };
 
 const savePendingSegment = (pending: PendingSegment): void => {
-  window.sessionStorage.setItem(pendingSegmentStorageKey, JSON.stringify(pending));
+  try {
+    window.sessionStorage.setItem(pendingSegmentStorageKey, JSON.stringify(pending));
+  } catch {
+    // Restricted WebViews can deny storage. The mounted arena still retains
+    // its completed result; a storage failure must not prevent API submission.
+  }
 };
 
 const clearPendingSegment = (): void => {
   if (typeof window !== "undefined") {
-    window.sessionStorage.removeItem(pendingSegmentStorageKey);
+    try { window.sessionStorage.removeItem(pendingSegmentStorageKey); }
+    catch { /* Storage is best-effort; PostgreSQL remains the progress source. */ }
   }
 };
 
@@ -150,26 +156,48 @@ const replayPendingSegment = async (
 export const useGameController = (locale: GameLocale) => {
   const [state, setState] = useState<ControllerState>(initialState);
   const loadSequence = useRef(0);
+  const mutationInFlight = useRef(false);
+  const mutationRevision = useRef(0);
 
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current;
+    const revision = mutationRevision.current;
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
       const [content, rawGame] = await Promise.all([
         getGameContent(locale),
         getGame(locale),
       ]);
-      const game = await replayPendingSegment(rawGame);
+      const game = mutationInFlight.current || revision !== mutationRevision.current
+        ? rawGame : await replayPendingSegment(rawGame);
       if (sequence !== loadSequence.current) return;
-      setState({ content, game, loading: false, busy: false, error: null });
+      setState((current) => {
+        // A translation request may have read the server before a command or
+        // new Run completed. Refresh its copy, never roll back that operation.
+        if (mutationInFlight.current || revision !== mutationRevision.current) {
+          return { ...current, content, loading: false };
+        }
+        // Locale changes refresh copy, not an unchanged room's simulation.
+        // Run versions already identify state changes; no content hash is needed.
+        const retainRun = (next: ShooterGameRun | null, previous: ShooterGameRun | null) => {
+          if (!next && previous?.status !== "active") return previous;
+          return next && previous && next.id === previous.id && previous.version >= next.version ? previous : next;
+        };
+        return {
+          content,
+          game: {
+            ...game,
+            campaign_run: retainRun(game.campaign_run, current.game?.campaign_run ?? null),
+            daily_run: retainRun(game.daily_run, current.game?.daily_run ?? null),
+          },
+          loading: false, busy: false, error: null,
+        };
+      });
     } catch (error) {
       if (sequence !== loadSequence.current) return;
-      setState((current) => ({
-        ...current,
-        loading: false,
-        busy: false,
-        error,
-      }));
+      setState((current) => mutationInFlight.current || revision !== mutationRevision.current
+        ? { ...current, loading: false }
+        : { ...current, loading: false, busy: false, error });
     }
   }, [locale]);
 
@@ -187,6 +215,9 @@ export const useGameController = (locale: GameLocale) => {
       encoreLevel: number,
       companionSlug?: string,
     ) => {
+      if (mutationInFlight.current) return;
+      mutationInFlight.current = true;
+      mutationRevision.current += 1;
       setState((current) => ({ ...current, busy: true, error: null }));
       try {
         const run = await createRun(
@@ -206,12 +237,18 @@ export const useGameController = (locale: GameLocale) => {
         }));
       } catch (error) {
         setState((current) => ({ ...current, busy: false, error }));
+      } finally {
+        mutationInFlight.current = false;
+        mutationRevision.current += 1;
       }
     },
     [],
   );
 
   const startDaily = useCallback(async () => {
+    if (mutationInFlight.current) return;
+    mutationInFlight.current = true;
+    mutationRevision.current += 1;
     setState((current) => ({ ...current, busy: true, error: null }));
     try {
       const run = await createRun({ mode: "daily" }, createIdempotencyKey());
@@ -222,6 +259,9 @@ export const useGameController = (locale: GameLocale) => {
       }));
     } catch (error) {
       setState((current) => ({ ...current, busy: false, error }));
+    } finally {
+      mutationInFlight.current = false;
+      mutationRevision.current += 1;
     }
   }, []);
 
@@ -231,7 +271,9 @@ export const useGameController = (locale: GameLocale) => {
       body: ShooterRunCommandInput,
     ): Promise<ShooterRunCommandResponse | null> => {
       const currentRun = runForMode(state.game, mode);
-      if (!currentRun) return null;
+      if (!currentRun || mutationInFlight.current) return null;
+      mutationInFlight.current = true;
+      mutationRevision.current += 1;
       setState((current) => ({ ...current, busy: true, error: null }));
       let idempotencyKey = createIdempotencyKey();
       let fullBody = {
@@ -321,18 +363,27 @@ export const useGameController = (locale: GameLocale) => {
         }
         setState((current) => ({ ...current, busy: false, error }));
         return null;
+      } finally {
+        mutationInFlight.current = false;
+        mutationRevision.current += 1;
       }
     },
     [locale, state.game],
   );
 
   const returnToHub = useCallback(async () => {
+    if (mutationInFlight.current) return;
+    mutationInFlight.current = true;
+    mutationRevision.current += 1;
     setState((current) => ({ ...current, busy: true, error: null }));
     try {
       const game = await getGame(locale);
       setState((current) => ({ ...current, game, busy: false }));
     } catch (error) {
       setState((current) => ({ ...current, busy: false, error }));
+    } finally {
+      mutationInFlight.current = false;
+      mutationRevision.current += 1;
     }
   }, [locale]);
 

@@ -42,9 +42,9 @@ func buildShooterConfig(state State, catalog *gamecontent.V4Catalog, seed string
 		// (20 + 4*(10+12) > 100). This keeps the meter visibly earned while making
 		// the embedded tutorial independent of grazing or perfect pickup routing.
 		config.StartingRescueCharge = 20
-		// The first live segment also carries a two-hit visible training shield.
-		// It forgives an untrained sweep without changing the three ON AIR hearts.
-		config.Kit.StartingShield = 2
+		// One training guard forgives a first mistake without hiding extra
+		// lives behind the three ON AIR hearts.
+		config.Kit.StartingShield = 1
 	}
 	for _, item := range state.ShowEffects {
 		effect, exists := catalog.ShowEffect(item)

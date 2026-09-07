@@ -238,7 +238,10 @@ func stagedOptions(state State, seed string, catalog *gamecontent.V4Catalog) []s
 	switch rewardStageForIndex(state.SegmentIndex) {
 	case "weapon":
 		for _, item := range catalog.ShowEffects {
-			if item.Archetype == "power" && !slices.Contains(state.ShowEffects, item.ID) {
+			// The first choice must visibly change the next volley. Conditional
+			// damage bonuses remain available as story rewards and later effects.
+			visibleWeapon := item.Behavior == "twin_shot" || item.Behavior == "piercing_shot" || item.Behavior == "spread_shot"
+			if visibleWeapon && !slices.Contains(state.ShowEffects, item.ID) {
 				candidates = append(candidates, item.ID)
 			}
 		}

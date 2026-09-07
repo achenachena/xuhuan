@@ -4,6 +4,7 @@ import {
   SHOOTER_WIDTH,
   clamp,
   goDivide,
+  integerSqrt,
 } from "@/features/shooter/constants";
 import { storyChoiceMode } from "@/features/shooter/story";
 import type {
@@ -24,8 +25,8 @@ export const createShooterRuntime = (
     fireInterval: config.kit.fire_interval,
     multishot: 1,
     pierce: 0,
-    startingShield: config.kit.starting_shield,
-    maxHealth: config.kit.max_health,
+    startingShield: clamp(config.kit.starting_shield, 0, 1),
+    maxHealth: 3,
     rescueCharge: config.starting_rescue_charge,
     rescueDamage: config.kit.rescue_damage,
     grazeCharge: 4,
@@ -82,10 +83,6 @@ export const createShooterRuntime = (
   }
   resolved.fireInterval = Math.max(3, resolved.fireInterval);
   resolved.multishot = clamp(resolved.multishot, 1, 5);
-  if (config.reversal) {
-    resolved.maxHealth = 3;
-    resolved.startingShield = clamp(resolved.startingShield, 0, 1);
-  }
 
   const dailyVariant = config.daily ? (config.daily_modifier_id ?? "") : "";
 
@@ -94,6 +91,10 @@ export const createShooterRuntime = (
     resolved,
     dailyVariant,
   };
+};
+
+export const grantShooterShield = (state: ShooterMutableState, amount: number): void => {
+  state.shield = clamp(state.shield + Math.max(0, amount), 0, 1);
 };
 
 export const addPlayerProjectile = (
@@ -206,7 +207,7 @@ export const updateWeapons = (state: ShooterMutableState): void => {
         y: PLAYER_Y,
         vx:
           pickupWeapon.spread > 0 ? lane * pickupWeapon.spread : 0,
-        vy: -190,
+        vy: -390,
         damage,
         pierce: pickupWeapon.pierce,
         ...(pickupWeapon.projectileKind
@@ -255,16 +256,18 @@ export const updateWeapons = (state: ShooterMutableState): void => {
   }
 };
 
-const companionTriggered = (state: ShooterMutableState, trigger: string): boolean => {
+const companionSignal = (state: ShooterMutableState, trigger: string): number => {
   switch (trigger) {
-    case "segment_start": return state.tick === 1;
-    case "graze_streak": return state.grazeCount > 0 && state.grazeCount % 5 === 0;
-    case "low_health": return state.health === 1;
-    case "special_used": return state.lastRescueTick === state.tick - 1;
-    case "boss_stage": return state.bossPhaseTick === state.tick - 1;
-    case "pickup_chain": return state.lastPickupTick === state.tick - 1 && state.pickupsCollected % 3 === 0;
-    case "wave_clear": return state.enemies.length === 0 && state.tick > goDivide(state.config.duration_ticks, 2);
-    default: return false;
+    case "segment_start": return 1;
+    case "graze_streak": return Math.floor(state.grazeCount / 5);
+    case "low_health": return state.health === 1 ? 1 : 0;
+    case "special_used": return state.rescuesUsed;
+    case "boss_stage": return state.enemies.find((enemy) => enemy.boss && enemy.health > 0)?.phase ?? 0;
+    case "pickup_chain": return Math.floor(state.pickupsCollected / 3);
+    // Saved runs may still use Nana's former trigger. Hold its volley for
+    // the next living target, rather than spending it in an empty arena.
+    case "wave_clear": return state.enemies.every((enemy) => enemy.health <= 0) ? state.kills : 0;
+    default: return 0;
   }
 };
 
@@ -273,18 +276,21 @@ const activateCompanion = (
   index: number,
   behavior: string,
   amount: number,
-): void => {
+): boolean => {
   if (behavior === "shield") {
-    state.shield = state.config.reversal ? Math.min(1, state.shield + amount) : state.shield + amount;
-    return;
+    if (state.shield >= 1) return false;
+    grantShooterShield(state, amount);
+    return true;
   }
   if (behavior === "clear_lane") {
+    const before = state.enemyProjectiles.length;
     state.enemyProjectiles = state.enemyProjectiles.filter(
       (bullet) => Math.abs(bullet.x - state.playerX) > 220 + amount * 20,
     );
-    return;
+    return state.enemyProjectiles.length < before;
   }
   if (behavior === "convert_bullet") {
+    const before = state.playerProjectiles.length;
     let converted = Math.min(amount, state.enemyProjectiles.length);
     while (converted > 0 && state.playerProjectiles.length < state.config.limits.player_projectiles) {
       const bullet = state.enemyProjectiles.pop();
@@ -292,29 +298,45 @@ const activateCompanion = (
       addPlayerProjectile(state, { x: bullet.x, y: bullet.y, vy: -165, damage: Math.max(1, amount) });
       converted -= 1;
     }
-    return;
+    return state.playerProjectiles.length > before;
   }
   if (behavior === "heal") {
     state.health = Math.min(state.runtime.maxHealth, state.health + amount);
-    return;
+    return true;
+  }
+  const target = state.enemies.filter((enemy) => enemy.health > 0)
+    .sort((left, right) => Math.abs(left.x - state.playerX) - Math.abs(right.x - state.playerX) || right.y - left.y)[0];
+  if (!target) return false;
+  if (behavior === "focus_beam") {
+    target.health -= amount * 2;
+    addShooterEffect(state, "alignment_beam", target.x, target.y, 12, amount * 2);
+    return true;
   }
   const offset = index & 1 ? 220 : -220;
   const count = behavior === "echo_shot" ? 2 : 1;
-  const damage = behavior === "focus_beam" ? amount * 2 : amount;
+  let fired = false;
   for (let shot = 0; shot < count; shot += 1) {
+    const x = clamp(state.playerX + offset, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS);
+    const y = PLAYER_Y + 80 + shot * 80;
+    const dx = target.x - x, dy = target.y - y;
+    const distance = Math.max(1, integerSqrt(dx * dx + dy * dy));
     if (!addPlayerProjectile(state, {
-      x: clamp(state.playerX + offset, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS),
-      y: PLAYER_Y + 80 + shot * 80,
-      vy: -165,
-      damage,
+      x, y, vx: goDivide(dx * 260, distance), vy: goDivide(dy * 260, distance),
+      damage: amount,
     })) break;
+    fired = true;
   }
+  return fired;
 };
 
 export const updateCompanions = (state: ShooterMutableState): void => {
   for (let index = 0; index < state.config.companions.length; index += 1) {
     const companion = state.config.companions[index]!;
     state.companionClocks[index] = (state.companionClocks[index] ?? 0) + 1;
+    const signal = companionSignal(state, companion.trigger);
+    if (signal > 0 && signal !== state.companionSignals[index]) state.companionPending[index] = true;
+    state.companionSignals[index] = signal;
+    if (companion.trigger === "low_health" && signal === 0) state.companionPending[index] = false;
     const mode = storyChoiceMode(state.config.story_choice_id);
     const cooldown =
       mode === 2
@@ -322,17 +344,18 @@ export const updateCompanions = (state: ShooterMutableState): void => {
         : companion.cooldown_ticks;
     if (
       state.companionClocks[index]! < Math.max(1, cooldown) ||
-      !companionTriggered(state, companion.trigger)
+      !state.companionPending[index]
     ) continue;
-    state.companionClocks[index] = 0;
     let amount = Math.max(1, companion.amount);
     if (mode === 1) amount += Math.max(1, goDivide(amount, 2));
-    activateCompanion(
+    if (!activateCompanion(
       state,
       index,
       companion.behavior,
       amount,
-    );
+    )) continue;
+    state.companionClocks[index] = 0;
+    state.companionPending[index] = false;
     if (mode !== 0) {
       addShooterEffect(
         state,

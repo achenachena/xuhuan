@@ -308,9 +308,11 @@ export const HubScreen = ({
                 data-testid={`chapter-${chapter.id}`}
                 disabled={!unlocked}
                 aria-label={chapter.title}
+                aria-current={chapter.id === selectedChapter.id ? "step" : undefined}
+                title={chapter.title}
                 onClick={() => selectChapter(chapter)}
-                className={`h-2.5 w-6 border ${chapter.id === selectedChapter.id ? "border-cyan-100 bg-cyan-300" : unlocked ? "border-cyan-300/40 bg-cyan-300/15" : "border-slate-800 bg-slate-900"}`}
-              />
+                className={`min-h-11 min-w-0 flex-1 border font-mono text-xs font-bold ${chapter.id === selectedChapter.id ? "border-cyan-100 bg-cyan-300 text-slate-950" : unlocked ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-100" : "border-slate-800 bg-slate-900 text-slate-600"}`}
+              >{chapter.order}</button>
             );
           })}
         </nav>

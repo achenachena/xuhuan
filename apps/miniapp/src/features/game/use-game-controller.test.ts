@@ -195,4 +195,139 @@ describe("useGameController shooter-v1 orchestration", () => {
     expect(dependencies.createRunCommand).not.toHaveBeenCalled();
     expect(window.sessionStorage.getItem("xuhuan.pending-segment.v4")).toBeNull();
   });
+
+  it("still submits results when the WebView denies session storage", async () => {
+    const current = createV4Run();
+    dependencies.getGame.mockResolvedValue(createV4Game({ campaign_run: current }));
+    for (const method of ["getItem", "setItem", "removeItem"] as const) {
+      vi.spyOn(Storage.prototype, method).mockImplementation(() => { throw new Error("Storage denied"); });
+    }
+    const next = createV4Run({ version: 2 });
+    dependencies.createRunCommand.mockResolvedValue({ run: next, events: [] });
+    const { result } = renderHook(() => useGameController("en"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.command("campaign", { type: "complete_segment", segment_outcome: outcome }); });
+    expect(dependencies.createRunCommand).toHaveBeenCalledTimes(1);
+    expect(result.current.game?.campaign_run?.version).toBe(2);
+    expect(result.current.busy).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("retains an unchanged room during translation but replaces an advanced version", async () => {
+    const current = createV4Run();
+    dependencies.getGame.mockResolvedValue(createV4Game({ campaign_run: current }));
+    const { result, rerender } = renderHook(({ locale }: { locale: "en" | "zh-CN" }) => useGameController(locale), {
+      initialProps: { locale: "en" as "en" | "zh-CN" },
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const saved = result.current.game?.campaign_run;
+    dependencies.getGame.mockResolvedValue(createV4Game({ campaign_run: structuredClone(current) }));
+    rerender({ locale: "zh-CN" });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.game?.campaign_run).toBe(saved);
+    dependencies.getGame.mockResolvedValue(createV4Game({ campaign_run: createV4Run({ version: 2 }) }));
+    await act(async () => { await result.current.load(); });
+    expect(result.current.game?.campaign_run).not.toBe(saved);
+    expect(result.current.game?.campaign_run?.version).toBe(2);
+  });
+
+  it("keeps completed results while translating until Return to group is explicit", async () => {
+    const current = createV4Run();
+    const completed = createV4Run({ status: "completed", outcome: "cleared", version: 2,
+      state: { ...v4BaseState, phase: "completed", segment: undefined } });
+    dependencies.getGame.mockResolvedValue(createV4Game({ campaign_run: current }));
+    dependencies.createRunCommand.mockResolvedValue({ run: completed, events: [] });
+    const { result, rerender } = renderHook(({ locale }: { locale: "en" | "zh-CN" }) => useGameController(locale), {
+      initialProps: { locale: "en" as "en" | "zh-CN" },
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.command("campaign", { type: "complete_segment", segment_outcome: outcome }); });
+    dependencies.getGame.mockResolvedValue(createV4Game({ campaign_run: null }));
+    dependencies.getGameContent.mockResolvedValue({ ...v4Content, locale: "zh-CN" });
+    rerender({ locale: "zh-CN" });
+    await waitFor(() => expect(result.current.content?.locale).toBe("zh-CN"));
+    expect(result.current.game?.campaign_run).toBe(completed);
+    await act(async () => { await result.current.returnToHub(); });
+    expect(result.current.game?.campaign_run).toBeNull();
+  });
+
+  it("does not roll back a completed command when an older locale request finishes later", async () => {
+    const current = createV4Run();
+    const gate = createV4Run({ version: 2, state: { ...v4BaseState, phase: "show_choice", segment: undefined } });
+    const localizedGame = deferred<ReturnType<typeof createV4Game>>();
+    dependencies.getGame.mockResolvedValueOnce(createV4Game({ campaign_run: current })).mockReturnValueOnce(localizedGame.promise);
+    dependencies.createRunCommand.mockResolvedValue({ run: gate, events: [] });
+    const { result, rerender } = renderHook(({ locale }: { locale: "en" | "zh-CN" }) => useGameController(locale), {
+      initialProps: { locale: "en" as "en" | "zh-CN" },
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    dependencies.getGameContent.mockResolvedValue({ ...v4Content, locale: "zh-CN" });
+    rerender({ locale: "zh-CN" });
+    await act(async () => { await result.current.command("campaign", { type: "complete_segment", segment_outcome: outcome }); });
+    expect(result.current.game?.campaign_run).toBe(gate);
+    await act(async () => localizedGame.resolve(createV4Game({ campaign_run: current })));
+    expect(result.current.game?.campaign_run).toBe(gate);
+    expect(result.current.content?.locale).toBe("zh-CN");
+    expect(result.current.busy).toBe(false);
+  });
+
+  it("refreshes copy without clearing a pending command's busy guard or sending it twice", async () => {
+    const current = createV4Run();
+    const response = deferred<{ run: ReturnType<typeof createV4Run>; events: [] }>();
+    dependencies.getGame.mockResolvedValue(createV4Game({ campaign_run: current }));
+    dependencies.createRunCommand.mockReturnValue(response.promise);
+    const { result, rerender } = renderHook(({ locale }: { locale: "en" | "zh-CN" }) => useGameController(locale), {
+      initialProps: { locale: "en" as "en" | "zh-CN" },
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    let firstRequest!: Promise<unknown>;
+    act(() => { firstRequest = result.current.command("campaign", { type: "complete_segment", segment_outcome: outcome }); });
+    dependencies.getGameContent.mockResolvedValue({ ...v4Content, locale: "zh-CN" });
+    rerender({ locale: "zh-CN" });
+    await waitFor(() => expect(result.current.content?.locale).toBe("zh-CN"));
+    expect(result.current.busy).toBe(true);
+    await act(async () => { expect(await result.current.command("campaign", { type: "complete_segment", segment_outcome: outcome })).toBeNull(); });
+    expect(dependencies.createRunCommand).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      response.resolve({ run: createV4Run({ version: 2 }), events: [] });
+      await firstRequest;
+    });
+    expect(result.current.game?.campaign_run?.version).toBe(2);
+    expect(result.current.busy).toBe(false);
+  });
+
+  it.each(["campaign", "daily"] as const)("keeps a new %s Run when an older refresh returns an empty slot", async (mode) => {
+    const localizedGame = deferred<ReturnType<typeof createV4Game>>();
+    const created = createV4Run({ mode });
+    const creation = deferred<ReturnType<typeof createV4Run>>();
+    dependencies.getGame.mockResolvedValueOnce(createV4Game()).mockReturnValueOnce(localizedGame.promise);
+    dependencies.createRun.mockReturnValue(creation.promise);
+    const { result, rerender } = renderHook(({ locale }: { locale: "en" | "zh-CN" }) => useGameController(locale), {
+      initialProps: { locale: "en" as "en" | "zh-CN" },
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const start = () => mode === "campaign" ? result.current.startCampaign("seventh-dock", "nana7mi", 0) : result.current.startDaily();
+    let firstRequest!: Promise<void>;
+    act(() => { firstRequest = start(); });
+    rerender({ locale: "zh-CN" });
+    await act(async () => { await start(); });
+    expect(dependencies.createRun).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      creation.resolve(created);
+      await firstRequest;
+      localizedGame.resolve(createV4Game());
+    });
+    expect(mode === "campaign" ? result.current.game?.campaign_run : result.current.game?.daily_run).toBe(created);
+    expect(result.current.busy).toBe(false);
+  });
+
+  it("keeps a newer Run version when a later refresh returns older state", async () => {
+    const current = createV4Run({ version: 3 });
+    dependencies.getGame.mockResolvedValue(createV4Game({ campaign_run: current }));
+    const { result } = renderHook(() => useGameController("en"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    dependencies.getGame.mockResolvedValue(createV4Game({ campaign_run: createV4Run({ version: 2 }) }));
+    await act(async () => { await result.current.load(); });
+    expect(result.current.game?.campaign_run).toBe(current);
+  });
 });

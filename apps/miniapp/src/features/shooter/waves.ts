@@ -8,6 +8,16 @@ import { shooterSeedFromString } from "@/features/shooter/random";
 import type { ShooterMutableState } from "@/features/shooter/types";
 import { spawnReversalGroups } from "@/features/shooter/reversal";
 
+export const hasClearedAuthoredWave = (state: ShooterMutableState): boolean => {
+  if (state.config.boss || state.enemies.some((enemy) => enemy.health > 0)) return false;
+  const spawns = state.config.reversal?.groups ?? state.config.wave.spawns;
+  if (spawns.length === 0) return false;
+  const lastTick = Math.max(...spawns.map((spawn) => spawn.at_tick + ("count" in spawn
+    ? (Math.max(1, spawn.count) - 1) * Math.max(1, spawn.interval_ticks)
+    : 0)));
+  return state.tick > lastTick;
+};
+
 const formationX = (
   formation: string,
   index: number,

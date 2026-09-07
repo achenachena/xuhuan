@@ -4,7 +4,9 @@
 
 Both `/` (outside Telegram) and `/demo` start the local Nana demo directly. There is no introduction or portfolio landing page. A completed or failed attempt offers Restart, Telegram, and a smaller GitHub link. Restart begins a fresh attempt.
 
-The `demo-v2` manifest selects a 40-second authored wave, one animated choice between Twin Live Feed and Piercing Cannon, and an Optimal Nana Boss lasting at most 45 seconds. Horizontal dragging follows the finger directly; vertical dragging and release never move the player. The HUD stays outside the arena.
+The `demo-v2` manifest selects an authored wave capped at 40 seconds, one animated choice between Twin Live Feed and Piercing Cannon, and an Optimal Nana Boss lasting at most 45 seconds. Clearing the final scheduled formation finishes the wave early; gaps before later formations do not. Horizontal dragging follows the finger directly; vertical dragging and release never move the player. The HUD stays outside the arena.
+
+Wins stop combat for 450 ms, then advance automatically without pressing Rescue. The weapon choice is a direct tap or click; it is the only decision between the two fights. Victory and defeat both offer an explicit replay action.
 
 - Breaking a core immediately converts only its formation's hostile bullets into at most six harmless star-baton drops. Remaining escorts briefly power down.
 - A defeated controller or side device becomes a friendly robot with star eyes and two penlights. At most two robots join, fire at surviving enemies, then wave and leave after six seconds. They have no contact damage, recruit UI, inventory, or persistent identity.

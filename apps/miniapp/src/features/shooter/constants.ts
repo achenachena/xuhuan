@@ -10,7 +10,6 @@ export const PLAYER_GRAZE_RADIUS = 180;
 export const ENEMY_RADIUS = 120;
 export const ENEMY_PROJECTILE_RADIUS = 42;
 
-export const GATE_DWELL_TICKS = 12;
 
 export const clamp = (value: number, minimum: number, maximum: number): number =>
   Math.min(maximum, Math.max(minimum, value));

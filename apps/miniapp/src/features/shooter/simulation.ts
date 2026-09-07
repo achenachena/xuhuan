@@ -32,7 +32,7 @@ import type {
 } from "@/features/shooter/types";
 import { emptyStepEvents } from "@/features/shooter/types";
 import { createShooterRuntime, updateCompanions, updateWeapons } from "@/features/shooter/weapons";
-import { spawnWave } from "@/features/shooter/waves";
+import { hasClearedAuthoredWave, spawnWave } from "@/features/shooter/waves";
 import type { ShooterRuntimeConfig } from "@/lib/api/types";
 import { reversalFanPhase, reversalHitbox, updateReversalChain, updateReversalEnemy, updateReversalFans } from "@/features/shooter/reversal";
 
@@ -50,7 +50,7 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   random: new ShooterRandom(runtime.config.seed),
   tick: 0,
   playerX: SHOOTER_WIDTH / 2,
-  health: runtime.config.reversal ? clamp(runtime.config.player_health, 0, 3) : runtime.config.player_health,
+  health: clamp(runtime.config.player_health, 0, runtime.resolved.maxHealth),
   shield: runtime.resolved.startingShield,
   invulnerableTicks: 0,
   rescueCharge: clamp(runtime.resolved.rescueCharge, 0, 100),
@@ -64,23 +64,20 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   attackClock: 0,
   attackSequence: 0,
   alignmentTicks: 0,
-  companionClocks: runtime.config.companions.map((companion) =>
-    companion.trigger === "segment_start" ? Math.max(1, companion.cooldown_ticks) : 0,
-  ),
+  companionClocks: runtime.config.companions.map((companion) => Math.max(1, companion.cooldown_ticks)),
+  companionSignals: runtime.config.companions.map(() => 0),
+  companionPending: runtime.config.companions.map(() => false),
   nextEnemyID: 0,
   nextProjectileID: 0,
   nextPickupID: 0,
   nextEffectID: 0,
   spawnedBoss: false,
-  lastRescueTick: 0,
-  bossPhaseTick: 0,
   dailyVariant: runtime.dailyVariant,
   enemies: [],
   enemyProjectiles: [],
   playerProjectiles: [],
   pickups: [],
   pickupsCollected: 0,
-  lastPickupTick: 0,
   pickupPower: null,
   pickupPowerTicks: 0,
   pressureQuietTicks: 0,
@@ -107,7 +104,7 @@ const updateEnemies = (state: ShooterMutableState): void => {
     );
     if (enemy.fireClock >= interval) {
       enemy.fireClock = 0;
-      fireEnemy(state, enemy, spec, spec.shot_pattern);
+      fireEnemy(state, enemy, spec);
       if (state.config.encore_level >= 2 && (enemy.volley & 1) !== 0) {
         fireEnemySecondary(state, enemy, spec);
       }
@@ -224,7 +221,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
   );
 
   const step = (input: ShooterInput): ShooterStepEvents => {
-    if (cachedResult || state.tick >= state.config.duration_ticks || state.health <= 0 || bossIsDefeated()) {
+    if (cachedResult || state.tick >= state.config.duration_ticks || state.health <= 0 || bossIsDefeated() || hasClearedAuthoredWave(state)) {
       return emptyStepEvents();
     }
     const before = {
@@ -234,6 +231,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
       pickups: state.pickupsCollected,
       rescues: state.rescuesUsed,
       warnings: threatSnapshots(state).length,
+      enemies: state.enemies.slice(),
       enemyHealth: new Map(state.enemies.map((enemy) => [enemy.id, enemy.health])),
     };
     state.tick += 1;
@@ -246,6 +244,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     state.rescueHeld = input.rescue;
     spawnWave(state);
     spawnBoss(state);
+    for (const enemy of state.enemies) if (!before.enemyHealth.has(enemy.id)) before.enemies.push(enemy);
     updateReversalChain(state);
     updateReversalFans(state);
     updateWeapons(state);
@@ -263,13 +262,16 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     else state.combo = 0;
     if (state.health < 0) state.health = 0;
     const warnings = threatSnapshots(state).length;
-    const enemyHitIDs = state.enemies
+    // Cleanup can remove a Rescue/companion victim before visual events are
+    // read. Keep those same entity references for this tick's hit feedback.
+    const changedEnemies = Array.from(new Map([...before.enemies, ...state.enemies].map((enemy) => [enemy.id, enemy])).values());
+    const enemyHitIDs = changedEnemies
       .filter(
         (enemy) =>
           (before.enemyHealth.get(enemy.id) ?? enemy.maxHealth) > enemy.health,
       )
       .map((enemy) => enemy.id);
-    const enemyDefeatedIDs = state.enemies
+    const enemyDefeatedIDs = changedEnemies
       .filter(
         (enemy) =>
           enemy.health <= 0 &&
@@ -294,12 +296,14 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     if (
       state.health > 0 &&
       state.tick < state.config.duration_ticks &&
-      !bossDefeated
+      !bossDefeated &&
+      !hasClearedAuthoredWave(state)
     ) {
       return null;
     }
     if (cachedResult) return cachedResult;
-    if (state.config.reversal) removeDefeatedEnemies(state);
+    // The final shot lands after normal cleanup; include that kill exactly once.
+    removeDefeatedEnemies(state);
     const won = state.health > 0 && (!state.config.boss || !aliveBoss);
     if (won) state.score += state.health * 10 + state.rescueCharge * 2;
     cachedResult = {

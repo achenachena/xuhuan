@@ -60,7 +60,7 @@ const presentedX = () => dependencies.draw.mock.lastCall?.[7] as number;
 describe("ShooterArena input and local completion lifecycle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    dependencies.preload.mockResolvedValue(new Map());
+    dependencies.preload.mockResolvedValue(new Map(["stage", "player", "equipment", "boss"].map((key) => [key, new Image()])));
     dependencies.sources.reversal = false;
     frameID = 0;
     now = 0;
@@ -88,6 +88,7 @@ describe("ShooterArena input and local completion lifecycle", () => {
 
   it("clears a held pointer on blur so refocus cannot resume stale movement", async () => {
     render(<ShooterArena embedded content={v4Content} run={run()} busy={false} onComplete={async () => true} />);
+    await act(async () => {});
     const surface = screen.getByTestId("shooter-control-surface");
     vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, top: 0, left: 0, right: 360, bottom: 640, width: 360, height: 640, toJSON: () => ({}) });
     fireEvent.pointerDown(surface, { pointerId: 1, clientX: 180, clientY: 500 });
@@ -109,6 +110,7 @@ describe("ShooterArena input and local completion lifecycle", () => {
 
   it("clears a held arrow and queued rescue when the host deactivates", async () => {
     render(<ShooterArena embedded content={v4Content} run={run()} busy={false} onComplete={async () => true} />);
+    await act(async () => {});
     fireEvent.keyDown(window, { code: "ArrowRight" });
     await advanceFrame();
     const heldX = presentedX();
@@ -125,6 +127,7 @@ describe("ShooterArena input and local completion lifecycle", () => {
   it("leaves a finished embedded arena frozen without a hidden SYNC overlay", async () => {
     const onComplete = vi.fn().mockResolvedValue(true);
     render(<ShooterArena embedded content={v4Content} run={run(2)} busy={false} onComplete={onComplete} />);
+    await act(async () => {});
     await advanceFrame();
     await advanceFrame();
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
@@ -152,7 +155,8 @@ describe("ShooterArena input and local completion lifecycle", () => {
     expect(screen.queryByText("SYNC…")).not.toBeInTheDocument();
     const earnedBreaks = dependencies.draw.mock.lastCall?.[1].reversal.breaks as number;
     expect(earnedBreaks).toBeGreaterThan(0);
-    expect(dependencies.draw.mock.lastCall?.[1].tick).toBe(1_200);
+    expect(dependencies.draw.mock.lastCall?.[1].tick).toBeGreaterThan(240);
+    expect(dependencies.draw.mock.lastCall?.[1].tick).toBeLessThan(1_200);
     expect(frames.size).toBe(0);
     const completedDraws = dependencies.draw.mock.calls.length;
     await advanceFrame();
@@ -171,8 +175,8 @@ describe("ShooterArena input and local completion lifecycle", () => {
     expect(fetchManifest).toHaveBeenCalledTimes(1);
   });
 
-  it("does not run the demo clock or accept movement until essential art loads", async () => {
-    dependencies.sources.reversal = true;
+  it.each([false, true])("waits for essential art before playing (reversal=%s)", async (reversal) => {
+    dependencies.sources.reversal = reversal;
     let load: (visuals: Map<string, HTMLImageElement>) => void = () => undefined;
     dependencies.preload.mockReturnValue(new Promise<Map<string, HTMLImageElement>>((resolve) => { load = resolve; }));
     const onComplete = vi.fn().mockResolvedValue(true);
@@ -202,5 +206,32 @@ describe("ShooterArena input and local completion lifecycle", () => {
     await advanceFrame();
     expect(dependencies.draw.mock.lastCall?.[1].tick).toBe(0);
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("pauses a won segment, disables Rescue, then advances without any input", async () => {
+    const onComplete = vi.fn().mockResolvedValue(true);
+    render(<ShooterArena embedded content={v4Content} run={run(2)} busy={false} onComplete={onComplete} />);
+    await act(async () => {});
+    await advanceFrame();
+    await advanceFrame();
+    expect(screen.getByTestId("rescue-button")).toBeDisabled();
+    expect(onComplete).not.toHaveBeenCalled();
+    const completedTick = dependencies.draw.mock.lastCall?.[1].tick;
+    await advanceFrame();
+    expect(dependencies.draw.mock.lastCall?.[1].tick).toBe(completedTick);
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(dependencies.sound).not.toHaveBeenCalledWith("rescue");
+  });
+
+  it("retains a completed result when its adapter rejects and retries it once", async () => {
+    const onComplete = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(true);
+    render(<ShooterArena content={v4Content} run={run(2)} busy={false} onComplete={onComplete} />);
+    await act(async () => {});
+    await advanceFrame();
+    await advanceFrame();
+    fireEvent.click(await screen.findByTestId("retry-segment"));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(2));
+    expect(onComplete.mock.calls[1]?.[0]).toBe(onComplete.mock.calls[0]?.[0]);
+    expect(screen.getByTestId("rescue-button")).toBeDisabled();
   });
 });

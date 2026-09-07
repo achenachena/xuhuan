@@ -202,7 +202,7 @@ func TestSeventhDockTutorialBoostOnlyAppliesBeforeFirstIntermissionChoice(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if firstPlay.StartingRescueCharge != 20 || firstPlay.Kit.StartingShield != 2 {
+	if firstPlay.StartingRescueCharge != 20 || firstPlay.Kit.StartingShield != 1 {
 		t.Fatalf("first play tutorial boost=%#v", firstPlay)
 	}
 	authoredCutter, ok := catalog.Enemy("clip-cutter")

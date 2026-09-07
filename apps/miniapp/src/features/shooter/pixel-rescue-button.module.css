@@ -1,0 +1,116 @@
+.button {
+  --edge: #4c7587;
+  --face: #102433;
+  --ink: #9cb9c5;
+  --pixel-cut: polygon(8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px), 0 8px, 4px 8px, 4px 4px, 8px 4px);
+  position: absolute;
+  right: calc(var(--xuhuan-host-safe-right) + 8px);
+  bottom: calc(var(--xuhuan-host-safe-bottom) + 8px);
+  z-index: 30;
+  width: 64px;
+  height: 64px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+.button::before,
+.button::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  clip-path: var(--pixel-cut);
+}
+
+.button::before {
+  inset: 0;
+  background: var(--edge);
+}
+
+.button::after {
+  inset: 2px 2px 5px;
+  background: var(--face);
+}
+
+.button:disabled {
+  /* The charging control must not steal a drag from the battlefield below it. */
+  pointer-events: none;
+  cursor: default;
+}
+
+.face {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding-top: 5px;
+  pointer-events: none;
+}
+
+.icon {
+  position: relative;
+  color: #405b70;
+}
+
+.charge {
+  position: absolute;
+  inset: 0;
+  color: #7eebed;
+}
+
+.label {
+  font-family: ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 12px;
+  letter-spacing: 0.06em;
+}
+
+.button[data-state="ready"] {
+  --edge: #a9f3ed;
+  --face: #243242;
+  --ink: #fff0ba;
+}
+
+.button[data-state="ready"] .charge {
+  color: #ffe295;
+}
+
+.button[data-state="ready"] .icon {
+  animation: ready 1.2s steps(2, end) infinite;
+}
+
+.button:enabled:active::after {
+  inset: 5px 2px 2px;
+  background: #385467;
+}
+
+.button:enabled:active .face {
+  transform: translateY(3px);
+}
+
+.button:focus-visible {
+  outline: 2px solid #fff0ba;
+  outline-offset: 3px;
+}
+
+.button[data-state="busy"] {
+  --edge: #365160;
+  --ink: #6f8793;
+}
+
+@keyframes ready {
+  50% { transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button[data-state="ready"] .icon { animation: none; }
+}
