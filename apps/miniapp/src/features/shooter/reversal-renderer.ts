@@ -92,31 +92,21 @@ export const reversalPlayerFrame = (tick: number, dx: number, hit: boolean): num
 const backdrop = (ctx: CanvasRenderingContext2D, image: HTMLImageElement | undefined, tick: number, breaks: number): void => {
   ctx.fillStyle = "#102532"; ctx.fillRect(0, 0, 360, 640);
   if (image) ctx.drawImage(image, 0, 0, 360, 640);
-  // The dormant screen and side lamps come back to life after real player breaks.
-  ctx.fillStyle = breaks ? "#132f37" : "#10222a";
-  ctx.fillRect(90, 27, 179, 83);
+  // Keep the broadcast visualization inside the studio screen's pixel bezel.
+  ctx.fillStyle = breaks ? "#10202d" : "#0a111c";
+  ctx.fillRect(81, 38, 198, 112);
   const bars = Math.min(12, 2 + breaks * 2);
   for (let n = 0; n < bars; n += 1) {
     const height = breaks ? 8 + ((n * 7 + Math.floor(tick / 7)) % 26) : 2;
-    ctx.fillStyle = n % 3 ? "#407d78" : "#d5a66c";
-    ctx.fillRect(109 + n * 12, 80 - height, 7, height);
+    ctx.fillStyle = n % 3 ? "#428b9a" : "#a36b9e";
+    ctx.fillRect(99 + n * 14, 115 - height, 8, height);
   }
   for (let side = 0; side < 2; side += 1) {
-    const x = side ? 324 : 35;
+    const x = side ? 277 : 63;
     for (let n = 0; n < 3; n += 1) {
-      ctx.fillStyle = breaks > n ? gold : "#28424d";
-      ctx.fillRect(x - 4, 22 + n * 9, 8, 3);
+      ctx.fillStyle = breaks > n ? (side ? "#d591ce" : teal) : "#28424d";
+      ctx.fillRect(x - 1, 12 + n * 7, 2, 5);
     }
-    if (breaks > side) {
-      ctx.fillStyle = "rgba(255,198,107,.045)";
-      ctx.beginPath(); ctx.moveTo(x, 34); ctx.lineTo(x - 22, 640); ctx.lineTo(x + 24, 640); ctx.fill();
-    }
-  }
-  // A quiet pixel reflection gives the sea motion without moving the combat plane.
-  ctx.fillStyle = "rgba(119,226,211,.2)";
-  for (let n = 0; n < 8; n += 1) {
-    const x = 58 + (n * 37 + Math.floor(tick / 12)) % 245;
-    ctx.fillRect(x, 137 + (n % 3) * 9, 8 + (n % 4) * 3, 1);
   }
 };
 

@@ -26,14 +26,20 @@ These four assets were created for this Preview with the built-in image-generati
 
 | File | Intended content | Processing |
 | --- | --- | --- |
-| `stage.webp` | Night-sea livestream stage, side equipment, and a quiet central arena | Pixel-aligned resizing and local WebP compression |
+| `stage.webp` | Modern virtual-idol livestream studio, fan merchandise, cameras, and a quiet central arena | Nearest-neighbor 720 x 1280 export and local WebP compression |
 | `nana-sheet.webp` | Referenced Nana design with idle, movement, shooting, and hurt poses | Transparent-background atlas, nearest-neighbor resizing, local WebP compression |
 | `equipment-sheet.webp` | Controllers, escorts, open cores, charge and destruction frames | Transparent-background atlas, nearest-neighbor resizing, local WebP compression |
 | `boss-sheet.webp` | Auto-Nana and attack, exposed, hurt and breakdown frames | Transparent-background atlas, nearest-neighbor resizing, local WebP compression |
 
 Sprite atlases use actual alpha transparency, not a checkerboard painted into the image. All four runtime assets are local static files; the game makes no image-generation request or external asset-service call. Generated provenance is not a claim that fan-character likeness rights have transferred. The repository's non-commercial fan-work notice still applies. Native-size and nearest-neighbor 2x visual review belongs in the Preview verification record.
 
-The generation brief requested a night-sea broadcast stage with a quiet central combat plane, edge-mounted speakers/cameras/trusses, and a navy/teal/brass pixel palette. The referenced Nana atlas uses a four-column grid of idle, left/right movement, firing and hurt poses. The equipment atlas uses controller, camera escort and cutting-device rows, each with closed, open, hit and broken frames. The Boss atlas uses calm and glitch rows with the same four action states. No lettering was baked into the artwork. Corrective alpha-background passes removed painted checkerboards before local nearest-neighbor WebP export.
+The stage was revised on 2026-09-07 using the built-in image tool in edit mode, with the previous stage as a composition reference. The waterfront, timber, ropes, barrels, and sea-reflection animation were replaced with a modern virtual-idol studio. Acrylic standees, pin badges, penlights, cameras, and ring lights establish the fan-stream setting; the center stays calm and dark for combat. The screen visualization fits the new bezel, and successful reversals light its cyan/pink indicators without floor-wide light cones.
+
+The final stage edit prompt was:
+
+> Use case: precise-object-edit. Asset type: production pixel-art background for a portrait 360x640 logical-coordinate one-finger shooter, output 9:16 portrait. Input image 1 is the background to replace. Preserve only the useful game composition: a large rectangular broadcast display centered in the upper quarter, edge-mounted equipment, and an unobstructed low-detail floor covering the central/lower playing area. Completely replace the old harbor/pirate environment with a contemporary Chinese virtual-idol livestream studio / fan-event performance room. This should immediately evoke VTuber fan culture: small chibi acrylic standee collections and pin badges on shelves at the extreme side edges, neatly arranged cyan/pink/gold penlight racks, heart/star stage motifs, modern black cameras and ring lights, broadcast mixing desk glimpsed at the side, acoustic panels and LED strips. No people or enemies standing in the room. Modern navy matte floor tiles (NOT wood planks), clean graphite and cool white equipment, small pastel cyan/pink fan decorations, warm highlights only as tiny accents. The atmosphere is a charming late-night variety livestream interrupted by a sci-fi glitch, NOT a military warehouse or generic cyberpunk corridor. Clean hand-placed-looking 16-bit pixel art, crisp stepped outlines and limited palette matching the existing character sprites; no painterly fog or volumetric haze. For alignment with game animation: leave an unlit nearly black rectangular screen interior spanning approximately x25%-75%, y4%-17% of the entire image; a modern thin screen bezel immediately around it. Concentrate props and detail outside the middle 72% of the image, especially near the upper edges. Keep the bottom 70% calm and dark enough to distinguish red/purple bullets and cyan/gold friendly pickups. No bright objects or floor markings in the center, no huge circular platform. No text, lettering, logos, watermark, UI, health bars, player characters, ocean, water, boats, ropes, anchors, docks, barrels, lanterns, brass rivets, medieval/pirate/steampunk decoration. Change the entire theme, not simply add a few screens to the old harbor.
+
+The unchanged Nana atlas uses a four-column grid of idle, left/right movement, firing and hurt poses. The equipment atlas uses controller, camera escort and cutting-device rows, each with closed, open, hit and broken frames. The Boss atlas uses calm and glitch rows with the same four action states. No lettering was baked into the artwork. Corrective alpha-background passes removed painted checkerboards before local nearest-neighbor WebP export.
 
 Regenerate both immutable manifests and API types when their source contracts change:
 
@@ -62,6 +68,14 @@ npm run check:english-source
 - A local Chrome Boss sample measured 180 animation frames with median/p95 intervals of approximately 16.7 ms while its timer advanced from 44 to 41 seconds. This desktop result does not certify low-end phones or peak-entity performance.
 - TypeScript, ESLint and the production Webpack build passed. Local Turbopack workers were blocked by the host's socket permission policy; the unchanged default Turbopack build is also checked in remote CI/Preview.
 - No production deployment, migration, player reset or live API write was performed. Human testing below remains pending.
+
+### Studio background verification (2026-09-07)
+
+- Replaced only the reversal stage, its background animation, and this provenance record. Campaign assets and all simulation, input, and API logic are unchanged.
+- Reviewed the 360 x 640 logical background at 1x and nearest-neighbor 2x, then the running demo at 320 x 568 and 1280 x 900. The display animation stays inside its bezel, and the HUD remains outside the combat plane. Chrome reported no browser errors.
+- TypeScript, ESLint, all 96 unit tests, all 22 Chrome browser regressions, English-source, asset, and diff checks passed. Campaign browser tests still use mocked API responses.
+- The replacement WebP is 52,106 bytes at 720 x 1280, down from 102,488 bytes. No new asset dependency or runtime service was added.
+- These checks do not replace the human playtest gate below.
 
 ## Human playtest gate: pending
 
