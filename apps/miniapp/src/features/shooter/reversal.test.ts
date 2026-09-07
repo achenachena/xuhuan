@@ -4,7 +4,8 @@ import { addEnemyHazard, damagePlayer, removeDefeatedEnemies, updatePickups, upd
 import { createShooterSimulationFromConfig } from "@/features/shooter/simulation";
 import { activateRescue } from "@/features/shooter/specials";
 import { addPlayerProjectile, createShooterRuntime } from "@/features/shooter/weapons";
-import { breakReversalCore, reversalFanPhase, reversalHitbox, reversalThreats, spawnReversalGroups, sweptReversalHit, updateReversalBoss, updateReversalChain, updateReversalEnemy, updateReversalFans, updateReversalWeapons } from "@/features/shooter/reversal";
+import { breakReversalCore, reversalFanPhase, reversalHitbox, reversalThreats, spawnReversalGroups, updateReversalBoss, updateReversalChain, updateReversalEnemy, updateReversalFans, updateReversalWeapons } from "@/features/shooter/reversal";
+import { sweptShooterHit } from "@/features/shooter/collision";
 import type { ShooterEnemyEntity, ShooterMutableState } from "@/features/shooter/types";
 import type { ShooterRuntimeConfig } from "@/lib/api/types";
 import { v4Runtime } from "@/test/v4-fixtures";
@@ -23,10 +24,10 @@ const state = (overrides: Partial<ShooterRuntimeConfig> = {}): ShooterMutableSta
     tick: 241, playerX: 1_800, health: 3, shield: 0, invulnerableTicks: 0,
     rescueCharge: 0, rescueHeld: false, rescuesUsed: 0, grazeCount: 0, combo: 0, comboClock: 0,
     kills: 0, score: 0, attackClock: 0, attackSequence: 0, alignmentTicks: 0,
-    companionClocks: [], nextEnemyID: 0, nextProjectileID: 0, nextPickupID: 0,
-    nextEffectID: 0, spawnedBoss: false, lastRescueTick: 0, bossPhaseTick: 0,
+    companionClocks: [], companionSignals: [], companionPending: [], nextEnemyID: 0, nextProjectileID: 0, nextPickupID: 0,
+    nextEffectID: 0, spawnedBoss: false,
     dailyVariant: "", enemies: [], enemyProjectiles: [], playerProjectiles: [], pickups: [],
-    pickupsCollected: 0, lastPickupTick: 0, pickupPower: null, pickupPowerTicks: 0,
+    pickupsCollected: 0, pickupPower: null, pickupPowerTicks: 0,
     pressureQuietTicks: 0, effects: [], reversal: { breaks: 0, chain: [], fans: [] },
   };
 };
@@ -39,6 +40,23 @@ const target = (id: number, overrides: Partial<ShooterEnemyEntity> = {}): Shoote
 });
 
 describe("opt-in bullet reversal demo", () => {
+  it("auto-advances a cleared final formation without Rescue, but waits through authored gaps", () => {
+    const game = createShooterSimulationFromConfig(config({ reversal: { weapon: "single", groups: [
+      { at_tick: 0, group_id: 1, x: 1_800, escorts: 0 },
+      { at_tick: 240, group_id: 2, x: 1_800, escorts: 0 },
+      { at_tick: 480, group_id: 3, x: 1_800, escorts: 0 },
+    ] } }));
+    for (let tick = 0; tick < 480; tick += 1) {
+      game.step({ x: 64, rescue: false });
+      expect(game.result()).toBeNull();
+    }
+    for (let tick = 480; tick < 900 && !game.result(); tick += 1) game.step({ x: 64, rescue: false });
+    expect(game.result()).toMatchObject({ won: true, rescues_used: 0 });
+    expect(game.result()!.ticks).toBeLessThan(1_200);
+    expect(game.result()!.final.reversal!.breaks).toBe(2);
+    expect(game.result()!.final.enemy_projectiles).toHaveLength(0);
+  });
+
   it("the generated opening reverses a visible owned salvo when the first control machine is aimed at", () => {
     const game = createShooterSimulationFromConfig(demo.wave.runtime_config as ShooterRuntimeConfig);
     let ownedSalvoSeen = false, reversedSalvo = false;
@@ -113,7 +131,7 @@ describe("opt-in bullet reversal demo", () => {
 
   it("keeps support active for exactly the next 240 simulation ticks, including shots on the last tick", () => {
     const game = createShooterSimulationFromConfig(config({ reversal: {
-      weapon: "single", groups: [{ at_tick: 0, group_id: 1, x: 1_800, escorts: 0 }],
+      weapon: "single", groups: [{ at_tick: 0, group_id: 1, x: 1_800, escorts: 0 }, { at_tick: 700, group_id: 2, x: 1_800, escorts: 0 }],
     } }));
     for (let tick = 0; tick < 400 && !game.snapshot().pickup_power; tick += 1) game.step({ x: 64, rescue: false });
     expect(game.snapshot().pickup_power_ticks).toBe(240);
@@ -243,8 +261,8 @@ describe("opt-in bullet reversal demo", () => {
   });
 
   it("uses swept body collision, excludes transparent tips, and never hits twice with one piercing shot", () => {
-    expect(sweptReversalHit(1_800, 1_600, 1_800, 300, 1_800, 1_000, 190, 80)).not.toBeNull();
-    expect(sweptReversalHit(2_050, 1_600, 2_050, 300, 1_800, 1_000, 190, 80)).toBeNull();
+    expect(sweptShooterHit(1_800, 1_600, 1_800, 300, 1_800, 1_000, 190, 80)).not.toBeNull();
+    expect(sweptShooterHit(2_050, 1_600, 2_050, 300, 1_800, 1_000, 190, 80)).toBeNull();
     const game = state();
     const first = target(1, { role: "escort", y: 1_100 }), second = target(2, { role: "escort", y: 900 });
     game.enemies = [second, first];

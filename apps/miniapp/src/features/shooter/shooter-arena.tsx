@@ -86,6 +86,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
     () => resolveShooterVisualSources(content, run),
     [content, run],
   );
+  const sourcesRef = useRef(sources);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const maximumMove = PLAYER_MAX_X - (PLAYER_MIN_X + PLAYER_MAX_X) / 2;
@@ -102,7 +103,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
     ),
   );
   const visualsRef = useRef<ShooterVisuals>(new Map());
-  const assetsReadyRef = useRef(!sources.reversal);
+  const assetsReadyRef = useRef(false);
   const completeRef = useRef(onComplete);
   const audioRef = useRef(audio);
   const languageRef = useRef(language);
@@ -121,8 +122,11 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
     createShooterSimulation(runtime).snapshot(),
   );
   const [submitting, setSubmitting] = useState(false);
+  const [settling, setSettling] = useState(false);
   const [submissionFailed, setSubmissionFailed] = useState(false);
-  const [assetState, setAssetState] = useState<"loading" | "ready" | "error">(sources.reversal ? "loading" : "ready");
+  const [assetState, setAssetState] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => { sourcesRef.current = sources; }, [sources]);
 
   useEffect(() => {
     completeRef.current = onComplete;
@@ -178,7 +182,8 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
     void preloadShooterVisuals(sources).then((visuals) => {
       if (!active) return;
       visualsRef.current = visuals;
-      const ready = !sources.reversal || [sources.background, sources.player, sources.boss ?? "", sources.enemies.equipment ?? ""].every((url) => visuals.has(url));
+      const required = [sources.background, sources.player, ...Object.values(sources.enemies), ...(sources.boss ? [sources.boss] : [])];
+      const ready = required.every((url) => visuals.has(url));
       assetsReadyRef.current = ready;
       setAssetState(ready ? "ready" : "error");
     }).catch(() => {
@@ -227,6 +232,8 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
     let accepted = false;
     try {
       accepted = await completeRef.current(result);
+    } catch {
+      // Keep the completed result available even when an adapter rejects.
     } finally {
       submittingRef.current = false;
     }
@@ -248,6 +255,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
     let previousSnapshot: ShooterSnapshot | null = null;
     let currentSnapshot = simulation.snapshot();
     let finished = false;
+    let completionTimer: ReturnType<typeof setTimeout> | undefined;
     let lastHUDTick = -10;
     let lastBossWarning = -120;
     let wasPaused = false;
@@ -257,13 +265,16 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
     const finish = () => {
       if (finished) return;
       finished = true;
+      setSettling(true);
       keysRef.current.clear();
       controlRef.current = { ...controlRef.current, pointer: null };
       rescueQueuedRef.current = false;
       setHudSnapshot(currentSnapshot);
       const result = simulation.result();
       audioRef.current.playSound(result?.won ? "victory" : "defeat");
-      if (result) void submitResult(result);
+      // A short, harmless beat lets the final hit read before the next scene.
+      // Progression never waits for Rescue or another player action.
+      if (result) completionTimer = setTimeout(() => void submitResult(result), result.won ? 450 : 250);
     };
 
     const update = () => {
@@ -294,7 +305,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
       for (const enemyID of events.enemyHitIDs) {
         const enemy = currentSnapshot.enemies.find(
           (candidate) => candidate.id === enemyID,
-        );
+        ) ?? previousSnapshot.enemies.find((candidate) => candidate.id === enemyID);
         if (enemy) {
           const destroyed = events.enemyDefeatedIDs.includes(enemyID);
           enemyImpactsRef.current.set(enemyID, {
@@ -370,7 +381,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
         currentSnapshot,
         previousSnapshot,
         Math.min(1, accumulator / (1_000 / SHOOTER_TPS)),
-        sources,
+        sourcesRef.current,
         visualsRef.current,
         tutorial,
         controlRef.current.playerX,
@@ -394,11 +405,14 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
       if (!finished) frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
-  }, [embedded, musicProgress, runtime, sources, submitResult]);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(completionTimer);
+    };
+  }, [embedded, musicProgress, runtime, submitResult]);
 
   const queueRescue = () => {
-    if ((hudSnapshot?.rescue_charge ?? 0) >= 100 && !submitting) {
+    if ((hudSnapshot?.rescue_charge ?? 0) >= 100 && !submitting && !settling) {
       rescueQueuedRef.current = true;
     }
   };
@@ -406,7 +420,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
   const bounds = () => surfaceRef.current?.getBoundingClientRect() ?? null;
   const begin = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (submitting || pausedRef.current || !assetsReadyRef.current) return;
+    if (submitting || settling || pausedRef.current || !assetsReadyRef.current) return;
     const rect = bounds();
     if (!rect) return;
     const next = beginShooterPointer(
@@ -492,7 +506,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
         segmentTotal={runtime.config.reversal ? 1 : 3}
         durationTicks={runtime.config.duration_ticks}
         boss={Boolean(segment.boss_id)}
-        busy={busy || submitting}
+        busy={busy || submitting || settling}
         onRescue={queueRescue}
       />
       {assetState !== "ready" ? (

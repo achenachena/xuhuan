@@ -10,6 +10,7 @@ type Props = {
   readonly locale: GameLocale;
   readonly busy: boolean;
   readonly onContinue: () => void;
+  readonly onReplay: () => void;
 };
 
 export const RunResultScreen = ({
@@ -18,6 +19,7 @@ export const RunResultScreen = ({
   locale,
   busy,
   onContinue,
+  onReplay,
 }: Props) => {
   const cleared = run.outcome === "cleared";
   const abandoned = run.outcome === "abandoned";
@@ -77,20 +79,29 @@ export const RunResultScreen = ({
             ))}
           </div>
         ) : null}
-        <div className="mt-6 border-y border-white/10 py-5">
+        <div className="mt-4 border-y border-white/10 py-3">
           <p className="font-mono text-[9px] tracking-[.2em] text-slate-500">
             {gameText(locale, "finalScore")}
           </p>
-          <p className="mt-1 font-mono text-5xl font-black text-cyan-200">
+          <p className="mt-1 font-mono text-3xl font-black text-cyan-200">
             {run.state.score.toLocaleString(locale === "en" ? "en-CA" : "zh-CN")}
           </p>
         </div>
         <button
           type="button"
+          data-testid="replay-run"
+          disabled={busy}
+          onClick={onReplay}
+          className="mt-4 min-h-11 w-full border-2 border-cyan-100 bg-cyan-200 px-4 py-3 text-sm font-black text-slate-950 shadow-[3px_3px_0_#155e75] active:translate-y-px active:shadow-none disabled:opacity-50"
+        >
+          {gameText(locale, "replayRun")}
+        </button>
+        <button
+          type="button"
           data-testid="return-to-hub"
           disabled={busy}
           onClick={onContinue}
-          className="mt-6 w-full bg-gradient-to-r from-cyan-300 to-violet-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50"
+          className="mt-3 min-h-11 w-full border border-cyan-200/40 bg-slate-900 px-4 py-3 text-sm font-bold text-cyan-100 disabled:opacity-50"
         >
           {gameText(locale, "continue")}
         </button>

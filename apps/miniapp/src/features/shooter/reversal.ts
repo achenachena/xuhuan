@@ -1,4 +1,5 @@
 import { PLAYER_Y, SHOOTER_WIDTH, clamp } from "@/features/shooter/constants";
+import { sweptShooterHit } from "@/features/shooter/collision";
 import { addEnemyHazard } from "@/features/shooter/enemies";
 import { addPlayerProjectile, addShooterEffect } from "@/features/shooter/weapons";
 import type { ReversalFanSnapshot, ReversalRole, ShooterEnemyEntity, ShooterMutableState, ShooterProjectileEntity, ShooterThreatSnapshot } from "@/features/shooter/types";
@@ -91,7 +92,6 @@ export const updateReversalBoss = (state: ShooterMutableState, boss: ShooterEnem
   if (boss.phase !== phase) {
     boss.phase = phase;
     boss.fireClock = 0;
-    state.bossPhaseTick = state.tick;
     addShooterEffect(state, "boss_warning", boss.x, boss.y, 24, phase);
     if (phase === 3) {
       spawn(state, "arm", 1_001, 650, 100);
@@ -246,24 +246,9 @@ export const updateReversalWeapons = (state: ShooterMutableState): void => {
   }
 };
 
-/** First intersection parameter for a swept shot and an axis-aligned body. */
-export const sweptReversalHit = (fromX: number, fromY: number, toX: number, toY: number,
-  x: number, y: number, halfWidth: number, halfHeight: number): number | null => {
-  let near = 0, far = 1;
-  for (const [start, delta, center, extent] of [
-    [fromX, toX - fromX, x, halfWidth], [fromY, toY - fromY, y, halfHeight],
-  ]) {
-    if (delta === 0) { if (Math.abs(start! - center!) > extent!) return null; continue; }
-    const a = (center! - extent! - start!) / delta!, b = (center! + extent! - start!) / delta!;
-    near = Math.max(near, Math.min(a, b)); far = Math.min(far, Math.max(a, b));
-    if (near > far) return null;
-  }
-  return near;
-};
-
 const hitEnemy = (state: ShooterMutableState, enemy: ShooterEnemyEntity, shot: ShooterProjectileEntity, fromX: number, fromY: number): void => {
   const body = reversalHitbox(enemy);
-  const core = enemy.exposed && body.core_width > 0 && sweptReversalHit(
+  const core = enemy.exposed && body.core_width > 0 && sweptShooterHit(
     fromX, fromY, shot.x, shot.y, enemy.x, enemy.y + body.core_offset_y,
     body.core_width / 2 + shot.radius, body.core_height / 2 + shot.radius,
   ) !== null;
@@ -289,7 +274,7 @@ export const updateReversalPlayerProjectiles = (state: ShooterMutableState): voi
     const hits = state.enemies.flatMap((enemy) => {
       if (enemy.health <= 0 || shot.hitEnemyIDs?.includes(enemy.id)) return [];
       const body = reversalHitbox(enemy);
-      const time = sweptReversalHit(oldX, oldY, shot.x, shot.y, enemy.x, enemy.y,
+      const time = sweptShooterHit(oldX, oldY, shot.x, shot.y, enemy.x, enemy.y,
         body.width / 2 + shot.radius, body.height / 2 + shot.radius);
       return time === null ? [] : [{ enemy, time }];
     }).sort((left, right) => left.time - right.time || left.enemy.id - right.enemy.id);

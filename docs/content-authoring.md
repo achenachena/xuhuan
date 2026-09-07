@@ -60,7 +60,7 @@ echo_volley          boss_break           low_health_power
 combo_extend         companion_charge     recovery_drop
 ```
 
-Every effect must change a visible rule. Do not recreate three-level numerical upgrades or add a generic expression interpreter.
+Do not recreate three-level numerical upgrades or add a generic expression interpreter. The first `weapon` gate selects only `twin_shot`, `piercing_shot`, or `spread_shot`; numerical damage bonuses must not displace a visible firing-shape choice. Existing pending choices remain valid when loading a saved Run.
 
 ### Characters and specials
 
@@ -70,7 +70,7 @@ There are exactly seven character IDs:
 nana7mi  jiaran  xiangwan  bella  lulu  xingtong  nailu
 ```
 
-A character has localized biography/playstyle copy, local visual assets, positive base stats, and one special with charge cost 100. Max health remains three hearts.
+A character has localized biography/playstyle copy, local visual assets, positive base stats, and one special with charge cost 100. Max health remains three hearts, and the client caps stored guards at one. A guard amount is a blocked hit, not an old damage-point shield pool.
 
 Supported special behaviors are:
 
@@ -92,7 +92,7 @@ behaviors: side_shot  shield  echo_shot  clear_lane
            convert_bullet  focus_beam  heal
 ```
 
-Companions are automatic. An authored change must not introduce another combat button.
+Companions are automatic. An authored change must not introduce another combat button. Nana now follows `special_used`, so her side volley has a target during normal and Boss segments. Older saved `wave_clear` configs remain playable; do not rewrite player snapshots or remove the accepted trigger while they may exist.
 
 ### Enemy chassis
 
@@ -103,7 +103,7 @@ spam-bot  clip-cutter  caption-blob
 black-screen-ghost  gift-thief  censor-frame
 ```
 
-Movement is one of `drift`, `sweep`, `dive`, `orbit`, `anchor`, or `mirror`. Shot patterns are `aimed`, `fan`, `lane`, `ring`, `delayed`, or `beam`. Optional traits are `shield_link`, `split`, `steal_pickup`, `armor`, `echo`, or `jammer`.
+Normal enemies use the chassis-specific behaviors in `features/shooter/enemies.ts`: straight streams, cutting strips, subtitle blocks, breakable walls, fleeing thieves, and gapped frames. Their wire definitions retain movement and shot-pattern fields, but these do not override the built-in chassis behavior. Do not promise a new attack by changing an unused metadata value or copy alone. Boss stages use their authored movement and shot patterns separately.
 
 Every attack needs positive damage/projectile speed, an interval of at least 20 Ticks, and a telegraph of at least six Ticks. Content cannot exceed the manifest entity caps.
 
@@ -123,7 +123,7 @@ Each file wraps one `chapter` object. A chapter requires:
 
 ### Segments and rewards
 
-Every normal segment is fixed-duration survival. There is no authored objective field. Segment duration is `1050..1350` Ticks (35–45 seconds); Nana's first tutorial segment may be exactly 900 Ticks.
+Every normal segment has a survival time cap. There is no authored objective field. The configured cap is `1050..1350` Ticks (35–45 seconds); Nana's first tutorial segment may be exactly 900 Ticks. The client also wins when the last scheduled formation has entered and no living enemies remain. Future scheduled spawns prevent an early clear, so ordinary gaps between formations never skip content.
 
 The three segments must use these reward stages in order:
 
@@ -135,9 +135,13 @@ The three segments must use these reward stages in order:
 
 A segment references a chapter-owned wave and a registered background. A wave has one or more scheduled spawns. Formation is `line`, `fan`, `staggered`, `pincer`, `center`, or `sweep`; a spawn count cannot exceed eight.
 
+Gate presentation is a direct tap or click on one of two animated choices, not a timed drag-and-hold mechanic. Keep descriptions to the visible behavior or the companion's trigger; never display implementation units such as Ticks to players.
+
+Successful combat automatically submits its bounded result after a 450 ms non-interactive pause. Rescue is not a progression condition. Do not add a mandatory special-use flag, extra continue button, or exact-duration result requirement to the content.
+
 ### Bosses
 
-A boss has a local sprite, positive `max_health`, a room duration of exactly 1800 Ticks, and exactly three stages. Stage health thresholds are exactly 100, 66, and 33. Each stage selects supported movement/shot patterns and names one script behavior implemented by the backend.
+A boss has a local sprite, positive `max_health`, a configured time cap of 1800 Ticks, and exactly three stages. Defeating it ends the segment immediately rather than waiting for the cap. Stage health thresholds are exactly 100, 66, and 33. Each stage selects supported movement/shot patterns and names one script behavior implemented by the TypeScript simulation; Go resolves and validates its configuration.
 
 ### Story
 

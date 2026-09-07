@@ -409,10 +409,8 @@ const installAPI = async (
   });
 };
 
-let nextGatePointerID = 80;
-
 const chooseLeftGate = async (page: Page) => {
-  const gate = page.getByTestId("shooter-gate-surface");
+  const gate = page.getByTestId("shooter-gate-battlefield");
   await expect(gate).toBeVisible({ timeout: 8_000 });
   const box = await gate.boundingBox();
   expect(box).not.toBeNull();
@@ -421,48 +419,99 @@ const chooseLeftGate = async (page: Page) => {
     .boundingBox();
   const viewport = page.viewportSize();
   expect(copyLayerBox).not.toBeNull();
-  expect(copyLayerBox!.x).toBeGreaterThanOrEqual(7);
+  expect(copyLayerBox!.x).toBeGreaterThanOrEqual(box!.x);
   expect(copyLayerBox!.x + copyLayerBox!.width).toBeLessThanOrEqual(
-    viewport!.width - 7,
+    viewport!.width,
   );
-  const copy = page.locator('[data-testid^="gate-option-"]');
+  const copy = page.getByTestId("shooter-gate-copy-layer").getByRole("button");
   await expect(copy).toHaveCount(2);
   for (let index = 0; index < 2; index += 1) {
     const option = copy.nth(index);
+    await expect(option).toBeEnabled();
+    await expect(option).toHaveAccessibleName(/.+/);
     const optionBox = await option.boundingBox();
     expect(optionBox).not.toBeNull();
     expect(optionBox!.x).toBeGreaterThanOrEqual(box!.x);
     expect(optionBox!.x + optionBox!.width).toBeLessThanOrEqual(
       box!.x + box!.width + 1,
     );
-    const sizes = await option.locator("h2, p").evaluateAll((elements) =>
+    expect(optionBox!.width).toBeGreaterThanOrEqual(48);
+    expect(optionBox!.height).toBeGreaterThanOrEqual(48);
+    expect(optionBox!.y).toBeGreaterThanOrEqual(box!.y);
+    expect(optionBox!.y + optionBox!.height).toBeLessThanOrEqual(box!.y + box!.height);
+    const sizes = await option.locator("span").evaluateAll((elements) =>
       elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
     );
+    expect(sizes).toHaveLength(2);
     expect(Math.min(...sizes)).toBeGreaterThanOrEqual(9);
   }
-  nextGatePointerID += 1;
-  const pointerId = nextGatePointerID;
-  await gate.dispatchEvent("pointerdown", {
-    pointerId,
-    pointerType: "touch",
-    isPrimary: true,
-    clientX: box!.x + box!.width / 2,
-    clientY: box!.y + box!.height * 0.8,
-    bubbles: true,
-  });
-  await gate.dispatchEvent("pointermove", {
-    pointerId,
-    pointerType: "touch",
-    isPrimary: true,
-    clientX: box!.x + 10,
-    clientY: box!.y + box!.height * 0.8,
-    bubbles: true,
-  });
-  await expect(gate).toHaveAttribute("data-pointer-active", "true");
-  const controlX = Number(await gate.getAttribute("data-control-x"));
-  expect(controlX).toBeLessThanOrEqual(1_620);
+  await copy.first().tap();
   await expect(gate).toHaveCount(0, { timeout: 5_000 });
 };
+
+test("pixel rescue is compact, keyboard-operable, and never steals a held drag", async ({ page }) => {
+  const run = createV4Run({
+    state: {
+      ...v4BaseState,
+      segment: {
+        ...v4BaseState.segment!,
+        duration_ticks: 900,
+        runtime_config: {
+          ...v4Runtime,
+          duration_ticks: 900,
+          starting_rescue_charge: 100,
+          wave: { id: "rescue-control-check", spawns: [] },
+        },
+      },
+    },
+  });
+  await installAPI(page, { game: createV4Game({ campaign_run: run }) });
+  await page.goto("/");
+  const surface = page.getByTestId("shooter-control-surface");
+  const rescue = page.getByRole("button", { name: "Rescue ready", exact: true });
+  await expect(surface).toBeVisible();
+  await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
+  await expect(rescue).toBeEnabled();
+  await expect(rescue).toHaveAttribute("aria-disabled", "false");
+  const buttonBox = await rescue.boundingBox();
+  const fieldBox = await surface.boundingBox();
+  expect(buttonBox).not.toBeNull();
+  expect(fieldBox).not.toBeNull();
+  expect(buttonBox!.width).toBeGreaterThanOrEqual(48);
+  expect(buttonBox!.height).toBeGreaterThanOrEqual(48);
+  expect(buttonBox!.width).toBeLessThanOrEqual(68);
+  expect(buttonBox!.height).toBeLessThanOrEqual(68);
+  expect(buttonBox!.x + buttonBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(buttonBox!.y + buttonBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  expect(await rescue.evaluate((element) => getComputedStyle(element, "::before").clipPath)).toMatch(/^polygon\(/);
+
+  await page.mouse.move(fieldBox!.x + fieldBox!.width / 2, fieldBox!.y + fieldBox!.height * 0.8);
+  await page.mouse.down();
+  await expect(surface).toHaveAttribute("data-pointer-active", "true");
+  await page.mouse.move(buttonBox!.x + buttonBox!.width / 2, buttonBox!.y + buttonBox!.height / 2);
+  await expect(surface).toHaveAttribute("data-pointer-active", "true");
+  await page.mouse.up();
+  await expect(rescue).toBeEnabled();
+  const heldX = await surface.getAttribute("data-control-x");
+
+  await rescue.focus();
+  await page.keyboard.press("Enter");
+  const charging = page.getByTestId("rescue-button");
+  await expect(charging).toBeDisabled();
+  await expect(charging).toHaveAttribute("aria-disabled", "true");
+  await expect(charging).toHaveAttribute("data-state", "charging");
+  await expect(charging).toHaveAttribute("title", "HYPE: 0%");
+  await expect(surface).toHaveAttribute("data-control-x", heldX!);
+  expect(await charging.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe("none");
+
+  await page.mouse.move(buttonBox!.x + buttonBox!.width / 2, buttonBox!.y + buttonBox!.height / 2);
+  await page.mouse.down();
+  await expect(surface).toHaveAttribute("data-pointer-active", "true");
+  await page.mouse.move(buttonBox!.x + 8, buttonBox!.y + buttonBox!.height / 2);
+  await page.mouse.up();
+  await expect(surface).toHaveAttribute("data-pointer-active", "false");
+  expect(Number(await surface.getAttribute("data-control-x"))).toBeLessThan(Number(heldX));
+});
 
 test("single-finger campaign restores and reaches all three gates", async ({ page }) => {
   await installAPI(page);

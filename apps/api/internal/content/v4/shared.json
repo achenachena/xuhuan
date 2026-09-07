@@ -51,7 +51,7 @@
     }
   ],
   "companions": [
-    {"id":"nana7mi-assist","character_id":"nana7mi","name_key":"companion.nana.name","description_key":"companion.nana.description","portrait_url":"/game/v4/players/nana7mi.webp","assist":{"trigger":"wave_clear","behavior":"side_shot","amount":20,"cooldown_ticks":180}},
+    {"id":"nana7mi-assist","character_id":"nana7mi","name_key":"companion.nana.name","description_key":"companion.nana.description","portrait_url":"/game/v4/players/nana7mi.webp","assist":{"trigger":"special_used","behavior":"side_shot","amount":20,"cooldown_ticks":180}},
     {"id":"jiaran-assist","character_id":"jiaran","name_key":"companion.jiaran.name","description_key":"companion.jiaran.description","portrait_url":"/game/v4/players/jiaran.webp","assist":{"trigger":"low_health","behavior":"shield","amount":1,"cooldown_ticks":450}},
     {"id":"xiangwan-assist","character_id":"xiangwan","name_key":"companion.xiangwan.name","description_key":"companion.xiangwan.description","portrait_url":"/game/v4/players/xiangwan.webp","assist":{"trigger":"special_used","behavior":"echo_shot","amount":28,"cooldown_ticks":180}},
     {"id":"bella-assist","character_id":"bella","name_key":"companion.bella.name","description_key":"companion.bella.description","portrait_url":"/game/v4/players/bella.webp","assist":{"trigger":"graze_streak","behavior":"clear_lane","amount":3,"cooldown_ticks":240}},

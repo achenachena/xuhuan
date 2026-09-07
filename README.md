@@ -84,7 +84,7 @@ make miniapp
 
 Open `http://localhost:3000` or `/demo` to play immediately. The full campaign is mounted only when the Telegram SDK supplies `initData`. Playwright supplies an isolated Telegram host and API fixture; it does not create a development login or public credential.
 
-Both public routes run `demo-v2`: a 40-second authored wave, one visible weapon choice, and a Boss lasting at most 45 seconds. Broken control cores turn their own formation's bullets into support; defeated machines become temporary penlight-waving allies. Each reversal restores another layer of the original local chiptune score. These demo mechanics do not change the eight-chapter campaign. Generate its static manifests from the Go catalog after relevant shooter or content changes:
+Both public routes run `demo-v2`: an authored wave capped at 40 seconds, one visible weapon choice, and a Boss lasting at most 45 seconds. Clearing the final formation advances early; Rescue is never required to continue. Broken control cores turn their own formation's bullets into support; defeated machines become temporary penlight-waving allies. Each reversal restores another layer of the original local chiptune score. These demo-specific combat mechanics do not replace the eight-chapter campaign. Generate its static manifests from the Go catalog after relevant shooter or content changes:
 
 ```sh
 npm run generate:portfolio-demo

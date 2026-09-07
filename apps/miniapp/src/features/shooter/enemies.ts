@@ -8,7 +8,6 @@ import {
   SHOOTER_WIDTH,
   clamp,
   goDivide,
-  integerSqrt,
   squaredDistance,
 } from "@/features/shooter/constants";
 import type {
@@ -23,6 +22,8 @@ import { earnRescue } from "@/features/shooter/specials";
 import { storyChoiceMode } from "@/features/shooter/story";
 import { addShooterEffect, addPlayerProjectile } from "@/features/shooter/weapons";
 import { breakReversalCore, reversalThreats, updateReversalPlayerProjectiles } from "@/features/shooter/reversal";
+import { sweptShooterCircleHit, sweptShooterHit } from "@/features/shooter/collision";
+import { hasClearedAuthoredWave } from "@/features/shooter/waves";
 
 export const hasTrait = (
   spec: ShooterEnemySpec,
@@ -186,47 +187,12 @@ export const moveEnemy = (
     if (enemy.y < 1_150) enemy.y += Math.max(2, goDivide(spec.speed, 4));
     return;
   }
-  const defaults: Record<ShooterEnemySpec["chassis"], string> = {
-    "spam-bot": "drift",
-    "clip-cutter": "sweep",
-    "caption-blob": "orbit",
-    "black-screen-ghost": "dive",
-    "gift-thief": "mirror",
-    "censor-frame": "anchor",
-  };
-  const pattern = spec.move_pattern || defaults[spec.chassis];
-  if (pattern === "drift") {
-    const direction = (goDivide(enemy.age, 45) + enemy.id) & 1 ? -1 : 1;
-    enemy.x += direction * Math.max(4, goDivide(spec.speed, 2));
-    enemy.y += Math.max(3, goDivide(spec.speed, 3));
-  } else if (pattern === "sweep") {
-    if (enemy.y < 1_450) enemy.y += Math.max(4, goDivide(spec.speed, 2));
-    enemy.x += (goDivide(enemy.age, 60) & 1 ? -1 : 1) * Math.max(3, spec.speed);
-  } else if (pattern === "dive") {
-    const cycle = enemy.age % Math.max(45, spec.fire_interval);
-    if (cycle < 24) enemy.warning = 24 - cycle;
-    else {
-      enemy.warning = 0;
-      enemy.y += Math.max(12, spec.speed * 2);
-    }
-  } else if (pattern === "orbit") {
-    enemy.x += (enemy.id & 1 ? -1 : 1) * Math.max(3, goDivide(spec.speed, 2));
-    enemy.y += Math.max(3, goDivide(spec.speed, 3));
-  } else if (pattern === "anchor") {
-    enemy.y += Math.max(2, goDivide(spec.speed, 4));
-  } else if (pattern === "mirror") {
-    const dx = SHOOTER_WIDTH - state.playerX - enemy.x;
-    enemy.x += clamp(dx, -spec.speed, spec.speed);
-    enemy.y += Math.max(5, goDivide(spec.speed, 2));
-  }
-  enemy.x = clamp(enemy.x, ENEMY_RADIUS, SHOOTER_WIDTH - ENEMY_RADIUS);
 };
 
 export const fireEnemy = (
   state: ShooterMutableState,
   enemy: ShooterEnemyEntity,
   spec: ShooterEnemySpec,
-  authoredPattern: string,
 ): void => {
   if (state.enemyProjectiles.length >= state.config.limits.enemy_projectiles) return;
   const speed = spec.projectile_speed;
@@ -252,33 +218,6 @@ export const fireEnemy = (
     fireCensorFrame(state, enemy, speed, spec.damage, "censor_bar");
     return;
   }
-  const defaults: Record<ShooterEnemySpec["chassis"], string> = {
-    "spam-bot": "aimed",
-    "clip-cutter": "fan",
-    "caption-blob": "ring",
-    "black-screen-ghost": "delayed",
-    "gift-thief": "beam",
-    "censor-frame": "lane",
-  };
-  const pattern = authoredPattern || defaults[spec.chassis];
-  if (pattern === "aimed") {
-    const dx = state.playerX - enemy.x;
-    const dy = PLAYER_Y - enemy.y;
-    const distance = Math.max(1, integerSqrt(dx * dx + dy * dy));
-    addEnemyBullet(state, enemy.x, enemy.y, goDivide(dx * speed, distance), goDivide(dy * speed, distance), spec.damage);
-  } else if (pattern === "beam") {
-    addEnemyBullet(state, enemy.x, enemy.y, 0, speed, spec.damage);
-  } else if (pattern === "fan") {
-    for (const vx of [goDivide(-speed, 2), 0, goDivide(speed, 2)]) addEnemyBullet(state, enemy.x, enemy.y, vx, speed, spec.damage);
-  } else if (pattern === "delayed") {
-    addEnemyBullet(state, enemy.x, enemy.y, 0, Math.max(1, goDivide(speed, 2)), spec.damage);
-    addEnemyBullet(state, enemy.x + 180, enemy.y - 240, 0, speed, spec.damage);
-  } else if (pattern === "ring") {
-    for (const vx of [-speed, speed]) addEnemyBullet(state, enemy.x, enemy.y, goDivide(vx, 2), speed, spec.damage);
-  } else if (pattern === "lane") {
-    for (const vx of [-speed, goDivide(-speed, 2), 0, goDivide(speed, 2), speed]) addEnemyBullet(state, enemy.x, enemy.y, vx, speed, spec.damage);
-  }
-  if (hasTrait(spec, "echo")) addEnemyBullet(state, enemy.x + 120, enemy.y - 180, 0, speed, spec.damage);
 };
 
 const fireCensorFrame = (
@@ -427,7 +366,6 @@ export const updatePickups = (state: ShooterMutableState): void => {
     }
     if (squaredDistance(pickup.x, pickup.y, state.playerX, PLAYER_Y) <= (PLAYER_RADIUS + 70) ** 2) {
       state.pickupsCollected += 1;
-      state.lastPickupTick = state.tick;
       earnRescue(state, pickup.value);
       state.score += 40 * Math.max(1, state.combo);
       state.pickupPower = pickup.kind;
@@ -459,100 +397,94 @@ const applyKitOnHit = (state: ShooterMutableState, enemyIndex: number, baseDamag
   }
 };
 
-const hitBreakableHazard = (
+const damageBreakableHazard = (
   state: ShooterMutableState,
   shot: ShooterMutableState["playerProjectiles"][number],
-): boolean => {
-  for (const hazard of state.enemyProjectiles) {
-    if (
-      hazard.kind !== "black_wall" ||
-      hazard.health <= 0 ||
-      Math.abs(shot.y - hazard.y) >
-        Math.max(hazard.radius, 120) + ENEMY_PROJECTILE_RADIUS ||
-      Math.abs(shot.x - hazard.x) >
-        goDivide(hazard.width, 2) + ENEMY_PROJECTILE_RADIUS
-    ) {
-      continue;
-    }
-    hazard.health -= Math.max(1, shot.damage);
-    addShooterEffect(state, "wall_hit", shot.x, shot.y, 8, shot.damage);
-    if (hazard.health <= 0) {
-      state.score += 120;
-      earnRescue(state, 4);
-      addShooterEffect(
-        state,
-        "wall_break",
-        hazard.x,
-        hazard.y,
-        24,
-        hazard.width,
-      );
-    }
-    return true;
+  hazard: ShooterMutableState["enemyProjectiles"][number],
+): void => {
+  hazard.health -= Math.max(1, shot.damage);
+  addShooterEffect(state, "wall_hit", shot.x, hazard.y, 8, shot.damage);
+  if (hazard.health <= 0) {
+    state.score += 120;
+    earnRescue(state, 4);
+    addShooterEffect(state, "wall_break", hazard.x, hazard.y, 24, hazard.width);
   }
-  return false;
 };
 
-const hostileHitsPlayer = (
-  bullet: ShooterMutableState["enemyProjectiles"][number],
-  playerX: number,
-): boolean => {
-  const radius = Math.max(ENEMY_PROJECTILE_RADIUS, bullet.radius);
-  if (bullet.width > 0) {
-    return (
-      Math.abs(bullet.y - PLAYER_Y) <= radius + PLAYER_RADIUS &&
-      Math.abs(bullet.x - playerX) <= goDivide(bullet.width, 2) + PLAYER_RADIUS
-    );
-  }
-  return (
-    squaredDistance(bullet.x, bullet.y, playerX, PLAYER_Y) <=
-    (PLAYER_RADIUS + radius) ** 2
-  );
+// Body bounds follow the visible chassis, not transparent sprite corners.
+// The 90px Boss has a much larger body than a 46px ordinary machine.
+export const campaignEnemyHitbox = (enemy: ShooterEnemyEntity, spec: ShooterEnemySpec) => {
+  if (enemy.boss) return { halfWidth: 260, halfHeight: 370 };
+  if (spec.chassis === "clip-cutter") return { halfWidth: 160, halfHeight: 80 };
+  return { halfWidth: 150, halfHeight: 170 };
 };
 
 const updateCampaignPlayerProjectiles = (state: ShooterMutableState): void => {
   const playerShots = [];
-  let bossDefeated = false;
   for (const shot of state.playerProjectiles) {
+    const oldX = shot.x, oldY = shot.y;
     shot.x += shot.vx;
     shot.y += shot.vy;
-    if (shot.y < -ENEMY_PROJECTILE_RADIUS || shot.x < -ENEMY_PROJECTILE_RADIUS || shot.x > SHOOTER_WIDTH + ENEMY_PROJECTILE_RADIUS) continue;
-    let hit = hitBreakableHazard(state, shot);
-    if (hit) continue;
-    for (let index = 0; index < state.enemies.length; index += 1) {
+    const radius = Math.max(ENEMY_PROJECTILE_RADIUS, shot.radius);
+    const hits: { time: number; enemyIndex?: number; hazard?: ShooterMutableState["enemyProjectiles"][number] }[] = [];
+    state.enemies.forEach((enemy, enemyIndex) => {
+      if (enemy.health <= 0 || shot.hitEnemyIDs?.includes(enemy.id)) return;
+      const body = campaignEnemyHitbox(enemy, state.config.enemies[enemy.specIndex]!);
+      const time = sweptShooterHit(oldX, oldY, shot.x, shot.y, enemy.x, enemy.y, body.halfWidth + radius, body.halfHeight + radius);
+      if (time !== null) hits.push({ time, enemyIndex });
+    });
+    for (const hazard of state.enemyProjectiles) {
+      if (hazard.kind !== "black_wall" || hazard.health <= 0) continue;
+      const time = sweptShooterHit(oldX, oldY, shot.x, shot.y, hazard.x, hazard.y,
+        hazard.width / 2 + radius, Math.max(hazard.radius, 120) + radius);
+      if (time !== null) hits.push({ time, hazard });
+    }
+    hits.sort((left, right) => left.time - right.time);
+    let consumed = false;
+    for (const hit of hits) {
+      if (hit.hazard) {
+        if (hit.hazard.health <= 0) continue;
+        damageBreakableHazard(state, shot, hit.hazard);
+        consumed = true;
+        break;
+      }
+      const index = hit.enemyIndex!;
       const enemy = state.enemies[index]!;
-      if (enemy.health <= 0 || squaredDistance(shot.x, shot.y, enemy.x, enemy.y) > (ENEMY_RADIUS + ENEMY_PROJECTILE_RADIUS) ** 2) continue;
+      if (enemy.health <= 0) continue;
       let damage = shot.damage;
       if (enemy.boss) damage += state.runtime.bossBreak;
       else if (hasTrait(state.config.enemies[enemy.specIndex]!, "armor")) damage = Math.max(1, goDivide(damage * 2, 3));
       enemy.health -= damage;
-      if (enemy.boss && enemy.health <= 0) bossDefeated = true;
       applyKitOnHit(state, index, shot.damage);
-      hit = true;
-      if (shot.pierce > 0) {
-        shot.pierce -= 1;
-        hit = false;
-      }
-      break;
+      (shot.hitEnemyIDs ??= []).push(enemy.id);
+      if (shot.pierce <= 0) { consumed = true; break; }
+      shot.pierce -= 1;
     }
-    if (!hit) playerShots.push(shot);
+    if (!consumed && shot.y >= -radius && shot.x >= -radius && shot.x <= SHOOTER_WIDTH + radius) playerShots.push(shot);
   }
   state.playerProjectiles = playerShots;
-  if (bossDefeated) {
-    state.enemyProjectiles = [];
-    addShooterEffect(state, "boss_cut", SHOOTER_WIDTH / 2, PLAYER_Y / 2, 30, 1);
-  }
 };
 
 export const updateProjectiles = (state: ShooterMutableState): void => {
   if (state.config.reversal) updateReversalPlayerProjectiles(state);
   else updateCampaignPlayerProjectiles(state);
+  if (hasClearedAuthoredWave(state) || (state.config.boss && state.spawnedBoss && !state.enemies.some((enemy) => enemy.boss && enemy.health > 0))) {
+    state.enemyProjectiles = [];
+  }
   const hostile = [];
   for (const bullet of state.enemyProjectiles) {
     if (bullet.kind === "black_wall" && bullet.health <= 0) continue;
+    const oldX = bullet.x, oldY = bullet.y;
     bullet.x += bullet.vx;
     bullet.y += bullet.vy;
     const radius = Math.max(ENEMY_PROJECTILE_RADIUS, bullet.radius);
+    const hitsPlayer = bullet.width > 0
+      ? sweptShooterHit(oldX, oldY, bullet.x, bullet.y, state.playerX, PLAYER_Y, bullet.width / 2 + PLAYER_RADIUS, radius + PLAYER_RADIUS) !== null
+      : sweptShooterCircleHit(oldX, oldY, bullet.x, bullet.y, state.playerX, PLAYER_Y, radius + PLAYER_RADIUS);
+    if (hitsPlayer) {
+      damagePlayer(state, bullet.damage);
+      continue;
+    }
     if (
       bullet.y > SHOOTER_HEIGHT + radius ||
       bullet.y < -radius ||
@@ -560,10 +492,6 @@ export const updateProjectiles = (state: ShooterMutableState): void => {
       bullet.x > SHOOTER_WIDTH + radius + goDivide(bullet.width, 2)
     ) continue;
     const distance = squaredDistance(bullet.x, bullet.y, state.playerX, PLAYER_Y);
-    if (hostileHitsPlayer(bullet, state.playerX)) {
-      damagePlayer(state, bullet.damage);
-      continue;
-    }
     if (!bullet.grazed && bullet.width === 0 && distance <= PLAYER_GRAZE_RADIUS ** 2) {
       bullet.grazed = true;
       state.grazeCount += 1;

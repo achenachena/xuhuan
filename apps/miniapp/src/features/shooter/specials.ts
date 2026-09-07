@@ -7,7 +7,7 @@ import {
   squaredDistance,
 } from "@/features/shooter/constants";
 import type { ShooterMutableState } from "@/features/shooter/types";
-import { addPlayerProjectile, addShooterEffect } from "@/features/shooter/weapons";
+import { addPlayerProjectile, addShooterEffect, grantShooterShield } from "@/features/shooter/weapons";
 import { activateReversalRescue } from "@/features/shooter/reversal";
 
 export const earnRescue = (state: ShooterMutableState, amount: number): void => {
@@ -36,10 +36,10 @@ export const activateRescue = (state: ShooterMutableState): boolean => {
   if (state.rescueCharge < 100 || state.health <= 0) return false;
   state.rescueCharge = 0;
   state.rescuesUsed += 1;
-  state.lastRescueTick = state.tick;
   if (state.config.reversal) { activateReversalRescue(state); return true; }
   let damage = state.runtime.rescueDamage;
-  state.shield += state.runtime.guardOnSpecial;
+  grantShooterShield(state, state.runtime.guardOnSpecial);
+  state.invulnerableTicks = Math.max(state.invulnerableTicks, 24);
   const behavior = state.config.kit.special_behavior || defaultBehavior[state.config.kit.id];
   if (behavior === "barrage_break") {
     damage += state.combo * 2;
@@ -50,7 +50,10 @@ export const activateRescue = (state: ShooterMutableState): boolean => {
       addShooterEffect(state, "mark_detonation", enemy.x, enemy.y, 24, extra);
       enemy.marks = 0;
     }
-  } else if (behavior === "cheer_guard") state.shield += 8;
+  } else if (behavior === "cheer_guard") {
+    grantShooterShield(state, 1);
+    state.invulnerableTicks = Math.max(state.invulnerableTicks, 36);
+  }
   else if (behavior === "afterimage_replay") {
     damage += goDivide(state.enemyProjectiles.length, 3);
     for (const offset of [-180, 0, 180]) {
@@ -58,7 +61,8 @@ export const activateRescue = (state: ShooterMutableState): boolean => {
     }
     addShooterEffect(state, "afterimage_replay", state.playerX, PLAYER_Y, 36, damage);
   } else if (behavior === "captain_parry") {
-    state.shield += 18;
+    grantShooterShield(state, 1);
+    state.invulnerableTicks = Math.max(state.invulnerableTicks, 45);
     for (const vx of [-140, -70, 0, 70, 140]) {
       if (!addPlayerProjectile(state, { x: state.playerX, y: PLAYER_Y, vx, vy: -190, damage: Math.max(1, state.runtime.damage) })) break;
     }
@@ -90,7 +94,7 @@ export const activateRescue = (state: ShooterMutableState): boolean => {
     state.effects = plants;
     if (bloomed > 0) {
       state.health = Math.min(state.runtime.maxHealth, state.health + 1);
-      state.shield += bloomed;
+      grantShooterShield(state, 1);
     }
     addShooterEffect(state, "memory_bloom", state.playerX, PLAYER_Y, 45, bloomed);
   }

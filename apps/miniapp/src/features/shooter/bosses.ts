@@ -130,10 +130,9 @@ export const updateBoss = (state: ShooterMutableState, enemy: ShooterEnemyEntity
   if (state.config.reversal) { updateReversalBoss(state, enemy); return; }
   const boss = state.config.boss;
   if (!boss || enemy.health <= 0) return;
-  const previousPhase = enemy.phase, index = bossStageIndex(enemy.health, enemy.maxHealth, boss.stages);
+  const index = bossStageIndex(enemy.health, enemy.maxHealth, boss.stages);
   enemy.phase = index + 1;
   const stage = boss.stages[index]!;
-  if (previousPhase !== enemy.phase) state.bossPhaseTick = state.tick;
   moveBoss(enemy, boss.id, stage.move_pattern, state.tick, state.playerX);
   enemy.fireClock += 1;
   if (enemy.fireClock >= encoreInterval(stage.fire_interval, state.config.encore_level, 10)) { enemy.fireClock = 0; fireBossPattern(state, enemy, boss.id, stage); enemy.volley += 1; }

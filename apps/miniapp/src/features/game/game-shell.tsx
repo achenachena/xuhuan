@@ -161,6 +161,10 @@ const GameShell = () => {
         locale={locale}
         busy={busy}
         onContinue={() => void controller.returnToHub()}
+        onReplay={() => {
+          if (mode === "daily") void controller.startDaily();
+          else void controller.startCampaign(run.state.chapter_slug, run.state.character_slug, run.state.encore_level);
+        }}
       />
     );
   } else {
@@ -254,9 +258,6 @@ const LoadingScreen = ({ locale }: { readonly locale: GameLocale }) => (
     <div>
       <div className="mx-auto mb-5 h-12 w-12 animate-pulse border-2 border-cyan-300/50 bg-cyan-300/10 shadow-[4px_4px_0_rgba(124,58,237,.5)]" />
       <p className="text-sm text-slate-300">{gameText(locale, "connecting")}</p>
-      <p className="mt-2 font-mono text-[10px] tracking-[0.2em] text-cyan-400">
-        CONTENT-V4 / SHOOTER-V1
-      </p>
     </div>
   </main>
 );
@@ -267,9 +268,6 @@ const MaintenanceScreen = ({ locale }: { readonly locale: GameLocale }) => (
     className="grid min-h-[var(--xuhuan-stable-height,100dvh)] place-items-center bg-[#02050e] p-6 text-center text-white"
   >
     <div className="max-w-xs border border-cyan-200/25 bg-[#071225] p-5">
-      <p className="font-mono text-[9px] tracking-[.2em] text-cyan-300">
-        CONTENT-V4 / SHOOTER-V1
-      </p>
       <p className="mt-4 text-sm leading-6 text-slate-300">
         {gameText(locale, "protocolMaintenance")}
       </p>
