@@ -907,7 +907,6 @@ const drawWeaponPreview = (
 
 const drawCompanionPreview = (
   context: CanvasRenderingContext2D,
-  option: ShooterGateOption,
   image: HTMLImageElement | undefined,
   x: number,
   y: number,
@@ -972,7 +971,7 @@ const drawGatePortal = (
 
   const portrait = option.portraitURL ? visuals.get(option.portraitURL) : undefined;
   if (option.kind === "companion") {
-    drawCompanionPreview(context, option, portrait, x, 2_120, tick);
+    drawCompanionPreview(context, portrait, x, 2_120, tick);
   } else {
     drawWeaponPreview(context, option, x, 2_170, tick);
   }

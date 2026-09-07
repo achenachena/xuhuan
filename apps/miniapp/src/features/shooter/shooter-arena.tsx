@@ -50,6 +50,7 @@ type Props = {
   readonly busy: boolean;
   readonly embedded?: boolean;
   readonly opening?: string;
+  readonly musicProgress?: number;
   readonly onComplete: (result: ShooterResult) => Promise<boolean>;
 };
 
@@ -70,10 +71,11 @@ export const shooterTutorialKey = (
   return "tutorialRescue";
 };
 
-export const ShooterArena = ({ content, run, busy, embedded = false, opening, onComplete }: Props) => {
+export const ShooterArena = ({ content, run, busy, embedded = false, opening, musicProgress = 0, onComplete }: Props) => {
   const { language } = useLocale();
   const audio = useAudio();
   const setMusicActive = audio.setMusicActive;
+  const setDemoMusicProgress = audio.setDemoMusicProgress;
   const segment = run.state.segment;
   if (!segment) throw new Error("Shooter segment state is missing");
   const runtime = useMemo(
@@ -143,9 +145,13 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, on
   useEffect(() => observeShooterCanvas(canvasRef.current), []);
   useEffect(() => (embedded ? undefined : enterTelegramCombatMode()), [embedded]);
   useEffect(() => {
+    setDemoMusicProgress(sources.reversal ? musicProgress : null);
     setMusicActive(true);
-    return () => setMusicActive(false);
-  }, [setMusicActive]);
+    return () => {
+      setMusicActive(false);
+      setDemoMusicProgress(null);
+    };
+  }, [musicProgress, setDemoMusicProgress, setMusicActive, sources.reversal]);
 
   useEffect(() => {
     if (!embedded) return;
@@ -311,6 +317,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, on
       });
       if (events.pickup) audioRef.current.playSound("pickup");
       if ((currentSnapshot.reversal?.breaks ?? 0) > (previousSnapshot.reversal?.breaks ?? 0)) {
+        audioRef.current.setDemoMusicProgress(musicProgress + currentSnapshot.reversal!.breaks);
         audioRef.current.playSound("coreBreak");
         void playTelegramHaptic("rescue");
       } else if (events.enemyDefeatedIDs.length > 0) {
@@ -326,7 +333,8 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, on
         audioRef.current.playSound("rescue");
         void playTelegramHaptic("rescue");
       }
-      if (events.bossWarning && currentSnapshot.tick - lastBossWarning >= 90) {
+      if (events.bossWarning && (!runtime.config.reversal || runtime.config.boss)
+        && currentSnapshot.tick - lastBossWarning >= 90) {
         lastBossWarning = currentSnapshot.tick;
         audioRef.current.playSound("bossWarning");
         void playTelegramHaptic("warning");
@@ -387,7 +395,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, on
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
-  }, [embedded, runtime, sources, submitResult]);
+  }, [embedded, musicProgress, runtime, sources, submitResult]);
 
   const queueRescue = () => {
     if ((hudSnapshot?.rescue_charge ?? 0) >= 100 && !submitting) {

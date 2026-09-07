@@ -34,7 +34,7 @@ import { emptyStepEvents } from "@/features/shooter/types";
 import { createShooterRuntime, updateCompanions, updateWeapons } from "@/features/shooter/weapons";
 import { spawnWave } from "@/features/shooter/waves";
 import type { ShooterRuntimeConfig } from "@/lib/api/types";
-import { reversalHitbox, updateReversalChain, updateReversalEnemy } from "@/features/shooter/reversal";
+import { reversalFanPhase, reversalHitbox, updateReversalChain, updateReversalEnemy, updateReversalFans } from "@/features/shooter/reversal";
 
 export { createShooterRuntime } from "@/features/shooter/weapons";
 
@@ -85,7 +85,7 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   pickupPowerTicks: 0,
   pressureQuietTicks: 0,
   effects: [],
-  ...(runtime.config.reversal ? { reversal: { breaks: 0, chain: [] } } : {}),
+  ...(runtime.config.reversal ? { reversal: { breaks: 0, chain: [], fans: [] } } : {}),
 });
 
 const updateEnemies = (state: ShooterMutableState): void => {
@@ -137,6 +137,10 @@ const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
   ...(state.reversal && state.config.reversal ? { reversal: {
     breaks: state.reversal.breaks,
     weapon: state.config.reversal.weapon,
+    fans: state.reversal.fans.map((fan) => ({
+      id: fan.id, position: { x: fan.x, y: fan.y },
+      side: fan.side, age: fan.age, phase: reversalFanPhase(fan.age), attack_ticks: fan.attackTicks,
+    })),
   } } : {}),
   ...(state.pickupPower && state.pickupPowerTicks > 0
     ? {
@@ -243,6 +247,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     spawnWave(state);
     spawnBoss(state);
     updateReversalChain(state);
+    updateReversalFans(state);
     updateWeapons(state);
     updateCompanions(state);
     updateEnemies(state);

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import useLocale from "@/components/providers/use-locale";
@@ -11,7 +10,6 @@ import type {
 } from "@/features/portfolio/demo-types";
 import { ShowChoicePreview } from "@/features/portfolio/show-choice-preview";
 import { ShooterArena } from "@/features/shooter/shooter-arena";
-import type { ShooterResult } from "@/features/shooter/types";
 import type { ShooterGameRun } from "@/lib/api/types";
 
 type DemoPhase = "wave" | "choice" | "boss" | "result";
@@ -74,8 +72,7 @@ export const BrowserDemo = () => {
   const [choiceID, setChoiceID] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [waveHealth, setWaveHealth] = useState(3);
-  const [waveScore, setWaveScore] = useState(0);
-  const [result, setResult] = useState<ShooterResult | null>(null);
+  const [musicProgress, setMusicProgress] = useState(0);
   const text = useCallback(
     (key: Parameters<typeof gameText>[1]) => gameText(language, key),
     [language],
@@ -108,8 +105,7 @@ export const BrowserDemo = () => {
     setChoiceID(null);
     setAttempt((current) => current + 1);
     setWaveHealth(3);
-    setWaveScore(0);
-    setResult(null);
+    setMusicProgress(0);
   };
   const waveRun = useMemo(
     () => (manifest ? demoRun(manifest.wave) : null),
@@ -125,18 +121,13 @@ export const BrowserDemo = () => {
     },
     [manifest, choiceID, waveHealth],
   );
-  const retrySegment = () => {
-    setAttempt((current) => current + 1);
-    setResult(null);
-    setPhase(choiceID ? "boss" : "wave");
-  };
 
   const loadError = errorLocale === language;
   if (!manifest) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#02050e] p-6 text-center text-white">
         <div>
-          <p>{loadError ? text("networkError") : text("connecting")}</p>
+          <p>{loadError ? text("demoLoadError") : text("connecting")}</p>
           {loadError ? <button className="mt-5 bg-cyan-200 px-5 py-3 font-bold text-slate-950" onClick={() => window.location.reload()}>{text("retry")}</button> : null}
         </div>
       </main>
@@ -157,9 +148,8 @@ export const BrowserDemo = () => {
             run={waveRun}
             busy={false}
             onComplete={async (localResult) => {
-              setWaveScore(localResult.score);
               setWaveHealth(localResult.health);
-              setResult(localResult);
+              setMusicProgress(localResult.final.reversal?.breaks ?? 0);
               setPhase(localResult.won ? "choice" : "result");
               return true;
             }}
@@ -194,25 +184,22 @@ export const BrowserDemo = () => {
           <ShooterArena
             key={`boss:${choiceID}:${attempt}`}
             embedded
+            musicProgress={musicProgress}
             content={manifest.content}
             run={bossRun}
             busy={false}
-            onComplete={async (localResult) => {
-              setResult({ ...localResult, score: waveScore + localResult.score });
+            onComplete={async () => {
               setPhase("result");
               return true;
             }}
           />
         ) : null}
 
-        {phase === "result" && result ? (
-          <section className="absolute inset-0 grid content-center bg-[linear-gradient(rgba(2,5,14,.75),rgba(2,5,14,.96)),url('/game/v4/reversal/stage.webp')] bg-cover bg-center p-6 text-center text-white">
-            <h1 className="mt-4 text-3xl font-black">{result.won ? text("demoCleared") : text("demoFailed")}</h1>
-            <p className="mt-6 text-sm uppercase tracking-wider text-slate-400">{text("demoScore")}</p>
-            <p className="mt-1 font-mono text-5xl font-black text-amber-200">{result.score}</p>
-            <button className="mt-8 bg-cyan-200 px-5 py-3 font-bold text-slate-950" onClick={result.won ? reset : retrySegment}>{text(result.won ? "demoRetry" : "demoRetrySegment")}</button>
-            <a className="mt-3 border border-fuchsia-300/50 bg-fuchsia-400/10 px-5 py-3 font-bold text-fuchsia-100" href={telegramURL} rel="noreferrer" target="_blank">{text("demoFullGame")}</a>
-            <Link className="mt-5 text-sm text-slate-400 underline underline-offset-4" href="/">{text("demoBack")}</Link>
+        {phase === "result" ? (
+          <section data-testid="demo-end-actions" className="absolute inset-0 grid content-center bg-[linear-gradient(rgba(2,5,14,.75),rgba(2,5,14,.96)),url('/game/v4/reversal/stage.webp')] bg-cover bg-center p-6 text-center text-white">
+            <button className="bg-cyan-200 px-5 py-3 font-bold text-slate-950" onClick={reset}>{text("demoRestart")}</button>
+            <a className="mt-3 border border-fuchsia-300/50 bg-fuchsia-400/10 px-5 py-3 font-bold text-fuchsia-100" href={telegramURL} rel="noreferrer" target="_blank">{text("demoTelegram")}</a>
+            <a className="mt-5 text-sm text-slate-300 underline underline-offset-4" href="https://github.com/achenachena/xuhuan" rel="noreferrer" target="_blank">GitHub</a>
           </section>
         ) : null}
       </div>

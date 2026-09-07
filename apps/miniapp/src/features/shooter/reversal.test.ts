@@ -4,7 +4,7 @@ import { addEnemyHazard, damagePlayer, removeDefeatedEnemies, updatePickups, upd
 import { createShooterSimulationFromConfig } from "@/features/shooter/simulation";
 import { activateRescue } from "@/features/shooter/specials";
 import { addPlayerProjectile, createShooterRuntime } from "@/features/shooter/weapons";
-import { breakReversalCore, reversalHitbox, reversalThreats, spawnReversalGroups, sweptReversalHit, updateReversalBoss, updateReversalChain, updateReversalEnemy, updateReversalWeapons } from "@/features/shooter/reversal";
+import { breakReversalCore, reversalFanPhase, reversalHitbox, reversalThreats, spawnReversalGroups, sweptReversalHit, updateReversalBoss, updateReversalChain, updateReversalEnemy, updateReversalFans, updateReversalWeapons } from "@/features/shooter/reversal";
 import type { ShooterEnemyEntity, ShooterMutableState } from "@/features/shooter/types";
 import type { ShooterRuntimeConfig } from "@/lib/api/types";
 import { v4Runtime } from "@/test/v4-fixtures";
@@ -27,7 +27,7 @@ const state = (overrides: Partial<ShooterRuntimeConfig> = {}): ShooterMutableSta
     nextEffectID: 0, spawnedBoss: false, lastRescueTick: 0, bossPhaseTick: 0,
     dailyVariant: "", enemies: [], enemyProjectiles: [], playerProjectiles: [], pickups: [],
     pickupsCollected: 0, lastPickupTick: 0, pickupPower: null, pickupPowerTicks: 0,
-    pressureQuietTicks: 0, effects: [], reversal: { breaks: 0, chain: [] },
+    pressureQuietTicks: 0, effects: [], reversal: { breaks: 0, chain: [], fans: [] },
   };
 };
 
@@ -348,5 +348,103 @@ describe("opt-in bullet reversal demo", () => {
     simulation.step({ x: 64, rescue: false });
     expect(simulation.snapshot()).not.toHaveProperty("reversal");
     expect(simulation.snapshot().enemies[0]).not.toHaveProperty("role");
+  });
+});
+
+describe("temporary robot fans", () => {
+  it("the first real controller becomes a visible joining fan immediately", () => {
+    const game = createShooterSimulationFromConfig(demo.wave.runtime_config as ShooterRuntimeConfig);
+    let joined = false;
+    for (let tick = 0; tick < 450; tick += 1) {
+      game.step({ x: 64, rescue: false });
+      const snapshot = game.snapshot();
+      if (snapshot.reversal!.breaks > 0) {
+        expect(snapshot.reversal!.fans).toHaveLength(1);
+        expect(snapshot.reversal!.fans[0]).toMatchObject({ phase: "joining", age: 0 });
+        expect(snapshot.enemies.find((enemy) => enemy.id === snapshot.reversal!.fans[0]!.id)?.health).toBe(0);
+        joined = true;
+        break;
+      }
+    }
+    expect(joined).toBe(true);
+  });
+
+  it("emits the normal enemy-hit event when the first fan helps against the remaining escort", () => {
+    const game = createShooterSimulationFromConfig(demo.wave.runtime_config as ShooterRuntimeConfig);
+    for (let tick = 0; tick < 450 && game.snapshot().reversal!.fans.length === 0; tick += 1) game.step({ x: 64, rescue: false });
+    const escortID = game.snapshot().enemies.find((enemy) => enemy.role === "escort" && enemy.health > 0)!.id;
+    let fanHitReported = false;
+    for (let tick = 0; tick < 60; tick += 1) {
+      const previousHealth = game.snapshot().enemies.find((enemy) => enemy.id === escortID)?.health;
+      const events = game.step({ x: 127, rescue: false });
+      const health = game.snapshot().enemies.find((enemy) => enemy.id === escortID)?.health;
+      if (previousHealth !== undefined && health === previousHealth - 2 && events.enemyHitIDs.includes(escortID)) fanHitReported = true;
+    }
+    expect(fanHitReported).toBe(true);
+  });
+
+  it("guarantees a fan even if pickup and cosmetic budgets are full, without duplicate core recruits", () => {
+    const game = state(); const core = target(1, { health: 0 }); game.enemies = [core];
+    for (let index = 0; index < game.config.limits.pickups; index += 1) game.pickups.push({ id: index, x: 0, y: 0, kind: "support", value: 1 });
+    for (let index = 0; index < game.config.limits.effects; index += 1) game.effects.push({ id: index, x: 0, y: 0, ticks: 10, power: 1, kind: "reversal_flip" });
+    for (let call = 0; call < 3; call += 1) breakReversalCore(game, core);
+    removeDefeatedEnemies(game);
+    expect(game.reversal!.fans).toHaveLength(1);
+    expect(game.reversal!.fans[0]!.id).toBe(core.id);
+    expect(game.enemies).toHaveLength(0);
+    expect(game.kills).toBe(1);
+    expect(game.reversal!.breaks).toBe(1);
+  });
+
+  it("keeps at most two temporary fans on opposite sides and never recruits the still-hostile Boss", () => {
+    const game = state();
+    for (let id = 1; id <= 3; id += 1) breakReversalCore(game, target(id, { health: 0 }));
+    expect(game.reversal!.fans.map((fan) => fan.id)).toEqual([2, 3]);
+    expect(new Set(game.reversal!.fans.map((fan) => fan.side)).size).toBe(2);
+    breakReversalCore(game, target(4, { boss: true, role: "boss" }));
+    expect(game.reversal!.fans.map((fan) => fan.id)).toEqual([2, 3]);
+  });
+
+  it("fires bounded friendly shots that actually damage a surviving enemy", () => {
+    const game = state(); const core = target(1, { health: 0 }), remaining = target(2, { role: "escort", x: 1_280, y: 1_600 });
+    game.enemies = [core, remaining];
+    breakReversalCore(game, core); removeDefeatedEnemies(game);
+    for (let tick = 0; tick < 30; tick += 1) updateReversalFans(game);
+    const fan = game.reversal!.fans[0]!;
+    expect(fan).toMatchObject({ x: 420, y: 3_900, age: 30, attackTicks: 6 });
+    expect(game.playerProjectiles).toHaveLength(1);
+    expect(game.playerProjectiles[0]).toMatchObject({ hostile: false, kind: "reversal_fan", damage: 2 });
+    expect(game.enemyProjectiles).toHaveLength(0);
+    for (let tick = 0; tick < 20; tick += 1) updateProjectiles(game);
+    expect(remaining.health).toBe(98);
+    expect(game.health).toBe(3);
+    expect(game.enemies.some((enemy) => enemy.id === fan.id)).toBe(false);
+    const capped = state({ limits: { ...v4Runtime.limits, player_projectiles: 0 } });
+    capped.enemies = [remaining]; breakReversalCore(capped, target(3, { health: 0 }));
+    for (let tick = 0; tick < 60; tick += 1) updateReversalFans(capped);
+    expect(capped.playerProjectiles).toHaveLength(0);
+  });
+
+  it("does not fire without a live target, waves without shooting, and leaves after six seconds", () => {
+    const game = state(); breakReversalCore(game, target(1, { health: 0 }));
+    for (let tick = 0; tick < 149; tick += 1) updateReversalFans(game);
+    expect(game.reversal!.fans).toHaveLength(1);
+    expect(reversalFanPhase(game.reversal!.fans[0]!.age)).toBe("cheering");
+    expect(game.playerProjectiles).toHaveLength(0);
+    game.enemies = [target(2)];
+    for (let tick = 0; tick < 30; tick += 1) updateReversalFans(game);
+    expect(reversalFanPhase(game.reversal!.fans[0]!.age)).toBe("leaving");
+    expect(game.playerProjectiles).toHaveLength(0);
+    updateReversalFans(game);
+    expect(game.reversal!.fans).toEqual([]);
+    expect(game.health).toBe(3);
+  });
+
+  it("does nothing for a campaign state without the optional demo subsystem", () => {
+    const game = state(); delete game.reversal;
+    const before = { enemies: game.enemies, shots: game.playerProjectiles, health: game.health };
+    updateReversalFans(game);
+    expect(game.reversal).toBeUndefined();
+    expect({ enemies: game.enemies, shots: game.playerProjectiles, health: game.health }).toEqual(before);
   });
 });

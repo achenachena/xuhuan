@@ -8,28 +8,33 @@ import { AudioProvider } from "@/components/providers/audio-provider";
 export const metadata: Metadata = {
   metadataBase: new URL("https://xuhuan-miniapp.vercel.app"),
   title: "Xuhuan: Only One Online",
-  description: "A one-thumb Telegram shooter with transactional Go progression and a playable browser portfolio demo.",
+  description: "Drag, shoot, and turn hostile bullets into support. Play Xuhuan in your browser or continue the full story in Telegram.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "Xuhuan: Only One Online",
-    description: "Keep the last impossible livestream online in this production-deployed Go and Canvas 2D shooter.",
+    description: "Drag, shoot, and turn hostile bullets into support. Keep the last impossible livestream online.",
     url: "/",
     siteName: "Xuhuan: Only One Online",
     type: "website",
     images: [
       {
-        url: "/game/v4/backgrounds/seventh-dock.webp",
-        width: 1024,
-        height: 1024,
-        alt: "Xuhuan browser demo at the Seventh Dock",
+        url: "/game/v4/reversal/stage.webp",
+        width: 720,
+        height: 1280,
+        alt: "Xuhuan pixel livestream studio at the Seventh Dock",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Xuhuan: Only One Online",
-    description: "A playable browser demo and production-deployed Telegram Mini App.",
-    images: ["/game/v4/backgrounds/seventh-dock.webp"],
+    description: "Play instantly in your browser. Continue the full story in Telegram.",
+    images: [{
+      url: "/game/v4/reversal/stage.webp",
+      width: 720,
+      height: 1280,
+      alt: "Xuhuan pixel livestream studio at the Seventh Dock",
+    }],
   },
 };
 

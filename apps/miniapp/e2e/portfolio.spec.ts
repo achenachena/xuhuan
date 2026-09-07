@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("public browser portfolio", () => {
-  test("renders recruiter links without calling protected game APIs", async ({ page }) => {
+test.describe("public browser game", () => {
+  test("starts gameplay at the root without a landing page or protected API calls", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const protectedRequests: string[] = [];
     page.on("request", (request) => {
@@ -10,11 +10,11 @@ test.describe("public browser portfolio", () => {
 
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: "Keep the last impossible livestream online." })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Play 90-second demo", exact: true }).first()).toHaveAttribute("href", "/demo");
-    await expect(page.getByRole("link", { name: "Open full game in Telegram" })).toHaveAttribute("href", "https://t.me/xuhuangamebot");
-    await expect(page.getByRole("link", { name: "View source on GitHub" })).toHaveAttribute("href", "https://github.com/achenachena/xuhuan");
-    await page.waitForTimeout(250);
+    await expect(page.getByTestId("game-entry")).toBeVisible();
+    await expect(page.getByTestId("shooter-canvas")).toBeVisible();
+    await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
+    await expect(page.getByRole("heading")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /demo|GitHub|Telegram/i })).toHaveCount(0);
     expect(protectedRequests).toEqual([]);
   });
 
@@ -27,7 +27,7 @@ test.describe("public browser portfolio", () => {
     await page.goto("/demo", { waitUntil: "networkidle" });
     await expect(page.locator("canvas")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Portfolio Demo")).toHaveCount(0);
-    await page.waitForTimeout(500);
+    await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
     expect(protectedRequests).toEqual([]);
   });
 

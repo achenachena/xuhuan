@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import demoManifest from "../../public/game/v4/demo/demo-v2.en.json";
 
 const dependencies = vi.hoisted(() => ({
   getGameContent: vi.fn(),
@@ -9,7 +11,7 @@ const dependencies = vi.hoisted(() => ({
   createRunCommand: vi.fn(),
 }));
 const localeState = vi.hoisted(() => ({ language: "en" as "en" | "zh-CN" }));
-const hostState = vi.hoisted(() => ({ kind: "telegram" as "telegram" | "browser" }));
+const hostState = vi.hoisted(() => ({ kind: "telegram" as "detecting" | "telegram" | "browser" }));
 
 vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
@@ -58,26 +60,37 @@ describe("Shooter V4 game shell", () => {
     hostState.kind = "telegram";
     dependencies.getGameContent.mockResolvedValue(v4Content);
     dependencies.getGame.mockResolvedValue(createV4Game());
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => demoManifest }));
   });
 
-  it("renders the public portfolio without protected API calls in a browser", async () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("starts the local browser game directly without protected API calls", async () => {
     hostState.kind = "browser";
     render(<HomePage />);
 
-    expect(await screen.findByText("Keep the last impossible livestream online.")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Play 90-second demo" })).toHaveAttribute("href", "/demo");
+    expect(await screen.findByTestId("shooter-arena")).toBeVisible();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
     expect(dependencies.getGame).not.toHaveBeenCalled();
     expect(dependencies.getGameContent).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledWith("/game/v4/demo/demo-v2.en.json", expect.objectContaining({ cache: "force-cache" }));
   });
 
-  it("keeps the release marker in server-renderable page output", async () => {
-    render(<HomePage />);
-    expect(
-      document.querySelector(
-        '[data-release-marker="CONTENT-V4 / SHOOTER-V1"]',
-      ),
-    ).toHaveTextContent("CONTENT-V4 / SHOOTER-V1");
-    expect(await screen.findByTestId("start-campaign")).toBeVisible();
+  it.each(["browser", "telegram"] as const)("waits for host detection before entering %s mode", async (host) => {
+    hostState.kind = "detecting";
+    const view = render(<HomePage />);
+    expect(screen.getByTestId("game-entry")).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByTestId("shooter-arena")).not.toBeInTheDocument();
+    expect(dependencies.getGame).not.toHaveBeenCalled();
+    expect(dependencies.getGameContent).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    hostState.kind = host;
+    view.rerender(<HomePage />);
+    expect(await screen.findByTestId(host === "telegram" ? "start-campaign" : "shooter-arena")).toBeVisible();
+    if (host === "telegram") expect(fetch).not.toHaveBeenCalled();
+    else expect(dependencies.getGame).not.toHaveBeenCalled();
   });
 
   it("starts one campaign and enters the live shooter directly", async () => {

@@ -1,6 +1,6 @@
 # Architecture
 
-Xuhuan is a single-player Telegram Mini App with a public portfolio and a local browser demo. The design intentionally keeps the interactive game on the device while the Go API owns identity, legal run transitions, rewards, unlocks, story choices, and durable progress.
+Xuhuan is a single-player Telegram Mini App with an immediately playable local browser demo. The design intentionally keeps the interactive game on the device while the Go API owns identity, legal run transitions, rewards, unlocks, story choices, and durable progress.
 
 ## Runtime topology
 
@@ -20,7 +20,7 @@ AWS Lambda Function URL (Go)
         `-- Upstash Redis: disposable distributed rate limits
 ```
 
-The public browser demo is static. It creates no account, calls no protected API, and stores no progress.
+The public browser demo starts directly at `/` or `/demo`. Host detection gates the full Telegram campaign; a normal browser creates no account, calls no protected API, and stores no progress. The demo's temporary robot fans and adaptive oscillator music reuse local combat state, rendering, and audio, not extra services or persisted systems.
 
 ## Security boundary
 

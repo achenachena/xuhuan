@@ -1,5 +1,5 @@
 import type { ShooterEnemyImpact, ShooterVisualSources, ShooterVisuals } from "@/features/shooter/renderer";
-import type { ShooterEnemySnapshot, ShooterSnapshot, ShooterPosition, ShooterProjectileSnapshot } from "@/features/shooter/types";
+import type { ReversalFanSnapshot, ShooterEnemySnapshot, ShooterSnapshot, ShooterPosition, ShooterProjectileSnapshot } from "@/features/shooter/types";
 import { indexShooterPositions, interpolateShooterPosition, type PositionIndex } from "@/features/shooter/render-positions";
 
 type Frame = { x: number; y: number; width: number; height: number };
@@ -82,6 +82,42 @@ const position = (entity: { id: number; position: ShooterPosition }, previous: P
   return { x: Math.round(point.x / 10), y: Math.round(point.y / 10) };
 };
 
+const drawFan = (ctx: CanvasRenderingContext2D, fan: ReversalFanSnapshot,
+  point: { x: number; y: number }, image: HTMLImageElement | undefined): void => {
+  const { x } = point;
+  const y = point.y + (Math.floor(fan.age / 6) % 2);
+  const waving = fan.phase === "leaving";
+  const excited = fan.attack_ticks > 0;
+  const height = fan.phase === "joining" ? Math.round(52 - Math.min(1, fan.age / 24) * 16) : 36;
+  ctx.save();
+  ctx.globalAlpha = fan.age > 171 ? (180 - fan.age) / 9 : 1;
+  // The same controller now uses its display as a face and its arms as penlights.
+  sprite(ctx, image, 0, x, y, height);
+  const faceY = y + 1;
+  ctx.fillStyle = "#243844"; ctx.fillRect(x - 8, faceY - 4, 16, 12);
+  ctx.fillStyle = ink; ctx.fillRect(x - 7, faceY - 3, 14, 10);
+  if (fan.age < 8) {
+    ctx.fillStyle = danger;
+    ctx.fillRect(x - 5, faceY - 1, 4, 2); ctx.fillRect(x + 2, faceY - 1, 4, 2);
+  } else {
+    star(ctx, x - 4, faceY, 2, gold); star(ctx, x + 4, faceY, 2, gold);
+    ctx.fillStyle = teal; ctx.fillRect(x - 2, faceY + 4, 4, 1);
+  }
+  if (fan.age >= 8) {
+    for (const side of [-1, 1]) {
+      const raised = excited || (Math.floor(fan.age / (waving ? 3 : 6)) + side) % 2 === 0;
+      const handX = x + side * 20, handY = y - (raised ? 13 : 5);
+      ctx.fillStyle = ink; ctx.fillRect(handX - 3, handY - 6, 6, 18);
+      ctx.fillStyle = side < 0 ? teal : gold; ctx.fillRect(handX - 2, handY - 5, 4, 10);
+      ctx.fillStyle = cream; ctx.fillRect(handX - 1, handY - 4, 1, 8);
+      ctx.fillStyle = "#758b91"; ctx.fillRect(handX - 2, handY + 6, 4, 4);
+      ctx.fillStyle = "#b5c6bc"; ctx.fillRect(handX - 3, handY + 9, 6, 3);
+      if (excited) star(ctx, handX, handY - 9, 3, gold);
+    }
+  }
+  ctx.restore();
+};
+
 export const reversalPlayerFrame = (tick: number, dx: number, hit: boolean): number => {
   if (hit) return 7;
   if (Math.abs(dx) > 0.5) return (dx < 0 ? 2 : 4) + (Math.floor(tick / 5) % 2);
@@ -157,6 +193,11 @@ const drawEnemy = (ctx: CanvasRenderingContext2D, enemy: ShooterEnemySnapshot, p
 const projectile = (ctx: CanvasRenderingContext2D, shot: ShooterProjectileSnapshot, x: number, y: number): void => {
   const kind = shot.kind ?? "";
   if (!shot.hostile) {
+    if (kind === "reversal_fan") {
+      star(ctx, x, y, 4, gold);
+      ctx.fillStyle = teal; ctx.fillRect(x - 1, y + 7, 2, 3);
+      return;
+    }
     const piercing = kind.includes("pierce"), wide = kind.endsWith("wide");
     const width = wide ? 14 : piercing ? 7 : 4, length = piercing ? 26 : 13;
     ctx.fillStyle = ink; ctx.fillRect(x - width / 2 - 1, y - length / 2 - 1, width + 2, length + 2);
@@ -197,6 +238,8 @@ export const drawReversalArena = (ctx: CanvasRenderingContext2D, current: Shoote
   const oldShots = indexShooterPositions(previous?.enemy_projectiles ?? emptyEntities);
   const oldPlayerShots = indexShooterPositions(previous?.player_projectiles ?? emptyEntities);
   const oldEnemies = indexShooterPositions(previous?.enemies ?? emptyEntities);
+  const oldFans = indexShooterPositions(previous?.reversal?.fans ?? emptyEntities);
+  const fans = current.reversal?.fans ?? emptyEntities;
   const tick = current.tick;
   backdrop(ctx, visuals.get(sources.background), tick, current.reversal?.breaks ?? 0);
   for (const threat of current.threats) {
@@ -230,6 +273,7 @@ export const drawReversalArena = (ctx: CanvasRenderingContext2D, current: Shoote
     projectile(ctx, shot, point.x, point.y);
   }
   for (const enemy of current.enemies) {
+    if (fans.some((fan) => fan.id === enemy.id)) continue;
     const point = position(enemy, oldEnemies, alpha);
     const charging = current.threats.some((threat) => threat.source_id === enemy.id);
     if (enemy.boss && enemy.stage === 1 && enemy.health > 0) {
@@ -250,7 +294,8 @@ export const drawReversalArena = (ctx: CanvasRenderingContext2D, current: Shoote
       (impacts.get(enemy.id)?.untilTick ?? -1) >= tick, charging);
   }
   for (const impact of Array.from(impacts.values())) {
-    if (!impact.destroyed || impact.untilTick < tick || current.enemies.some((enemy) => enemy.id === impact.enemyID)) continue;
+    if (!impact.destroyed || impact.untilTick < tick || current.enemies.some((enemy) => enemy.id === impact.enemyID)
+      || fans.some((fan) => fan.id === impact.enemyID)) continue;
     const row = impact.boss ? 0 : impact.role === "arm" ? 8 : impact.role === "escort" ? 4 : 0;
     const height = impact.boss ? 88 : impact.role === "escort" ? 33 : impact.role === "arm" ? 57 : 52;
     ctx.globalAlpha = Math.min(1, (impact.untilTick - tick) / 5);
@@ -258,18 +303,15 @@ export const drawReversalArena = (ctx: CanvasRenderingContext2D, current: Shoote
       row + 3, impact.x / 10, impact.y / 10, height, false, row);
     ctx.globalAlpha = 1;
   }
+  for (const fan of fans) {
+    drawFan(ctx, fan, position(fan, oldFans, alpha), visuals.get(sources.enemies.equipment ?? ""));
+  }
   for (const effect of current.effects) {
     const x = Math.round(effect.position.x / 10), y = Math.round(effect.position.y / 10);
     if (["route_mark", "support_powerup_support"].includes(effect.kind)) continue;
     const large = effect.kind === "core_break" || effect.kind === "chain_blast";
-    if (effect.kind === "chain_launch") {
-      ctx.strokeStyle = teal; ctx.lineWidth = 2;
-      for (const enemy of current.enemies.filter((enemy) => (enemy.marks ?? 0) > 0 && enemy.health > 0)) {
-        ctx.globalAlpha = Math.max(0, effect.ticks / 36);
-        ctx.beginPath(); ctx.moveTo(x, y - 22); ctx.lineTo(enemy.position.x / 10, enemy.position.y / 10); ctx.stroke();
-      }
-      ctx.globalAlpha = 1; continue;
-    }
+    // Rescue feedback lives at the targets; no beams tether the player to them.
+    if (effect.kind === "chain_launch") continue;
     if (effect.kind === "reversal_flip") {
       star(ctx, x, y, 4 + Math.floor(effect.ticks / 3), gold); continue;
     }
@@ -290,24 +332,9 @@ export const drawReversalArena = (ctx: CanvasRenderingContext2D, current: Shoote
   const hurt = current.invulnerable_ticks > 42;
   const frame = reversalPlayerFrame(tick, dx, hurt);
   ctx.fillStyle = "rgba(3,12,20,.6)"; ctx.fillRect(playerX - 15, 548, 30, 3);
-  if (current.shield > 0) {
-    ctx.strokeStyle = teal; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(playerX - 23, 511); ctx.lineTo(playerX - 23, 538);
-    ctx.lineTo(playerX, 552); ctx.lineTo(playerX + 23, 538); ctx.lineTo(playerX + 23, 511); ctx.stroke();
-  }
   ctx.globalAlpha = current.invulnerable_ticks > 0 && tick % 6 < 2 ? .45 : 1;
   sprite(ctx, visuals.get(sources.player), frame, playerX, 548, 59, true);
   ctx.globalAlpha = 1;
-  const powered = (current.pickup_power_ticks ?? 0) > 0;
-  const mode = current.reversal?.weapon;
-  const wingCount = mode === "pierce" ? 1 : mode === "twin" ? (powered ? 3 : 2) : powered ? 2 : 1;
-  for (let n = 0; n < wingCount; n += 1) {
-    const x = playerX + (n * 2 - wingCount + 1) * 8;
-    ctx.fillStyle = ink; ctx.fillRect(x - 4, 503, 8, 11);
-    ctx.fillStyle = mode === "pierce" ? gold : teal; ctx.fillRect(x - 3, 503, 6, 8);
-    ctx.fillStyle = cream; ctx.fillRect(x - 1, 502, 2, 6);
-    if (tick % 6 < 2) star(ctx, x, 499, powered ? 5 : 3, cream);
-  }
   if (tutorial) {
     ctx.fillStyle = "rgba(10,25,35,.84)"; ctx.fillRect(34, 573, 292, 21);
     ctx.fillStyle = cream; ctx.font = "10px monospace"; ctx.textAlign = "center";

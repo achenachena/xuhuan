@@ -4,7 +4,7 @@
 
 Xuhuan is a production-deployed, bilingual Telegram Mini App shooter and story campaign. It combines a Go REST API on AWS Lambda, a Next.js/Canvas frontend on Vercel, PostgreSQL persistence on Neon, and Redis rate limiting on Upstash.
 
-The normal browser URL is an English-first engineering portfolio with a short static demo. Telegram users enter the complete eight-chapter game after server-side verification of Mini App `initData`. A roughly 90-second formation-reversal demo is being validated in Preview; do not describe it as production-released until its human playtest gate passes.
+The [public URL](https://xuhuan-miniapp.vercel.app/) starts a roughly 90-second local formation-reversal demo immediately; [the direct demo link](https://xuhuan-miniapp.vercel.app/demo) does the same. Telegram users enter the complete eight-chapter game after server-side verification of Mini App `initData`. The owner authorized the demo's production release. Independent usability testing remains pending; do not claim validated player engagement.
 
 ## Verified scope
 
@@ -50,7 +50,7 @@ The 30 Hz shooter simulation runs locally for immediate input and rendering. The
 ## Delivery and quality
 
 - Pull requests run Go format/vet/tests, PostgreSQL and Redis integration checks, OpenAPI drift checks, Vitest, lint, type checking, a Next.js production build, content validation, Terraform validation, isolated Playwright browser journeys, dependency audit, and `govulncheck`.
-- Production builds from an explicit current `main` commit, publishes an immutable Lambda version, deploys the Vercel artifact, and checks API health, content, portfolio, and demo routes.
+- Production builds from an explicit current `main` commit, publishes an immutable Lambda version, deploys the Vercel artifact, and checks API health, content, direct-play entry, and demo routes.
 - Database migrations run only when a release actually changes schema; historical migrations remain preserved.
 
 ## Cost-conscious production design
@@ -62,7 +62,7 @@ The deployment deliberately avoids a VPC, NAT Gateway, API Gateway, load balance
 - Built and deployed a bilingual Telegram Mini App shooter with an eight-chapter campaign using Go, Next.js, Canvas 2D, PostgreSQL, Redis, AWS Lambda, Vercel, and Terraform.
 - Implemented retry-safe game progression with PostgreSQL transactions, row locks, optimistic versions, idempotent commands, and atomic chapter/story unlocks.
 - Defined a schema-first REST API with OpenAPI-generated TypeScript contracts and automated backend, frontend, integration, browser, security, and infrastructure checks in GitHub Actions.
-- Added a public engineering portfolio and anonymous browser demo by reusing the production Canvas runtime without creating guest identities or server-side state.
+- Shipped an instantly playable anonymous browser demo by reusing the production Canvas runtime without guest identities or server-side state.
 - Deployed the complete system with no fixed-cost infrastructure, using an arm64 Lambda Function URL, Neon, Upstash, Vercel, and least-privilege AWS access.
 
 ## Interview discussion points
