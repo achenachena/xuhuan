@@ -2,11 +2,14 @@
 export const sweptShooterHit = (fromX: number, fromY: number, toX: number, toY: number,
   x: number, y: number, halfWidth: number, halfHeight: number): number | null => {
   let near = 0, far = 1;
-  for (const [start, delta, center, extent] of [
-    [fromX, toX - fromX, x, halfWidth], [fromY, toY - fromY, y, halfHeight],
-  ]) {
-    if (delta === 0) { if (Math.abs(start! - center!) > extent!) return null; continue; }
-    const a = (center! - extent! - start!) / delta!, b = (center! + extent! - start!) / delta!;
+  // This runs for every shot/body pair; avoid allocating axis arrays per check.
+  for (let axis = 0; axis < 2; axis += 1) {
+    const start = axis === 0 ? fromX : fromY;
+    const delta = axis === 0 ? toX - fromX : toY - fromY;
+    const center = axis === 0 ? x : y;
+    const extent = axis === 0 ? halfWidth : halfHeight;
+    if (delta === 0) { if (Math.abs(start - center) > extent) return null; continue; }
+    const a = (center - extent - start) / delta, b = (center + extent - start) / delta;
     near = Math.max(near, Math.min(a, b)); far = Math.min(far, Math.max(a, b));
     if (near > far) return null;
   }

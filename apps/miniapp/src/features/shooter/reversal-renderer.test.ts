@@ -14,7 +14,7 @@ const drawingContext = () => ({
 const emptyDemo = (): ShooterSnapshot => createShooterSimulation(createShooterRuntime({
   ...v4Runtime, reversal: { weapon: "single", groups: [] },
 })).snapshot();
-const demoSources = { background: "stage", player: "nana", enemies: { equipment: "equipment" }, companions: {}, boss: "boss", pickups: [] };
+const demoSources = { background: "stage", player: "nana", enemies: { equipment: "equipment" }, boss: "boss", pickups: [] };
 
 describe("clean demo actor rendering", () => {
   it("does not draw shield cages or floating gun blocks around the player", () => {
@@ -92,7 +92,6 @@ describe("reversal visual opt-in boundary", () => {
       background: "/game/v4/reversal/stage.webp",
       player: "/game/v4/reversal/nana-sheet.webp",
       enemies: { equipment: "/game/v4/reversal/equipment-sheet.webp" },
-      companions: {},
       boss: "/game/v4/reversal/boss-sheet.webp",
       pickups: [],
     });
