@@ -39,7 +39,6 @@ export type ShooterVisualSources = {
   readonly background: string;
   readonly player: string;
   readonly enemies: Readonly<Record<string, string>>;
-  readonly companions: Readonly<Record<string, string>>;
   readonly boss?: string;
   readonly pickups: readonly string[];
 };
@@ -84,7 +83,6 @@ export const resolveShooterVisualSources = (
       background: "/game/v4/reversal/stage.webp",
       player: "/game/v4/reversal/nana-sheet.webp",
       enemies: { equipment: "/game/v4/reversal/equipment-sheet.webp" },
-      companions: {},
       boss: "/game/v4/reversal/boss-sheet.webp",
       pickups: [],
     };
@@ -96,14 +94,13 @@ export const resolveShooterVisualSources = (
     background: run.state.segment?.background_url ?? chapter?.background_url ?? `/game/v4/backgrounds/${run.state.chapter_slug}.webp`,
     player: character?.sprite_url ?? `/game/v4/players/${run.state.character_slug}.webp`,
     enemies: chassisAssets,
-    companions: Object.fromEntries(content.companions.map((entry) => [entry.id, entry.portrait_url])),
     ...(bossID ? { boss: `/game/v4/bosses/${bossID}.webp` } : {}),
     pickups: pickupAssets,
   };
 };
 
 export const preloadShooterVisuals = async (sources: ShooterVisualSources): Promise<ShooterVisuals> => {
-  const urls = new Set([sources.background, sources.player, ...Object.values(sources.enemies), ...Object.values(sources.companions), ...sources.pickups, ...(sources.boss ? [sources.boss] : [])]);
+  const urls = new Set([sources.background, sources.player, ...Object.values(sources.enemies), ...sources.pickups, ...(sources.boss ? [sources.boss] : [])]);
   const loaded = await Promise.all(Array.from(urls, async (source) => [source, await loadImage(source)] as const));
   const visuals = new Map(loaded.filter((entry): entry is readonly [string, HTMLImageElement] => entry[1] !== null));
   if (sources.reversal) preloadReversalFrames(visuals, sources);
