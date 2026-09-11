@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Xuhuan: Only One Online",
-    description: "Play instantly in your browser. Continue the full story in Telegram.",
+    description: "Play instantly. Continue the full campaign in your browser or Telegram.",
     images: [{
       url: "/game/v4/reversal/stage.webp",
       width: 720,

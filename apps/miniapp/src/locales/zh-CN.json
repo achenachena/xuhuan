@@ -76,5 +76,11 @@
   "demoEngineering": "工程实现",
   "demoFeedback": "反馈体验",
   "demoTagline": "让敌人成为观众，让音乐重回舞台。",
-  "demoDuration": "90 秒浏览器射击游戏，无需注册。"
+  "demoDuration": "90 秒浏览器射击游戏，无需注册。",
+  "fullCampaign": "进入完整战役",
+  "localSaveNotice": "进度自动保存在此浏览器。清除网站数据会删除进度，与 Telegram 存档互不相通。",
+  "localSaveInvalid": "无法读取本机存档，原数据尚未被覆盖。请重试，或重置存档以开始新战役。",
+  "localSaveUnavailable": "此浏览器无法保存进度。请允许网站存储或释放空间后重试。",
+  "localSaveReset": "重置本机存档",
+  "localSaveResetConfirm": "删除此浏览器中的战役进度并重新开始？Telegram 存档不受影响。"
 }

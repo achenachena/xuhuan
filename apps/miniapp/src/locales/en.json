@@ -76,5 +76,11 @@
   "demoEngineering": "How it is built",
   "demoFeedback": "Give feedback",
   "demoTagline": "Turn enemies into fans. Bring the music back.",
-  "demoDuration": "A 90-second browser shooter. No signup."
+  "demoDuration": "A 90-second browser shooter. No signup.",
+  "fullCampaign": "Play full campaign",
+  "localSaveNotice": "Auto-saved in this browser. Clearing site data removes progress. Telegram saves are separate.",
+  "localSaveInvalid": "This browser save could not be read. It has not been overwritten. Retry, or reset it to start a new campaign.",
+  "localSaveUnavailable": "Progress could not be saved in this browser. Allow site storage or free some space, then retry.",
+  "localSaveReset": "Reset local save",
+  "localSaveResetConfirm": "Delete this browser’s campaign progress and start over? Telegram saves will not be affected."
 }

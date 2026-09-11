@@ -22,7 +22,7 @@ func TestProjectStoryFlagsReplacesOnlyTheRevisedSceneChoice(t *testing.T) {
 		},
 	}
 
-	got := projectStoryFlags(current, "seventh-dock-intermission", "deleted-learned-reply")
+	got := progression.ProjectStoryFlags(current, "seventh-dock-intermission", "deleted-learned-reply")
 	want := map[string]bool{
 		"deleted-learned-reply":              true,
 		"seventh-dock-intermission-resolved": true,
@@ -30,7 +30,7 @@ func TestProjectStoryFlagsReplacesOnlyTheRevisedSceneChoice(t *testing.T) {
 		"another-intermission-resolved":      true,
 	}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("projectStoryFlags() = %#v, want %#v", got, want)
+		t.Fatalf("progression.ProjectStoryFlags() = %#v, want %#v", got, want)
 	}
 	if !current.StoryFlags["kept-withdrawn-voice"] {
 		t.Fatal("projection mutated the stored input map")

@@ -20,7 +20,7 @@ AWS Lambda Function URL (Go)
         `-- Upstash Redis: disposable distributed rate limits
 ```
 
-The public browser demo starts directly at `/` or `/demo`. Host detection gates the full Telegram campaign; a normal browser creates no account, calls no protected API, and stores no progress. The demo's temporary robot fans and adaptive oscillator music reuse local combat state, rendering, and audio, not extra services or persisted systems.
+The public browser demo starts directly at `/` or `/demo`. Host detection selects the server-backed Telegram campaign at `/`. The full browser campaign at `/play` creates no account and calls no protected API; it saves progress locally and compiles the same Go progression rules to WebAssembly. See [browser-campaign.md](browser-campaign.md) for storage boundaries and verification. The demo's temporary robot fans and adaptive oscillator music reuse local combat state, rendering, and audio, not extra services or persisted systems.
 
 ## Security boundary
 

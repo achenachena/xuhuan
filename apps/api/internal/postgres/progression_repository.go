@@ -47,7 +47,7 @@ func (repository *ProgressionRepository) Choose(ctx context.Context, input progr
 				revision = choice.Revision + 1
 			}
 		}
-		flags := projectStoryFlags(current, input.SceneSlug, input.ChoiceTag)
+		flags := progression.ProjectStoryFlags(current, input.SceneSlug, input.ChoiceTag)
 		flagsJSON, err := json.Marshal(flags)
 		if err != nil {
 			return err
@@ -72,31 +72,6 @@ func (repository *ProgressionRepository) Choose(ctx context.Context, input progr
 		return err
 	})
 	return result, replayed, err
-}
-
-// projectStoryFlags keeps append-only choice rows while making the materialized
-// story projection reflect only the latest revision for a scene.
-func projectStoryFlags(current progression.Progress, sceneSlug, choiceTag string) map[string]bool {
-	projected := make(map[string]bool, len(current.StoryFlags)+2)
-	for key, value := range current.StoryFlags {
-		projected[key] = value
-	}
-	latestRevision := 0
-	previousTag := ""
-	for _, choice := range current.Choices {
-		if choice.SceneSlug == sceneSlug && choice.Revision >= latestRevision {
-			latestRevision = choice.Revision
-			previousTag = choice.ChoiceTag
-		}
-	}
-	if previousTag != "" {
-		delete(projected, previousTag)
-	}
-	projected[sceneSlug+"-resolved"] = true
-	if choiceTag != "" {
-		projected[choiceTag] = true
-	}
-	return projected
 }
 
 func NewProgressionRepository(database *Database) *ProgressionRepository {

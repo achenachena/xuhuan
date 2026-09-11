@@ -148,6 +148,7 @@ export const BrowserDemo = () => {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(6,182,212,.15),transparent_35%),#02050e] sm:grid sm:place-items-center sm:p-6">
       <div className="relative mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden bg-[#02050e] shadow-[0_30px_100px_rgba(0,0,0,.65)] sm:h-[min(760px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-cyan-200/25">
+        {phase === "wave" && <Link className="absolute left-4 top-4 z-50 rounded border border-cyan-200/30 bg-slate-950/80 px-3 py-2 text-xs text-cyan-100" href="/play" prefetch={false}>{text("fullCampaign")}</Link>}
         {(phase === "wave" || phase === "choice") && waveRun ? (
           <div inert={phase === "choice"}>
           <ShooterArena
@@ -220,7 +221,8 @@ export const BrowserDemo = () => {
             </dl>
             {choiceID ? <p className="mb-3 text-sm text-slate-300">{text("demoTryOther")}</p> : null}
             <div className="grid gap-3">
-            <button disabled={saving} className="bg-cyan-200 px-5 py-3 font-bold text-slate-950 disabled:opacity-50" onClick={reset}>{text("demoRestart")}</button>
+            <Link className="bg-cyan-200 px-5 py-3 font-bold text-slate-950" href="/play" prefetch={false}>{text("fullCampaign")}</Link>
+            <button disabled={saving} className="border border-cyan-200/40 px-5 py-3 font-bold text-cyan-100 disabled:opacity-50" onClick={reset}>{text("demoRestart")}</button>
             <button disabled={saving} className="border border-cyan-200/40 px-4 py-2 text-sm disabled:opacity-50" onClick={async () => {
               setSaving(true); setSaveError(false);
               try { await saveBattleCard({ won: result.won, health: result.health, reversals }, language); }

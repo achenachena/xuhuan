@@ -70,7 +70,7 @@ describe("Shooter V4 game shell", () => {
     render(<HomePage />);
 
     expect(await screen.findByTestId("shooter-arena")).toBeVisible();
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Play full campaign" })).toHaveAttribute("href", "/play");
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
     expect(dependencies.getGame).not.toHaveBeenCalled();
     expect(dependencies.getGameContent).not.toHaveBeenCalled();

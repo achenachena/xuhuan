@@ -2,13 +2,15 @@
 
 **Turn enemies into fans. Bring the music back.** A 90-second browser shooter. No signup.
 
-[Play now](https://xuhuan-miniapp.vercel.app/demo) · [How it is built](https://xuhuan-miniapp.vercel.app/engineering) · [Give feedback](https://github.com/achenachena/xuhuan/issues/new)
+[Quick demo](https://xuhuan-miniapp.vercel.app/demo) · [Full campaign](https://xuhuan-miniapp.vercel.app/play) · [How it is built](https://xuhuan-miniapp.vercel.app/engineering) · [Give feedback](https://github.com/achenachena/xuhuan/issues/new)
 
 <a href="https://xuhuan-miniapp.vercel.app/engineering"><img src="apps/miniapp/public/engineering/gameplay-poster.webp" width="260" alt="A real core reversal in the browser demo" /></a>
 
 Aim at the glowing core: its bullets turn into support, the defeated machine becomes a cheering ally, and the music gains another layer. Choose a weapon, face the Boss, then save your battle card or try another run. Drag horizontally on phone or use drag/A/D/arrow keys on desktop; firing is automatic.
 
-The anonymous demo runs locally without a player account or saved progress. [Telegram](https://t.me/xuhuangamebot) provides the full persistent campaign after server verification of Mini App `initData`.
+The quick demo needs no account. [Play the complete eight-chapter campaign in your browser](https://xuhuan-miniapp.vercel.app/play), with progress saved on this browser, or play through [Telegram](https://t.me/xuhuangamebot) with server-backed saves. Browser and Telegram saves are separate; clearing site data removes browser progress.
+
+The browser campaign runs the same Go progression rules as the server, compiled to WebAssembly and loaded only when entering `/play`. [Local-save behavior and reproduction](docs/browser-campaign.md).
 
 ## Engineering evidence
 
@@ -94,7 +96,7 @@ make api
 make miniapp
 ```
 
-Open `http://localhost:3000` or `/demo` to play immediately. The full campaign is mounted only when the Telegram SDK supplies `initData`. Playwright supplies an isolated Telegram host and API fixture; it does not create a development login or public credential.
+Open `http://localhost:3000` or `/demo` for the short demo, or `/play` for the full browser campaign with local saves. Telegram `initData` selects the server-backed campaign at `/`. Playwright tests local saves directly and supplies isolated Telegram/API fixtures for server-backed journeys.
 
 Both public routes run `demo-v3`: an authored wave capped at 40 seconds, one visible weapon choice, and a Boss lasting at most 45 seconds. Clearing the final formation advances early; Rescue is never required to continue. Broken control cores turn their own formation's bullets into support; defeated machines become temporary penlight-waving allies. Each reversal restores another layer of the original local chiptune score. These demo-specific combat mechanics do not replace the eight-chapter campaign. Generate its static manifests from the Go catalog after relevant shooter or content changes:
 

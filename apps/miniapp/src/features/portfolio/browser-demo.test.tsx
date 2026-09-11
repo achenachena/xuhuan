@@ -139,7 +139,7 @@ describe("browser reversal demo", () => {
     expect(actions.getByTestId("demo-hearts")).toHaveTextContent("2 / 3");
     expect(actions.queryByText("1000")).not.toBeInTheDocument();
     expect(actions.getAllByRole("button")).toHaveLength(2);
-    expect(actions.getAllByRole("link")).toHaveLength(4);
+    expect(actions.getByRole("link", { name: "Play full campaign" })).toHaveAttribute("href", "/play");
     expect(actions.getByRole("link", { name: "Open Telegram" })).toHaveAttribute("href", "https://t.me/xuhuangamebot");
     expect(actions.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/achenachena/xuhuan");
     fireEvent.click(actions.getByRole("button", { name: "Restart" }));

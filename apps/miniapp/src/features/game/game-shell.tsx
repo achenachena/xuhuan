@@ -103,6 +103,10 @@ const resolveStoryScene = (
 const GameShell = () => {
   const { language: locale } = useLocale();
   const controller = useGameController(locale);
+  return <GameView locale={locale} controller={controller} />;
+};
+
+export const GameView = ({ locale, controller, localSave = false }: { readonly locale: GameLocale; readonly controller: ReturnType<typeof useGameController>; readonly localSave?: boolean }) => {
   const { content, game, loading, busy, error } = controller;
   const [requestedMode, setRequestedMode] = useState<RunMode>("campaign");
 
@@ -139,6 +143,7 @@ const GameShell = () => {
   if (!run) {
     screen = (
       <HubScreen
+        localSave={localSave}
         content={content}
         game={game}
         locale={locale}

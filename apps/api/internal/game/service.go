@@ -2,9 +2,6 @@ package game
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"sort"
 	"time"
 
 	"github.com/achenachena/xuhuan/apps/api/internal/auth"
@@ -25,14 +22,7 @@ type Snapshot struct {
 	DailyResult *gameRun.DailyResult `json:"daily_result"`
 }
 
-type StartInput struct {
-	Mode           gameRun.Mode
-	ChapterSlug    string
-	CharacterSlug  string
-	CompanionSlug  string
-	EncoreLevel    int
-	IdempotencyKey string
-}
+type StartInput = gameRun.CampaignStartInput
 
 type CommandInput struct {
 	RunID           string
@@ -97,118 +87,13 @@ func (service *Service) Start(ctx context.Context, user auth.User, input StartIn
 	if err != nil {
 		return gameRun.GameRun{}, false, err
 	}
-	mode := input.Mode
-	if mode == "" {
-		mode = gameRun.CampaignMode
-	}
-	var dailyDate *string
-	if mode == gameRun.DailyMode {
-		if !progress.DailyUnlocked {
-			return gameRun.GameRun{}, false, gameRun.ErrContentLocked
-		}
-		date := time.Now().UTC().Format("2006-01-02")
-		dailyDate = &date
-		rotation := service.catalog.Daily.RotationCharacters
-		input.CharacterSlug = rotation[dayIndex(date)%len(rotation)]
-		input.ChapterSlug = chapterForCharacter(service.catalog, input.CharacterSlug)
-		input.EncoreLevel = 0
-		input.CompanionSlug = ""
-	} else if mode == gameRun.CampaignMode {
-		chapter, exists := service.catalog.Chapter(input.ChapterSlug)
-		if !exists || !campaignChapterPlayable(progress, input.ChapterSlug) || !progression.HasUnlock(progress, progression.CharacterUnlock, input.CharacterSlug) {
-			return gameRun.GameRun{}, false, gameRun.ErrContentLocked
-		}
-		allowedEncore := 0
-		clears := 0
-		for _, item := range progress.Chapters {
-			if item.ChapterSlug == input.ChapterSlug {
-				allowedEncore = item.HighestEncore
-				clears = item.Clears
-			}
-		}
-		if chapter.ID != "zero-channel" && clears == 0 && chapter.FeaturedCharacter != input.CharacterSlug {
-			return gameRun.GameRun{}, false, gameRun.ErrContentLocked
-		}
-		if input.EncoreLevel < 0 || input.EncoreLevel > allowedEncore {
-			return gameRun.GameRun{}, false, gameRun.ErrContentLocked
-		}
-		if input.CompanionSlug != "" && !progression.HasUnlock(progress, progression.CompanionUnlock, input.CompanionSlug) {
-			return gameRun.GameRun{}, false, gameRun.ErrContentLocked
-		}
-	} else {
-		return gameRun.GameRun{}, false, gameRun.ErrInvalidCommand
-	}
-	seed := "xuhuan-daily:" + valueOrEmpty(dailyDate)
-	if dailyDate == nil {
-		seed, err = newSeed()
-		if err != nil {
-			return gameRun.GameRun{}, false, err
-		}
-	}
-	companions := []string{}
-	if input.CompanionSlug != "" {
-		companions = append(companions, input.CompanionSlug)
-	}
-	state, err := gameRun.NewState(gameRun.StartInput{
-		ChapterSlug: input.ChapterSlug, CharacterSlug: input.CharacterSlug, EncoreLevel: input.EncoreLevel,
-		Seed: seed, CompanionSlugs: companions, SelectedChoices: latestChoiceIDs(progress), Mode: mode, DailyDate: dailyDate,
-	}, service.catalog)
+	prepared, err := gameRun.PrepareRun(progress, input, service.catalog)
 	if err != nil {
 		return gameRun.GameRun{}, false, err
 	}
-	request := gameRun.StartRequest{Mode: mode, ChapterSlug: input.ChapterSlug, CharacterSlug: input.CharacterSlug, CompanionSlug: input.CompanionSlug, EncoreLevel: input.EncoreLevel, DailyDate: dailyDate}
-	return service.runs.Create(ctx, gameRun.CreateInput{
-		PlayerID: currentPlayer.ID, ContentVersion: gamecontent.V4Version, Seed: seed, State: state,
-		IdempotencyKey: input.IdempotencyKey, Request: request, Mode: mode, DailyDate: dailyDate,
-	})
-}
-
-func campaignChapterPlayable(progress progression.Progress, slug string) bool {
-	for _, chapter := range progress.Chapters {
-		if chapter.ChapterSlug == slug {
-			return true
-		}
-	}
-	return false
-}
-
-func latestChoiceIDs(progress progression.Progress) []string {
-	latest := make(map[string]progression.Choice)
-	for _, choice := range progress.Choices {
-		if stored, ok := latest[choice.SceneSlug]; !ok || choice.Revision > stored.Revision {
-			latest[choice.SceneSlug] = choice
-		}
-	}
-	result := make([]string, 0, len(latest))
-	for _, choice := range latest {
-		result = append(result, choice.OptionSlug)
-	}
-	sort.Strings(result)
-	return result
-}
-
-func chapterForCharacter(catalog *gamecontent.V4Catalog, character string) string {
-	for _, chapter := range catalog.Chapters {
-		if chapter.FeaturedCharacter == character {
-			return chapter.ID
-		}
-	}
-	return "seventh-dock"
-}
-
-func dayIndex(date string) int {
-	parsed, err := time.Parse("2006-01-02", date)
-	if err != nil {
-		return 0
-	}
-	return int(parsed.Unix() / 86400)
-}
-
-func valueOrEmpty(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
+	prepared.PlayerID = currentPlayer.ID
+	prepared.IdempotencyKey = input.IdempotencyKey
+	return service.runs.Create(ctx, prepared)
 }
 
 func (service *Service) GetRun(ctx context.Context, user auth.User, runID string) (gameRun.GameRun, error) {
@@ -283,14 +168,4 @@ func (service *Service) storyOption(sceneSlug, optionSlug string) (string, strin
 		}
 	}
 	return "", "", "", false
-}
-
-func newSeed() (string, error) {
-	// This value only seeds deterministic encounter randomness. It is neither a
-	// credential nor a request fingerprint and is safe to persist with the Run.
-	value := make([]byte, 32)
-	if _, err := rand.Read(value); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(value), nil
 }

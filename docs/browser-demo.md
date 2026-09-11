@@ -2,7 +2,7 @@
 
 ## Scope and play
 
-Both `/` (outside Telegram) and `/demo` start the local Nana demo directly. There is no introduction or portfolio landing page. A completed or failed attempt shows the actual outcome, total core reversals across the wave and Boss, and final remaining hearts. Restart begins a fresh attempt and clears those statistics. A local PNG battle card can be downloaded; feedback, GitHub, engineering evidence and Telegram links are available without making Telegram a requirement.
+Both `/` (outside Telegram) and `/demo` start the local Nana demo directly. There is no introduction or portfolio landing page. A completed or failed attempt shows the actual outcome, total core reversals across the wave and Boss, and final remaining hearts. Restart begins a fresh attempt and clears those statistics. The full-campaign link opens `/play`, a separate eight-chapter game with local browser saves; demo results do not modify that save. A local PNG battle card can be downloaded; feedback, GitHub, engineering evidence and Telegram links are available without making Telegram a requirement.
 
 The `demo-v3` manifest selects an authored wave capped at 40 seconds, one animated choice between Twin Live Feed and Piercing Cannon, and an Optimal Nana Boss lasting at most 45 seconds. Clearing the final scheduled formation finishes the wave early; gaps before later formations do not. The first centered controller arrives after one second, fires a visible salvo, and then exposes its core while the salvo remains on screen. Later formations begin after ten seconds. A centered aiming simulation verifies a visible reversal before ten seconds.
 

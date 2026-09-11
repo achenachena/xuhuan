@@ -225,7 +225,7 @@ func recordStoryChoice(ctx context.Context, tx pgx.Tx, playerID, idempotencyKey 
 	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(revision),0)+1 FROM story_choices WHERE player_id=$1::uuid AND scene_slug=$2`, playerID, event.SceneID).Scan(&revision); err != nil {
 		return err
 	}
-	flags := projectStoryFlags(progress, event.SceneID, event.ChoiceTag)
+	flags := progression.ProjectStoryFlags(progress, event.SceneID, event.ChoiceTag)
 	flagsJSON, err := json.Marshal(flags)
 	if err != nil {
 		return err
