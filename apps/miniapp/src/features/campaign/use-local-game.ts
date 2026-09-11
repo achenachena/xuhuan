@@ -16,7 +16,7 @@ export const useLocalGame = (locale: GameLocale) => {
     const request = ++sequence.current;
     setState(current => ({ ...current, loading: true, error: null }));
     try {
-      const [content, response] = await Promise.all([localContent(locale), localAction({ action: "load" })]);
+      const [content, response] = await Promise.all([localContent(locale), localAction({ action: "load" }, true)]);
       if (request !== sequence.current) return;
       setState(current => ({ ...current, content, loading: false, game: inFlight.current ? current.game : { ...response.game!, campaign_run: retainRun(response.game!.campaign_run, current.game?.campaign_run ?? null), daily_run: retainRun(response.game!.daily_run, current.game?.daily_run ?? null) } }));
     } catch (error) {
@@ -30,14 +30,14 @@ export const useLocalGame = (locale: GameLocale) => {
     const requestSequence = sequence;
     return () => { requestSequence.current++; window.removeEventListener("storage", changed); };
   }, [load]);
-  const mutate = useCallback(async (request: object): Promise<ShooterRunCommandResponse | null> => {
+  const mutate = useCallback(async (request: object, autoStart = false): Promise<ShooterRunCommandResponse | null> => {
     if (inFlight.current) return null;
     inFlight.current = true;
     // Invalidate snapshots read before this operation, but retain localized copy.
     sequence.current++;
     setState(current => ({ ...current, busy: true, error: null }));
     try {
-      const response = await localAction(request);
+      const response = await localAction(request, autoStart);
       setState(current => ({ ...current, game: response.game!, busy: false, loading: false }));
       return response.result ?? null;
     } catch (error) {
@@ -60,7 +60,7 @@ export const useLocalGame = (locale: GameLocale) => {
     if (!run) return null;
     return mutate({ action: "command", mode, id: run.id, expected_version: run.version, command: body });
   }, [state.game, mutate]);
-  const returnToHub = useCallback(async () => { await mutate({ action: "hub" }); }, [mutate]);
+  const returnToHub = useCallback(async () => { await mutate({ action: "hub" }, true); }, [mutate]);
   const clearError = useCallback(() => setState(current => ({ ...current, error: null })), []);
   return { ...state, load, startCampaign, startDaily, command, returnToHub, clearError };
 };

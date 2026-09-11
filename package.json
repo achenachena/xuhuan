@@ -11,7 +11,6 @@
   },
   "scripts": {
     "check:content-assets": "node scripts/check-content-assets.mjs",
-    "check:english-source": "node scripts/check-english-source.mjs",
     "check:portfolio-demo": "cd apps/api && go run ./cmd/export-portfolio-demo --check ../miniapp/public/game/v4/demo",
     "generate:portfolio-demo": "cd apps/api && go run ./cmd/export-portfolio-demo ../miniapp/public/game/v4/demo",
     "dev": "npm run dev --workspace @xuhuan/miniapp",

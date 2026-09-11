@@ -13,7 +13,6 @@ import type {
 } from "@/lib/api/types";
 
 type Props = {
-  readonly localSave?: boolean;
   readonly content: ShooterContent;
   readonly game: ShooterGameSnapshot;
   readonly locale: GameLocale;
@@ -51,7 +50,6 @@ const defaultCharacterForChapter = (
 };
 
 export const HubScreen = ({
-  localSave = false,
   content,
   game,
   locale,
@@ -168,7 +166,6 @@ export const HubScreen = ({
       />
       <div className="absolute inset-0 bg-gradient-to-b from-[#02050e]/80 via-[#02050e]/35 to-[#02050e]" />
       <section className="relative mx-auto flex min-h-[var(--xuhuan-stable-height,100dvh)] w-full max-w-md flex-col px-4 pb-[var(--xuhuan-host-safe-bottom)] pt-[calc(var(--xuhuan-host-safe-top)+2.5rem)]">
-        {localSave && <p className="mb-4 border-l-2 border-cyan-200/50 pl-3 text-xs leading-5 text-slate-300">{gameText(locale, "localSaveNotice")}</p>}
         <header className="pr-9">
           <p className="font-mono text-[9px] font-bold tracking-[.28em] text-cyan-200">
             {gameText(locale, "backstage")} · {formatGameText(locale, "online", { current: onlineCount })}

@@ -1,6 +1,6 @@
 # Browser campaign
 
-`/play` offers the full eight-chapter campaign, character and companion unlocks, Encore replays, all finale choices, and the unlocked Daily Aftershow. The root page still opens the short demo outside Telegram. Players can enter the full campaign from the demo at any time or from its result screen. Demo results do not alter campaign progress.
+`/play` offers the full eight-chapter campaign, character and companion unlocks, Encore replays, all finale choices, and the unlocked Daily Aftershow. The root page still opens the short demo outside Telegram. Players can enter the full campaign from the demo at any time or from its result screen. Demo results do not alter campaign progress. `/play` starts a new campaign immediately or resumes the saved room. Continue moves directly into the next chapter; chapter, character and daily selection remain available from the result screen.
 
 ## Shared rules
 

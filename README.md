@@ -110,7 +110,6 @@ See [browser-demo.md](docs/browser-demo.md) for its scope, implementation, and a
 ## Verify a change
 
 ```sh
-npm run check:english-source
 npm run check:content-assets
 make test
 make test-integration

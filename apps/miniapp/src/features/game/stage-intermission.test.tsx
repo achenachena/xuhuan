@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { StoryChat } from "@/features/game/story-chat";
+import { StageIntermission } from "@/features/game/stage-intermission";
 import type { ShooterStoryScene } from "@/lib/api/types";
 
 const endings: readonly ShooterStoryScene[] = [
@@ -44,21 +44,17 @@ const endings: readonly ShooterStoryScene[] = [
   },
 ];
 
-describe("StoryChat", () => {
+describe("StageIntermission", () => {
   it.each(endings)("renders and submits $id", (scene) => {
     const onChoose = vi.fn();
     render(
-      <StoryChat scene={scene} locale="en" busy={false} onChoose={onChoose} />,
+      <StageIntermission scene={scene} locale="en" busy={false} onChoose={onChoose} />,
     );
 
     expect(screen.getByText(scene.title!)).toBeVisible();
+    fireEvent.click(screen.getByText("Story so far"));
     for (const message of scene.messages) {
       expect(screen.getByText(message.text)).toBeVisible();
-    }
-    if (scene.messages.some((message) => message.sender_id === "system")) {
-      expect(
-        document.querySelector('[data-message-kind="system"]'),
-      ).toHaveTextContent("Retention Protocol offline.");
     }
     fireEvent.click(screen.getByTestId(`story-option-${scene.options[0]!.id}`));
     expect(onChoose).toHaveBeenCalledWith(scene.id, scene.options[0]!.id);

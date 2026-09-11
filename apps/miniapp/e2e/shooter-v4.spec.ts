@@ -573,7 +573,8 @@ test("single-finger campaign restores and reaches all three gates", async ({ pag
   expect(canvasBox!.y).toBeCloseTo(surfaceBox!.y, 0);
   expect(canvasBox!.width).toBeCloseTo(surfaceBox!.width, 0);
   expect(canvasBox!.height).toBeCloseTo(surfaceBox!.height, 0);
-  expect(canvasBox!.width).toBeCloseTo(viewport!.width, 0);
+  expect(canvasBox!.width).toBeLessThanOrEqual(viewport!.width);
+  expect(canvasBox!.width / canvasBox!.height).toBeCloseTo(9 / 16, 3);
   expect(canvasBox!.height).toBeGreaterThan(viewport!.height * 0.78);
 
   const movePointer = async (

@@ -56,7 +56,7 @@ export const readLocalSave = (): string | null => {
   catch { throw new LocalSaveError("localSaveUnavailable"); }
 };
 
-export const localAction = async (request: object): Promise<EngineResponse> => {
+export const localAction = async (request: object, autoStart = false): Promise<EngineResponse> => {
   await loadEngine();
   if (!navigator.locks) throw new LocalSaveError("localSaveUnavailable");
   // A Web Lock covers the entire read/advance/write so two tabs cannot silently
@@ -69,7 +69,13 @@ export const localAction = async (request: object): Promise<EngineResponse> => {
       catch { throw new LocalSaveError("localSaveInvalid"); }
       if (!save) throw new LocalSaveError("localSaveInvalid");
     }
-    const response = invoke({ ...request, save });
+    let response = invoke({ ...request, save });
+    if (autoStart && response.game && !response.game.campaign_run && !response.game.daily_run) {
+      const content = invoke({ action: "content", locale: "en" }).content!;
+      const chapter = content.chapters.find(chapter => chapter.id === response.game!.progress.current_chapter_slug)!;
+      response = invoke({ action: "start", save: response.save, id: crypto.randomUUID(), mode: "campaign",
+        chapter_slug: chapter.id, character_slug: chapter.featured_character === "player-choice" ? "nana7mi" : chapter.featured_character });
+    }
     try { localStorage.setItem(localSaveKey, JSON.stringify(response.save)); }
     catch { throw new LocalSaveError("localSaveUnavailable"); }
     return response;

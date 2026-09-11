@@ -6,7 +6,7 @@ import useLocale from "@/components/providers/use-locale";
 import { gameText, type GameLocale } from "@/features/game/game-copy";
 import { HubScreen } from "@/features/game/hub-screen";
 import { RunResultScreen } from "@/features/game/run-result-screen";
-import { StoryChat } from "@/features/game/story-chat";
+import { StageIntermission } from "@/features/game/stage-intermission";
 import {
   type RunMode,
   useGameController,
@@ -32,28 +32,6 @@ const preferredRun = (
   return { mode: preferred, run: null };
 };
 
-const localizedSystemBubble = (
-  content: ShooterContent,
-  preferredChapter: ShooterContent["chapters"][number],
-) => {
-  const chapters = [
-    preferredChapter,
-    ...content.chapters.filter(
-      (candidate) => candidate.id !== preferredChapter.id,
-    ),
-  ];
-  for (const chapter of chapters) {
-    const message = [
-      ...chapter.story.intermission.messages,
-      ...chapter.story.prelude,
-      ...chapter.story.epilogue,
-      ...chapter.story.replay_recap,
-    ].find((candidate) => candidate.sender_id === "system");
-    if (message) return message;
-  }
-  return null;
-};
-
 const resolveStoryScene = (
   content: ShooterContent,
   run: ShooterGameRun,
@@ -65,13 +43,11 @@ const resolveStoryScene = (
   if (!story || !chapter) return null;
   if (story.scene_id === `${chapter.id}-intermission`) {
     const intermission = chapter.story.intermission;
-    const localizedSystem = localizedSystemBubble(content, chapter);
-    if (!localizedSystem) return null;
     return {
       id: story.scene_id,
       title: chapter.title,
       messages: [
-        { ...localizedSystem, text: intermission.prompt },
+        { sender_id: "system", sender: "", text: intermission.prompt },
         ...intermission.messages,
       ],
       options: intermission.choices
@@ -108,6 +84,7 @@ const GameShell = () => {
 
 export const GameView = ({ locale, controller, localSave = false }: { readonly locale: GameLocale; readonly controller: ReturnType<typeof useGameController>; readonly localSave?: boolean }) => {
   const { content, game, loading, busy, error } = controller;
+  const [selectingChapter, setSelectingChapter] = useState(false);
   const [requestedMode, setRequestedMode] = useState<RunMode>("campaign");
 
   if (loading && (!content || !game)) return <LoadingScreen locale={locale} />;
@@ -140,19 +117,20 @@ export const GameView = ({ locale, controller, localSave = false }: { readonly l
     controller.command(mode, body);
 
   let screen: React.ReactNode;
-  if (!run) {
+  if (!run || selectingChapter) {
     screen = (
       <HubScreen
-        localSave={localSave}
         content={content}
         game={game}
         locale={locale}
         busy={busy}
         onStartCampaign={(chapter, character, encore, companion) => {
+          setSelectingChapter(false);
           setRequestedMode("campaign");
           void controller.startCampaign(chapter, character, encore, companion);
         }}
         onStartDaily={() => {
+          setSelectingChapter(false);
           setRequestedMode("daily");
           void controller.startDaily();
         }}
@@ -166,6 +144,7 @@ export const GameView = ({ locale, controller, localSave = false }: { readonly l
         locale={locale}
         busy={busy}
         onContinue={() => void controller.returnToHub()}
+        onSelectChapter={localSave ? () => setSelectingChapter(true) : undefined}
         onReplay={() => {
           if (mode === "daily") void controller.startDaily();
           else void controller.startCampaign(run.state.chapter_slug, run.state.character_slug, run.state.encore_level);
@@ -222,7 +201,8 @@ export const GameView = ({ locale, controller, localSave = false }: { readonly l
           break;
         }
         screen = (
-          <StoryChat
+          <StageIntermission
+            backgroundURL={content.chapters.find(chapter => chapter.id === run.state.chapter_slug)?.background_url}
             scene={scene}
             locale={locale}
             busy={busy}

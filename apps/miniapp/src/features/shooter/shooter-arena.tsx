@@ -471,11 +471,11 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
   };
 
   return (
-    <main data-game-surface="true" className={`${embedded ? "absolute" : "fixed"} inset-0 overflow-hidden bg-[#02050e]`}>
+    <main data-game-surface="true" className={`${embedded ? "absolute" : "fixed"} inset-0 shooter-stage overflow-hidden bg-[#02050e]`}>
       <div
         data-testid="shooter-battlefield"
         data-segment-slug={segment.segment_slug}
-        className="absolute bottom-[var(--xuhuan-host-safe-bottom)] left-0 right-0 top-[calc(var(--xuhuan-host-safe-top)+3rem)] overflow-hidden"
+        className="shooter-battlefield overflow-hidden"
       >
         <canvas
           ref={canvasRef}

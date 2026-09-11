@@ -14,10 +14,9 @@ test("browser campaign starts without authentication and preserves the room and 
   await expect(page.getByTestId("shooter-canvas")).toBeVisible();
   expect(campaignDownloads).toEqual([]);
   await page.getByRole("link", { name: "Play full campaign" }).click();
-  await expect(page.getByRole("button", { name: "GO LIVE", exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("Auto-saved in this browser.", { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: "GO LIVE", exact: true }).click();
-  await expect(page.getByTestId("shooter-canvas")).toBeVisible();
+  await expect(page).toHaveURL(/\/play$/);
+  await expect.poll(() => readSave(page)).not.toBeNull();
+  await expect(page.getByTestId("shooter-canvas")).toBeVisible({ timeout: 20_000 });
   const before = await readSave(page);
   expect(before.campaign.run.state.chapter_slug).toBe("seventh-dock");
   await page.getByRole("button", { name: "Switch language to Chinese" }).click();
@@ -34,7 +33,6 @@ test("a real browser battle saves its result before advancing or replaying", asy
   test.setTimeout(90_000);
   await page.clock.install();
   await page.goto("/play");
-  await page.getByRole("button", { name: "GO LIVE", exact: true }).click();
   await expect(page.getByTestId("shooter-canvas")).toBeVisible();
   await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
   const before = await readSave(page);
@@ -48,7 +46,7 @@ test("a real browser battle saves its result before advancing or replaying", asy
 
 test("corrupt saves are preserved until the player explicitly resets them", async ({ page }) => {
   await page.goto("/play");
-  await expect(page.getByRole("button", { name: "GO LIVE", exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("shooter-canvas")).toBeVisible({ timeout: 20_000 });
   await page.evaluate(key => localStorage.setItem(key, "{broken"), key);
   await page.reload();
   await expect(page.locator("aside[role=alert]")).toContainText("has not been overwritten");
@@ -58,7 +56,7 @@ test("corrupt saves are preserved until the player explicitly resets them", asyn
   expect(await page.evaluate(key => localStorage.getItem(key), key)).toBe("{broken");
   page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "Reset local save" }).click();
-  await expect(page.getByRole("button", { name: "GO LIVE", exact: true })).toBeVisible();
+  await expect(page.getByTestId("shooter-canvas")).toBeVisible();
 });
 
 test("blocked storage explains the failure without claiming to save", async ({ page }) => {
@@ -70,24 +68,24 @@ test("blocked storage explains the failure without claiming to save", async ({ p
 
 test("another tab observes the same saved room instead of overwriting it", async ({ page, context }) => {
   await page.goto("/play");
-  await expect(page.getByRole("button", { name: "GO LIVE", exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("shooter-canvas")).toBeVisible({ timeout: 20_000 });
   const second = await context.newPage();
   await second.goto("/play");
-  await expect(second.getByRole("button", { name: "GO LIVE", exact: true })).toBeVisible({ timeout: 20_000 });
-  await page.getByRole("button", { name: "GO LIVE", exact: true }).click();
+  await expect(second.getByTestId("shooter-canvas")).toBeVisible({ timeout: 20_000 });
   await expect(second.getByTestId("shooter-canvas")).toBeVisible();
   expect((await readSave(second)).campaign.run.id).toBe((await readSave(page)).campaign.run.id);
 });
 
 test("shared browser rules complete all chapters and expose the unlocked daily hub", async ({ page }) => {
   await page.goto("/play");
-  await expect(page.getByRole("button", { name: "GO LIVE", exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("shooter-canvas")).toBeVisible({ timeout: 20_000 });
   // Synthetic bounded room results test the shipped WASM and persistence format,
   // not gameplay difficulty or human completion rates.
   const ending = await page.evaluate(key => {
     const invoke = (request: object) => JSON.parse(window.xuhuanCampaign!(JSON.stringify(request)));
     const chapters = invoke({ action: "content", locale: "en" }).content.chapters;
     let save = JSON.parse(localStorage.getItem(key)!);
+    save.campaign = null;
     const act = (request: object) => {
       const response = invoke({ ...request, save });
       if (response.error) throw new Error(response.error);
@@ -104,13 +102,14 @@ test("shared browser rules complete all chapters and expose the unlocked daily h
         act({ action: "command", mode: "campaign", id: run.id, expected_version: run.version, command });
       }
       if (save.campaign.run.outcome !== "cleared") throw new Error("Chapter did not complete");
-      act({ action: "hub" });
+      if (chapter.id !== "zero-channel") act({ action: "hub" });
     }
     localStorage.setItem(key, JSON.stringify(save));
     return save.progress.ending;
   }, key);
   expect(ending).toBeTruthy();
   await page.reload();
+  await page.getByRole("button", { name: "Chapters & loadout" }).click();
   await expect(page.getByRole("button", { name: "Daily Aftershow" })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Daily Aftershow" }).click();
   await expect(page.getByTestId("shooter-canvas")).toBeVisible();
