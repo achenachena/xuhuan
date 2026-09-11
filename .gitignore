@@ -90,3 +90,6 @@ apps/miniapp/public/sounds/
 # Old/backup files
 **/*-old.*
 **/*.backup.*
+
+# Local working notes
+/.private-notes/

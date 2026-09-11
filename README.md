@@ -16,8 +16,6 @@ The anonymous demo runs locally without a player account or saved progress. [Tel
 - **Measured hot-path optimization:** deterministic collision comparison, warmup and seven timed trials. [Benchmark](scripts/benchmark-collision.mjs) · [Measurements and limits](docs/evidence/collision-benchmark.txt).
 - **Production ownership:** Go, PostgreSQL, Canvas, OpenAPI contracts, CI, AWS Lambda, Vercel and Terraform. The [engineering page](https://xuhuan-miniapp.vercel.app/engineering) explains the boundaries and trade-offs.
 
-Independent player testing is still pending. [Playtest kit](docs/playtest-kit.md) · [Promotion drafts](docs/promotion-kit.md). Automated tests are not engagement evidence.
-
 The V4 campaign is deliberately easy to enter: move only left and right, fire straight upward automatically, collect friendly support notes, and tap one special when it is ready. Each chapter contains three short waves, a concrete two-choice aftershow intermission, and a three-stage boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
 
 ## Why it fits Telegram
@@ -105,7 +103,7 @@ npm run generate:portfolio-demo
 npm run check:portfolio-demo
 ```
 
-See [browser-demo.md](docs/browser-demo.md) for its scope and assets. The owner authorized production release; the independent human playtest remains pending. Automated tests verify correctness, not whether unfamiliar players find the game fun.
+See [browser-demo.md](docs/browser-demo.md) for its scope, implementation, and assets.
 
 ## Verify a change
 

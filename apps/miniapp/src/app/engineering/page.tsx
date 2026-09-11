@@ -85,7 +85,7 @@ const EngineeringPage = () => {
               <tbody><tr><th scope="row">Before: temporary arrays</th><td>38.81 ms</td></tr><tr><th scope="row">After: scalar bounds</th><td>31.50 ms</td></tr></tbody>
             </table>
             <p>Apple M4 · macOS arm64 · Node 22.18.0. Seven alternating trials after 200,000 warmup calls per function; identical results across 10,000 seeded trajectories.</p>
-            <hr /><b>Microbenchmark ≠ frame rate.</b><p>This measures collision-function execution, not full-game FPS, mobile battery life or real-user throughput. No production engagement or scale claim is implied.</p><hr /><b>30 Hz simulation, interpolated rendering.</b><p>The browser updates combat locally. A completed room produces one bounded result rather than frame-by-frame network traffic.</p></aside>
+            <hr /><b>Microbenchmark ≠ frame rate.</b><p>This measures collision-function execution, not full-game FPS, mobile battery life or real-user throughput.</p><hr /><b>30 Hz simulation, interpolated rendering.</b><p>The browser updates combat locally. A completed room produces one bounded result rather than frame-by-frame network traffic.</p></aside>
         </div>
       </section>
 
@@ -102,7 +102,7 @@ const EngineeringPage = () => {
       <footer className={styles.footer}>
         <h2>Try the game.<br />Ask about the trade-offs.</h2>
         <div className={styles.actions}><Link className={styles.primary} href="/demo">Play in your browser →</Link><a href={repo}>Explore the repository ↗</a></div>
-        <p>Unofficial, non-commercial fan project. Character rights belong to their respective holders. See the repository for art provenance. Independent player testing is pending; automated tests do not establish that the game is fun.</p>
+        <p>Unofficial, non-commercial fan project. Character rights belong to their respective holders. See the repository for art provenance.</p>
       </footer>
     </main>
   );
