@@ -79,7 +79,13 @@ const EngineeringPage = () => {
         <h2>Less work in the hot path.</h2>
         <div className={styles.columns}>
           <div><h3>Collision checks without axis arrays</h3><p>Each moving projectile is tested against an enemy body. Removing temporary arrays reduces allocation in this frequently executed path while preserving the intersection algorithm.</p><p>A deterministic comparison checks 10,000 trajectories before timing both versions. Run the benchmark on your own machine; results depend on the runtime and workload.</p><div className={styles.links}><a href={`${repo}/blob/main/scripts/benchmark-collision.mjs`}>Run the comparison ↗</a><a href={`${repo}/blob/main/docs/evidence/collision-benchmark.txt`}>Measured output ↗</a></div></div>
-          <aside className={styles.callout}><b>Microbenchmark ≠ frame rate.</b><p>This measures collision-function execution, not full-game FPS, mobile battery life or real-user throughput. No production engagement or scale claim is implied.</p><hr /><b>30 Hz simulation, interpolated rendering.</b><p>The browser updates combat locally. A completed room produces one bounded result rather than frame-by-frame network traffic.</p></aside>
+          <aside className={styles.callout}>
+            <table className={styles.measurements}>
+              <caption>Median time · 1,000,000 collision checks</caption>
+              <tbody><tr><th scope="row">Before: temporary arrays</th><td>38.81 ms</td></tr><tr><th scope="row">After: scalar bounds</th><td>31.50 ms</td></tr></tbody>
+            </table>
+            <p>Apple M4 · macOS arm64 · Node 22.18.0. Seven alternating trials after 200,000 warmup calls per function; identical results across 10,000 seeded trajectories.</p>
+            <hr /><b>Microbenchmark ≠ frame rate.</b><p>This measures collision-function execution, not full-game FPS, mobile battery life or real-user throughput. No production engagement or scale claim is implied.</p><hr /><b>30 Hz simulation, interpolated rendering.</b><p>The browser updates combat locally. A completed room produces one bounded result rather than frame-by-frame network traffic.</p></aside>
         </div>
       </section>
 

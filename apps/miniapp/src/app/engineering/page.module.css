@@ -50,3 +50,9 @@
 @media(max-width:380px) { .architecture { grid-template-columns:1fr; } .terminal { padding:12px; } .terminal pre { font-size:10px; } }
 /* The game uses a viewport-sized body; this document needs normal page scrolling. */
 :global(html):has(.page), :global(body):has(.page) { height:auto; min-height:100%; overflow-x:clip; }
+
+.measurements { width:100%; font-size:13px; text-align:left; }
+.measurements caption { text-align:left; color:#97a5b9; margin-bottom:12px; }
+.measurements th,.measurements td { padding:9px 0; border-bottom:1px solid #304258; }
+.measurements th { font-weight:500; padding-right:14px; }
+.measurements td { white-space:nowrap; color:#67e8f9; font-family:monospace; }
