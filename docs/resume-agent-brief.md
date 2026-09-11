@@ -74,3 +74,9 @@ The deployment deliberately avoids a VPC, NAT Gateway, API Gateway, load balance
 5. Discuss the zero-fixed-cost topology and the services intentionally avoided.
 
 Do not describe the project as high-scale or claim real-user throughput that has not been measured. Its strongest story is pragmatic engineering judgment, production ownership, and a complete playable product under strict cost constraints.
+
+## Demo and evidence package
+
+The [engineering page](https://xuhuan-miniapp.vercel.app/engineering) includes an 18-second real gameplay recording, architecture, and a captured HTTP/PostgreSQL retry case. Reproduce the case and collision microbenchmark using [engineering-evidence.md](engineering-evidence.md). Demo results include actual victory/defeat, cumulative core reversals, remaining hearts, replay, and a local PNG battle card. The anonymous demo never calls protected persistence APIs.
+
+The [playtest kit](playtest-kit.md) and [promotion drafts](promotion-kit.md) are preparation, not evidence that outreach happened. Do not claim unfamiliar-user testing, engagement improvements, or earned stars until actual observations exist.

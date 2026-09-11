@@ -9,7 +9,7 @@ import { sweptShooterHit } from "@/features/shooter/collision";
 import type { ShooterEnemyEntity, ShooterMutableState } from "@/features/shooter/types";
 import type { ShooterRuntimeConfig } from "@/lib/api/types";
 import { v4Runtime } from "@/test/v4-fixtures";
-import demo from "../../../public/game/v4/demo/demo-v2.en.json";
+import demo from "../../../public/game/v4/demo/demo-v3.en.json";
 
 const config = (overrides: Partial<ShooterRuntimeConfig> = {}): ShooterRuntimeConfig => ({
   ...v4Runtime, duration_ticks: 1_200, wave: { ...v4Runtime.wave, spawns: [] },
@@ -53,20 +53,20 @@ describe("opt-in bullet reversal demo", () => {
     for (let tick = 480; tick < 900 && !game.result(); tick += 1) game.step({ x: 64, rescue: false });
     expect(game.result()).toMatchObject({ won: true, rescues_used: 0 });
     expect(game.result()!.ticks).toBeLessThan(1_200);
-    expect(game.result()!.final.reversal!.breaks).toBe(2);
+    expect(game.result()!.final.reversal!.breaks).toBe(3);
     expect(game.result()!.final.enemy_projectiles).toHaveLength(0);
   });
 
   it("the generated opening reverses a visible owned salvo when the first control machine is aimed at", () => {
     const game = createShooterSimulationFromConfig(demo.wave.runtime_config as ShooterRuntimeConfig);
     let ownedSalvoSeen = false, reversedSalvo = false;
-    for (let tick = 0; tick < 450; tick += 1) {
+    for (let tick = 0; tick < 300; tick += 1) {
       const before = game.snapshot();
-      const owned = before.enemy_projectiles.filter((bullet) => bullet.group_id === 3).length;
+      const owned = before.enemy_projectiles.filter((bullet) => bullet.group_id === 1).length;
       if (owned > 0) ownedSalvoSeen = true;
       game.step({ x: 64, rescue: false });
       const after = game.snapshot();
-      if (owned > 0 && after.enemy_projectiles.every((bullet) => bullet.group_id !== 3) && after.effects.some((effect) => effect.kind === "core_break")) reversedSalvo = true;
+      if (owned > 0 && after.enemy_projectiles.every((bullet) => bullet.group_id !== 1) && after.effects.some((effect) => effect.kind === "core_break")) reversedSalvo = true;
     }
     expect(ownedSalvoSeen).toBe(true);
     expect(reversedSalvo).toBe(true);
@@ -144,7 +144,7 @@ describe("opt-in bullet reversal demo", () => {
   it("places reversed support on a reachable lane with time to catch it", () => {
     const game = createShooterSimulationFromConfig(demo.wave.runtime_config as ShooterRuntimeConfig);
     let convertedID = -1;
-    for (let tick = 0; tick < 450; tick += 1) {
+    for (let tick = 0; tick < 300; tick += 1) {
       const before = game.snapshot();
       game.step({ x: 64, rescue: false });
       const after = game.snapshot();
@@ -373,7 +373,7 @@ describe("temporary robot fans", () => {
   it("the first real controller becomes a visible joining fan immediately", () => {
     const game = createShooterSimulationFromConfig(demo.wave.runtime_config as ShooterRuntimeConfig);
     let joined = false;
-    for (let tick = 0; tick < 450; tick += 1) {
+    for (let tick = 0; tick < 300; tick += 1) {
       game.step({ x: 64, rescue: false });
       const snapshot = game.snapshot();
       if (snapshot.reversal!.breaks > 0) {
@@ -388,7 +388,7 @@ describe("temporary robot fans", () => {
   });
 
   it("emits the normal enemy-hit event when the first fan helps against the remaining escort", () => {
-    const game = createShooterSimulationFromConfig(demo.wave.runtime_config as ShooterRuntimeConfig);
+    const game = createShooterSimulationFromConfig({ ...demo.wave.runtime_config, reversal: { weapon: "single", groups: [{ at_tick: 240, group_id: 3, x: 1800, escorts: 1 }] } } as ShooterRuntimeConfig);
     for (let tick = 0; tick < 450 && game.snapshot().reversal!.fans.length === 0; tick += 1) game.step({ x: 64, rescue: false });
     const escortID = game.snapshot().enemies.find((enemy) => enemy.role === "escort" && enemy.health > 0)!.id;
     let fanHitReported = false;

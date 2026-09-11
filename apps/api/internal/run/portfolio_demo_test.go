@@ -16,7 +16,7 @@ func TestPortfolioDemoUsesResolvedV4Runtime(t *testing.T) {
 		if err != nil {
 			t.Fatalf("build %s demo: %v", locale, err)
 		}
-		if demo.Version != "demo-v2" || demo.Locale != locale || demo.Opening == "" || demo.Wave.DurationTicks != 1200 || len(demo.Options) != 2 {
+		if demo.Version != "demo-v3" || demo.Locale != locale || demo.Opening == "" || demo.Wave.DurationTicks != 1200 || len(demo.Options) != 2 {
 			t.Fatalf("unexpected %s demo shape: %#v", locale, demo)
 		}
 		for index, option := range demo.Options {
@@ -49,8 +49,8 @@ func TestPortfolioDemoAuthoredGroupsAreBoundedAndOrdered(t *testing.T) {
 		if group.AtTick < previous || group.AtTick >= config.DurationTicks || group.X < 180 || group.X > 3420 || group.Escorts < 0 || group.Escorts > 2 || seen[group.GroupID] {
 			t.Fatalf("invalid authored group: %#v", group)
 		}
-		if index < 2 && (group.AtTick >= 240 || group.Escorts != 0) {
-			t.Fatal("first eight seconds must keep the two learning targets harmless")
+		if index == 0 && (group.AtTick != 30 || group.X != 1800 || group.Escorts != 0) {
+			t.Fatal("the opening must offer one centered core before later formations")
 		}
 		previous = group.AtTick
 		seen[group.GroupID] = true

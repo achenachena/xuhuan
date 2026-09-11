@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	portfolioDemoVersion    = "demo-v2"
+	portfolioDemoVersion    = "demo-v3"
 	portfolioDemoWaveTicks  = 1200
 	portfolioDemoBossTicks  = 1350
 	portfolioDemoBackground = "/game/v4/reversal/stage.webp"
@@ -49,8 +49,8 @@ func BuildPortfolioDemo(catalog *gamecontent.V4Catalog, locale string) (Portfoli
 	}
 	waveConfig.Reversal = &shooter.Reversal{Weapon: "single", Groups: []shooter.ReversalGroup{
 		{AtTick: 30, GroupID: 1, X: 1800, Escorts: 0},
-		{AtTick: 120, GroupID: 2, X: 1100, Escorts: 0},
-		{AtTick: 240, GroupID: 3, X: 1800, Escorts: 1},
+		{AtTick: 300, GroupID: 2, X: 1100, Escorts: 0},
+		{AtTick: 420, GroupID: 3, X: 1800, Escorts: 1},
 		{AtTick: 480, GroupID: 4, X: 950, Escorts: 1},
 		{AtTick: 480, GroupID: 5, X: 2650, Escorts: 1},
 		{AtTick: 720, GroupID: 6, X: 950, Escorts: 2},

@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00.000 --> 00:06.000
+Actual HTTP/PostgreSQL test output, paced for reading.
+The server commits the room result, then the response is lost.
+
+00:06.000 --> 00:13.000
+Retrying returns the committed response.
+The database still has one command row and score 120.
+
+00:13.000 --> 00:21.000
+A stale version is rejected. Reloading the Run
+allows the next legal action to proceed.

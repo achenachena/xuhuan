@@ -1,0 +1,14 @@
+=== RUN   TestEngineeringRetryEvidence
+    engineering_evidence_test.go:123: POST /v2/runs -> 201; isolated synthetic player, version=1
+    engineering_evidence_test.go:129: POST complete_segment expected_version=1 key=evidence-command-01 -> connection closed after commit
+    engineering_evidence_test.go:118: SQL observation: version=2 command_rows=1 score=120
+    engineering_evidence_test.go:139: RETRY identical request -> 200; Idempotency-Replayed=true; body equals committed response
+    engineering_evidence_test.go:118: SQL observation: version=2 command_rows=1 score=120
+    engineering_evidence_test.go:148: POST same expected_version=1 with a new key -> 409 version_conflict
+    engineering_evidence_test.go:118: SQL observation: version=2 command_rows=1 score=120
+    engineering_evidence_test.go:163: GET run -> 200; version=2; recover legal show options from authoritative state
+    engineering_evidence_test.go:172: POST legal next action expected_version=2 -> 200; progression resumes
+    engineering_evidence_test.go:118: SQL observation: version=3 command_rows=2 score=120
+--- PASS: TestEngineeringRetryEvidence (0.08s)
+PASS
+ok  	github.com/achenachena/xuhuan/apps/api/internal/postgres	0.360s

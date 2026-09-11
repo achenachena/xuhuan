@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createV4Run, v4BaseState, v4Content, v4Runtime } from "@/test/v4-fixtures";
-import demoManifest from "../../../public/game/v4/demo/demo-v2.en.json";
+import demoManifest from "../../../public/game/v4/demo/demo-v3.en.json";
 
 const dependencies = vi.hoisted(() => ({
   draw: vi.fn(),
@@ -151,7 +151,7 @@ describe("ShooterArena input and local completion lifecycle", () => {
     render(<BrowserDemo />);
     await screen.findByTestId("shooter-control-surface");
     for (let index = 0; index < 1_001; index += 1) await advanceFrame();
-    expect(await screen.findByRole("button", { name: "Twin Live Feed" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: /Twin Live Feed/ })).toBeVisible();
     expect(screen.queryByText("SYNC…")).not.toBeInTheDocument();
     const earnedBreaks = dependencies.draw.mock.lastCall?.[1].reversal.breaks as number;
     expect(earnedBreaks).toBeGreaterThan(0);
@@ -163,7 +163,7 @@ describe("ShooterArena input and local completion lifecycle", () => {
     await advanceFrame();
     expect(dependencies.draw).toHaveBeenCalledTimes(completedDraws);
     dependencies.demoMusic.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: "Twin Live Feed" }));
+    fireEvent.click(screen.getByRole("button", { name: /Twin Live Feed/ }));
     expect(dependencies.demoMusic).toHaveBeenCalledWith(earnedBreaks);
     for (let index = 0; index < 20; index += 1) await advanceFrame();
     expect(await screen.findByRole("button", { name: "Restart" })).toBeVisible();
