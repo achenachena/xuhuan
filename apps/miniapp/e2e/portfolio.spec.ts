@@ -38,7 +38,7 @@ test.describe("public browser game", () => {
     await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
     const bounds = await surface.boundingBox();
     if (!bounds) throw new Error("Battlefield bounds unavailable");
-    expect(bounds.width).toBeGreaterThan(280);
+    expect(bounds.width / bounds.height).toBeCloseTo(9 / 16, 3);
     expect(bounds.height).toBeGreaterThan(400);
     const startX = bounds.x + bounds.width / 2;
     const startY = bounds.y + bounds.height * 0.72;

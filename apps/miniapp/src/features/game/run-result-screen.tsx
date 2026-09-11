@@ -10,6 +10,7 @@ type Props = {
   readonly locale: GameLocale;
   readonly busy: boolean;
   readonly onContinue: () => void;
+  readonly onSelectChapter?: () => void;
   readonly onReplay: () => void;
 };
 
@@ -20,6 +21,7 @@ export const RunResultScreen = ({
   busy,
   onContinue,
   onReplay,
+  onSelectChapter,
 }: Props) => {
   const cleared = run.outcome === "cleared";
   const abandoned = run.outcome === "abandoned";
@@ -105,6 +107,10 @@ export const RunResultScreen = ({
         >
           {gameText(locale, "continue")}
         </button>
+        {onSelectChapter && <button type="button" disabled={busy} onClick={onSelectChapter}
+          className="mt-4 min-h-11 text-sm text-slate-300 underline underline-offset-4">
+          {locale === "en" ? "Chapters & loadout" : "章节与装备"}
+        </button>}
       </article>
     </main>
   );

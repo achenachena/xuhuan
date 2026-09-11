@@ -159,7 +159,7 @@ describe("Shooter V4 game shell", () => {
     expect(screen.queryByTestId("shooter-arena")).not.toBeInTheDocument();
   });
 
-  it("uses the localized system sender for a Chinese intermission prompt", async () => {
+  it("shows a Chinese intermission with optional story details", async () => {
     localeState.language = "zh-CN";
     const chapter = v4Content.chapters[0]!;
     const localizedSender = "Localized archive";
@@ -201,7 +201,9 @@ describe("Shooter V4 game shell", () => {
 
     render(<HomePage />);
 
-    expect((await screen.findAllByText(localizedSender)).length).toBeGreaterThan(0);
+    expect(await screen.findByText("信号已恢复")).toBeVisible();
+    fireEvent.click(screen.getByText("剧情回顾"));
+    expect(screen.getByText(chapter.story.intermission.prompt)).toBeVisible();
     expect(screen.queryByText("System")).not.toBeInTheDocument();
   });
 });

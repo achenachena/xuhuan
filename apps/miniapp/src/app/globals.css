@@ -106,3 +106,21 @@ html[data-shooter-encounter="true"] [data-language-toggle="true"] {
 button {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Canvas and input share one portrait rectangle, including inside the short demo. */
+.shooter-stage {
+  container-type: size;
+  max-width: 480px;
+  margin-inline: auto;
+}
+.shooter-battlefield {
+  position: absolute;
+  top: calc(var(--xuhuan-host-safe-top) + 3rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100cqw, calc((100cqh - var(--xuhuan-host-safe-top) - 3rem - var(--xuhuan-host-safe-bottom)) * 9 / 16));
+  aspect-ratio: 9 / 16;
+}
+body:has(.shooter-stage) [data-language-toggle] {
+  right: calc(max(0px, (100vw - 480px) / 2) + var(--xuhuan-host-safe-right));
+}

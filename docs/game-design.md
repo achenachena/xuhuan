@@ -112,16 +112,16 @@ The final stage raises pattern density but retains telegraphs. A boss is defeate
 
 Chapters unlock linearly and may be replayed. Every chapter contains:
 
-- a prelude of at most three short group-chat bubbles;
+- a prelude of at most three short messages, available in chapter selection;
 - three capped waves, early formation clears, and staged build choices;
 - one concrete two-option intermission after the second wave;
 - a three-stage boss;
 - a short epilogue; and
 - a replay recap that acknowledges the chapter is already known.
 
-Cleared and failed attempts both lead to an explicit result screen. Players can start another attempt or return to the group, where the next unlocked chapter is available after a clear. Retrying a failed attempt starts a fresh Run, not a hidden restart of only its final room.
+Cleared and failed attempts both lead to an explicit result screen. Browser players can retry, continue directly into the next unlocked chapter, or open chapter and loadout selection. Retrying a failed attempt starts a fresh Run, not a hidden restart of only its final room.
 
-The intermission stores an explicit selected option ID and durable tag. It never adds invisible morality or personality points. Replaying a chapter appends a new choice revision; the latest revision changes the current story projection without erasing history.
+The intermission is a compact card over the chapter background, with context and two actions together. Additional story text is expandable; it does not open a chat interface. It stores an explicit selected option ID and durable tag. It never adds invisible morality or personality points. Replaying a chapter appends a new choice revision; the latest revision changes the current story projection without erasing history.
 
 ## Finale endings
 

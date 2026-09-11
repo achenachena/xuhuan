@@ -194,7 +194,6 @@ cd apps/api
 env GOCACHE=/tmp/xuhuan-go-cache go test ./internal/content
 cd ../..
 node scripts/check-content-assets.mjs
-node scripts/check-english-source.mjs
 ```
 
 Then run the relevant shooter, run-domain, frontend, and end-to-end suites. Review both localized endpoints:

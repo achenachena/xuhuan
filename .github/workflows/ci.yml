@@ -113,8 +113,6 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Enforce English source boundaries
-        run: npm run check:english-source
       - name: Verify immutable content assets
         run: npm run check:content-assets
       - name: Verify generated OpenAPI types

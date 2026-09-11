@@ -91,8 +91,8 @@ export const ShooterGates = ({ content, run, busy, onChoose }: Props) => {
   };
 
   return (
-    <main data-game-surface="true" className="fixed inset-0 overflow-hidden bg-[#02050e]">
-      <div data-testid="shooter-gate-battlefield" className="absolute bottom-[var(--xuhuan-host-safe-bottom)] left-0 right-0 top-[calc(var(--xuhuan-host-safe-top)+3rem)] overflow-hidden">
+    <main data-game-surface="true" className="fixed inset-0 shooter-stage overflow-hidden bg-[#02050e]">
+      <div data-testid="shooter-gate-battlefield" className="shooter-battlefield overflow-hidden">
         <canvas ref={canvasRef} aria-hidden="true" data-testid="shooter-gate-canvas" className="absolute inset-0 h-full w-full" />
         <p className="absolute left-3 right-3 top-[3%] text-center font-mono text-xs font-bold text-cyan-100">
           {gameText(language, "gateInstruction")}
