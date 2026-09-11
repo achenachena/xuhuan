@@ -48,3 +48,5 @@
 .footer p { color:#899cb5; font-size:12px; max-width:720px; }
 @media(max-width:760px) { .hero { grid-template-columns:1fr; gap:32px; padding:44px 0; } .film { max-width:330px; margin:auto; } .columns,.decisions { grid-template-columns:1fr; gap:24px; } .architecture { grid-template-columns:1fr 1fr; } .section { padding:44px 0; } }
 @media(max-width:380px) { .architecture { grid-template-columns:1fr; } .terminal { padding:12px; } .terminal pre { font-size:10px; } }
+/* The game uses a viewport-sized body; this document needs normal page scrolling. */
+:global(html):has(.page), :global(body):has(.page) { height:auto; min-height:100%; overflow-x:clip; }

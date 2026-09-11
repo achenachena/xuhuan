@@ -96,6 +96,8 @@ test("engineering evidence is readable on phone and desktop without protected AP
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator("video").first().evaluate(async (video: HTMLVideoElement) => { video.muted = true; await video.play(); });
   await expect.poll(() => page.locator("video").first().evaluate((video: HTMLVideoElement) => video.videoWidth)).toBeGreaterThan(0);
+  await page.locator("footer").scrollIntoViewIfNeeded();
+  await expect(page.locator("footer")).toBeInViewport();
   expect(protectedRequests).toEqual([]);
   await page.getByRole("link", { name: "Play the demo" }).click();
   await expect(page.getByTestId("shooter-canvas")).toBeVisible();
