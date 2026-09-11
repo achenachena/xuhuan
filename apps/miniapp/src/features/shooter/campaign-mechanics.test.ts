@@ -9,7 +9,7 @@ import xingtongChapter from "../../../../api/internal/content/v4/chapters/which-
 import nailuChapter from "../../../../api/internal/content/v4/chapters/laplace-florist.json";
 import finaleChapter from "../../../../api/internal/content/v4/chapters/zero-channel.json";
 import { PLAYER_Y } from "@/features/shooter/constants";
-import { addEnemyHazard, damagePlayer, fireEnemy, moveEnemy, threatSnapshots, updateKitPassives, updateProjectiles } from "@/features/shooter/enemies";
+import { addEnemyHazard, damagePlayer, fireEnemy, moveEnemy, threatSnapshots, updateKitPassives, updatePickups, updateProjectiles } from "@/features/shooter/enemies";
 import { createShooterSimulationFromConfig } from "@/features/shooter/simulation";
 import { activateRescue } from "@/features/shooter/specials";
 import { addPlayerProjectile, createShooterRuntime, grantShooterShield, updateCompanions, updateWeapons } from "@/features/shooter/weapons";
@@ -247,7 +247,7 @@ describe("seven characters and one-hit guards", () => {
     expect(state.invulnerableTicks).toBeLessThanOrEqual(45);
   });
 
-  it("preserves Nana marks and Nailu flowers on hits", () => {
+  it("preserves Nana marks and MikyGreen flowers on hits", () => {
     for (const id of ["nana7mi", "nailu"]) {
       const state = createState(characterConfig(id));
       state.enemies = [enemy()];
@@ -360,5 +360,27 @@ describe("six chassis retain their distinct hazards", () => {
       expect(state.enemyProjectiles.length).toBeGreaterThan(0);
       expect(threatSnapshots(state).length).toBeGreaterThan(0);
     }
+  });
+});
+
+
+describe("sustained pickup weapons", () => {
+  it("gives fifteen seconds, lets support extend the weapon, and caps accumulated time", () => {
+    const state = createState();
+    const collect = (kind: "rapid" | "support" | "spread") => {
+      state.pickups = [{ id: 1, x: state.playerX, y: PLAYER_Y - 70, value: 12, kind }];
+      updatePickups(state);
+    };
+    collect("rapid");
+    expect(state.pickupPowerTicks).toBe(450);
+    state.pickupPowerTicks = 420;
+    collect("support");
+    expect(state.pickupPower).toBe("rapid");
+    expect(state.pickupPowerTicks).toBe(870);
+    collect("rapid");
+    expect(state.pickupPowerTicks).toBe(900);
+    collect("spread");
+    expect(state.pickupPower).toBe("spread");
+    expect(state.pickupPowerTicks).toBe(450);
   });
 });

@@ -119,6 +119,9 @@ class AudioManager {
 
   markUserInteracted(): void {
     this.interacted = true;
+    // Create/resume in the gesture itself, even while the next scene loads.
+    const context = this.audioContext();
+    if (context?.state === "suspended") void context.resume().catch(() => undefined);
     this.startMusicScheduler();
   }
 
@@ -242,7 +245,7 @@ class AudioManager {
       this.playTone(context, start, {
         frequency: melodyNote,
         duration: 0.15,
-        volume: 0.006,
+        volume: 0.022,
         wave: "square",
       }, true);
     }
@@ -250,10 +253,17 @@ class AudioManager {
       this.playTone(context, start, {
         frequency: campaignBass[Math.floor(this.musicStep / 2) % campaignBass.length]!,
         duration: 0.38,
-        volume: 0.008,
+        volume: 0.028,
         wave: "triangle",
       }, true);
     }
+    // A steady backbeat and chord accents make the original chiptune audible
+    // under combat without downloading music or interrupting scene changes.
+    this.playTone(context, start, { frequency: this.musicStep % 4 === 0 ? 65 : this.musicStep % 4 === 2 ? 180 : 1760,
+      duration: this.musicStep % 2 === 0 ? 0.08 : 0.025, volume: this.musicStep % 2 === 0 ? 0.018 : 0.005,
+      wave: this.musicStep % 4 === 0 ? "triangle" : "square" }, true);
+    if (this.musicStep % 4 === 0) this.playTone(context, start, { frequency: campaignBass[Math.floor(this.musicStep / 2)]! * 3,
+      duration: 0.42, volume: 0.009, wave: "triangle" }, true);
     this.musicStep = (this.musicStep + 1) % campaignMelody.length;
   }
 
@@ -267,7 +277,7 @@ class AudioManager {
     const beat = this.musicStep;
     const melody = demoMelody[beat]!;
     if (melody) {
-      this.playTone(context, start, { frequency: melody, duration: 0.17, volume: 0.006, wave: "square" }, true);
+      this.playTone(context, start, { frequency: melody, duration: 0.17, volume: 0.022, wave: "square" }, true);
     }
     if (layers >= 1) {
       // Short pitched envelopes provide kick/snare ticks without noise buffers.
@@ -279,7 +289,7 @@ class AudioManager {
       }, true);
     }
     if (layers >= 2 && beat % 2 === 0) {
-      this.playTone(context, start, { frequency: demoBass[beat / 2]!, duration: 0.32, volume: 0.008, wave: "triangle" }, true);
+      this.playTone(context, start, { frequency: demoBass[beat / 2]!, duration: 0.32, volume: 0.028, wave: "triangle" }, true);
     }
     if (layers >= 3 && beat % 2 === 0) {
       this.playTone(context, start, { frequency: demoHarmony[beat / 2]!, duration: 0.27, volume: 0.004, wave: "triangle" }, true);

@@ -18,7 +18,7 @@
     ]},
     "story":{
       "prelude":[{"sender":"bella","text_key":"story.captains.prelude.1"},{"sender":"lulu","text_key":"story.captains.prelude.2"}],
-      "intermission":{"after_segment":2,"prompt_key":"story.captains.intermission.prompt","messages":[{"sender":"bella","text_key":"story.captains.intermission.1"},{"sender":"nailu","text_key":"story.captains.intermission.2"}],"choices":[
+      "intermission":{"after_segment":4,"prompt_key":"story.captains.intermission.prompt","messages":[{"sender":"bella","text_key":"story.captains.intermission.1"},{"sender":"nailu","text_key":"story.captains.intermission.2"}],"choices":[
         {"id":"cancel-three-overnights","label_key":"story.captains.choice.cancel.label","result_key":"story.captains.choice.cancel.result","tag":"cancelled-overnights","show_effect_id":"cohost-cue"},
         {"id":"share-one-overnight","label_key":"story.captains.choice.share.label","result_key":"story.captains.choice.share.result","tag":"shared-overnight","show_effect_id":"headline-break"}
       ]},

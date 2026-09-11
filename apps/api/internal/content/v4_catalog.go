@@ -619,7 +619,7 @@ func (catalog *V4Catalog) validateStory(chapter V4Chapter) error {
 	if len(story.ReplayRecap) != 1 {
 		return fmt.Errorf("content: V4 chapter %q replay recap must be one bubble", chapter.ID)
 	}
-	if story.Intermission.AfterSegment != 2 || len(story.Intermission.Choices) != 2 || !catalog.keysExist(story.Intermission.PromptKey) {
+	if story.Intermission.AfterSegment != 4 || len(story.Intermission.Choices) != 2 || !catalog.keysExist(story.Intermission.PromptKey) {
 		return fmt.Errorf("content: V4 chapter %q needs one concrete two-choice intermission after segment 2", chapter.ID)
 	}
 	seen := map[string]bool{}

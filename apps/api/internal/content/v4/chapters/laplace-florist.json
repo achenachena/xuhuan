@@ -18,7 +18,7 @@
     ]},
     "story":{
       "prelude":[{"sender":"nailu","text_key":"story.florist.prelude.1"},{"sender":"lulu","text_key":"story.florist.prelude.2"}],
-      "intermission":{"after_segment":2,"prompt_key":"story.florist.intermission.prompt","messages":[{"sender":"nailu","text_key":"story.florist.intermission.1"},{"sender":"system","text_key":"story.florist.intermission.2"}],"choices":[
+      "intermission":{"after_segment":4,"prompt_key":"story.florist.intermission.prompt","messages":[{"sender":"nailu","text_key":"story.florist.intermission.1"},{"sender":"system","text_key":"story.florist.intermission.2"}],"choices":[
         {"id":"hold-future-photo","label_key":"story.florist.choice.hold.label","result_key":"story.florist.choice.hold.result","tag":"held-future-photo","show_effect_id":"snack-drop"},
         {"id":"recreate-photo-later","label_key":"story.florist.choice.recreate.label","result_key":"story.florist.choice.recreate.result","tag":"recreated-photo-later","show_effect_id":"sticky-comment"}
       ]},

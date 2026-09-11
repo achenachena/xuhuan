@@ -272,9 +272,9 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
       setHudSnapshot(currentSnapshot);
       const result = simulation.result();
       audioRef.current.playSound(result?.won ? "victory" : "defeat");
-      // A short, harmless beat lets the final hit read before the next scene.
-      // Progression never waits for Rescue or another player action.
-      if (result) completionTimer = setTimeout(() => void submitResult(result), result.won ? 450 : 250);
+      // Wins advance immediately; only defeat keeps a brief final-hit beat.
+      if (result?.won) void submitResult(result);
+      else if (result) completionTimer = setTimeout(() => void submitResult(result), 200);
     };
 
     const update = () => {

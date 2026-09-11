@@ -129,13 +129,13 @@ describe("opt-in bullet reversal demo", () => {
     expect(timeout.snapshot()).toEqual(final);
   });
 
-  it("keeps support active for exactly the next 240 simulation ticks, including shots on the last tick", () => {
+  it("keeps support active for exactly the next 360 simulation ticks, including shots on the last tick", () => {
     const game = createShooterSimulationFromConfig(config({ reversal: {
       weapon: "single", groups: [{ at_tick: 0, group_id: 1, x: 1_800, escorts: 0 }, { at_tick: 700, group_id: 2, x: 1_800, escorts: 0 }],
     } }));
     for (let tick = 0; tick < 400 && !game.snapshot().pickup_power; tick += 1) game.step({ x: 64, rescue: false });
-    expect(game.snapshot().pickup_power_ticks).toBe(240);
-    for (let tick = 0; tick < 239; tick += 1) game.step({ x: 64, rescue: false });
+    expect(game.snapshot().pickup_power_ticks).toBe(360);
+    for (let tick = 0; tick < 359; tick += 1) game.step({ x: 64, rescue: false });
     expect(game.snapshot().pickup_power_ticks).toBe(1);
     game.step({ x: 64, rescue: false });
     expect(game.snapshot().pickup_power).toBeUndefined();
@@ -288,14 +288,14 @@ describe("opt-in bullet reversal demo", () => {
     expect(game.reversal!.breaks).toBe(1); expect(game.kills).toBe(1);
   });
 
-  it("refreshes support for eight seconds without changing the selected weapon", () => {
+  it("extends support by twelve seconds without changing the selected weapon", () => {
     const game = state(); game.pickups = [{ id: 1, x: game.playerX, y: PLAYER_Y - 70, value: 12, kind: "support" }];
     updatePickups(game);
-    expect(game.pickupPowerTicks).toBe(240); expect(game.rescueCharge).toBe(12);
+    expect(game.pickupPowerTicks).toBe(360); expect(game.rescueCharge).toBe(12);
     game.pickupPowerTicks = 220;
     game.pickups = [{ id: 2, x: game.playerX, y: PLAYER_Y - 70, value: 12, kind: "support" }];
     updatePickups(game);
-    expect(game.pickupPowerTicks).toBe(240); expect(game.config.reversal!.weapon).toBe("single");
+    expect(game.pickupPowerTicks).toBe(580); expect(game.config.reversal!.weapon).toBe("single");
   });
 
   it.each(["single", "twin", "pierce"] as const)("visibly enhances %s without permanent levels", (weapon) => {

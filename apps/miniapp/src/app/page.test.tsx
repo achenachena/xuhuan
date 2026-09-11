@@ -201,7 +201,7 @@ describe("Shooter V4 game shell", () => {
 
     render(<HomePage />);
 
-    expect(await screen.findByText("信号已恢复")).toBeVisible();
+    expect(await screen.findByText("恢复的信号")).toBeVisible();
     fireEvent.click(screen.getByText("剧情回顾"));
     expect(screen.getByText(chapter.story.intermission.prompt)).toBeVisible();
     expect(screen.queryByText("System")).not.toBeInTheDocument();

@@ -29,13 +29,11 @@ export const AudioProvider = ({ children }: { readonly children: ReactNode }) =>
     const events = ["pointerdown", "keydown"] as const;
     const markInteraction = () => {
       audioManager.markUserInteracted();
-      events.forEach((event) => document.removeEventListener(event, markInteraction));
     };
     events.forEach((event) =>
       document.addEventListener(event, markInteraction, { passive: true }),
     );
-    return () =>
-      events.forEach((event) => document.removeEventListener(event, markInteraction));
+    return () => events.forEach(event => document.removeEventListener(event, markInteraction));
   }, []);
 
   useEffect(() => {
@@ -52,6 +50,7 @@ export const AudioProvider = ({ children }: { readonly children: ReactNode }) =>
   }, []);
 
   const toggleMuted = useCallback(() => {
+    audioManager.markUserInteracted();
     setMuted((current) => {
       audioManager.setMuted(!current);
       return !current;

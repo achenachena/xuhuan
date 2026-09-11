@@ -4,6 +4,7 @@ import type { GameLocale } from "@/features/game/game-copy";
 import type { ShooterStoryScene } from "@/lib/api/types";
 
 type Props = {
+  readonly stageCleared?: boolean;
   readonly backgroundURL?: string;
   readonly scene: ShooterStoryScene;
   readonly locale: GameLocale;
@@ -11,7 +12,7 @@ type Props = {
   readonly onChoose: (sceneID: string, optionID: string) => void;
 };
 
-export const StageIntermission = ({ scene, locale, busy, onChoose, backgroundURL }: Props) => {
+export const StageIntermission = ({ scene, locale, busy, onChoose, backgroundURL, stageCleared = true }: Props) => {
   const ending = scene.id === "zero-channel-ending";
   const english = locale === "en";
   const context = scene.messages.find(message => message.sender_id !== "system");
@@ -19,11 +20,11 @@ export const StageIntermission = ({ scene, locale, busy, onChoose, backgroundURL
     <main data-game-surface="true" style={backgroundURL ? { backgroundImage: `linear-gradient(rgba(2,5,14,.88), rgba(2,5,14,.94)), url("${backgroundURL}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined} className="grid min-h-[var(--xuhuan-stable-height,100dvh)] place-items-center bg-[#02050e] px-4 pb-[var(--xuhuan-host-safe-bottom)] pt-[calc(var(--xuhuan-host-safe-top)+3rem)] text-white">
       <article data-testid="intermission-story" className="w-full max-w-sm border border-cyan-200/30 bg-gradient-to-b from-[#122841] to-[#071225] p-5 shadow-[6px_6px_0_#172554]">
         <p className="font-mono text-xs font-bold tracking-widest text-cyan-300">
-          {ending ? (english ? "FINAL SIGNAL" : "最终信号") : (english ? "SIGNAL RESTORED" : "信号已恢复")}
+          {ending ? (english ? "FINAL SIGNAL" : "最终信号") : (stageCleared ? (english ? "STAGE CLEAR" : "关卡已通关") : (english ? "RESTORED SIGNAL" : "恢复的信号"))}
         </p>
         <h1 className="mt-3 text-2xl font-black leading-tight">{scene.title}</h1>
         <p className="mt-3 text-sm leading-6 text-slate-200">
-          {ending ? (english ? "The battle is over. Choose how the story ends." : "战斗结束了。选择故事的结局。") : (english ? "Choose what to restore before the next wave." : "决定如何处理恢复的信号，然后继续迎战下一波。")}
+          {ending ? (english ? "The battle is over. Choose how the story ends." : "战斗结束了。选择故事的结局。") : (english ? "Choose what happens to the restored signal." : "决定如何处理恢复的信号。")}
         </p>
         {context && <p className="mt-3 border-l-2 border-cyan-300/50 pl-3 text-sm leading-6 text-slate-200">
           {context.text}

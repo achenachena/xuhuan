@@ -39,7 +39,7 @@
     "character.xingtong.name": "Xingtong",
     "character.xingtong.biography": "A precise digital performer who refuses to let an archive decide which take counts.",
     "character.xingtong.playstyle": "Heavy shots and a prism shift that focuses damage along the safest lane.",
-    "character.nailu.name": "Nailu",
+    "character.nailu.name": "MikyGreen",
     "character.nailu.biography": "A gentle digital host who treats uncertain memories with more care than certainty.",
     "character.nailu.playstyle": "Balanced fire and a memory bloom that opens a short-lived safe garden.",
 
@@ -49,7 +49,7 @@
     "sender.bella": "Bella",
     "sender.lulu": "Lulu",
     "sender.xingtong": "Xingtong",
-    "sender.nailu": "Nailu",
+    "sender.nailu": "MikyGreen",
     "sender.system": "Archive",
     "sender.group": "Backstage Chat",
 
@@ -80,8 +80,8 @@
     "companion.lulu.description": "A pickup chain lets Lulu convert several hostile bullets.",
     "companion.xingtong.name": "Xingtong: Spotlight",
     "companion.xingtong.description": "Each boss phase begins under Xingtong's focused beam.",
-    "companion.nailu.name": "Nailu: Greenroom Tea",
-    "companion.nailu.description": "At the start of a segment, Nailu restores one missing heart when possible.",
+    "companion.nailu.name": "MikyGreen: Greenroom Tea",
+    "companion.nailu.description": "At the start of a segment, MikyGreen restores one missing heart when possible.",
 
     "effect.double_take.name": "Double Take",
     "effect.double_take.description": "Add a second narrow shot to every volley.",
@@ -238,9 +238,9 @@
     "story.original.epilogue.2": "Then neither room gets to close the other for us.",
     "story.original.recap.1": "Both rooms are contained. Their shared backend origin remains readable.",
 
-    "story.florist.prelude.1": "Nailu finds a photo thanking everyone for flowers after tomorrow's stream.",
+    "story.florist.prelude.1": "MikyGreen finds a photo thanking everyone for flowers after tomorrow's stream.",
     "story.florist.prelude.2": "We have not bought the flowers. Tomorrow's stream has not happened.",
-    "story.florist.intermission.prompt": "The future photo is already in the archive. What should Nailu do with it?",
+    "story.florist.intermission.prompt": "The future photo is already in the archive. What should MikyGreen do with it?",
     "story.florist.intermission.1": "The image contains flowers nobody chose and a thank-you message nobody wrote.",
     "story.florist.intermission.2": "Generation log: predicted keepsake prepared before the event.",
     "story.florist.choice.hold.label": "Seal the future photo",

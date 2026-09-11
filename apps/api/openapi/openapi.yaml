@@ -308,7 +308,7 @@ components:
       additionalProperties: false
       required: [after_segment, prompt, messages, choices]
       properties:
-        after_segment: { type: integer, minimum: 1, maximum: 3 }
+        after_segment: { type: integer, minimum: 1, maximum: 4 }
         prompt: { type: string }
         messages: { type: array, maxItems: 3, items: { $ref: "#/components/schemas/LocalizedBubble" } }
         choices: { type: array, minItems: 2, maxItems: 2, items: { $ref: "#/components/schemas/LocalizedStoryChoice" } }

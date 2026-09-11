@@ -4,6 +4,8 @@ The `Release production` GitHub workflow deploys one explicit commit from the cu
 
 ## Required configuration
 
+When Vercel is deployed separately, disable `deploy_frontend` to release and verify only the API through the existing GitHub AWS identity.
+
 The protected `Production` environment supplies:
 
 - `API_BASE_URL`

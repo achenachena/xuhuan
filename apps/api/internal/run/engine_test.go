@@ -31,22 +31,18 @@ func TestCampaignFlowUsesThreeGatesIntermissionAndExplicitBossClear(t *testing.T
 			t.Fatalf("segment %d show choice outcome=%v err=%v", segmentIndex, outcome, err)
 		}
 		state = resolution.State
-		if segmentIndex == 1 {
-			if state.Phase != StoryPhase || state.Story == nil || len(state.Story.ChoiceIDs) != 2 {
-				t.Fatalf("intermission state=%#v", state)
-			}
-			resolution, outcome, err = Apply(state, seed, CampaignMode, Command{Type: ChooseIntermissionReply, SceneID: state.Story.SceneID, OptionID: state.Story.ChoiceIDs[0]}, catalog)
-			if err != nil || outcome != nil || resolution.State.Phase != SegmentPhase || resolution.State.SegmentIndex != 2 {
-				t.Fatalf("intermission resolution=%#v outcome=%v err=%v", resolution, outcome, err)
-			}
-			state = resolution.State
-		}
+
 	}
 
 	if showChoices != 3 || state.Phase != SegmentPhase || state.SegmentIndex != 3 || state.Segment == nil || state.Segment.BossID != "optimal-nana" {
 		t.Fatalf("boss gate state=%#v show_choices=%d", state, showChoices)
 	}
 	resolution, outcome, err := Apply(state, seed, CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(state.Hearts)}, catalog)
+	if err != nil || outcome != nil || resolution.State.Phase != StoryPhase {
+		t.Fatalf("boss must lead to story: %v", err)
+	}
+	state = resolution.State
+	resolution, outcome, err = Apply(state, seed, CampaignMode, Command{Type: ChooseIntermissionReply, SceneID: state.Story.SceneID, OptionID: state.Story.ChoiceIDs[0]}, catalog)
 	if err != nil || outcome == nil || *outcome != Cleared || resolution.State.Phase != CompletedPhase || !slices.ContainsFunc(resolution.Events, func(event Event) bool { return event.Kind == "chapter_cleared" }) {
 		t.Fatalf("boss resolution=%#v outcome=%v err=%v", resolution, outcome, err)
 	}

@@ -16,7 +16,7 @@ The links below are public profile anchors used only to identify the intended pu
 | Bella | [Bella public Bilibili profile](https://space.bilibili.com/672353429) | Name and public visual-reference anchor only. |
 | Lulu | [Lulu public Bilibili profile](https://space.bilibili.com/387636363) | Name and public visual-reference anchor only. |
 | Xingtong | [Xingtong public Bilibili profile](https://space.bilibili.com/401315430) | Name and public visual-reference anchor only. |
-| Nailu | [Mingqian Nailu public Bilibili profile](https://space.bilibili.com/2132180406) | Name and public visual-reference anchor only. |
+| MikyGreen | [Mingqian MikyGreen public Bilibili profile](https://space.bilibili.com/2132180406) | Name and public visual-reference anchor only. |
 | A-SOUL group context | [A-SOUL official Bilibili profile](https://space.bilibili.com/703007996) | Public group-reference anchor only. |
 
 ## V4 chapter provenance

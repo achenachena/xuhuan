@@ -208,14 +208,14 @@ describe("ShooterArena input and local completion lifecycle", () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 
-  it("pauses a won segment, disables Rescue, then advances without any input", async () => {
+  it("advances a won segment immediately without waiting for input", async () => {
     const onComplete = vi.fn().mockResolvedValue(true);
     render(<ShooterArena embedded content={v4Content} run={run(2)} busy={false} onComplete={onComplete} />);
     await act(async () => {});
     await advanceFrame();
     await advanceFrame();
     expect(screen.getByTestId("rescue-button")).toBeDisabled();
-    expect(onComplete).not.toHaveBeenCalled();
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     const completedTick = dependencies.draw.mock.lastCall?.[1].tick;
     await advanceFrame();
     expect(dependencies.draw.mock.lastCall?.[1].tick).toBe(completedTick);

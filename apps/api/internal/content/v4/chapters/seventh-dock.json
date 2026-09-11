@@ -18,7 +18,7 @@
     ]},
     "story":{
       "prelude":[{"sender":"system","text_key":"story.seventh_dock.prelude.1"},{"sender":"nana7mi","text_key":"story.seventh_dock.prelude.2"},{"sender":"nana7mi","text_key":"story.seventh_dock.prelude.3"}],
-      "intermission":{"after_segment":2,"prompt_key":"story.seventh_dock.intermission.prompt","messages":[{"sender":"nana7mi","text_key":"story.seventh_dock.intermission.1"},{"sender":"system","text_key":"story.seventh_dock.intermission.2"}],"choices":[
+      "intermission":{"after_segment":4,"prompt_key":"story.seventh_dock.intermission.prompt","messages":[{"sender":"nana7mi","text_key":"story.seventh_dock.intermission.1"},{"sender":"system","text_key":"story.seventh_dock.intermission.2"}],"choices":[
         {"id":"keep-seven-second-voice","label_key":"story.seventh_dock.choice.voice.label","result_key":"story.seventh_dock.choice.voice.result","tag":"kept-withdrawn-voice","show_effect_id":"instant-replay"},
         {"id":"delete-learned-reply","label_key":"story.seventh_dock.choice.model.label","result_key":"story.seventh_dock.choice.model.result","tag":"deleted-learned-reply","show_effect_id":"clean-cut"}
       ]},

@@ -18,7 +18,7 @@
     ]},
     "story":{
       "prelude":[{"sender":"xingtong","text_key":"story.original.prelude.1"},{"sender":"bella","text_key":"story.original.prelude.2"}],
-      "intermission":{"after_segment":2,"prompt_key":"story.original.intermission.prompt","messages":[{"sender":"xingtong","text_key":"story.original.intermission.1"},{"sender":"system","text_key":"story.original.intermission.2"}],"choices":[
+      "intermission":{"after_segment":4,"prompt_key":"story.original.intermission.prompt","messages":[{"sender":"xingtong","text_key":"story.original.intermission.1"},{"sender":"system","text_key":"story.original.intermission.2"}],"choices":[
         {"id":"keep-both-rooms","label_key":"story.original.choice.both.label","result_key":"story.original.choice.both.result","tag":"kept-both-rooms","show_effect_id":"double-take"},
         {"id":"read-session-log","label_key":"story.original.choice.log.label","result_key":"story.original.choice.log.result","tag":"read-session-log","show_effect_id":"headline-break"}
       ]},
