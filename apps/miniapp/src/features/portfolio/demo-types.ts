@@ -12,7 +12,7 @@ export type PortfolioDemoOption = {
 };
 
 export type PortfolioDemoManifest = {
-  readonly version: "demo-v2";
+  readonly version: "demo-v3";
   readonly locale: "en" | "zh-CN";
   readonly opening: string;
   readonly content: ShooterContent;

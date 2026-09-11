@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import demoManifest from "../../public/game/v4/demo/demo-v2.en.json";
+import demoManifest from "../../public/game/v4/demo/demo-v3.en.json";
 
 const dependencies = vi.hoisted(() => ({
   getGameContent: vi.fn(),
@@ -74,7 +74,7 @@ describe("Shooter V4 game shell", () => {
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
     expect(dependencies.getGame).not.toHaveBeenCalled();
     expect(dependencies.getGameContent).not.toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledWith("/game/v4/demo/demo-v2.en.json", expect.objectContaining({ cache: "force-cache" }));
+    expect(fetch).toHaveBeenCalledWith("/game/v4/demo/demo-v3.en.json", expect.objectContaining({ cache: "force-cache" }));
   });
 
   it.each(["browser", "telegram"] as const)("waits for host detection before entering %s mode", async (host) => {

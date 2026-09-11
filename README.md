@@ -1,8 +1,22 @@
 # Xuhuan: Only One Online
 
-*Xuhuan: Only One Online* is a one-thumb portrait shooter built for Telegram Mini Apps. A stream has ended, seven fictional digital performers are still in the backstage group, and an automatic archive is quietly replacing their awkward, funny, unfinished moments with perfect highlights.
+**Turn enemies into fans. Bring the music back.** A 90-second browser shooter. No signup.
 
-[Play in your browser](https://xuhuan-miniapp.vercel.app/) or [open the full game in Telegram](https://t.me/xuhuangamebot). A normal browser starts the anonymous Canvas demo directly; Telegram users with valid Mini App `initData` enter the persistent campaign. The browser demo creates no account, stores no progress, and makes no protected API calls.
+[Play now](https://xuhuan-miniapp.vercel.app/demo) · [How it is built](https://xuhuan-miniapp.vercel.app/engineering) · [Give feedback](https://github.com/achenachena/xuhuan/issues/new)
+
+<a href="https://xuhuan-miniapp.vercel.app/engineering"><img src="apps/miniapp/public/engineering/gameplay-poster.webp" width="260" alt="A real core reversal in the browser demo" /></a>
+
+Aim at the glowing core: its bullets turn into support, the defeated machine becomes a cheering ally, and the music gains another layer. Choose a weapon, face the Boss, then save your battle card or try another run. Drag horizontally on phone or use drag/A/D/arrow keys on desktop; firing is automatic.
+
+The anonymous demo runs locally without a player account or saved progress. [Telegram](https://t.me/xuhuangamebot) provides the full persistent campaign after server verification of Mini App `initData`.
+
+## Engineering evidence
+
+- **Retry-safe progress:** a real HTTP/PostgreSQL experiment loses a response after commit, retries without double-applying, then recovers from a stale version. [Reproduce it](docs/engineering-evidence.md) · [Recorded output](docs/evidence/retry-transcript.txt).
+- **Measured hot-path optimization:** deterministic collision comparison, warmup and seven timed trials. [Benchmark](scripts/benchmark-collision.mjs) · [Measurements and limits](docs/evidence/collision-benchmark.txt).
+- **Production ownership:** Go, PostgreSQL, Canvas, OpenAPI contracts, CI, AWS Lambda, Vercel and Terraform. The [engineering page](https://xuhuan-miniapp.vercel.app/engineering) explains the boundaries and trade-offs.
+
+Independent player testing is still pending. [Playtest kit](docs/playtest-kit.md) · [Promotion drafts](docs/promotion-kit.md). Automated tests are not engagement evidence.
 
 The V4 campaign is deliberately easy to enter: move only left and right, fire straight upward automatically, collect friendly support notes, and tap one special when it is ready. Each chapter contains three short waves, a concrete two-choice aftershow intermission, and a three-stage boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
 
@@ -84,7 +98,7 @@ make miniapp
 
 Open `http://localhost:3000` or `/demo` to play immediately. The full campaign is mounted only when the Telegram SDK supplies `initData`. Playwright supplies an isolated Telegram host and API fixture; it does not create a development login or public credential.
 
-Both public routes run `demo-v2`: an authored wave capped at 40 seconds, one visible weapon choice, and a Boss lasting at most 45 seconds. Clearing the final formation advances early; Rescue is never required to continue. Broken control cores turn their own formation's bullets into support; defeated machines become temporary penlight-waving allies. Each reversal restores another layer of the original local chiptune score. These demo-specific combat mechanics do not replace the eight-chapter campaign. Generate its static manifests from the Go catalog after relevant shooter or content changes:
+Both public routes run `demo-v3`: an authored wave capped at 40 seconds, one visible weapon choice, and a Boss lasting at most 45 seconds. Clearing the final formation advances early; Rescue is never required to continue. Broken control cores turn their own formation's bullets into support; defeated machines become temporary penlight-waving allies. Each reversal restores another layer of the original local chiptune score. These demo-specific combat mechanics do not replace the eight-chapter campaign. Generate its static manifests from the Go catalog after relevant shooter or content changes:
 
 ```sh
 npm run generate:portfolio-demo

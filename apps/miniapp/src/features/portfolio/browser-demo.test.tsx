@@ -62,7 +62,7 @@ const result: ShooterResult = {
 };
 
 const manifest: PortfolioDemoManifest = {
-  version: "demo-v2",
+  version: "demo-v3",
   locale: "en",
   opening: "Where's the mod? ...Oh. Just you.",
   content: v4Content,
@@ -134,10 +134,12 @@ describe("browser reversal demo", () => {
     fireEvent.click(boss);
 
     const actions = within(await screen.findByTestId("demo-end-actions"));
-    expect(actions.queryByRole("heading")).not.toBeInTheDocument();
+    expect(actions.getByRole("heading", { name: "YOU BROUGHT THE MUSIC BACK" })).toBeVisible();
+    expect(actions.getByTestId("demo-reversals")).toHaveTextContent("6");
+    expect(actions.getByTestId("demo-hearts")).toHaveTextContent("2 / 3");
     expect(actions.queryByText("1000")).not.toBeInTheDocument();
-    expect(actions.getAllByRole("button")).toHaveLength(1);
-    expect(actions.getAllByRole("link")).toHaveLength(2);
+    expect(actions.getAllByRole("button")).toHaveLength(2);
+    expect(actions.getAllByRole("link")).toHaveLength(4);
     expect(actions.getByRole("link", { name: "Open Telegram" })).toHaveAttribute("href", "https://t.me/xuhuangamebot");
     expect(actions.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/achenachena/xuhuan");
     fireEvent.click(actions.getByRole("button", { name: "Restart" }));
@@ -145,12 +147,15 @@ describe("browser reversal demo", () => {
     expect(arenaState.run?.state.segment?.runtime_config.player_health).toBe(3);
     expect(arenaState.musicProgress).toBe(0);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch).toHaveBeenCalledWith("/game/v4/demo/demo-v2.en.json", expect.objectContaining({ cache: "force-cache" }));
+    expect(fetch).toHaveBeenCalledWith("/game/v4/demo/demo-v3.en.json", expect.objectContaining({ cache: "force-cache" }));
   });
 
   it("restarts a failed wave immediately with a fresh simulation", async () => {
     render(<BrowserDemo />);
     fireEvent.click(await screen.findByTestId("fail-reversal-wave"));
+    expect(screen.getByRole("heading", { name: "THE SHOW CAN GO ON" })).toBeVisible();
+    expect(screen.getByTestId("demo-hearts")).toHaveTextContent("0 / 3");
+    expect(screen.getByTestId("demo-reversals")).toHaveTextContent("3");
     fireEvent.click(await screen.findByRole("button", { name: "Restart" }));
     expect(await screen.findByTestId("finish-reversal-wave")).toBeVisible();
     expect(arenaState.mounts).toBe(2);
@@ -182,7 +187,7 @@ describe("browser reversal demo", () => {
     expect(arenaState.content).toBe(content);
     expect(arenaState.mounts).toBe(1);
     fireEvent.click(screen.getByTestId("finish-reversal-wave"));
-    fireEvent.click(await screen.findByRole("button", { name: "Pierce translated" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Pierce translated/ }));
     await screen.findByTestId("finish-reversal-boss-clean-cut");
     const bossRun = arenaState.run;
     localeState.language = "en";

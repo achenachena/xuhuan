@@ -234,7 +234,7 @@ if (undeclaredReferences.length > 0) {
 }
 
 for (const locale of ["en", "zh-CN"]) {
-  const demoFile = path.join(publicRoot, "demo", `demo-v2.${locale}.json`);
+  const demoFile = path.join(publicRoot, "demo", `demo-v3.${locale}.json`);
   collectReferences(JSON.parse(await readFile(demoFile, "utf8")));
 }
 const missingDemoReferences = [...referenced].filter(

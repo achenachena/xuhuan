@@ -63,5 +63,18 @@
   "demoChoose": "选择主炮",
   "demoLoadError": "游戏暂时无法加载。",
   "demoRestart": "重新开始",
-  "demoTelegram": "打开 Telegram"
+  "demoTelegram": "打开 Telegram",
+  "demoWon": "你让音乐回来了",
+  "demoLost": "演出还可以继续",
+  "demoReversals": "核心逆转",
+  "demoHearts": "剩余生命",
+  "demoTryOther": "下次试试另一种武器。",
+  "demoTwinDescription": "双路火力，覆盖两侧。",
+  "demoPierceDescription": "强力贯穿，击穿一整列。",
+  "demoDownload": "保存战报",
+  "demoDownloadFailed": "图片保存失败，请重试。",
+  "demoEngineering": "工程实现",
+  "demoFeedback": "反馈体验",
+  "demoTagline": "让敌人成为观众，让音乐重回舞台。",
+  "demoDuration": "90 秒浏览器射击游戏，无需注册。"
 }

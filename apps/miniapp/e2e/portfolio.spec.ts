@@ -86,3 +86,44 @@ test.describe("public browser game", () => {
     await client.detach();
   });
 });
+
+test("engineering evidence is readable on phone and desktop without protected API calls", async ({ page }) => {
+  const protectedRequests: string[] = [];
+  page.on("request", request => { if (/\/v2\/(game|runs|story)/.test(request.url())) protectedRequests.push(request.url()); });
+  await page.goto("/engineering");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Turn enemies into fans");
+  await expect(page.getByRole("link", { name: "Reproduce this experiment" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator("video").first().evaluate(async (video: HTMLVideoElement) => { video.muted = true; await video.play(); });
+  await expect.poll(() => page.locator("video").first().evaluate((video: HTMLVideoElement) => video.videoWidth)).toBeGreaterThan(0);
+  await page.locator("footer").scrollIntoViewIfNeeded();
+  await expect(page.locator("footer")).toBeInViewport();
+  expect(protectedRequests).toEqual([]);
+  await page.getByRole("link", { name: "Play the demo" }).click();
+  await expect(page.getByTestId("shooter-canvas")).toBeVisible();
+});
+
+test("a completed real demo exports a local PNG and resets its result on replay", async ({ page }) => {
+  test.setTimeout(90_000);
+  const protectedRequests: string[] = [];
+  page.on("request", request => { if (/\/v2\/(game|runs|story)/.test(request.url())) protectedRequests.push(request.url()); });
+  await page.clock.install();
+  await page.goto("/demo");
+  await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
+  await page.clock.runFor(41_000);
+  if (await page.getByTestId("demo-option-double-take").isVisible()) {
+    await page.getByTestId("demo-option-double-take").click();
+    await page.clock.runFor(46_000);
+  }
+  await expect(page.getByTestId("demo-end-actions")).toBeVisible();
+  await expect(page.getByTestId("demo-reversals")).toContainText(/\d/);
+  await page.getByRole("button", { name: "Switch language to Chinese" }).click();
+  await expect(page.getByTestId("demo-end-actions").getByRole("heading")).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByTestId("demo-end-actions").getByRole("button").nth(1).click();
+  expect((await download).suggestedFilename()).toBe("xuhuan-battle-card.png");
+  await page.getByTestId("demo-end-actions").getByRole("button").first().click();
+  await expect(page.getByTestId("demo-end-actions")).toHaveCount(0);
+  await expect(page.getByTestId("shooter-canvas")).toBeVisible();
+  expect(protectedRequests).toEqual([]);
+});

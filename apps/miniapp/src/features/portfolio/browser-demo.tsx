@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import useLocale from "@/components/providers/use-locale";
 import { gameText } from "@/features/game/game-copy";
@@ -11,6 +12,8 @@ import type {
 import { ShowChoicePreview } from "@/features/portfolio/show-choice-preview";
 import { ShooterArena } from "@/features/shooter/shooter-arena";
 import type { ShooterGameRun } from "@/lib/api/types";
+import type { ShooterResult } from "@/features/shooter/types";
+import { saveBattleCard } from "@/features/portfolio/battle-card";
 
 type DemoPhase = "wave" | "choice" | "boss" | "result";
 
@@ -51,7 +54,7 @@ const isManifest = (value: unknown): value is PortfolioDemoManifest => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<PortfolioDemoManifest>;
   return (
-    candidate.version === "demo-v2" &&
+    candidate.version === "demo-v3" &&
     (candidate.locale === "en" || candidate.locale === "zh-CN") &&
     candidate.content?.version === "v4" &&
     candidate.content.protocol === "shooter-v1" &&
@@ -73,6 +76,10 @@ export const BrowserDemo = () => {
   const [attempt, setAttempt] = useState(0);
   const [waveHealth, setWaveHealth] = useState(3);
   const [musicProgress, setMusicProgress] = useState(0);
+  const [result, setResult] = useState<ShooterResult | null>(null);
+  const [reversals, setReversals] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const text = useCallback(
     (key: Parameters<typeof gameText>[1]) => gameText(language, key),
     [language],
@@ -80,7 +87,7 @@ export const BrowserDemo = () => {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(`/game/v4/demo/demo-v2.${language}.json`, {
+    void fetch(`/game/v4/demo/demo-v3.${language}.json`, {
       signal: controller.signal,
       cache: "force-cache",
     })
@@ -106,6 +113,9 @@ export const BrowserDemo = () => {
     setAttempt((current) => current + 1);
     setWaveHealth(3);
     setMusicProgress(0);
+    setResult(null);
+    setReversals(0);
+    setSaveError(false);
   };
   const waveRun = useMemo(
     () => (manifest ? demoRun(manifest.wave) : null),
@@ -150,6 +160,8 @@ export const BrowserDemo = () => {
             onComplete={async (localResult) => {
               setWaveHealth(localResult.health);
               setMusicProgress(localResult.final.reversal?.breaks ?? 0);
+              setReversals(localResult.final.reversal?.breaks ?? 0);
+              setResult(localResult);
               setPhase(localResult.won ? "choice" : "result");
               return true;
             }}
@@ -174,6 +186,7 @@ export const BrowserDemo = () => {
               >
                 <ShowChoicePreview weapon={option.boss.runtime_config.reversal?.weapon === "pierce" ? "pierce" : "twin"} />
                 <strong className="grid min-h-12 place-items-center text-sm leading-5 text-white">{option.name}</strong>
+                <span className="block min-h-12 text-xs leading-5 text-slate-300">{text(option.boss.runtime_config.reversal?.weapon === "pierce" ? "demoPierceDescription" : "demoTwinDescription")}</span>
               </button>
             ))}
             </div>
@@ -188,18 +201,40 @@ export const BrowserDemo = () => {
             content={manifest.content}
             run={bossRun}
             busy={false}
-            onComplete={async () => {
+            onComplete={async (localResult) => {
+              setResult(localResult);
+              setReversals(musicProgress + (localResult.final.reversal?.breaks ?? 0));
               setPhase("result");
               return true;
             }}
           />
         ) : null}
 
-        {phase === "result" ? (
-          <section data-testid="demo-end-actions" className="absolute inset-0 grid content-center bg-[linear-gradient(rgba(2,5,14,.75),rgba(2,5,14,.96)),url('/game/v4/reversal/stage.webp')] bg-cover bg-center p-6 text-center text-white">
-            <button className="bg-cyan-200 px-5 py-3 font-bold text-slate-950" onClick={reset}>{text("demoRestart")}</button>
-            <a className="mt-3 border border-fuchsia-300/50 bg-fuchsia-400/10 px-5 py-3 font-bold text-fuchsia-100" href={telegramURL} rel="noreferrer" target="_blank">{text("demoTelegram")}</a>
-            <a className="mt-5 text-sm text-slate-300 underline underline-offset-4" href="https://github.com/achenachena/xuhuan" rel="noreferrer" target="_blank">GitHub</a>
+        {phase === "result" && result ? (
+          <section data-testid="demo-end-actions" className="absolute inset-0 overflow-y-auto bg-[linear-gradient(rgba(2,5,14,.85),rgba(2,5,14,.97)),url('/game/v4/reversal/stage.webp')] bg-cover bg-center px-5 pb-8 pt-16 text-center text-white">
+            <p className="mb-2 font-mono text-xs tracking-widest text-cyan-200">XUHUAN / ONLY ONE ONLINE</p>
+            <h1 className="text-2xl font-black leading-tight">{text(result.won ? "demoWon" : "demoLost")}</h1>
+            <dl className="my-5 grid grid-cols-2 gap-3 border-y border-white/20 py-4">
+              <div><dt className="text-xs text-slate-300">{text("demoReversals")}</dt><dd data-testid="demo-reversals" className="text-3xl font-black text-cyan-200">{reversals}</dd></div>
+              <div><dt className="text-xs text-slate-300">{text("demoHearts")}</dt><dd data-testid="demo-hearts" className="text-3xl font-black text-pink-200">{result.health} / 3</dd></div>
+            </dl>
+            {choiceID ? <p className="mb-3 text-sm text-slate-300">{text("demoTryOther")}</p> : null}
+            <div className="grid gap-3">
+            <button disabled={saving} className="bg-cyan-200 px-5 py-3 font-bold text-slate-950 disabled:opacity-50" onClick={reset}>{text("demoRestart")}</button>
+            <button disabled={saving} className="border border-cyan-200/40 px-4 py-2 text-sm disabled:opacity-50" onClick={async () => {
+              setSaving(true); setSaveError(false);
+              try { await saveBattleCard({ won: result.won, health: result.health, reversals }, language); }
+              catch { setSaveError(true); }
+              finally { setSaving(false); }
+            }}>{text("demoDownload")}</button>
+            {saveError ? <p role="alert" className="text-sm text-rose-200">{text("demoDownloadFailed")}</p> : null}
+            <Link className="py-2 font-semibold text-cyan-200 underline underline-offset-4" href="/engineering">{text("demoEngineering")}</Link>
+            <div className="flex justify-center gap-6 text-sm underline underline-offset-4">
+              <a href="https://github.com/achenachena/xuhuan/issues/new?title=Demo%20feedback&body=Where%20were%20you%20confused%3F%0A%0AWhat%20moment%20do%20you%20remember%3F%0A%0AWould%20you%20play%20again%3F%0A%0ADevice%20and%20browser%20(optional)%3A" rel="noreferrer" target="_blank">{text("demoFeedback")}</a>
+              <a href="https://github.com/achenachena/xuhuan" rel="noreferrer" target="_blank">GitHub</a>
+            </div>
+            <a className="mt-2 py-2 text-sm text-fuchsia-200 underline underline-offset-4" href={telegramURL} rel="noreferrer" target="_blank">{text("demoTelegram")}</a>
+            </div>
           </section>
         ) : null}
       </div>

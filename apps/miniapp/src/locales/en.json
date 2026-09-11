@@ -63,5 +63,18 @@
   "demoChoose": "Choose your main gun",
   "demoLoadError": "The game could not load.",
   "demoRestart": "Restart",
-  "demoTelegram": "Open Telegram"
+  "demoTelegram": "Open Telegram",
+  "demoWon": "YOU BROUGHT THE MUSIC BACK",
+  "demoLost": "THE SHOW CAN GO ON",
+  "demoReversals": "Cores reversed",
+  "demoHearts": "Hearts remaining",
+  "demoTryOther": "Next time, try the other weapon.",
+  "demoTwinDescription": "Two streams of fire. Cover both sides.",
+  "demoPierceDescription": "One powerful shot. Punch through a line.",
+  "demoDownload": "Save battle card",
+  "demoDownloadFailed": "Could not save the image. Please try again.",
+  "demoEngineering": "How it is built",
+  "demoFeedback": "Give feedback",
+  "demoTagline": "Turn enemies into fans. Bring the music back.",
+  "demoDuration": "A 90-second browser shooter. No signup."
 }

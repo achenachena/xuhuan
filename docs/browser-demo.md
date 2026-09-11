@@ -2,9 +2,11 @@
 
 ## Scope and play
 
-Both `/` (outside Telegram) and `/demo` start the local Nana demo directly. There is no introduction or portfolio landing page. A completed or failed attempt offers Restart, Telegram, and a smaller GitHub link. Restart begins a fresh attempt.
+Both `/` (outside Telegram) and `/demo` start the local Nana demo directly. There is no introduction or portfolio landing page. A completed or failed attempt shows the actual outcome, total core reversals across the wave and Boss, and final remaining hearts. Restart begins a fresh attempt and clears those statistics. A local PNG battle card can be downloaded; feedback, GitHub, engineering evidence and Telegram links are available without making Telegram a requirement.
 
-The `demo-v2` manifest selects an authored wave capped at 40 seconds, one animated choice between Twin Live Feed and Piercing Cannon, and an Optimal Nana Boss lasting at most 45 seconds. Clearing the final scheduled formation finishes the wave early; gaps before later formations do not. Horizontal dragging follows the finger directly; vertical dragging and release never move the player. The HUD stays outside the arena.
+The `demo-v3` manifest selects an authored wave capped at 40 seconds, one animated choice between Twin Live Feed and Piercing Cannon, and an Optimal Nana Boss lasting at most 45 seconds. Clearing the final scheduled formation finishes the wave early; gaps before later formations do not. The first centered controller arrives after one second, fires a visible salvo, and then exposes its core while the salvo remains on screen. Later formations begin after ten seconds. A centered aiming simulation verifies a visible reversal before ten seconds. This is an automated behavior check, not evidence of unfamiliar-player comprehension.
+
+Horizontal dragging follows the finger directly; vertical dragging and release never move the player. The HUD stays outside the arena.
 
 Wins stop combat for 450 ms, then advance automatically without pressing Rescue. The weapon choice is a direct tap or click; it is the only decision between the two fights. Victory and defeat both offer an explicit replay action.
 
@@ -41,3 +43,9 @@ The Nana atlas references the repository's existing character sprite. It remains
 Run frontend tests, Go tests, generated manifest/API checks, asset/source checks, and Playwright. Check ownership-scoped reversal, harmless fans and their lifetime/cap, hit feedback, weapon choices, boost expiry, health, Boss completion, mute/pause, continuous dragging, and restart. Browser coverage must include 320 x 568, a common phone size, and desktop, with no protected API requests in the demo. Existing Telegram journeys use isolated API fixtures and must keep passing.
 
 The owner authorized production release on 2026-09-07; independent human testing remains pending. Before extending this demo design into the campaign, let at least three unfamiliar players try twice without instruction. At least two should deliberately repeat a reversal, distinguish both weapon choices, remember a concrete moment, and want another attempt. Automated correctness checks are not evidence that the game is fun.
+
+## Engineering and outreach
+
+The separate `/engineering` page includes real gameplay with synthesized audio, architecture, captured HTTP/PostgreSQL retry evidence, and a reproducible collision benchmark. Videos load on demand (`preload="none"`). See [engineering-evidence.md](engineering-evidence.md), [playtest-kit.md](playtest-kit.md), and [promotion-kit.md](promotion-kit.md). Community drafts are not posts; independent playtests remain pending.
+
+The static manifest moved from `demo-v2` to `demo-v3` because released `/game/v4/` URLs are immutable-cached. Unreferenced v2 manifests were removed; campaign content and historical migrations are preserved.

@@ -1,7 +1,7 @@
 {
-  "version": "demo-v2",
+  "version": "demo-v3",
   "locale": "en",
-  "opening": "Where's my mod? ...Oh. Just you.",
+  "opening": "Drag left or right. Aim at the glowing core.",
   "content": {
     "version": "v4",
     "protocol": "shooter-v1",
@@ -325,13 +325,13 @@
             "escorts": 0
           },
           {
-            "at_tick": 120,
+            "at_tick": 300,
             "group_id": 2,
             "x": 1100,
             "escorts": 0
           },
           {
-            "at_tick": 240,
+            "at_tick": 420,
             "group_id": 3,
             "x": 1800,
             "escorts": 1

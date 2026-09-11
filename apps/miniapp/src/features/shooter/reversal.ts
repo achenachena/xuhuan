@@ -24,11 +24,11 @@ const spawn = (state: ShooterMutableState, role: ReversalRole, groupID: number, 
 export const spawnReversalGroups = (state: ShooterMutableState): void => {
   for (const group of state.config.reversal?.groups ?? []) {
     if (group.at_tick !== state.tick - 1) continue;
-    const learning = group.at_tick < 240;
-    spawn(state, learning ? "escort" : "controller", group.group_id, group.x, learning ? 24 : 100);
-    if (learning) {
+    spawn(state, "controller", group.group_id, group.x, 100);
+    // Fire before the first player shots arrive, making the opening reversal visible.
+    if (group.at_tick < 240) {
       const target = state.enemies.at(-1);
-      if (target?.groupID === group.group_id) target.fireClock = -10_000;
+      if (target?.groupID === group.group_id) target.fireClock = 75;
     }
     for (let index = 0; index < group.escorts; index += 1) {
       spawn(state, "escort", group.group_id, group.x + (index % 2 ? 520 : -520), 24);
@@ -74,7 +74,10 @@ export const updateReversalEnemy = (state: ShooterMutableState, enemy: ShooterEn
     return true;
   }
   // Opening the hatch is the tell, not a separate immunity rule.
-  enemy.exposed = enemy.fireClock >= 30 && enemy.fireClock < 90;
+  const opening = state.config.reversal.groups[0];
+  const firstCore = opening && opening.at_tick < 240 && enemy.groupID === opening.group_id;
+  // Expose the tutorial core immediately after its salvo, while bullets are still visible.
+  enemy.exposed = firstCore ? enemy.volley > 0 && enemy.fireClock < 30 : enemy.fireClock >= 30 && enemy.fireClock < 90;
   if (enemy.fireClock >= 90) {
     fire(state, enemy);
     enemy.fireClock = -45;

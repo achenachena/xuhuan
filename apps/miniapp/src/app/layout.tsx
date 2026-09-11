@@ -8,11 +8,11 @@ import { AudioProvider } from "@/components/providers/audio-provider";
 export const metadata: Metadata = {
   metadataBase: new URL("https://xuhuan-miniapp.vercel.app"),
   title: "Xuhuan: Only One Online",
-  description: "Drag, shoot, and turn hostile bullets into support. Play Xuhuan in your browser or continue the full story in Telegram.",
+  description: "Turn enemies into fans. Bring the music back. A 90-second browser shooter. No signup.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "Xuhuan: Only One Online",
-    description: "Drag, shoot, and turn hostile bullets into support. Keep the last impossible livestream online.",
+    description: "Turn enemies into fans. Bring the music back. A 90-second browser shooter. No signup.",
     url: "/",
     siteName: "Xuhuan: Only One Online",
     type: "website",
