@@ -22,7 +22,7 @@ const EngineeringPage = () => {
           <p className={styles.eyebrow}>A SMALL GAME. THE WHOLE SYSTEM.</p>
           <h1>Turn enemies into fans.<br /><em>Bring the music back.</em></h1>
           <p className={styles.intro}>A 90-second browser shooter. No signup. Break a control core, turn its bullets into support, and bring a robot into your audience.</p>
-          <div className={styles.actions}><Link className={styles.primary} href="/demo">Play the demo →</Link><a href="#reliable-progress">Explore the engineering ↓</a></div>
+          <div className={styles.actions}><Link className={styles.primary} href="/demo">Play the demo →</Link><Link href="/play">Full browser campaign →</Link><a href="#reliable-progress">Explore the engineering ↓</a></div>
           <p className={styles.caption}>Built with Go, PostgreSQL, TypeScript and Canvas. Designed for one-thumb play in Telegram.</p>
         </div>
         <figure className={styles.film}>
@@ -37,13 +37,13 @@ const EngineeringPage = () => {
       <section className={styles.section} aria-labelledby="architecture">
         <p className={styles.eyebrow}>01 / TWO EXPERIENCES, ONE RUNTIME</p>
         <h2 id="architecture">Fast under your thumb.<br />Durable where it matters.</h2>
-        <div className={styles.architecture} role="img" aria-label="The anonymous browser demo runs a local Canvas simulation with static manifests, without protected API calls. Telegram verifies initData through a Go Lambda API, storing durable progress in PostgreSQL. Redis stores disposable rate-limit counters only.">
-          <div><b>Browser demo</b><span>Canvas + static manifests</span><small>No account · no saved progress</small></div>
+        <div className={styles.architecture} role="img" aria-label="The browser runs Canvas combat locally. Its full campaign uses shared Go rules compiled to WebAssembly and stores progress in this browser, without protected API calls. Telegram verifies initData through a Go Lambda API, storing durable progress in PostgreSQL. Redis stores disposable rate-limit counters only.">
+          <div><b>Browser campaign</b><span>Canvas + shared Go rules in WebAssembly</span><small>Local browser saves · no account</small></div>
           <div><b>Telegram campaign</b><span>Same Canvas runtime</span><small>↓ Raw Telegram initData</small></div>
           <div><b>Go / AWS Lambda</b><span>Legal transitions + retries</span><small>↓ Atomic transactions</small></div>
           <div><b>PostgreSQL / Neon</b><span>Runs, commands, progress</span><small>Redis / Upstash: rate limits only</small></div>
         </div>
-        <p className={styles.note}>The public browser demo does not exercise the persistent API. The evidence below uses the actual backend in an isolated local test environment; it is not production player traffic.</p>
+        <p className={styles.note}>The browser demo and full browser campaign do not call the persistent API. Browser saves stay on the device and do not sync with Telegram. The evidence below uses the actual backend in an isolated local test environment; it is not production player traffic.</p>
       </section>
 
       <section id="reliable-progress" className={styles.section}>
@@ -85,7 +85,7 @@ const EngineeringPage = () => {
               <tbody><tr><th scope="row">Before: temporary arrays</th><td>38.81 ms</td></tr><tr><th scope="row">After: scalar bounds</th><td>31.50 ms</td></tr></tbody>
             </table>
             <p>Apple M4 · macOS arm64 · Node 22.18.0. Seven alternating trials after 200,000 warmup calls per function; identical results across 10,000 seeded trajectories.</p>
-            <hr /><b>Microbenchmark ≠ frame rate.</b><p>This measures collision-function execution, not full-game FPS, mobile battery life or real-user throughput.</p><hr /><b>30 Hz simulation, interpolated rendering.</b><p>The browser updates combat locally. A completed room produces one bounded result rather than frame-by-frame network traffic.</p></aside>
+            <hr /><b>Microbenchmark ≠ frame rate.</b><p>This measures collision-function execution, not full-game FPS, mobile battery life or real-user throughput.</p><hr /><b>30 Hz simulation, interpolated rendering.</b><p>The browser updates combat locally. Telegram submits one bounded room result; browser campaigns apply it locally with the same Go rules. Neither sends frame-by-frame network traffic.</p></aside>
         </div>
       </section>
 
@@ -93,7 +93,7 @@ const EngineeringPage = () => {
         <p className={styles.eyebrow}>04 / THE DECISIONS THAT KEPT IT SMALL</p>
         <h2>Constraints shaped the architecture.</h2>
         <div className={styles.decisions}>
-          <article><h3>One identity boundary</h3><p>Telegram initData is verified on the server. No additional JWT, session service or paid identity provider is needed for the campaign.</p></article>
+          <article><h3>One identity boundary</h3><p>Telegram initData is verified on the server. The browser campaign uses local saves without a player identity. Neither needs an additional JWT, session service or paid identity provider.</p></article>
           <article><h3>Local combat, server-owned progress</h3><p>This free single-player game has no economy or global leaderboard. Bounded client results are an explicit trust trade-off; the API enforces ownership and legal durable transitions.</p></article>
           <article><h3>Small operational footprint</h3><p>Lambda, Vercel, Neon and disposable Redis counters. No VPC, NAT gateway, Kubernetes cluster or frame-by-frame server replay.</p></article>
         </div>

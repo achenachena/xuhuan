@@ -14,7 +14,8 @@ const safeOrigin = (value) => {
 };
 
 const connectSources = new Set(["'self'", "https://*.telegram.org"]);
-const scriptSources = ["'self'", "'unsafe-inline'"];
+// Go campaign rules compile to WebAssembly; this permits WASM compilation, not JS eval.
+const scriptSources = ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'"];
 for (const value of [process.env.NEXT_PUBLIC_API_URL]) {
   const origin = safeOrigin(value);
   if (origin) connectSources.add(origin);

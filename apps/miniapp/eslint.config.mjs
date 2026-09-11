@@ -19,6 +19,7 @@ export default defineConfig([
   },
   globalIgnores([
     ".next/**",
+    "public/campaign/v1/wasm_exec.js",
     "out/**",
     "build/**",
     "playwright-report/**",
