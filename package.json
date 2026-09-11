@@ -7,7 +7,7 @@
     "apps/*"
   ],
   "overrides": {
-    "js-yaml": "4.3.1"
+    "js-yaml": "4.3.2"
   },
   "scripts": {
     "check:content-assets": "node scripts/check-content-assets.mjs",
