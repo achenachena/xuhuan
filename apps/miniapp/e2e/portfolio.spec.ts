@@ -109,6 +109,7 @@ test("a completed real demo exports a local PNG and resets its result on replay"
   page.on("request", request => { if (/\/v2\/(game|runs|story)/.test(request.url())) protectedRequests.push(request.url()); });
   await page.clock.install();
   await page.goto("/demo");
+  await expect(page.getByTestId("shooter-canvas")).toBeVisible();
   await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
   await page.clock.runFor(41_000);
   if (await page.getByTestId("demo-option-double-take").isVisible()) {
