@@ -1,5 +1,6 @@
 "use client";
 
+import { useAudio } from "@/components/providers/audio-provider";
 import useLocale from "@/components/providers/use-locale";
 import { formatGameText, gameText } from "@/features/game/game-copy";
 import { PixelRescueButton } from "@/features/shooter/pixel-rescue-button";
@@ -29,6 +30,7 @@ export const ShooterHUD = ({
   showMeter = true,
 }: Props) => {
   const { language } = useLocale();
+  const { muted, toggleMuted } = useAudio();
   const health = Math.max(0, snapshot?.health ?? fallbackHealth ?? 0);
   const hype = Math.max(0, Math.min(100, snapshot?.rescue_charge ?? 0));
   const rescueReady = hype >= 100 && !busy;
@@ -55,7 +57,7 @@ export const ShooterHUD = ({
           right: "var(--xuhuan-host-safe-right)",
         }}
       >
-        <div className="grid h-12 grid-cols-[auto_1fr] items-center gap-2 border border-cyan-200/25 bg-[#020713]/90 px-2 pr-11 shadow-[0_3px_0_rgba(34,211,238,.12)] backdrop-blur-sm">
+        <div className="grid h-12 grid-cols-[auto_1fr] items-center gap-2 border border-cyan-200/25 bg-[#020713]/90 px-2 pr-20 shadow-[0_3px_0_rgba(34,211,238,.12)] backdrop-blur-sm">
         <div className="min-w-[82px]" aria-label={`${gameText(language, "onAir")}: ${health}/3`}>
           <p className="flex justify-between font-mono text-[9px] font-black tracking-[.08em] text-rose-200">
             <span className="flex items-center gap-1">
@@ -93,6 +95,11 @@ export const ShooterHUD = ({
         </div>
         </div>
       </header>
+      <button type="button" onClick={toggleMuted} aria-label={gameText(language, muted ? "unmuteAudio" : "muteAudio")}
+        className="absolute z-[60] grid h-8 w-8 place-items-center border border-cyan-200/35 bg-[#071225] text-cyan-100"
+        style={{ top: "calc(var(--xuhuan-host-safe-top) + .25rem)", right: "calc(var(--xuhuan-host-safe-right) + 2.5rem)" }}>
+        {muted ? "♫̸" : "♫"}
+      </button>
       {onRescue ? <PixelRescueButton charge={hype} busy={busy} onRescue={onRescue} /> : null}
     </>
   );

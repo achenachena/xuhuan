@@ -89,15 +89,15 @@ export const RunResultScreen = ({
             {run.state.score.toLocaleString(locale === "en" ? "en-CA" : "zh-CN")}
           </p>
         </div>
-        <button
+        {!cleared && <button
           type="button"
           data-testid="replay-run"
           disabled={busy}
           onClick={onReplay}
           className="mt-4 min-h-11 w-full border-2 border-cyan-100 bg-cyan-200 px-4 py-3 text-sm font-black text-slate-950 shadow-[3px_3px_0_#155e75] active:translate-y-px active:shadow-none disabled:opacity-50"
         >
-          {gameText(locale, "replayRun")}
-        </button>
+          {locale === "en" ? "Try again" : "重新挑战"}
+        </button>}
         <button
           type="button"
           data-testid="return-to-hub"
@@ -105,7 +105,7 @@ export const RunResultScreen = ({
           onClick={onContinue}
           className="mt-3 min-h-11 w-full border border-cyan-200/40 bg-slate-900 px-4 py-3 text-sm font-bold text-cyan-100 disabled:opacity-50"
         >
-          {gameText(locale, "continue")}
+          {cleared && run.mode === "campaign" && !ending ? (locale === "en" ? "Next character →" : "下一位角色 →") : (locale === "en" ? "Chapters & challenges" : "章节与挑战")}
         </button>
         {onSelectChapter && <button type="button" disabled={busy} onClick={onSelectChapter}
           className="mt-4 min-h-11 text-sm text-slate-300 underline underline-offset-4">

@@ -18,7 +18,7 @@
     ]},
     "story":{
       "prelude":[{"sender":"jiaran","text_key":"story.always_cheerful.prelude.1"},{"sender":"xiangwan","text_key":"story.always_cheerful.prelude.2"}],
-      "intermission":{"after_segment":2,"prompt_key":"story.always_cheerful.intermission.prompt","messages":[{"sender":"jiaran","text_key":"story.always_cheerful.intermission.1"},{"sender":"bella","text_key":"story.always_cheerful.intermission.2"}],"choices":[
+      "intermission":{"after_segment":4,"prompt_key":"story.always_cheerful.intermission.prompt","messages":[{"sender":"jiaran","text_key":"story.always_cheerful.intermission.1"},{"sender":"bella","text_key":"story.always_cheerful.intermission.2"}],"choices":[
         {"id":"stop-autonomous-encore","label_key":"story.always_cheerful.choice.stop.label","result_key":"story.always_cheerful.choice.stop.result","tag":"stopped-false-encore","show_effect_id":"safety-chat"},
         {"id":"join-encore-with-consent","label_key":"story.always_cheerful.choice.join.label","result_key":"story.always_cheerful.choice.join.result","tag":"joined-with-consent","show_effect_id":"no-dead-air"}
       ]},

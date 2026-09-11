@@ -92,6 +92,17 @@ func completeSegment(state *State, seed string, mode Mode, segmentOutcome *Segme
 		return nil
 	}
 	if isFinalSegment(*state, mode) {
+		if mode == CampaignMode {
+			chapter, _ := catalog.Chapter(state.ChapterSlug)
+			choices := make([]string, 0, len(chapter.Story.Intermission.Choices))
+			for _, choice := range chapter.Story.Intermission.Choices {
+				choices = append(choices, choice.ID)
+			}
+			state.Phase, state.Segment = StoryPhase, nil
+			state.Story = &StoryState{SceneID: chapter.ID + "-intermission", ChoiceIDs: choices}
+			*events = append(*events, Event{Kind: "intermission_ready", SceneID: state.Story.SceneID})
+			return nil
+		}
 		return finishRun(state, catalog, events, outcome)
 	}
 	state.Phase = ShowChoicePhase
@@ -124,18 +135,6 @@ func chooseShowOption(state *State, seed string, mode Mode, optionID string, cat
 		return ErrInvalidCommand
 	}
 	state.PendingShowOptions = []string{}
-	chapter, _ := catalog.Chapter(state.ChapterSlug)
-	completedNumber := state.SegmentIndex + 1
-	if mode == CampaignMode && completedNumber == chapter.Story.Intermission.AfterSegment {
-		choices := make([]string, 0, len(chapter.Story.Intermission.Choices))
-		for _, choice := range chapter.Story.Intermission.Choices {
-			choices = append(choices, choice.ID)
-		}
-		state.Phase = StoryPhase
-		state.Story = &StoryState{SceneID: chapter.ID + "-intermission", ChoiceIDs: choices}
-		*events = append(*events, Event{Kind: "intermission_ready", SceneID: state.Story.SceneID})
-		return nil
-	}
 	state.SegmentIndex++
 	return startSegment(state, seed, mode, catalog)
 }
@@ -175,6 +174,10 @@ func chooseIntermissionReply(state *State, seed string, mode Mode, sceneID, opti
 	}
 	*events = append(*events, Event{Kind: "intermission_replied", SceneID: sceneID, ChoiceID: selected.ID, ChoiceTag: selected.Tag, ShowEffectID: selected.ShowEffectID})
 	state.Story = nil
+	if state.SegmentIndex == bossSegmentIndex {
+		return finishRun(state, catalog, events, outcome)
+	}
+	// Existing saves paused at the former mid-chapter scene still resume safely.
 	state.SegmentIndex++
 	return startSegment(state, seed, mode, catalog)
 }

@@ -83,6 +83,15 @@ func TestEveryCampaignChapterChoiceAndEncoreCompletes(t *testing.T) {
 						}
 						state = resolution.State
 						if segment == 3 {
+							if outcome != nil || state.Phase != StoryPhase || len(state.Story.ChoiceIDs) != 2 {
+								t.Fatalf("missing post-boss choice: %#v", state)
+							}
+							choice := chapter.Story.Intermission.Choices[storyOption]
+							resolution, outcome, err = Apply(state, name, CampaignMode, Command{Type: ChooseIntermissionReply, SceneID: state.Story.SceneID, OptionID: choice.ID}, catalog)
+							if err != nil || !slices.Contains(resolution.State.SelectedChoiceIDs, choice.ID) {
+								t.Fatalf("post-boss choice: %v", err)
+							}
+							state = resolution.State
 							if chapter.ID == "zero-channel" {
 								if outcome != nil || state.Phase != StoryPhase || state.Story == nil || len(state.Story.ChoiceIDs) != 3 {
 									t.Fatalf("finale did not expose three endings: %#v", state)
@@ -113,17 +122,7 @@ func TestEveryCampaignChapterChoiceAndEncoreCompletes(t *testing.T) {
 							t.Fatalf("gate %d selection failed: %v", segment, err)
 						}
 						state = resolution.State
-						if segment == 1 {
-							if state.Phase != StoryPhase || state.Story == nil || len(state.CompanionSlugs) != 1 {
-								t.Fatalf("missing companion/intermission: %#v", state)
-							}
-							choice := chapter.Story.Intermission.Choices[storyOption]
-							resolution, outcome, err = Apply(state, name, CampaignMode, Command{Type: ChooseIntermissionReply, SceneID: state.Story.SceneID, OptionID: choice.ID}, catalog)
-							if err != nil || outcome != nil || !slices.Contains(resolution.State.SelectedChoiceIDs, choice.ID) {
-								t.Fatalf("story choice %q failed: %v", choice.ID, err)
-							}
-							state = resolution.State
-						}
+
 					}
 				})
 			}

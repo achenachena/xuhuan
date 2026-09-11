@@ -18,7 +18,7 @@
     ]},
     "story":{
       "prelude":[{"sender":"system","text_key":"story.zero.prelude.1"},{"sender":"nana7mi","text_key":"story.zero.prelude.2"},{"sender":"group","text_key":"story.zero.prelude.3"}],
-      "intermission":{"after_segment":2,"prompt_key":"story.zero.intermission.prompt","messages":[{"sender":"system","text_key":"story.zero.intermission.1"},{"sender":"group","text_key":"story.zero.intermission.2"}],"choices":[
+      "intermission":{"after_segment":4,"prompt_key":"story.zero.intermission.prompt","messages":[{"sender":"system","text_key":"story.zero.intermission.1"},{"sender":"group","text_key":"story.zero.intermission.2"}],"choices":[
         {"id":"publish-mismatch-log","label_key":"story.zero.choice.mismatch.label","result_key":"story.zero.choice.mismatch.result","tag":"published-mismatch-log","show_effect_id":"still-live"},
         {"id":"publish-seven-approved-notes","label_key":"story.zero.choice.approved.label","result_key":"story.zero.choice.approved.result","tag":"published-approved-accounts","show_effect_id":"cohost-cue"}
       ]},

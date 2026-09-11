@@ -65,7 +65,7 @@ const loadImage = (source: string): Promise<HTMLImageElement | null> => {
     if (typeof Image === "undefined") return resolve(null);
     const image = new Image();
     image.decoding = "async";
-    image.onload = () => resolve(image);
+    image.onload = () => { void image.decode().then(() => resolve(image), () => resolve(image)); };
     image.onerror = () => resolve(null);
     image.src = source;
   });
@@ -89,7 +89,7 @@ export const resolveShooterVisualSources = (
   }
   const chapter = content.chapters.find((entry) => entry.id === run.state.chapter_slug);
   const character = content.characters.find((entry) => entry.id === run.state.character_slug);
-  const bossID = run.state.segment?.boss_id;
+  const bossID = run.state.segment?.boss_id ?? chapter?.boss.id;
   return {
     background: run.state.segment?.background_url ?? chapter?.background_url ?? `/game/v4/backgrounds/${run.state.chapter_slug}.webp`,
     player: character?.sprite_url ?? `/game/v4/players/${run.state.character_slug}.webp`,
@@ -648,10 +648,22 @@ const drawEffect = (context: CanvasRenderingContext2D, effect: ShooterEffectSnap
     context.strokeStyle = color;
     context.fillStyle = color;
     context.globalAlpha = clamp(effect.ticks / 12, 0.2, 1);
-    context.lineWidth = 18;
-    context.strokeRect(-180 - age * 8, -180 - age * 8, 360 + age * 16, 360 + age * 16);
-    for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
-      context.fillRect(x * (210 + age * 12) - 18, y * (150 + age * 10) - 18, 36, 36);
+    // Orbiting pixel stars and musical sparks leave the character unobscured.
+    for (let index = 0; index < 8; index++) {
+      const angle = index * Math.PI / 4 + age * 0.075;
+      const radius = 170 + age * 12;
+      const x = Math.round(Math.cos(angle) * radius / 12) * 12;
+      const y = Math.round(Math.sin(angle) * radius * 0.65 / 12) * 12 - age * 6;
+      const size = index % 2 ? 12 : 20;
+      context.fillStyle = index % 2 ? "#ffffff" : color;
+      context.fillRect(x - size * 2, y - size / 2, size * 4, size);
+      context.fillRect(x - size / 2, y - size * 2, size, size * 4);
+      if (index % 2 === 0) {
+        context.fillStyle = color;
+        context.fillRect(x + 18, y - 75, 12, 60);
+        context.fillRect(x + 30, y - 75, 30, 12);
+        context.fillRect(x - 6, y - 24, 36, 24);
+      }
     }
     context.restore();
     return;

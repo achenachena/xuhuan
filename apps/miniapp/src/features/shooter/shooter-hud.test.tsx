@@ -9,6 +9,8 @@ import zhCN from "@/locales/zh-CN.json";
 const locale = vi.hoisted(() => ({ language: "en" as "en" | "zh-CN" }));
 vi.mock("@/components/providers/use-locale", () => ({ default: () => locale }));
 
+vi.mock("@/components/providers/audio-provider", () => ({ useAudio: () => ({ muted: false, toggleMuted: vi.fn() }) }));
+
 describe("ShooterHUD shield indicator", () => {
   beforeEach(() => { locale.language = "en"; });
 
@@ -17,7 +19,7 @@ describe("ShooterHUD shield indicator", () => {
     const { rerender } = render(<ShooterHUD snapshot={{ ...snapshot, shield: 1 }} segmentIndex={0} boss={false} />);
     expect(screen.getByRole("img", { name: "Shield ready" })).toBeInTheDocument();
     expect(screen.getByText("ON AIR")).toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mute sound" })).toBeVisible();
     rerender(<ShooterHUD snapshot={{ ...snapshot, shield: 0 }} segmentIndex={0} boss={false} />);
     expect(screen.queryByRole("img", { name: "Shield ready" })).not.toBeInTheDocument();
   });

@@ -36,7 +36,7 @@ const endings: readonly ShooterStoryScene[] = [
     messages: [
       {
         sender_id: "nailu",
-        sender: "Nailu",
+        sender: "MikyGreen",
         text: "The flower shop closes on Tuesdays.",
       },
     ],

@@ -368,8 +368,11 @@ export const updatePickups = (state: ShooterMutableState): void => {
       state.pickupsCollected += 1;
       earnRescue(state, pickup.value);
       state.score += 40 * Math.max(1, state.combo);
-      state.pickupPower = pickup.kind;
-      state.pickupPowerTicks = state.config.reversal ? 240 : 150;
+      // Ordinary support notes extend a weapon rather than replacing it.
+      const samePower = state.pickupPower === pickup.kind || pickup.kind === "support";
+      const duration = state.config.reversal ? 360 : 450;
+      state.pickupPowerTicks = samePower ? Math.min(900, state.pickupPowerTicks + duration) : duration;
+      if (pickup.kind !== "support" || !state.pickupPower) state.pickupPower = pickup.kind;
       addShooterEffect(
         state,
         `support_powerup_${pickup.kind}`,

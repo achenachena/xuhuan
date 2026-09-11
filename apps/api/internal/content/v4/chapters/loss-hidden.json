@@ -18,7 +18,7 @@
     ]},
     "story":{
       "prelude":[{"sender":"xiangwan","text_key":"story.loss_hidden.prelude.1"},{"sender":"nana7mi","text_key":"story.loss_hidden.prelude.2"}],
-      "intermission":{"after_segment":2,"prompt_key":"story.loss_hidden.intermission.prompt","messages":[{"sender":"xiangwan","text_key":"story.loss_hidden.intermission.1"},{"sender":"system","text_key":"story.loss_hidden.intermission.2"}],"choices":[
+      "intermission":{"after_segment":4,"prompt_key":"story.loss_hidden.intermission.prompt","messages":[{"sender":"xiangwan","text_key":"story.loss_hidden.intermission.1"},{"sender":"system","text_key":"story.loss_hidden.intermission.2"}],"choices":[
         {"id":"restore-funniest-loss","label_key":"story.loss_hidden.choice.loss.label","result_key":"story.loss_hidden.choice.loss.result","tag":"restored-funniest-loss","show_effect_id":"instant-replay"},
         {"id":"mark-missing-loss","label_key":"story.loss_hidden.choice.gap.label","result_key":"story.loss_hidden.choice.gap.result","tag":"marked-missing-loss","show_effect_id":"double-take"}
       ]},

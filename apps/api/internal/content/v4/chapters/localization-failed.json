@@ -18,7 +18,7 @@
     ]},
     "story":{
       "prelude":[{"sender":"lulu","text_key":"story.localization.prelude.1"},{"sender":"system","text_key":"story.localization.prelude.2"},{"sender":"xiangwan","text_key":"story.localization.prelude.3"}],
-      "intermission":{"after_segment":2,"prompt_key":"story.localization.intermission.prompt","messages":[{"sender":"lulu","text_key":"story.localization.intermission.1"},{"sender":"jiaran","text_key":"story.localization.intermission.2"}],"choices":[
+      "intermission":{"after_segment":4,"prompt_key":"story.localization.intermission.prompt","messages":[{"sender":"lulu","text_key":"story.localization.intermission.1"},{"sender":"jiaran","text_key":"story.localization.intermission.2"}],"choices":[
         {"id":"publish-original-snark","label_key":"story.localization.choice.snark.label","result_key":"story.localization.choice.snark.result","tag":"kept-original-snark","show_effect_id":"close-call"},
         {"id":"post-caption-correction","label_key":"story.localization.choice.polite.label","result_key":"story.localization.choice.polite.result","tag":"posted-caption-correction","show_effect_id":"wide-angle"}
       ]},

@@ -58,6 +58,8 @@ The first pair is drawn only from twin shot, piercing shot, and angled spread: t
 
 Each pair uses a short animation preview and a direct tap or click. It does not require dragging into a target or holding a position. The selected companion's name and short description explain when that support acts.
 
+Temporary weapon pickups last 15 seconds. Matching pickups and ordinary support add time, capped at 30 seconds; ordinary support never replaces the current weapon. A different weapon starts a fresh 15 seconds.
+
 V4 has 12 shared, one-level show effects: twin shot, pierce, spread, stronger graze charge, special guard, pickup magnet, echo volley, boss damage, last-heart power, longer combo, Rescue charge from companion assists, and recovery drops.
 
 There is no upgrade level, duplicate stacking, reroll currency, shop, or six-slot inventory. A chapter attempt is short enough that three meaningful choices are sufficient.
@@ -72,9 +74,9 @@ There is no upgrade level, duplicate stacking, reroll currency, shop, or six-slo
 | Bella | Take Five | Clears bullets, counters, and adds one guard. |
 | Lulu | Caption Flip | Converts hostile shots into friendly glitches. |
 | Xingtong | Prism Call | Focuses a piercing beam through one lane. |
-| Nailu | Memory Bloom | Creates a damaging temporary safe garden. |
+| MikyGreen | Memory Bloom | Creates a damaging temporary safe garden. |
 
-Clearing each character chapter unlocks that performer as a starting companion for replays. The second gate may invite another guest for the current attempt. Companion assists are event-driven and automatic, with no additional button: Nana and Xiangwan follow Rescue, Jiaran protects the last heart, Bella clears the player's lane after near misses, Lulu converts bullets after a pickup chain, Xingtong responds to a Boss phase, and Nailu restores a missing heart when the segment starts. A saved older Nana assist still works without discarding its Run.
+Clearing each character chapter unlocks that performer as a starting companion for replays. The second gate may invite another guest for the current attempt. Companion assists are event-driven and automatic, with no additional button: Nana and Xiangwan follow Rescue, Jiaran protects the last heart, Bella clears the player's lane after near misses, Lulu converts bullets after a pickup chain, Xingtong responds to a Boss phase, and MikyGreen restores a missing heart when the segment starts. A saved older Nana assist still works without discarding its Run.
 
 ## Enemy language
 
@@ -107,14 +109,14 @@ The final stage raises pattern density but retains telegraphs. A boss is defeate
 | 4 | Captains Do Not Rest | Bella | Bella says goodnight, then a scheduling bot accepts three overnight shifts for her. | Perfect Captain |
 | 5 | Localization Failed | Lulu | Lulu's snark is translated into “thanks for the support,” and the group starts protecting her original wording. | Approved Translation |
 | 6 | Which One Is Original | Xingtong | Two live rehearsal rooms each ask the group to close the other; a backend read shows both are active. | Physical Original |
-| 7 | The Laplace Florist Never Existed | Nailu | A thanks-for-the-flowers photo exists before the flowers and stream; the archive is generating a future event. | Reality Auditor |
+| 7 | The Laplace Florist Never Existed | MikyGreen | A thanks-for-the-flowers photo exists before the flowers and stream; the archive is generating a future event. | Reality Auditor |
 | 8 | Zero Channel | Player choice | An anniversary stream looks normal, but all seven performers say, “not us.” | Auto-Archive System |
 
 Chapters unlock linearly and may be replayed. Every chapter contains:
 
 - a prelude of at most three short messages, available in chapter selection;
 - three capped waves, early formation clears, and staged build choices;
-- one concrete two-option intermission after the second wave;
+- one concrete two-option intermission after defeating the boss;
 - a three-stage boss;
 - a short epilogue; and
 - a replay recap that acknowledges the chapter is already known.

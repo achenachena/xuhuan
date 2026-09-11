@@ -12,7 +12,7 @@ Wins stop combat for 450 ms, then advance automatically without pressing Rescue.
 
 - Breaking a core immediately converts only its formation's hostile bullets into at most six harmless star-baton drops. Remaining escorts briefly power down.
 - A defeated controller or side device becomes a friendly robot with star eyes and two penlights. At most two robots join, fire at surviving enemies, then wave and leave after six seconds. They have no contact damage, recruit UI, inventory, or persistent identity.
-- Support charges Rescue and boosts the selected weapon for eight seconds; another pickup refreshes the duration. The demo has three hearts and at most one shield. Shield mechanics remain, but there is no colored cage or floating gun decoration around the character.
+- Support charges Rescue and boosts the selected weapon for twelve seconds; another pickup adds time up to thirty seconds. The demo has three hearts and at most one shield. Shield mechanics remain, but there is no colored cage or floating gun decoration around the character.
 - The original chiptune starts with a solo melody. Core reversals restore percussion, bass, and harmony. Sparse Boss glitches briefly interrupt it; Rescue restores the full arrangement for eight seconds. No beat-matching input is required.
 
 ## Implementation boundary

@@ -88,9 +88,9 @@ describe("gesture-gated local soundtrack", () => {
   it("keeps the original campaign melody and bass by default", () => {
     audio.setMusicActive(true);
     audio.markUserInteracted();
-    expect(notes()).toEqual([659, 110]);
+    expect(notes()).toEqual([659, 110, 65, 330]);
     vi.advanceTimersByTime(480);
-    expect(notes()).toEqual([659, 110, 784, 110]);
+    expect(notes()).toEqual([659, 110, 65, 330, 1760, 784, 110, 180]);
   });
 
   it.each([
@@ -129,7 +129,7 @@ describe("gesture-gated local soundtrack", () => {
     expect(context().oscillators.every((voice) => voice.disconnect.mock.calls.length === 1)).toBe(true);
     const previous = context().oscillators.length;
     vi.advanceTimersByTime(240);
-    expect(notes(previous)).toEqual([659, 110]);
+    expect(notes(previous)).toEqual([659, 110, 65, 330]);
   });
 });
 
@@ -248,8 +248,8 @@ describe("voice and lifecycle bounds", () => {
     audio.markUserInteracted();
     audio.playSound("victory");
     audio.setMusicActive(false);
-    expect(context().oscillators.slice(0, 2).every((voice) => voice.disconnect.mock.calls.length === 1)).toBe(true);
-    expect(context().oscillators.slice(2).every((voice) => voice.disconnect.mock.calls.length === 0)).toBe(true);
+    expect(context().oscillators.slice(0, 4).every((voice) => voice.disconnect.mock.calls.length === 1)).toBe(true);
+    expect(context().oscillators.slice(4).every((voice) => voice.disconnect.mock.calls.length === 0)).toBe(true);
     vi.advanceTimersByTime(700);
     expect(context().oscillators.every((voice) => voice.disconnect.mock.calls.length === 1)).toBe(true);
     expect(vi.getTimerCount()).toBe(0);

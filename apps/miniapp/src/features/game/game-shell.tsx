@@ -143,7 +143,14 @@ export const GameView = ({ locale, controller, localSave = false }: { readonly l
         run={run}
         locale={locale}
         busy={busy}
-        onContinue={() => void controller.returnToHub()}
+        onContinue={() => {
+          const index = content.chapters.findIndex(chapter => chapter.id === run.state.chapter_slug);
+          const next = content.chapters[index + 1];
+          if (run.outcome === "cleared" && mode === "campaign" && next) {
+            void controller.startCampaign(next.id, next.featured_character === "player-choice" ? "nana7mi" : next.featured_character, 0);
+          } else if (localSave) setSelectingChapter(true);
+          else void controller.returnToHub();
+        }}
         onSelectChapter={localSave ? () => setSelectingChapter(true) : undefined}
         onReplay={() => {
           if (mode === "daily") void controller.startDaily();
@@ -202,6 +209,7 @@ export const GameView = ({ locale, controller, localSave = false }: { readonly l
         }
         screen = (
           <StageIntermission
+            stageCleared={run.state.segment_index >= 3}
             backgroundURL={content.chapters.find(chapter => chapter.id === run.state.chapter_slug)?.background_url}
             scene={scene}
             locale={locale}
