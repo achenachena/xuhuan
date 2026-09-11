@@ -1,10 +1,12 @@
 import { createRequire } from "node:module";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 const require = createRequire(new URL("../apps/miniapp/package.json", import.meta.url));
 const { chromium } = require("@playwright/test");
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const output = process.argv[2] ?? "/tmp/xuhuan-demo-capture";
-await mkdir(output, { recursive: true });
+const output = process.argv[2] ?? await mkdtemp(join(tmpdir(), "xuhuan-demo-"));
+await mkdir(output, { recursive: true, mode: 0o700 });
 const browser = await chromium.launch({ channel: "chrome" });
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 740 }, deviceScaleFactor: 2 });
@@ -48,5 +50,5 @@ try {
   await page.waitForTimeout(5_000);
   await page.getByTestId("shooter-canvas").screenshot({ path: output + "/poster.png" });
   await writeFile(output + "/gameplay.webm", Buffer.from(await recording));
-  console.log("Recorded 18 seconds of unmodified gameplay with live Web Audio.");
+  console.log(`Recorded 18 seconds of unmodified gameplay with live Web Audio in ${output}.`);
 } finally { await browser.close(); }

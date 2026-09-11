@@ -50,10 +50,10 @@ The script loads the current TypeScript collision function and compares it to th
 With a local frontend server and Chrome installed:
 
 ```sh
-node scripts/record-demo.mjs /tmp/xuhuan-demo-capture
+node scripts/record-demo.mjs
 ```
 
-The capture script opens the real `/demo`, holds the pointer in the center, and records 18 seconds of Canvas plus Web Audio. An audio tap is injected into the recording browser only. It never ships in the game. The recording does not modify combat state, health or timing. The committed MP4 is transcoded from that WebM; its poster is a real Canvas capture. Captions describe the visible action and sound layers.
+The script reports its newly created private temporary output directory. An explicit output directory can also be passed as the first argument. The capture script opens the real `/demo`, holds the pointer in the center, and records 18 seconds of Canvas plus Web Audio. An audio tap is injected into the recording browser only. It never ships in the game. The recording does not modify combat state, health or timing. The committed MP4 is transcoded from that WebM; its poster is a real Canvas capture. Captions describe the visible action and sound layers.
 
 ## Player evidence is still pending
 
