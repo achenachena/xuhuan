@@ -374,7 +374,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
         ? currentSnapshot.tick < 90 && !runtime.config.boss
           ? openingRef.current ?? null
           : currentSnapshot.tick < 240 && !runtime.config.boss
-            ? gameText(languageRef.current, "demoMoveHint") : null
+            ? gameText(languageRef.current, "tutorialHold") : null
         : key ? gameText(languageRef.current, key) : null;
       drawShooterArena(
         canvasRef.current,

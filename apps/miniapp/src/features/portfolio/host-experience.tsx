@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 
 import useTelegramHost from "@/components/providers/use-telegram-host";
-import { BrowserDemo } from "@/features/portfolio/browser-demo";
+import { BrowserCampaign } from "@/features/campaign/browser-campaign";
 
 const GameShell = dynamic(() => import("@/features/game/game-shell"), {
   loading: () => <main aria-busy="true" className="min-h-screen bg-[#02050e]" />,
@@ -14,5 +14,5 @@ export const HostExperience = () => {
   if (host === "detecting") {
     return <main aria-busy="true" className="min-h-screen bg-[#02050e]" />;
   }
-  return host === "telegram" ? <GameShell /> : <BrowserDemo />;
+  return host === "telegram" ? <GameShell /> : <BrowserCampaign />;
 };

@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameLocale } from "@/features/game/game-copy";
 import type { RunMode } from "@/features/game/use-game-controller";
 import type { ShooterContent, ShooterGameRun, ShooterGameSnapshot, ShooterRunCommandInput, ShooterRunCommandResponse } from "@/lib/api/types";
-import { localAction, localContent, localSaveKey } from "./local-game";
+import { createLocalSession, localContent } from "./local-game";
 
 type State = { content: ShooterContent | null; game: ShooterGameSnapshot | null; loading: boolean; busy: boolean; error: unknown };
 export const useLocalGame = (locale: GameLocale) => {
   const [state, setState] = useState<State>({ content: null, game: null, loading: true, busy: false, error: null });
+  const [localAction] = useState(createLocalSession);
   const inFlight = useRef(false);
   const sequence = useRef(0);
   const retainRun = (next: ShooterGameRun | null, current: ShooterGameRun | null) => next && current && next.id === current.id && next.version === current.version ? current : next;
@@ -22,13 +23,11 @@ export const useLocalGame = (locale: GameLocale) => {
     } catch (error) {
       if (request === sequence.current) setState(current => ({ ...current, loading: false, error }));
     }
-  }, [locale]);
+  }, [locale, localAction]);
   useEffect(() => {
     void load();
-    const changed = (event: StorageEvent) => { if (event.key === localSaveKey || event.key === null) void load(); };
-    window.addEventListener("storage", changed);
     const requestSequence = sequence;
-    return () => { requestSequence.current++; window.removeEventListener("storage", changed); };
+    return () => { requestSequence.current++; };
   }, [load]);
   const mutate = useCallback(async (request: object, autoStart = false): Promise<ShooterRunCommandResponse | null> => {
     if (inFlight.current) return null;
@@ -50,7 +49,7 @@ export const useLocalGame = (locale: GameLocale) => {
       }
       return null;
     } finally { inFlight.current = false; }
-  }, []);
+  }, [localAction]);
   const startCampaign = useCallback(async (chapter: string, character: string, encore: number, companion?: string) => {
     await mutate({ action: "start", id: crypto.randomUUID(), mode: "campaign", chapter_slug: chapter, character_slug: character, encore_level: encore, companion_slug: companion });
   }, [mutate]);

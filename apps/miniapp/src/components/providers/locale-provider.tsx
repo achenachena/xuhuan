@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 
 import LocaleContext from "@/components/providers/locale-context";
 
@@ -25,9 +25,13 @@ const subscribe = (onStoreChange: () => void): (() => void) => {
 
 const LocaleProvider = ({ children, language }: Props) => {
   const initialLanguage = language ?? "en";
+  const sessionLanguage = useRef<Language | null>(null);
   const getSnapshot = useCallback(() => {
-    const saved = window.localStorage.getItem(storageKey);
-    return isLanguage(saved) ? saved : initialLanguage;
+    try {
+      const saved = window.localStorage.getItem(storageKey);
+      if (isLanguage(saved)) return saved;
+    } catch { /* Storage is optional; the game remains playable without it. */ }
+    return sessionLanguage.current ?? initialLanguage;
   }, [initialLanguage]);
   const getServerSnapshot = useCallback(() => initialLanguage, [initialLanguage]);
   const activeLanguage = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -37,7 +41,9 @@ const LocaleProvider = ({ children, language }: Props) => {
   }, [activeLanguage]);
 
   const setLanguage = useCallback((nextLanguage: Language) => {
-    window.localStorage.setItem(storageKey, nextLanguage);
+    sessionLanguage.current = nextLanguage;
+    try { window.localStorage.setItem(storageKey, nextLanguage); }
+    catch { /* Keep the language choice for this visit. */ }
     window.dispatchEvent(new Event(localeChangeEvent));
   }, []);
   const value = useMemo(

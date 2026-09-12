@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import demoManifest from "../../public/game/v4/demo/demo-v3.en.json";
+vi.mock("@/features/campaign/browser-campaign", () => ({ BrowserCampaign: () => <div data-testid="shooter-arena" /> }));
 
 const dependencies = vi.hoisted(() => ({
   getGameContent: vi.fn(),
@@ -60,7 +60,7 @@ describe("Shooter V4 game shell", () => {
     hostState.kind = "telegram";
     dependencies.getGameContent.mockResolvedValue(v4Content);
     dependencies.getGame.mockResolvedValue(createV4Game());
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => demoManifest }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -70,11 +70,9 @@ describe("Shooter V4 game shell", () => {
     render(<HomePage />);
 
     expect(await screen.findByTestId("shooter-arena")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Play full campaign" })).toHaveAttribute("href", "/play");
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
     expect(dependencies.getGame).not.toHaveBeenCalled();
     expect(dependencies.getGameContent).not.toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledWith("/game/v4/demo/demo-v3.en.json", expect.objectContaining({ cache: "force-cache" }));
   });
 
   it.each(["browser", "telegram"] as const)("waits for host detection before entering %s mode", async (host) => {

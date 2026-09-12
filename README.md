@@ -1,16 +1,16 @@
 # Xuhuan: Only One Online
 
-**Turn enemies into fans. Bring the music back.** A 90-second browser shooter. No signup.
+**An eight-chapter browser shooter. Open the page and play. No signup.**
 
-[Quick demo](https://xuhuan-miniapp.vercel.app/demo) · [Full campaign](https://xuhuan-miniapp.vercel.app/play) · [How it is built](https://xuhuan-miniapp.vercel.app/engineering) · [Give feedback](https://github.com/achenachena/xuhuan/issues/new)
+[Play](https://xuhuan-miniapp.vercel.app/play) · [How it is built](https://xuhuan-miniapp.vercel.app/engineering) · [Give feedback](https://github.com/achenachena/xuhuan/issues/new)
 
-<a href="https://xuhuan-miniapp.vercel.app/engineering"><img src="apps/miniapp/public/engineering/gameplay-poster.webp" width="260" alt="A real core reversal in the browser demo" /></a>
+<a href="https://xuhuan-miniapp.vercel.app/engineering"><img src="apps/miniapp/public/engineering/gameplay-poster.webp" width="260" alt="A core reversal in an earlier gameplay prototype" /></a>
 
-Aim at the glowing core: its bullets turn into support, the defeated machine becomes a cheering ally, and the music gains another layer. Choose a weapon, face the Boss, then save your battle card or try another run. Drag horizontally on phone or use drag/A/D/arrow keys on desktop; firing is automatic.
+Clear waves, pick upgrades, defeat each Boss, and continue with the next character. Drag horizontally on phone or use drag/A/D/arrow keys on desktop; firing is automatic.
 
-The quick demo needs no account. [Play the complete eight-chapter campaign in your browser](https://xuhuan-miniapp.vercel.app/play), with progress saved on this browser, or play through [Telegram](https://t.me/xuhuangamebot) with server-backed saves. Browser and Telegram saves are separate; clearing site data removes browser progress.
+[Play all eight chapters in your browser](https://xuhuan-miniapp.vercel.app/play) without an account. Each visit starts a fresh campaign; progress lasts for the current session. [Telegram](https://t.me/xuhuangamebot) keeps server-backed saves.
 
-The browser campaign runs the same Go progression rules as the server, compiled to WebAssembly and loaded only when entering `/play`. [Local-save behavior and reproduction](docs/browser-campaign.md).
+The browser campaign runs the same Go progression rules as the server, compiled to WebAssembly for `/` and `/play`. [Browser session behavior and reproduction](docs/browser-campaign.md).
 
 ## Engineering evidence
 
@@ -96,16 +96,9 @@ make api
 make miniapp
 ```
 
-Open `http://localhost:3000` or `/demo` for the short demo, or `/play` for the full browser campaign with local saves. Telegram `initData` selects the server-backed campaign at `/`. Playwright tests local saves directly and supplies isolated Telegram/API fixtures for server-backed journeys.
+Open `http://localhost:3000` or `/play` for the full browser campaign. Refreshing or opening another tab starts over. Old `/demo` links redirect to `/play`. Telegram `initData` selects the server-backed campaign at `/`. Playwright verifies fresh browser sessions and supplies isolated Telegram/API fixtures for server-backed journeys.
 
-Both public routes run `demo-v3`: an authored wave capped at 40 seconds, one visible weapon choice, and a Boss lasting at most 45 seconds. Clearing the final formation advances early; Rescue is never required to continue. Broken control cores turn their own formation's bullets into support; defeated machines become temporary penlight-waving allies. Each reversal restores another layer of the original local chiptune score. These demo-specific combat mechanics do not replace the eight-chapter campaign. Generate its static manifests from the Go catalog after relevant shooter or content changes:
-
-```sh
-npm run generate:portfolio-demo
-npm run check:portfolio-demo
-```
-
-See [browser-demo.md](docs/browser-demo.md) for its scope, implementation, and assets.
+The retired prototype manifests remain as fixtures for combat regression tests and the collision benchmark. The public game uses the full campaign rules compiled to WebAssembly.
 
 ## Verify a change
 
@@ -127,7 +120,7 @@ The V4 loader and CI reject missing chapters, boss stages, translations, referen
 
 ## Production release
 
-Merging does not silently publish production. The protected workflow builds one explicit current `main` commit, publishes an immutable Lambda version, deploys the Vercel artifact, and checks API health, content, public entry, and demo routes. Database migrations run separately only when a release actually changes schema. See [production-release.md](docs/production-release.md).
+Merging deploys the frontend through Vercel. API releases use the protected workflow with an explicit current `main` commit. See [production-release.md](docs/production-release.md).
 
 Runtime secrets stay in AWS SSM `SecureString` parameters. GitHub uses short-lived AWS OIDC credentials; Vercel deployment uses the existing scoped deployment credential. These are deployment requirements, not player accounts or game tokens.
 

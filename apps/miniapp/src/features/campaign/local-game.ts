@@ -1,9 +1,6 @@
 import type { GameLocale } from "@/features/game/game-copy";
 import type { ShooterContent, ShooterGameSnapshot, ShooterRunCommandResponse } from "@/lib/api/types";
 
-export const localSaveKey = "xuhuan.campaign.v1";
-export class LocalSaveError extends Error {}
-
 type EngineResponse = {
   save?: unknown;
   game?: ShooterGameSnapshot;
@@ -43,7 +40,6 @@ const loadEngine = (): Promise<void> => {
 const invoke = (request: object): EngineResponse => {
   if (!window.xuhuanCampaign) throw new Error("Campaign runtime unavailable");
   const response = JSON.parse(window.xuhuanCampaign(JSON.stringify(request))) as EngineResponse;
-  if (response.error === "local_save_invalid") throw new LocalSaveError("localSaveInvalid");
   if (response.error) throw new Error(response.error);
   return response;
 };
@@ -51,24 +47,11 @@ export const localContent = async (locale: GameLocale): Promise<ShooterContent> 
   await loadEngine();
   return invoke({ action: "content", locale }).content!;
 };
-export const readLocalSave = (): string | null => {
-  try { return localStorage.getItem(localSaveKey); }
-  catch { throw new LocalSaveError("localSaveUnavailable"); }
-};
-
-export const localAction = async (request: object, autoStart = false): Promise<EngineResponse> => {
-  await loadEngine();
-  if (!navigator.locks) throw new LocalSaveError("localSaveUnavailable");
-  // A Web Lock covers the entire read/advance/write so two tabs cannot silently
-  // overwrite each other's progress. This is a local lock, not player identity.
-  return navigator.locks.request(localSaveKey, () => {
-    const raw = readLocalSave();
-    let save: unknown = null;
-    if (raw !== null) {
-      try { save = JSON.parse(raw); }
-      catch { throw new LocalSaveError("localSaveInvalid"); }
-      if (!save) throw new LocalSaveError("localSaveInvalid");
-    }
+// Each mounted game owns its progress. Reloading or opening another page starts fresh.
+export const createLocalSession = () => {
+  let save: unknown = null;
+  return async (request: object, autoStart = false): Promise<EngineResponse> => {
+    await loadEngine();
     let response = invoke({ ...request, save });
     if (autoStart && response.game && !response.game.campaign_run && !response.game.daily_run) {
       const content = invoke({ action: "content", locale: "en" }).content!;
@@ -76,15 +59,7 @@ export const localAction = async (request: object, autoStart = false): Promise<E
       response = invoke({ action: "start", save: response.save, id: crypto.randomUUID(), mode: "campaign",
         chapter_slug: chapter.id, character_slug: chapter.featured_character === "player-choice" ? "nana7mi" : chapter.featured_character });
     }
-    try { localStorage.setItem(localSaveKey, JSON.stringify(response.save)); }
-    catch { throw new LocalSaveError("localSaveUnavailable"); }
+    save = response.save;
     return response;
-  });
-};
-export const resetLocalSave = async (): Promise<void> => {
-  if (!navigator.locks) throw new LocalSaveError("localSaveUnavailable");
-  await navigator.locks.request(localSaveKey, () => {
-    try { localStorage.removeItem(localSaveKey); }
-    catch { throw new LocalSaveError("localSaveUnavailable"); }
-  });
+  };
 };
