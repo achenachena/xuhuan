@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
 
 permissions:
@@ -13,7 +11,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.paths.outputs.frontend }}
+      backend: ${{ steps.paths.outputs.backend }}
+      infrastructure: ${{ steps.paths.outputs.infrastructure }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Select affected checks
+        id: paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/changed-paths"
+          # Workflow changes exercise every job. API content/OpenAPI also affect the browser.
+          for area in frontend backend infrastructure; do
+            case "$area" in
+              frontend) pattern='^(apps/miniapp/|apps/api/|package(-lock)?\.json$|scripts/|\.github/workflows/)' ;;
+              backend) pattern='^(apps/api/|apps/miniapp/public/(campaign/|game/v4/demo/)|scripts/build-browser-campaign\.mjs$|\.github/workflows/)' ;;
+              infrastructure) pattern='^(infra/|\.github/workflows/)' ;;
+            esac
+            if grep -Eq "$pattern" "$RUNNER_TEMP/changed-paths"; then
+              echo "$area=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$area=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
   infrastructure:
+    needs: changes
+    if: needs.changes.outputs.infrastructure == 'true'
     name: Terraform format and schema
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -33,34 +65,9 @@ jobs:
         run: terraform validate
 
   go-quality:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     name: Go format, vet, test, and contract
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: apps/api
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version-file: apps/api/go.mod
-          cache-dependency-path: apps/api/go.sum
-      - name: Verify formatting
-        run: test -z "$(gofmt -l .)"
-      - name: Vet
-        run: go vet ./...
-      - name: Unit and OpenAPI contract tests
-        run: go test ./...
-      - name: Verify generated browser demo manifests
-        run: go run ./cmd/export-portfolio-demo --check ../miniapp/public/game/v4/demo
-      - name: Verify shared browser campaign build
-        working-directory: .
-        run: node scripts/build-browser-campaign.mjs --check
-      - name: Build arm64 Lambda bootstrap
-        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/bootstrap ./cmd/lambda
-
-  integration:
-    name: PostgreSQL and Redis integration
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -98,13 +105,30 @@ jobs:
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
-      - name: Integration suite
-        run: go test ./internal/postgres ./internal/platform/ratelimit
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Unit, integration, and OpenAPI contract tests
+        run: go test -vet=all ./...
+      - name: Verify generated browser demo manifests
+        run: go run ./cmd/export-portfolio-demo --check ../miniapp/public/game/v4/demo
+      - name: Verify shared browser campaign build
+        working-directory: .
+        run: node scripts/build-browser-campaign.mjs --check
+      - name: Build arm64 Lambda bootstrap
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/bootstrap ./cmd/lambda
+
+      - name: Scan Go call graph for known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     name: Frontend contract, test, lint, type, and build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      PLAYWRIGHT_CHANNEL: chrome
+      NEXT_PUBLIC_API_URL: https://api.xuhuan.test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -113,7 +137,7 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Verify immutable content assets
+      - name: Verify content assets
         run: npm run check:content-assets
       - name: Verify generated OpenAPI types
         run: npm run check:api-types --workspace @xuhuan/miniapp
@@ -124,21 +148,9 @@ jobs:
       - name: Frontend production build
         run: npm run build --workspace @xuhuan/miniapp
 
-  e2e:
-    name: Browser smoke test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      PLAYWRIGHT_CHANNEL: chrome
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 20
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Run core browser journeys
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=critical
+      - name: Run core browser journeys against the production build
         run: npm run test:e2e --workspace @xuhuan/miniapp
       - name: Upload browser traces on failure
         if: failure()
@@ -147,27 +159,3 @@ jobs:
           name: playwright-results
           path: apps/miniapp/test-results
           if-no-files-found: ignore
-
-  dependency-security:
-    name: Dependency security
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 20
-          cache: npm
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version-file: apps/api/go.mod
-          cache-dependency-path: apps/api/go.sum
-      - name: Install dependencies
-        run: npm ci
-      - name: Audit runtime dependencies for critical advisories
-        run: npm audit --omit=dev --audit-level=critical
-      - name: Scan Go call graph for known vulnerabilities
-        working-directory: apps/api
-        env:
-          GOTOOLCHAIN: go1.26.6
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
