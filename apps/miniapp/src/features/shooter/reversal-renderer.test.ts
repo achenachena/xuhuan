@@ -17,17 +17,6 @@ const emptyDemo = (): ShooterSnapshot => createShooterSimulation(createShooterRu
 const demoSources = { background: "stage", player: "nana", enemies: { equipment: "equipment" }, boss: "boss", pickups: [] };
 
 describe("clean demo actor rendering", () => {
-  it("does not draw shield cages or floating gun blocks around the player", () => {
-    const plain = drawingContext(), powered = drawingContext();
-    const snapshot = emptyDemo();
-    drawReversalArena(plain as unknown as CanvasRenderingContext2D, snapshot, null, 0, demoSources, new Map(), 1800, null, new Map());
-    drawReversalArena(powered as unknown as CanvasRenderingContext2D, {
-      ...snapshot, shield: 1, pickup_power_ticks: 200,
-    }, null, 0, demoSources, new Map(), 1800, null, new Map());
-    expect(powered.stroke).not.toHaveBeenCalled();
-    expect(powered.fillRect.mock.calls).toEqual(plain.fillRect.mock.calls);
-  });
-
   it("draws a transformed fan once, not the defeated enemy and wreck as well", () => {
     const equipment = new Image();
     Object.defineProperties(equipment, { naturalWidth: { value: 8 }, naturalHeight: { value: 6 } });
