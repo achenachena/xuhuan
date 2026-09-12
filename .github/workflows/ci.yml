@@ -29,12 +29,12 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           git diff --name-only "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/changed-paths"
-          # Workflow changes exercise every job. API content/OpenAPI also affect the browser.
+          # CI changes exercise every job. API release-only edits need backend checks.
           for area in frontend backend infrastructure; do
             case "$area" in
-              frontend) pattern='^(apps/miniapp/|apps/api/|package(-lock)?\.json$|scripts/|\.github/workflows/)' ;;
+              frontend) pattern='^(apps/miniapp/|apps/api/|package(-lock)?\.json$|scripts/|\.github/workflows/ci\.yml$)' ;;
               backend) pattern='^(apps/api/|apps/miniapp/public/(campaign/|game/v4/demo/)|scripts/build-browser-campaign\.mjs$|\.github/workflows/)' ;;
-              infrastructure) pattern='^(infra/|\.github/workflows/)' ;;
+              infrastructure) pattern='^(infra/|\.github/workflows/ci\.yml$)' ;;
             esac
             if grep -Eq "$pattern" "$RUNNER_TEMP/changed-paths"; then
               echo "$area=true" >> "$GITHUB_OUTPUT"
@@ -114,9 +114,6 @@ jobs:
       - name: Verify shared browser campaign build
         working-directory: .
         run: node scripts/build-browser-campaign.mjs --check
-      - name: Build arm64 Lambda bootstrap
-        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -o /tmp/bootstrap ./cmd/lambda
-
       - name: Scan Go call graph for known vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 

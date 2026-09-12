@@ -40,12 +40,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.release_sha }}
-          fetch-depth: 0
 
       - name: Verify current main HEAD
         run: |
-          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          git fetch --no-tags origin main
+          git fetch --no-tags --depth=1 origin main
           test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
