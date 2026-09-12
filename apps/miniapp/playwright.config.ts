@@ -23,7 +23,9 @@ export default defineConfig({
   },
   projects: [
     {
+      // Only size-sensitive controls repeat on the smallest supported phone.
       name: "telegram-320x568",
+      grep: /@small-screen/,
       use: {
         ...devices["Pixel 5"],
         viewport: { width: 320, height: 568 },

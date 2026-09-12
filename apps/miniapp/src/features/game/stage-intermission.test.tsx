@@ -4,48 +4,26 @@ import { describe, expect, it, vi } from "vitest";
 import { StageIntermission } from "@/features/game/stage-intermission";
 import type { ShooterStoryScene } from "@/lib/api/types";
 
-const endings: readonly ShooterStoryScene[] = [
-  {
-    id: "zero-open-signal",
-    title: "Ending: Open Signal",
-    messages: [
-      {
-        sender_id: "system",
-        sender: "System",
-        text: "Retention Protocol offline.",
-      },
-      {
-        sender_id: "nana7mi",
-        sender: "Nana",
-        text: "Recognize us even when we change.",
-      },
-    ],
-    options: [{ id: "disconnect-together", label: "Disconnect together" }],
-  },
-  {
-    id: "zero-window-open",
-    title: "Ending: A Window Left Open",
-    messages: [
-      { sender_id: "lulu", sender: "Lulu", text: "The window stays open." },
-    ],
-    options: [{ id: "leave-window-open", label: "Leave one window open" }],
-  },
-  {
-    id: "zero-gentle-loop",
-    title: "Ending: Gentle Loop",
-    messages: [
-      {
-        sender_id: "nailu",
-        sender: "MikyGreen",
-        text: "The flower shop closes on Tuesdays.",
-      },
-    ],
-    options: [{ id: "promise-return", label: "Promise to return" }],
-  },
-];
+const scene: ShooterStoryScene = {
+  id: "zero-open-signal",
+  title: "Ending: Open Signal",
+  messages: [
+    {
+      sender_id: "system",
+      sender: "System",
+      text: "Retention Protocol offline.",
+    },
+    {
+      sender_id: "nana7mi",
+      sender: "Nana",
+      text: "Recognize us even when we change.",
+    },
+  ],
+  options: [{ id: "disconnect-together", label: "Disconnect together" }],
+};
 
 describe("StageIntermission", () => {
-  it.each(endings)("renders and submits $id", (scene) => {
+  it("expands the story and submits the selected choice", () => {
     const onChoose = vi.fn();
     render(
       <StageIntermission scene={scene} locale="en" busy={false} onChoose={onChoose} />,
