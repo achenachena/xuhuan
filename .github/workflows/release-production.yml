@@ -8,12 +8,6 @@ on:
         required: true
         type: string
 
-      deploy_frontend:
-        description: Deploy Vercel too (disable when the frontend is deployed separately)
-        required: false
-        default: true
-        type: boolean
-
 permissions:
   contents: read
   id-token: write
@@ -37,9 +31,6 @@ jobs:
       DATABASE_URL_PARAMETER: ${{ vars.AWS_DATABASE_URL_PARAMETER }}
       REDIS_URL_PARAMETER: ${{ vars.AWS_REDIS_URL_PARAMETER }}
       TELEGRAM_TOKEN_PARAMETER: ${{ vars.AWS_TELEGRAM_TOKEN_PARAMETER }}
-      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - name: Validate release commit
         run: |
@@ -61,11 +52,6 @@ jobs:
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 20
-          cache: npm
-
       - name: Build release artifacts
         run: |
           mkdir -p "$RUNNER_TEMP/xuhuan-lambda"
@@ -75,17 +61,6 @@ jobs:
             -o "$RUNNER_TEMP/xuhuan-lambda/bootstrap" ./cmd/lambda
           cd "$RUNNER_TEMP/xuhuan-lambda"
           zip -q lambda.zip bootstrap
-
-      # Validate frontend credentials and build before changing either production service.
-      - name: Prepare frontend release
-        if: inputs.deploy_frontend
-        run: |
-          npm ci
-          npm install --global vercel@57.0.0
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          test "$(jq -r .projectId .vercel/project.json)" = "$VERCEL_PROJECT_ID"
-          test "$(jq -r .orgId .vercel/project.json)" = "$VERCEL_ORG_ID"
-          vercel build --prod --token="$VERCEL_TOKEN"
 
       - name: Configure short-lived AWS credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
@@ -143,39 +118,16 @@ jobs:
             --description "$RELEASE_SHA" > /dev/null
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy frontend
-        if: inputs.deploy_frontend
-        id: vercel
-        run: |
-          url=$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" \
-            --meta "releaseSha=$RELEASE_SHA")
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-
       - name: API smoke test
         run: |
           api=${API_BASE_URL%/}
           test "$(curl --fail --silent --retry 5 "$api/healthz" | jq -r .version)" = "$RELEASE_SHA"
           test "$(curl --fail --silent --retry 5 "$api/readyz" | jq -r .status)" = "ready"
           test "$(curl --fail --silent --retry 5 "$api/v2/content/v4?locale=en" | jq -r .protocol)" = "shooter-v1"
-      - name: Frontend smoke test
-        if: inputs.deploy_frontend
-        env:
-          FRONTEND_URL: ${{ steps.vercel.outputs.url }}
-        run: |
-          vercel curl / --deployment "$FRONTEND_URL" -- \
-            --fail --silent | grep --fixed-strings --quiet 'data-testid="game-entry"'
-          vercel curl /engineering --deployment "$FRONTEND_URL" -- \
-            --fail --silent > /dev/null
-          vercel curl /demo --deployment "$FRONTEND_URL" -- \
-            --fail --silent > /dev/null
-          test "$(vercel curl /game/v4/demo/demo-v3.en.json --deployment "$FRONTEND_URL" -- \
-            --fail --silent | jq -r .version)" = "demo-v3"
-
       - name: Release summary
         run: |
           {
             echo "### Production release complete"
             echo "- Commit: $RELEASE_SHA"
             echo "- Lambda version: ${{ steps.lambda.outputs.version }}"
-            if [ -n "${{ steps.vercel.outputs.url }}" ]; then echo "- Vercel deployment: ${{ steps.vercel.outputs.url }}"; fi
           } >> "$GITHUB_STEP_SUMMARY"

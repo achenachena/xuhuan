@@ -11,8 +11,8 @@ export default defineConfig({
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",
     trace: "retain-on-failure"
   },
-  webServer: {
-    command: "npm run dev",
+  webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
+    command: process.env.CI ? "npm run start" : "npm run dev",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

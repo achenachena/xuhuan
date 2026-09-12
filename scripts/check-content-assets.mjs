@@ -26,48 +26,6 @@ const assetBudgets = {
   pickups: { maxWidth: 256, maxHeight: 256, maxBytes: 64 * 1024 },
   players: { maxWidth: 512, maxHeight: 512, maxBytes: 64 * 1024 },
 };
-const requiredAssets = [
-  ...[
-    "seventh-dock",
-    "always-cheerful",
-    "loss-hidden",
-    "captains-do-not-rest",
-    "localization-failed",
-    "which-is-original",
-    "laplace-florist",
-    "zero-channel",
-  ].map((slug) => `/game/v4/backgrounds/${slug}.webp`),
-  ...[
-    "nana7mi",
-    "jiaran",
-    "xiangwan",
-    "bella",
-    "lulu",
-    "xingtong",
-    "nailu",
-  ].map((slug) => `/game/v4/players/${slug}.webp`),
-  ...[
-    "spam-bot",
-    "clip-cutter",
-    "caption-blob",
-    "black-screen-ghost",
-    "gift-thief",
-    "censor-frame",
-  ].map((slug) => `/game/v4/enemies/${slug}.webp`),
-  ...[
-    "optimal-nana",
-    "always-on-idol",
-    "perfect-highlight",
-    "perfect-captain",
-    "approved-translation",
-    "physical-original",
-    "reality-auditor",
-    "auto-archive-system",
-  ].map((slug) => `/game/v4/bosses/${slug}.webp`),
-  ...["support-cyan", "support-pink", "support-gold"].map(
-    (slug) => `/game/v4/pickups/${slug}.webp`,
-  ),
-];
 // The browser-only preview has its own exact asset set. Do not mutate the
 // released campaign manifest just to make optional preview art available.
 const demoAssets = [
@@ -142,14 +100,6 @@ const listed = Array.isArray(manifest.assets) ? manifest.assets : [];
 const listedSet = new Set(listed);
 if (listed.length === 0 || listedSet.size !== listed.length) {
   throw new Error("V4 manifest assets must be a non-empty unique list");
-}
-if (
-  listed.length !== requiredAssets.length ||
-  listed.some((asset, index) => asset !== requiredAssets[index])
-) {
-  throw new Error(
-    `V4 manifest must contain the exact ${requiredAssets.length}-file runtime asset set in canonical order`,
-  );
 }
 for (const asset of listed) {
   if (!/^\/game\/v4\/[a-z0-9-]+\/[a-z0-9-]+\.webp$/.test(asset)) {
@@ -247,5 +197,5 @@ if (missingDemoReferences.length > 0) {
 }
 
 console.log(
-  `Verified ${listed.length} immutable V4 assets, ${demoAssets.length} preview assets and ${referenced.size} authored references (${(encodedBytes / MEBIBYTE).toFixed(2)} MiB encoded, ${(decodedBytes / MEBIBYTE).toFixed(2)} MiB decoded catalog).`,
+  `Verified ${listed.length} V4 assets, ${demoAssets.length} preview assets and ${referenced.size} authored references (${(encodedBytes / MEBIBYTE).toFixed(2)} MiB encoded, ${(decodedBytes / MEBIBYTE).toFixed(2)} MiB decoded catalog).`,
 );

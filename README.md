@@ -140,3 +140,14 @@ The production design has no VPC, NAT Gateway, API Gateway, load balancer, RDS, 
 This is a non-commercial, unofficial fan project and technical portfolio demonstration. It is not affiliated with or endorsed by any character, group, platform, or rights holder. The plot, dialogue, enemies, backgrounds, systems, and V4 aftershow situations are original fiction; they make no factual claims about real people. Character names and likenesses remain the property of their respective rights holders and can be removed upon a valid request.
 
 See [fan-reference-sources.md](docs/fan-reference-sources.md) for the deliberately conservative reference policy used by the V4 story.
+
+## Validation
+
+Run checks for the area you changed locally; CI is the full merge gate:
+
+- Frontend logic: `npm test -- <test-file>`; UI/input changes: `npm run test:e2e -- <spec-file>`.
+- Go logic: run `go test ./internal/<package>` from `apps/api`. Persistence changes also need the PostgreSQL/Redis integration environment.
+- Content or generated contracts: run the relevant `check:content-assets`, `check:portfolio-demo`, `check:browser-campaign`, or miniapp `check:api-types` command.
+- Use `npm run typecheck` for quick local feedback. A production `npm run build` already checks TypeScript, so running both consecutively is unnecessary.
+
+CI runs once per PR and selects frontend, backend, and Terraform jobs by changed paths. Backend unit and integration tests share one run. Frontend tests, lint, dependency audit, build, and browser checks share one installation; browser checks use that production build. Security scanning and generated-file checks remain part of the relevant jobs. An external `PLAYWRIGHT_BASE_URL` uses that server without starting a second local server.
