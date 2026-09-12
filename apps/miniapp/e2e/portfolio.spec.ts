@@ -18,13 +18,14 @@ test.describe("public browser game", () => {
     expect(protectedRequests).toEqual([]);
   });
 
-  test("starts the static browser demo without API writes", async ({ page }) => {
+  test("old demo links redirect to the full campaign without API writes", async ({ page }) => {
     const protectedRequests: string[] = [];
     page.on("request", (request) => {
       if (/\/v2\/(game|runs|story)/.test(request.url())) protectedRequests.push(request.url());
     });
 
-    await page.goto("/demo", { waitUntil: "networkidle" });
+    await page.goto("/demo");
+    await expect(page).toHaveURL(/\/play$/);
     await expect(page.locator("canvas")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Portfolio Demo")).toHaveCount(0);
     await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
@@ -32,7 +33,7 @@ test.describe("public browser game", () => {
   });
 
   test("follows a continuously held mouse, ignores Y, and stops on release", async ({ page }) => {
-    await page.goto("/demo");
+    await page.goto("/play");
     const surface = page.getByTestId("shooter-control-surface");
     await expect(surface).toBeVisible();
     await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
@@ -61,7 +62,7 @@ test.describe("public browser game", () => {
   });
 
   test("survives twenty real touch drags and a language switch without restarting", async ({ page, context }) => {
-    await page.goto("/demo");
+    await page.goto("/play");
     const surface = page.getByTestId("shooter-control-surface");
     await expect(surface).toBeVisible();
     await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
@@ -99,32 +100,6 @@ test("engineering evidence is readable on phone and desktop without protected AP
   await page.locator("footer").scrollIntoViewIfNeeded();
   await expect(page.locator("footer")).toBeInViewport();
   expect(protectedRequests).toEqual([]);
-  await page.getByRole("link", { name: "Play the demo" }).click();
+  await page.getByRole("link", { name: "Play the game" }).click();
   await expect(page.getByTestId("shooter-canvas")).toBeVisible();
-});
-
-test("a completed real demo exports a local PNG and resets its result on replay", async ({ page }) => {
-  test.setTimeout(90_000);
-  const protectedRequests: string[] = [];
-  page.on("request", request => { if (/\/v2\/(game|runs|story)/.test(request.url())) protectedRequests.push(request.url()); });
-  await page.clock.install();
-  await page.goto("/demo");
-  await expect(page.getByTestId("shooter-canvas")).toBeVisible();
-  await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
-  await page.clock.runFor(41_000);
-  if (await page.getByTestId("demo-option-double-take").isVisible()) {
-    await page.getByTestId("demo-option-double-take").click();
-    await page.clock.runFor(46_000);
-  }
-  await expect(page.getByTestId("demo-end-actions")).toBeVisible();
-  await expect(page.getByTestId("demo-reversals")).toContainText(/\d/);
-  await page.getByRole("button", { name: "Switch language to Chinese" }).click();
-  await expect(page.getByTestId("demo-end-actions").getByRole("heading")).toBeVisible();
-  const download = page.waitForEvent("download");
-  await page.getByTestId("demo-end-actions").getByRole("button").nth(1).click();
-  expect((await download).suggestedFilename()).toBe("xuhuan-battle-card.png");
-  await page.getByTestId("demo-end-actions").getByRole("button").first().click();
-  await expect(page.getByTestId("demo-end-actions")).toHaveCount(0);
-  await expect(page.getByTestId("shooter-canvas")).toBeVisible();
-  expect(protectedRequests).toEqual([]);
 });

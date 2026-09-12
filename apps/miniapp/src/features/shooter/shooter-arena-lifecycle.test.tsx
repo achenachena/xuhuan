@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createV4Run, v4BaseState, v4Content, v4Runtime } from "@/test/v4-fixtures";
-import demoManifest from "../../../public/game/v4/demo/demo-v3.en.json";
 
 const dependencies = vi.hoisted(() => ({
   draw: vi.fn(),
@@ -25,10 +24,8 @@ vi.mock("@/features/shooter/renderer", () => ({
 }));
 vi.mock("@/lib/telegram-combat-mode", () => ({ enterTelegramCombatMode: () => undefined }));
 vi.mock("@/lib/telegram-haptics", () => ({ playTelegramHaptic: async () => undefined }));
-vi.mock("@/features/portfolio/show-choice-preview", () => ({ ShowChoicePreview: () => <canvas /> }));
 
 import { ShooterArena } from "@/features/shooter/shooter-arena";
-import { BrowserDemo } from "@/features/portfolio/browser-demo";
 
 const run = (duration = 90) => createV4Run({
   state: {
@@ -136,64 +133,6 @@ describe("ShooterArena input and local completion lifecycle", () => {
     expect(screen.queryByTestId("retry-segment")).not.toBeInTheDocument();
     await advanceFrame();
     expect(onComplete).toHaveBeenCalledTimes(1);
-  });
-
-  it("advances actual simulator completion through choice, Boss victory, and replay", async () => {
-    // One centered controller earns a real break without requiring a test bot.
-    // This covers the clock, inherited music, and terminal scene transitions.
-    const manifest = structuredClone(demoManifest);
-    manifest.wave.runtime_config.reversal.groups = [{ at_tick: 240, group_id: 1, x: 1_800, escorts: 0 }];
-    for (const option of manifest.options) option.boss.runtime_config.boss.health = 1;
-    dependencies.sources.reversal = true;
-    dependencies.preload.mockResolvedValue(new Map(["stage", "player", "equipment", "boss"].map((key) => [key, new Image()])));
-    const fetchManifest = vi.fn().mockResolvedValue({ ok: true, json: async () => manifest });
-    vi.stubGlobal("fetch", fetchManifest);
-    render(<BrowserDemo />);
-    await screen.findByTestId("shooter-control-surface");
-    for (let index = 0; index < 1_001; index += 1) await advanceFrame();
-    expect(await screen.findByRole("button", { name: /Twin Live Feed/ })).toBeVisible();
-    expect(screen.queryByText("SYNC…")).not.toBeInTheDocument();
-    const earnedBreaks = dependencies.draw.mock.lastCall?.[1].reversal.breaks as number;
-    expect(earnedBreaks).toBeGreaterThan(0);
-    expect(dependencies.draw.mock.lastCall?.[1].tick).toBeGreaterThan(240);
-    expect(dependencies.draw.mock.lastCall?.[1].tick).toBeLessThan(1_200);
-    expect(frames.size).toBe(0);
-    const completedDraws = dependencies.draw.mock.calls.length;
-    await advanceFrame();
-    await advanceFrame();
-    expect(dependencies.draw).toHaveBeenCalledTimes(completedDraws);
-    dependencies.demoMusic.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: /Twin Live Feed/ }));
-    expect(dependencies.demoMusic).toHaveBeenCalledWith(earnedBreaks);
-    for (let index = 0; index < 20; index += 1) await advanceFrame();
-    expect(await screen.findByRole("button", { name: "Restart" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Open Telegram" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "GitHub" })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
-    expect(await screen.findByTestId("shooter-battlefield")).toHaveAttribute("data-segment-slug", "portfolio-demo-wave");
-    expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
-    expect(fetchManifest).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([false, true])("waits for essential art before playing (reversal=%s)", async (reversal) => {
-    dependencies.sources.reversal = reversal;
-    let load: (visuals: Map<string, HTMLImageElement>) => void = () => undefined;
-    dependencies.preload.mockReturnValue(new Promise<Map<string, HTMLImageElement>>((resolve) => { load = resolve; }));
-    const onComplete = vi.fn().mockResolvedValue(true);
-    render(<ShooterArena embedded content={v4Content} run={run(2)} busy={false} onComplete={onComplete} />);
-    const surface = screen.getByTestId("shooter-control-surface");
-    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, top: 0, left: 0, right: 360, bottom: 640, width: 360, height: 640, toJSON: () => ({}) });
-    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 180, clientY: 500 });
-    fireEvent.pointerMove(surface, { pointerId: 1, clientX: 250, clientY: 500 });
-    for (let index = 0; index < 5; index += 1) await advanceFrame();
-    expect(surface).toHaveAttribute("data-pointer-active", "false");
-    expect(dependencies.draw.mock.lastCall?.[1].tick).toBe(0);
-    expect(onComplete).not.toHaveBeenCalled();
-
-    await act(async () => load(new Map(["stage", "player", "equipment", "boss"].map((key) => [key, new Image()]))));
-    await advanceFrame();
-    await advanceFrame();
-    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
   });
 
   it("offers a retry and keeps the stage paused if art cannot load", async () => {

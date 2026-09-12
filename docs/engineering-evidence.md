@@ -1,6 +1,6 @@
 # Reproduce the engineering evidence
 
-The anonymous browser demo uses static manifests and does not call the persistent API. This experiment uses the real HTTP router, Telegram signature verifier, game service, run repository, migrations and PostgreSQL. It uses a synthetic player in a disposable schema, not production traffic. There is no public test endpoint or new identity mechanism.
+The browser campaign runs the shared Go rules through WebAssembly, keeps progress in memory for the current visit, and does not call the persistent API. This experiment uses the real HTTP router, Telegram signature verifier, game service, run repository, migrations and PostgreSQL. It uses a synthetic player in a disposable schema, not production traffic. There is no public test endpoint or new identity mechanism.
 
 ## Retry and stale-client experiment
 
@@ -45,12 +45,6 @@ The script loads the current TypeScript collision function and compares it to th
 
 [Captured output](evidence/collision-benchmark.txt) includes the actual Node version and CPU. This supersedes the earlier ad hoc single-run measurement in PR #81; the harness and timings differ. Neither measurement establishes game FPS, battery savings, production throughput or engagement.
 
-## Media capture
+## Gameplay footage
 
-With a local frontend server and Chrome installed:
-
-```sh
-node scripts/record-demo.mjs
-```
-
-The script reports its newly created private temporary output directory. An explicit output directory can also be passed as the first argument. The capture script opens the real `/demo`, holds the pointer in the center, and records 18 seconds of Canvas plus Web Audio. An audio tap is injected into the recording browser only. It never ships in the game. The recording does not modify combat state, health or timing. The committed MP4 is transcoded from that WebM; its poster is a real Canvas capture. Captions describe the visible action and sound layers.
+The committed gameplay clips document the earlier short prototype, before the full browser campaign replaced it. They were recorded from real Canvas and Web Audio output without modifying combat state, health or timing. The engineering page labels this historical footage. Play the current campaign at `/play`; the retired prototype recording script has been removed.

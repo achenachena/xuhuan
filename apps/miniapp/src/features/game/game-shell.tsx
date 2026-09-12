@@ -82,7 +82,7 @@ const GameShell = () => {
   return <GameView locale={locale} controller={controller} />;
 };
 
-export const GameView = ({ locale, controller, localSave = false }: { readonly locale: GameLocale; readonly controller: ReturnType<typeof useGameController>; readonly localSave?: boolean }) => {
+export const GameView = ({ locale, controller, browserSession = false }: { readonly locale: GameLocale; readonly controller: ReturnType<typeof useGameController>; readonly browserSession?: boolean }) => {
   const { content, game, loading, busy, error } = controller;
   const [selectingChapter, setSelectingChapter] = useState(false);
   const [requestedMode, setRequestedMode] = useState<RunMode>("campaign");
@@ -148,10 +148,10 @@ export const GameView = ({ locale, controller, localSave = false }: { readonly l
           const next = content.chapters[index + 1];
           if (run.outcome === "cleared" && mode === "campaign" && next) {
             void controller.startCampaign(next.id, next.featured_character === "player-choice" ? "nana7mi" : next.featured_character, 0);
-          } else if (localSave) setSelectingChapter(true);
+          } else if (browserSession) setSelectingChapter(true);
           else void controller.returnToHub();
         }}
-        onSelectChapter={localSave ? () => setSelectingChapter(true) : undefined}
+        onSelectChapter={browserSession ? () => setSelectingChapter(true) : undefined}
         onReplay={() => {
           if (mode === "daily") void controller.startDaily();
           else void controller.startCampaign(run.state.chapter_slug, run.state.character_slug, run.state.encore_level);

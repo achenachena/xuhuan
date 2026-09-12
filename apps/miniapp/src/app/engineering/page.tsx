@@ -21,8 +21,8 @@ const EngineeringPage = () => {
         <div>
           <p className={styles.eyebrow}>A SMALL GAME. THE WHOLE SYSTEM.</p>
           <h1>Turn enemies into fans.<br /><em>Bring the music back.</em></h1>
-          <p className={styles.intro}>A 90-second browser shooter. No signup. Break a control core, turn its bullets into support, and bring a robot into your audience.</p>
-          <div className={styles.actions}><Link className={styles.primary} href="/demo">Play the demo →</Link><Link href="/play">Full browser campaign →</Link><a href="#reliable-progress">Explore the engineering ↓</a></div>
+          <p className={styles.intro}>An eight-chapter browser shooter. No signup. Each visit starts a fresh campaign; play through the cast in one session.</p>
+          <div className={styles.actions}><Link className={styles.primary} href="/play">Play the game →</Link><a href="#reliable-progress">Explore the engineering ↓</a></div>
           <p className={styles.caption}>Built with Go, PostgreSQL, TypeScript and Canvas. Designed for one-thumb play in Telegram.</p>
         </div>
         <figure className={styles.film}>
@@ -30,20 +30,20 @@ const EngineeringPage = () => {
             <source src="/engineering/gameplay.mp4" type="video/mp4" />
             <track kind="captions" src="/engineering/gameplay.en.vtt" srcLang="en" label="English" default />
           </video>
-          <figcaption>01 / Actual browser capture. Aim → reverse → recruit. <a href="/engineering/gameplay.mp4" download>Download clip</a></figcaption>
+          <figcaption>01 / Earlier gameplay prototype. Aim → reverse → recruit. <a href="/engineering/gameplay.mp4" download>Download clip</a></figcaption>
         </figure>
       </header>
 
       <section className={styles.section} aria-labelledby="architecture">
         <p className={styles.eyebrow}>01 / TWO EXPERIENCES, ONE RUNTIME</p>
         <h2 id="architecture">Fast under your thumb.<br />Durable where it matters.</h2>
-        <div className={styles.architecture} role="img" aria-label="The browser runs Canvas combat locally. Its full campaign uses shared Go rules compiled to WebAssembly and stores progress in this browser, without protected API calls. Telegram verifies initData through a Go Lambda API, storing durable progress in PostgreSQL. Redis stores disposable rate-limit counters only.">
-          <div><b>Browser campaign</b><span>Canvas + shared Go rules in WebAssembly</span><small>Local browser saves · no account</small></div>
+        <div className={styles.architecture} role="img" aria-label="The browser runs Canvas combat locally. Its full campaign uses shared Go rules compiled to WebAssembly and keeps progress in memory for the current visit, without protected API calls. Telegram verifies initData through a Go Lambda API, storing durable progress in PostgreSQL. Redis stores disposable rate-limit counters only.">
+          <div><b>Browser campaign</b><span>Canvas + shared Go rules in WebAssembly</span><small>Fresh session · no account</small></div>
           <div><b>Telegram campaign</b><span>Same Canvas runtime</span><small>↓ Raw Telegram initData</small></div>
           <div><b>Go / AWS Lambda</b><span>Legal transitions + retries</span><small>↓ Atomic transactions</small></div>
           <div><b>PostgreSQL / Neon</b><span>Runs, commands, progress</span><small>Redis / Upstash: rate limits only</small></div>
         </div>
-        <p className={styles.note}>The browser demo and full browser campaign do not call the persistent API. Browser saves stay on the device and do not sync with Telegram. The evidence below uses the actual backend in an isolated local test environment; it is not production player traffic.</p>
+        <p className={styles.note}>The browser campaign does not call the persistent API. Progress stays in memory for this visit; reopening the game starts over. Telegram saves remain on the server. The evidence below uses the actual backend in an isolated local test environment; it is not production player traffic.</p>
       </section>
 
       <section id="reliable-progress" className={styles.section}>
@@ -93,7 +93,7 @@ const EngineeringPage = () => {
         <p className={styles.eyebrow}>04 / THE DECISIONS THAT KEPT IT SMALL</p>
         <h2>Constraints shaped the architecture.</h2>
         <div className={styles.decisions}>
-          <article><h3>One identity boundary</h3><p>Telegram initData is verified on the server. The browser campaign uses local saves without a player identity. Neither needs an additional JWT, session service or paid identity provider.</p></article>
+          <article><h3>One identity boundary</h3><p>Telegram initData is verified on the server. The browser campaign uses session progress without a player identity. Neither needs an additional JWT, session service or paid identity provider.</p></article>
           <article><h3>Local combat, server-owned progress</h3><p>This free single-player game has no economy or global leaderboard. Bounded client results are an explicit trust trade-off; the API enforces ownership and legal durable transitions.</p></article>
           <article><h3>Small operational footprint</h3><p>Lambda, Vercel, Neon and disposable Redis counters. No VPC, NAT gateway, Kubernetes cluster or frame-by-frame server replay.</p></article>
         </div>
@@ -101,7 +101,7 @@ const EngineeringPage = () => {
       </section>
       <footer className={styles.footer}>
         <h2>Try the game.<br />Ask about the trade-offs.</h2>
-        <div className={styles.actions}><Link className={styles.primary} href="/demo">Play in your browser →</Link><a href={repo}>Explore the repository ↗</a></div>
+        <div className={styles.actions}><Link className={styles.primary} href="/play">Play in your browser →</Link><a href={repo}>Explore the repository ↗</a></div>
         <p>Unofficial, non-commercial fan project. Character rights belong to their respective holders. See the repository for art provenance.</p>
       </footer>
     </main>

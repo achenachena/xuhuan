@@ -4,7 +4,7 @@ import { BrowserCampaign } from "@/features/campaign/browser-campaign";
 
 export const metadata: Metadata = {
   title: "Play the full campaign — Xuhuan",
-  description: "Play all eight chapters in your browser. No signup. Progress saves on this device.",
+  description: "Play all eight chapters in your browser. No signup. Each visit starts a fresh campaign.",
   alternates: { canonical: "/play" },
 };
 const PlayPage = () => <><BrowserCampaign /><LanguageToggle /></>;
