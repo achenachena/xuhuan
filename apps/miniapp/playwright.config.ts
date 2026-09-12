@@ -4,8 +4,8 @@ const browserChannel = process.env.PLAYWRIGHT_CHANNEL === "chrome" ? "chrome" : 
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: false,
-  retries: process.env.CI ? 2 : 0,
+  // Every journey has its own browser context and local/mock API state.
+  fullyParallel: true,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",

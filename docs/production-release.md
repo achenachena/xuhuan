@@ -18,9 +18,9 @@ GitHub OIDC provides short-lived AWS credentials. Long-lived AWS access keys are
 2. Copy the full commit SHA from the current `main` head.
 3. Run `Release production` with that SHA and approve the protected environment.
 4. The workflow verifies that the commit is still the current remote `main` head.
-5. It builds and publishes a new arm64 Lambda version, then updates the stable alias.
+5. It builds the arm64 Lambda once, before any AWS mutation, publishes an immutable version, then updates the stable alias. CI already tests the Go code; it does not produce a second, unused Lambda binary.
 6. It checks API health, readiness and V4 content.
-7. Confirm the Vercel production deployment points to the merged commit and open `/play`. Frontend-only changes do not require publishing another Lambda version.
+7. Confirm Vercel production points to the merged commit and open `/play` once to check the canvas and runtime errors. Use the API workflow result rather than repeating its successful HTTP checks manually. Do not rerun the full browser suite against production. Frontend-only changes do not require publishing another Lambda version.
 
 The workflow does not repeat the entire CI suite or create a synthetic player. CI already covers contracts, repositories, PostgreSQL and Redis integration, and browser behavior.
 
