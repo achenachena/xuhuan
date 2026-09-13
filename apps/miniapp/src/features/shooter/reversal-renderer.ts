@@ -331,9 +331,9 @@ export const drawReversalArena = (ctx: CanvasRenderingContext2D, current: Shoote
   const dx = current.player_x - (previous?.player_x ?? current.player_x);
   const hurt = current.invulnerable_ticks > 42;
   const frame = reversalPlayerFrame(tick, dx, hurt);
-  ctx.fillStyle = "rgba(3,12,20,.6)"; ctx.fillRect(playerX - 15, 548, 30, 3);
+  ctx.fillStyle = "rgba(3,12,20,.6)"; ctx.fillRect(playerX - 15, current.player_y / 10 + 28, 30, 3);
   ctx.globalAlpha = current.invulnerable_ticks > 0 && tick % 6 < 2 ? .45 : 1;
-  sprite(ctx, visuals.get(sources.player), frame, playerX, 548, 59, true);
+  sprite(ctx, visuals.get(sources.player), frame, playerX, current.player_y / 10 + 28, 59, true);
   ctx.globalAlpha = 1;
   if (tutorial) {
     ctx.fillStyle = "rgba(10,25,35,.84)"; ctx.fillRect(34, 573, 292, 21);

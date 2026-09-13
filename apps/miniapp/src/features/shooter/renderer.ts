@@ -20,6 +20,7 @@ const chassisAssets = {
   "caption-blob": "/game/v4/enemies/caption-blob.webp",
   "black-screen-ghost": "/game/v4/enemies/black-screen-ghost.webp",
   "gift-thief": "/game/v4/enemies/gift-thief.webp",
+  "shield-relay": "/game/v4/enemies/censor-frame.webp",
   "censor-frame": "/game/v4/enemies/censor-frame.webp",
 } as const;
 const pickupAssets = [
@@ -41,6 +42,7 @@ export type ShooterVisualSources = {
   readonly enemies: Readonly<Record<string, string>>;
   readonly boss?: string;
   readonly pickups: readonly string[];
+  readonly portraits?: readonly string[];
 };
 
 export type ShooterVisuals = ReadonlyMap<string, HTMLImageElement>;
@@ -96,11 +98,12 @@ export const resolveShooterVisualSources = (
     enemies: chassisAssets,
     ...(bossID ? { boss: `/game/v4/bosses/${bossID}.webp` } : {}),
     pickups: pickupAssets,
+    portraits: content.companions.filter(c => run.state.pending_show_options.includes(c.id)).map(c => c.portrait_url),
   };
 };
 
 export const preloadShooterVisuals = async (sources: ShooterVisualSources): Promise<ShooterVisuals> => {
-  const urls = new Set([sources.background, sources.player, ...Object.values(sources.enemies), ...sources.pickups, ...(sources.boss ? [sources.boss] : [])]);
+  const urls = new Set([sources.background, sources.player, ...Object.values(sources.enemies), ...sources.pickups, ...(sources.portraits ?? []), ...(sources.boss ? [sources.boss] : [])]);
   const loaded = await Promise.all(Array.from(urls, async (source) => [source, await loadImage(source)] as const));
   const visuals = new Map(loaded.filter((entry): entry is readonly [string, HTMLImageElement] => entry[1] !== null));
   if (sources.reversal) preloadReversalFrames(visuals, sources);
@@ -171,27 +174,27 @@ const drawThreat = (context: CanvasRenderingContext2D, threat: ShooterThreatSnap
   context.setLineDash([70, 45]);
   if (threat.kind === "censor_gap") {
     const gapWidth = Math.max(260, threat.width ?? 260);
-    context.fillRect(0, PLAYER_Y - 320, Math.max(0, threat.target.x - gapWidth / 2), 640);
+    context.fillRect(0, threat.target.y - 320, Math.max(0, threat.target.x - gapWidth / 2), 640);
     context.fillRect(
       threat.target.x + gapWidth / 2,
-      PLAYER_Y - 320,
+      threat.target.y - 320,
       Math.max(0, SHOOTER_WIDTH - threat.target.x - gapWidth / 2),
       640,
     );
     context.strokeStyle = "#67e8f9";
     context.lineWidth = 18;
-    context.strokeRect(threat.target.x - gapWidth / 2, PLAYER_Y - 330, gapWidth, 660);
+    context.strokeRect(threat.target.x - gapWidth / 2, threat.target.y - 330, gapWidth, 660);
   } else if (
     ["horizontal_cut", "caption_block", "black_wall"].includes(threat.kind)
   ) {
     const width = Math.max(180, threat.width ?? 180);
     const left = threat.target.x - width / 2;
     context.lineWidth = 14;
-    context.fillRect(left, threat.origin.y, width, PLAYER_Y - threat.origin.y);
+    context.fillRect(left, threat.origin.y, width, threat.target.y - threat.origin.y);
     context.setLineDash([]);
     for (let x = left + 30; x < left + width - 30; x += 120) {
-      context.fillRect(x, PLAYER_Y - 230, 56, 18);
-      context.fillRect(x + 28, PLAYER_Y + 212, 56, 18);
+      context.fillRect(x, threat.target.y - 230, 56, 18);
+      context.fillRect(x + 28, threat.target.y + 212, 56, 18);
     }
   } else if (threat.radius) {
     context.lineWidth = 18;
@@ -640,6 +643,10 @@ const drawPickup = (context: CanvasRenderingContext2D, pickup: ShooterPickupSnap
 
 const drawEffect = (context: CanvasRenderingContext2D, effect: ShooterEffectSnapshot): void => {
   context.save();
+  if (effect.kind === "blast_wave") {
+    const radius=(30-effect.ticks)*220; context.strokeStyle="#a5f3fc"; context.lineWidth=30; context.globalAlpha=effect.ticks/30;
+    context.beginPath();context.arc(effect.position.x,effect.position.y,radius,0,Math.PI*2);context.stroke();context.restore();return;
+  }
   if (effect.kind.startsWith("support_powerup_")) {
     const power = effect.kind.slice("support_powerup_".length) as ShooterPickupPower;
     const color = pickupVisuals[power]?.color ?? "#67e8f9";
@@ -704,6 +711,7 @@ export const drawShooterArena = (
   tutorial: string | null,
   presentationX: number,
   enemyImpacts: ReadonlyMap<number, ShooterEnemyImpact>,
+  presentationY = current.player_y,
 ): void => {
   const context = prepare(canvas);
   if (!context) return;
@@ -739,23 +747,35 @@ export const drawShooterArena = (
       current.tick,
     );
   }
+  for (const relay of current.enemies.filter(e => e.chassis === "shield-relay")) {
+    context.strokeStyle = "#67e8f9"; context.lineWidth = 16;
+    context.beginPath(); context.arc(relay.position.x, relay.position.y, 300 + Math.sin(current.tick / 8) * 25, 0, Math.PI * 2); context.stroke();
+    for (const ally of current.enemies) {
+      if (ally.id === relay.id || ally.boss || Math.hypot(ally.position.x-relay.position.x, ally.position.y-relay.position.y) >= 1500) continue;
+      context.globalAlpha = .45; context.beginPath(); context.moveTo(relay.position.x, relay.position.y); context.lineTo(ally.position.x, ally.position.y); context.stroke();
+    }
+    context.globalAlpha = 1;
+  }
   enemyImpacts.forEach((impact) => {
     if (impact.untilTick >= current.tick) {
       drawEnemyImpact(context, impact, current.tick);
     }
   });
-  for (const effect of current.effects) drawEffect(context, effect);
+  for (const effect of current.effects) {
+    if (effect.kind === "afterimage_replay") { context.globalAlpha = Math.min(.5, effect.ticks / 30); drawSprite(context, visuals.get(sources.player), effect.position.x, effect.position.y, 480, "#c4b5fd"); context.globalAlpha=1; }
+    drawEffect(context, effect);
+  }
   const playerX = presentationX || current.player_x;
   context.globalAlpha = current.invulnerable_ticks > 0 && current.tick % 4 < 2 ? 0.35 : 1;
-  drawSprite(context, visuals.get(sources.player), playerX, PLAYER_Y, 540, "#67e8f9");
+  drawSprite(context, visuals.get(sources.player), playerX, presentationY, 540, "#67e8f9");
   context.globalAlpha = 1;
   const healthWidth = 330;
   const healthLeft = playerX - healthWidth / 2;
   context.fillStyle = "rgba(2,6,23,.9)";
-  context.fillRect(healthLeft - 12, PLAYER_Y + 292, healthWidth + 24, 62);
+  context.fillRect(healthLeft - 12, presentationY + 292, healthWidth + 24, 62);
   for (let heart = 0; heart < current.max_health; heart += 1) {
     context.fillStyle = heart < current.health ? "#6ee7b7" : "#35172b";
-    context.fillRect(healthLeft + heart * (healthWidth / current.max_health) + 8, PLAYER_Y + 308, healthWidth / current.max_health - 16, 30);
+    context.fillRect(healthLeft + heart * (healthWidth / current.max_health) + 8, presentationY + 308, healthWidth / current.max_health - 16, 30);
   }
   if (tutorial) {
     context.fillStyle = "rgba(2,6,23,.82)";
@@ -901,21 +921,34 @@ const drawCompanionPreview = (
   x: number,
   y: number,
   tick: number,
+  behavior: string,
 ): void => {
   const phase = (tick % 54) / 54;
   drawSprite(context, image, x - 120, y + 60, 590, "#f9a8d4");
   context.save();
-  context.strokeStyle = "rgba(249,168,212,.65)";
   context.lineWidth = 24;
-  context.beginPath();
-  context.arc(x - 120, y + 60, 360 + Math.sin(phase * Math.PI * 2) * 35, 0, Math.PI * 2);
-  context.stroke();
-  context.fillStyle = "#67e8f9";
-  context.shadowColor = "#67e8f9";
-  context.shadowBlur = 45;
-  const shotY = y + 250 - phase * 760;
-  context.fillRect(x + 290, shotY, 55, 180);
-  context.fillRect(x + 410, shotY - 120, 55, 180);
+  context.strokeStyle = "#67e8f9";
+  if (behavior === "heal") {
+    drawPixelHeart(context, x + 180, y - phase * 340, 230, phase < .35 ? "#475569" : "#6ee7b7");
+    context.fillStyle = "#6ee7b7"; context.fillRect(x+320,y-100,140,40); context.fillRect(x+370,y-150,40,140);
+  } else if (behavior === "shield") {
+    context.globalAlpha = .5 + phase * .5;
+    context.beginPath(); context.moveTo(x-440,y-240); context.lineTo(x+190,y-240); context.lineTo(x+170,y+170); context.lineTo(x-120,y+430); context.lineTo(x-410,y+170); context.closePath(); context.stroke();
+    drawPixelHeart(context, x+330,y,180,"#fb7185");
+  } else if (behavior === "clear_lane") {
+    for (let i=0;i<4;i++) { context.fillStyle="#fb7185"; if (phase < .6) context.fillRect(x+200+i*80,y-300+i*150,45,65); }
+    context.beginPath(); context.arc(x-120,y+60,phase*620,0,Math.PI*2); context.stroke();
+  } else if (behavior === "convert_bullet") {
+    context.fillStyle=phase < .5 ? "#fb7185" : "#67e8f9";
+    for (let i=0;i<3;i++) context.fillRect(x+200+i*85,y-350+(phase < .5 ? phase : 1-phase)*1000,55,130);
+  } else if (behavior === "focus_beam") {
+    context.fillStyle="#c4b5fd";context.globalAlpha=.4+phase*.6;context.fillRect(x+260,y-440,90,760);
+  } else {
+    if (behavior === "echo_shot") { context.globalAlpha=.35; drawSprite(context,image,x+160,y+180,420,"#c4b5fd");context.globalAlpha=1; }
+    context.fillStyle = "#67e8f9";
+    const shotY = y + 250 - phase * 760;
+    context.fillRect(x + 290, shotY, 55, 180); context.fillRect(x + 410, shotY - 120, 55, 180);
+  }
   context.restore();
 };
 
@@ -951,16 +984,15 @@ const drawGatePortal = (
   context.shadowBlur = active ? 85 : 36;
   context.stroke();
 
-  context.globalAlpha = pulse;
+  // Pixel corner lights leave the card copy unobstructed.
+  context.globalAlpha = pulse * 3;
   context.fillStyle = active ? "#fde68a" : "#67e8f9";
-  for (let row = 0; row < 7; row += 1) {
-    context.fillRect(left + 85, top + 620 + row * 430, 1_130, 80);
-  }
+  for (const edge of [left + 90, right - 150]) context.fillRect(edge, bottom - 120, 60, 40);
   context.globalAlpha = 1;
 
   const portrait = option.portraitURL ? visuals.get(option.portraitURL) : undefined;
   if (option.kind === "companion") {
-    drawCompanionPreview(context, portrait, x, 2_120, tick);
+    drawCompanionPreview(context, portrait, x, 2_020, tick, option.behavior);
   } else {
     drawWeaponPreview(context, option, x, 2_170, tick);
   }

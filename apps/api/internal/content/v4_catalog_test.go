@@ -31,7 +31,7 @@ func TestV4CatalogIsCompleteAndBilingual(t *testing.T) {
 	if got := len(catalog.Companions); got != 7 {
 		t.Fatalf("companions = %d, want 7", got)
 	}
-	if got := len(catalog.Enemies); got != 6 {
+	if got := len(catalog.Enemies); got != 7 {
 		t.Fatalf("enemy chassis = %d, want 6", got)
 	}
 	if got := len(catalog.Chapters); got != 8 {

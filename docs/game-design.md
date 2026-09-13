@@ -8,10 +8,9 @@ V4 is a focused one-thumb shooter, not a large mobile action RPG. Depth comes fr
 
 ## First minute
 
-1. A single message reads, “The stream ended. Current viewers: 1.”
-2. The player taps **Stay online**.
-3. Nana enters a 30-second tutorial wave.
-4. A finger press in the lower half of the arena captures input; horizontal finger position directly controls the character's X position.
+1. Opening the browser game starts a fresh campaign immediately.
+2. Nana enters the opening tutorial wave.
+3. Dragging anywhere in the arena moves the player in both dimensions without teleporting to the finger.
 5. Automatic straight-up shots demonstrate firing. A friendly support note demonstrates collection. The special button lights once and pauses its charge ring when pressed.
 6. The first weapon choice appears after the wave.
 
@@ -19,12 +18,12 @@ There is no character, route, difficulty, or equipment choice before first movem
 
 ## Core controls
 
-The player remains near the bottom of a `360 x 640` portrait arena.
+The player moves within a `360 x 640` portrait arena, with a protected margin below enemy entrances.
 
-- **Move:** hold and move a finger horizontally. The character maps directly to that X column on the next Tick. Vertical finger movement is ignored; there is no catch-up step.
+- **Move:** drag in both dimensions with a preserved grab offset; desktop also supports WASD and arrow keys.
 - **Stop:** lift the finger. No velocity or inertia survives the next Tick.
 - **Fire:** automatic and straight upward. Positioning under a target is part of play; there is no nearest-target aim assist.
-- **Special:** tap the one charged button. The action depends on the selected character.
+- **BLAST:** tap the charged button or press Space to clear enemy bullets and become briefly invincible, with an additional character-specific effect.
 
 Pointer Capture and `touch-action: none` apply only to the arena. The Telegram host adapter disables vertical WebView swipes only during combat and restores them on every exit, blur, or unmount path.
 

@@ -26,16 +26,16 @@
     "show_effects": [
       {
         "id": "double-take",
-        "name": "Double Take",
-        "description": "Add a second narrow shot to every volley.",
+        "name": "Twin shots",
+        "description": "Fire two streams at once. Stacks with other weapons.",
         "archetype": "power",
         "behavior": "twin_shot",
         "amount": 1
       },
       {
         "id": "clean-cut",
-        "name": "Clean Cut",
-        "description": "Shots pierce one additional target.",
+        "name": "Piercing shots",
+        "description": "Shots pass through another enemy. Works with spread.",
         "archetype": "power",
         "behavior": "piercing_shot",
         "amount": 1
@@ -239,7 +239,7 @@
           "contact_damage": 1,
           "move_pattern": "dive",
           "shot_pattern": "lane",
-          "fire_interval": 120,
+          "fire_interval": 60,
           "projectile_speed": 120,
           "damage": 1,
           "score": 136,
@@ -308,6 +308,23 @@
           "telegraph_ticks": 30,
           "traits": [
             "armor"
+          ]
+        },
+        {
+          "id": "shield-relay",
+          "chassis": "shield-relay",
+          "health": 38,
+          "speed": 35,
+          "contact_damage": 1,
+          "move_pattern": "anchor",
+          "shot_pattern": "aimed",
+          "fire_interval": 120,
+          "projectile_speed": 70,
+          "damage": 1,
+          "score": 152,
+          "telegraph_ticks": 30,
+          "traits": [
+            "shield_link"
           ]
         }
       ],
@@ -508,6 +525,23 @@
               "traits": [
                 "armor"
               ]
+            },
+            {
+              "id": "shield-relay",
+              "chassis": "shield-relay",
+              "health": 38,
+              "speed": 35,
+              "contact_damage": 1,
+              "move_pattern": "anchor",
+              "shot_pattern": "aimed",
+              "fire_interval": 120,
+              "projectile_speed": 70,
+              "damage": 1,
+              "score": 152,
+              "telegraph_ticks": 30,
+              "traits": [
+                "shield_link"
+              ]
             }
           ],
           "wave": {
@@ -697,6 +731,23 @@
               "telegraph_ticks": 30,
               "traits": [
                 "armor"
+              ]
+            },
+            {
+              "id": "shield-relay",
+              "chassis": "shield-relay",
+              "health": 38,
+              "speed": 35,
+              "contact_damage": 1,
+              "move_pattern": "anchor",
+              "shot_pattern": "aimed",
+              "fire_interval": 120,
+              "projectile_speed": 70,
+              "damage": 1,
+              "score": 152,
+              "telegraph_ticks": 30,
+              "traits": [
+                "shield_link"
               ]
             }
           ],

@@ -1,6 +1,5 @@
 import {
   PLAYER_RADIUS,
-  PLAYER_Y,
   SHOOTER_WIDTH,
   clamp,
   goDivide,
@@ -36,6 +35,7 @@ export const activateRescue = (state: ShooterMutableState): boolean => {
   if (state.rescueCharge < 100 || state.health <= 0) return false;
   state.rescueCharge = 0;
   state.rescuesUsed += 1;
+  addShooterEffect(state, "blast_wave", state.playerX, state.playerY, 30, 1);
   if (state.config.reversal) { activateReversalRescue(state); return true; }
   let damage = state.runtime.rescueDamage;
   grantShooterShield(state, state.runtime.guardOnSpecial);
@@ -57,23 +57,23 @@ export const activateRescue = (state: ShooterMutableState): boolean => {
   else if (behavior === "afterimage_replay") {
     damage += goDivide(state.enemyProjectiles.length, 3);
     for (const offset of [-180, 0, 180]) {
-      if (!addPlayerProjectile(state, { x: clamp(state.playerX + offset, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS), y: PLAYER_Y + 240, vy: -205, damage: Math.max(1, state.runtime.damage) })) break;
+      if (!addPlayerProjectile(state, { x: clamp(state.playerX + offset, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS), y: state.playerY + 240, vy: -205, damage: Math.max(1, state.runtime.damage) })) break;
     }
-    addShooterEffect(state, "afterimage_replay", state.playerX, PLAYER_Y, 36, damage);
+    addShooterEffect(state, "afterimage_replay", state.playerX, state.playerY, 36, damage);
   } else if (behavior === "captain_parry") {
     grantShooterShield(state, 1);
     state.invulnerableTicks = Math.max(state.invulnerableTicks, 45);
     for (const vx of [-140, -70, 0, 70, 140]) {
-      if (!addPlayerProjectile(state, { x: state.playerX, y: PLAYER_Y, vx, vy: -190, damage: Math.max(1, state.runtime.damage) })) break;
+      if (!addPlayerProjectile(state, { x: state.playerX, y: state.playerY, vx, vy: -190, damage: Math.max(1, state.runtime.damage) })) break;
     }
-    addShooterEffect(state, "captain_parry", state.playerX, PLAYER_Y, 24, state.shield);
+    addShooterEffect(state, "captain_parry", state.playerX, state.playerY, 24, state.shield);
   } else if (behavior === "subtitle_flip") {
     damage += goDivide(state.enemyProjectiles.length, 2);
     while (state.enemyProjectiles.length > 0 && state.playerProjectiles.length < state.config.limits.player_projectiles) {
       const bullet = state.enemyProjectiles.pop()!;
       addPlayerProjectile(state, { x: bullet.x, y: bullet.y, vy: -190, damage: Math.max(1, goDivide(state.runtime.damage, 2)), pierce: 1 });
     }
-    addShooterEffect(state, "subtitle_flip", state.playerX, PLAYER_Y, 30, damage);
+    addShooterEffect(state, "subtitle_flip", state.playerX, state.playerY, 30, damage);
   } else if (behavior === "prism_shift") {
     damage += Math.max(4, state.runtime.damage);
     for (const enemy of state.enemies) if (Math.abs(enemy.x - state.playerX) <= 420) enemy.health -= damage;
@@ -96,7 +96,7 @@ export const activateRescue = (state: ShooterMutableState): boolean => {
       state.health = Math.min(state.runtime.maxHealth, state.health + 1);
       grantShooterShield(state, 1);
     }
-    addShooterEffect(state, "memory_bloom", state.playerX, PLAYER_Y, 45, bloomed);
+    addShooterEffect(state, "memory_bloom", state.playerX, state.playerY, 45, bloomed);
   }
   for (const enemy of state.enemies) enemy.health -= damage;
   state.enemyProjectiles = [];

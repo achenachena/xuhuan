@@ -1,4 +1,4 @@
-import { PLAYER_Y, SHOOTER_WIDTH, clamp } from "@/features/shooter/constants";
+import { SHOOTER_WIDTH, clamp } from "@/features/shooter/constants";
 import { sweptShooterHit } from "@/features/shooter/collision";
 import { addEnemyHazard } from "@/features/shooter/enemies";
 import { addPlayerProjectile, addShooterEffect } from "@/features/shooter/weapons";
@@ -37,13 +37,13 @@ export const spawnReversalGroups = (state: ShooterMutableState): void => {
 };
 
 /** The tell and the projectile use the same muzzle and velocity. */
-const reversalVolley = (enemy: ShooterEnemyEntity) => {
+const reversalVolley = (enemy: ShooterEnemyEntity, playerY: number) => {
   const y = enemy.y + 180;
   if (enemy.boss && enemy.phase === 1) {
     return [{ kind: "reversal_cut", x: enemy.x + (enemy.volley % 2 ? 500 : -500), y, vx: 0, vy: 95, width: 1_050 }];
   }
   if (enemy.boss && enemy.phase === 2) {
-    const vx = Math.trunc(((enemy.aimX ?? enemy.x) - enemy.x) * 110 / (PLAYER_Y - y));
+    const vx = Math.trunc(((enemy.aimX ?? enemy.x) - enemy.x) * 110 / (playerY - y));
     return [-90, 0, 90].map((offset) => ({ kind: "reversal_echo", x: enemy.x + offset, y, vx, vy: 110, width: 0 }));
   }
   const fan = enemy.role === "escort" ? [0] : enemy.boss ? [-45, 0, 45] : [-35, 0, 35];
@@ -51,7 +51,7 @@ const reversalVolley = (enemy: ShooterEnemyEntity) => {
 };
 
 const fire = (state: ShooterMutableState, enemy: ShooterEnemyEntity): void => {
-  for (const shot of reversalVolley(enemy)) {
+  for (const shot of reversalVolley(enemy, state.playerY)) {
     addEnemyHazard(state, shot.kind, shot.x, shot.y, shot.vx, shot.vy,
       1, shot.width ? 42 : 46, shot.width, 0, enemy.groupID);
   }
@@ -137,11 +137,11 @@ export const reversalThreats = (state: ShooterMutableState): ShooterThreatSnapsh
     const fireAt = enemy.boss ? 75 : enemy.role === "escort" ? 125 : 90;
     const remaining = fireAt - enemy.fireClock;
     if (remaining <= 0 || remaining > (enemy.role === "escort" ? 20 : 45)) continue;
-    for (const shot of reversalVolley(enemy)) {
-      const travelTicks = (PLAYER_Y - shot.y) / shot.vy;
+    for (const shot of reversalVolley(enemy, state.playerY)) {
+      const travelTicks = (state.playerY - shot.y) / shot.vy;
       threats.push({ source_id: enemy.id, kind: shot.kind === "reversal_cut" ? "reversal_cut" : "reversal_aim",
         ticks_remaining: remaining, origin: { x: shot.x, y: shot.y },
-        target: { x: shot.x + shot.vx * travelTicks, y: PLAYER_Y },
+        target: { x: shot.x + shot.vx * travelTicks, y: state.playerY },
         width: shot.width || 92,
       });
     }
@@ -173,7 +173,7 @@ export const breakReversalCore = (state: ShooterMutableState, enemy: ShooterEnem
   for (let index = 0; index < count; index += 1) {
     const bullet = converted[Math.floor(index * converted.length / count)];
     const x = clamp(bullet?.x ?? enemy.x + (index * 2 - count + 1) * 90, 180, SHOOTER_WIDTH - 180);
-    const y = clamp(bullet?.y ?? enemy.y + 180, 400, PLAYER_Y - 300);
+    const y = clamp(bullet?.y ?? enemy.y + 180, 400, state.playerY - 300);
     state.pickups.push({ id: ++state.nextPickupID, x, y, kind: "support", value: 12 });
     addShooterEffect(state, "reversal_flip", x, y, 18, 1);
   }
@@ -240,7 +240,7 @@ export const updateReversalWeapons = (state: ShooterMutableState): void => {
   const count = mode === "pierce" ? 1 : (mode === "twin" ? 2 : 1) + Number(powered);
   for (let index = 0; index < count; index += 1) {
     addPlayerProjectile(state, { x: state.playerX + (index * 2 - count + 1) * 80,
-      y: PLAYER_Y - 110, vy: -390,
+      y: state.playerY - 110, vy: -390,
       damage: mode === "pierce" ? Math.ceil(state.runtime.damage * 1.75) : state.runtime.damage,
       pierce: mode === "pierce" ? 14 : 0,
       kind: mode === "pierce" ? powered ? "reversal_pierce_wide" : "reversal_pierce" : "reversal_shot",
@@ -307,7 +307,7 @@ export const activateReversalRescue = (state: ShooterMutableState): void => {
     tick: state.tick + 1 + Math.floor(index * 16 / Math.max(1, marked.length)),
     damage: state.runtime.rescueDamage + enemy.marks * 12,
   }));
-  addShooterEffect(state, "chain_launch", state.playerX, PLAYER_Y, 18, marked.length);
+  addShooterEffect(state, "chain_launch", state.playerX, state.playerY, 18, marked.length);
   state.combo += 3; state.comboClock = 120; state.score += 250;
 };
 

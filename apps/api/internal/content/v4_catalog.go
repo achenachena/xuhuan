@@ -412,7 +412,7 @@ func (catalog *V4Catalog) validate() error {
 	if len(catalog.Manifest.ChapterFiles) != 8 || len(catalog.Chapters) != 8 {
 		return fmt.Errorf("content: V4 needs eight chapters, got %d", len(catalog.Chapters))
 	}
-	if len(catalog.ShowEffects) != 12 || len(catalog.Characters) != 7 || len(catalog.Companions) != 7 || len(catalog.Enemies) != 6 {
+	if len(catalog.ShowEffects) != 12 || len(catalog.Characters) != 7 || len(catalog.Companions) != 7 || len(catalog.Enemies) != 7 {
 		return fmt.Errorf("content: incomplete V4 shared content effects=%d characters=%d companions=%d enemies=%d", len(catalog.ShowEffects), len(catalog.Characters), len(catalog.Companions), len(catalog.Enemies))
 	}
 	if err := catalog.indexShared(); err != nil {
@@ -487,7 +487,7 @@ func (catalog *V4Catalog) indexShared() error {
 	validMove := stringSet("drift", "sweep", "dive", "orbit", "anchor", "mirror")
 	validShot := stringSet("aimed", "fan", "lane", "ring", "delayed", "beam")
 	validTrait := stringSet("shield_link", "split", "steal_pickup", "armor", "echo", "jammer")
-	requiredEnemyID := stringSet("spam-bot", "clip-cutter", "caption-blob", "black-screen-ghost", "gift-thief", "censor-frame")
+	requiredEnemyID := stringSet("spam-bot", "clip-cutter", "caption-blob", "black-screen-ghost", "gift-thief", "censor-frame", "shield-relay")
 	for _, item := range catalog.Enemies {
 		if !requiredEnemyID[item.ID] || !catalog.assets[item.SpriteURL] || item.MaxHealth <= 0 || item.Speed < 0 || item.ContactDamage < 0 || !validMove[item.MovePattern] || !validShot[item.ShotPattern] || item.ShotInterval < 20 || item.ProjectileSpeed <= 0 || item.ProjectileDamage <= 0 || item.TelegraphTicks < 6 || !catalog.keysExist(item.NameKey, item.DescriptionKey) || catalog.enemies[item.ID].ID != "" {
 			return fmt.Errorf("content: invalid V4 enemy %q", item.ID)

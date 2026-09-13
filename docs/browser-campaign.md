@@ -18,3 +18,9 @@ npm run check:browser-campaign
 ```
 
 Use the toolchain in `apps/api/go.mod`. The build includes its matching `wasm_exec.js` and Go license. CI verifies the generated binary matches the rules. Browser tests cover fresh visits, language changes, blocked storage, session progression and absence of protected API calls.
+
+## Combat
+
+Drag in both dimensions, or use WASD / arrow keys. BLAST (Space or the button) clears enemy bullets and grants brief invulnerability. Weapon upgrades last for the current character and combine: spread, piercing, twin fire, and a repeating echo volley. Companion cards preview their actual action.
+
+The first tutorial wave and Bosses keep their authored sequence. Other waves use the existing run seed to shuffle chapter enemy groups and formations within the authored enemy budget. A shield relay sometimes replaces one attacker; its visible links halve damage to nearby non-Boss enemies until the relay is destroyed. Simultaneous chargers and lane blockers are capped. New sessions vary; the same seed reproduces the same wave.

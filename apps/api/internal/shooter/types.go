@@ -121,9 +121,11 @@ const (
 	ChassisCensorFrame      Chassis = "censor-frame"
 )
 
+const ChassisShieldRelay Chassis = "shield-relay"
+
 var SupportedChassis = [...]Chassis{
 	ChassisSpamBot, ChassisClipCutter, ChassisCaptionBlob,
-	ChassisBlackScreenGhost, ChassisGiftThief, ChassisCensorFrame,
+	ChassisBlackScreenGhost, ChassisGiftThief, ChassisCensorFrame, ChassisShieldRelay,
 }
 
 type EnemySpec struct {

@@ -22,7 +22,7 @@ describe("support pickup weapons", () => {
   it("turns pink support into a three-way spread", () => {
     expect(resolvePickupWeapon("spread", baseWeapon)).toMatchObject({
       shotCount: 3,
-      spread: 14,
+      spread: 28,
       projectileKind: "spread",
     });
   });

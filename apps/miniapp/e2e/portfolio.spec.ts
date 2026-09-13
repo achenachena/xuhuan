@@ -32,7 +32,7 @@ test.describe("public browser game", () => {
     expect(protectedRequests).toEqual([]);
   });
 
-  test("follows a continuously held mouse, ignores Y, and stops on release", async ({ page }) => {
+  test("follows a continuously held mouse, follows both axes, and stops on release", async ({ page }) => {
     await page.goto("/play");
     const surface = page.getByTestId("shooter-control-surface");
     await expect(surface).toBeVisible();
@@ -53,12 +53,18 @@ test.describe("public browser game", () => {
       await expect(surface).toHaveAttribute("data-pointer-active", "true");
     }
     const heldX = await surface.getAttribute("data-control-x");
+    const heldY = Number(await surface.getAttribute("data-control-y"));
     await page.mouse.move(startX + 36, startY - 120);
     await expect(surface).toHaveAttribute("data-control-x", heldX!);
+    expect(Number(await surface.getAttribute("data-control-y"))).toBeLessThan(heldY);
     await page.mouse.up();
     await page.mouse.move(startX - 30, startY);
     await expect(surface).toHaveAttribute("data-control-x", heldX!);
     await expect(surface).toHaveAttribute("data-pointer-active", "false");
+    const releasedY = Number(await surface.getAttribute("data-control-y"));
+    await page.keyboard.down("w");
+    await expect.poll(async () => Number(await surface.getAttribute("data-control-y"))).toBeLessThan(releasedY);
+    await page.keyboard.up("w");
   });
 
   test("survives twenty real touch drags and a language switch without restarting", async ({ page, context }) => {

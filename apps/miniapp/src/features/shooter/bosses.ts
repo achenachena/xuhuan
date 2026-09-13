@@ -1,4 +1,4 @@
-import { ENEMY_RADIUS, PLAYER_Y, SHOOTER_WIDTH, clamp, goDivide, integerSqrt } from "@/features/shooter/constants";
+import { ENEMY_RADIUS, SHOOTER_WIDTH, clamp, goDivide, integerSqrt } from "@/features/shooter/constants";
 import { addEnemyBullet, addEnemyHazard, encoreInterval } from "@/features/shooter/enemies";
 import { shooterSeedFromString } from "@/features/shooter/random";
 import { storyChoiceMode } from "@/features/shooter/story";
@@ -73,7 +73,7 @@ const fireStoryChoiceBeat = (state: ShooterMutableState, enemy: ShooterEnemyEnti
   const mode = storyChoiceMode(state.config.story_choice_id);
   if (mode === 1) {
     const x = SHOOTER_WIDTH - enemy.x;
-    const [vx, vy] = aimedVelocity(x, enemy.y, state.playerX, PLAYER_Y, speed);
+    const [vx, vy] = aimedVelocity(x, enemy.y, state.playerX, state.playerY, speed);
     addEnemyHazard(state, "choice_echo", x, enemy.y, vx, vy, damage, 54, 0, 0);
   } else if (mode === 2) fireBossFrame(state, enemy, speed, damage, "choice_frame", 4);
 };
@@ -83,17 +83,17 @@ const fireBossSpecial = (state: ShooterMutableState, enemy: ShooterEnemyEntity, 
     const x = clamp(state.playerX, 520, SHOOTER_WIDTH - 520);
     addEnemyHazard(state, "caption_block", x, enemy.y - 180, 0, Math.max(14, goDivide(speed, 3)), damage, 170, 720, 0);
   } else if (["copied-laugh", "bad-take-echo", "tone-correction", "double-exposure"].includes(special)) {
-    const x = SHOOTER_WIDTH - state.playerX, [vx, vy] = aimedVelocity(x, enemy.y, state.playerX, PLAYER_Y, speed);
+    const x = SHOOTER_WIDTH - state.playerX, [vx, vy] = aimedVelocity(x, enemy.y, state.playerX, state.playerY, speed);
     addEnemyHazard(state, "echo_shot", x, enemy.y, vx, vy, damage, 58, 0, 0);
   } else if (["empty-horizon", "delete-loss", "overtime-wall", "nothing-happened"].includes(special)) {
     const x = clamp(enemy.x + (enemy.volley % 3 - 1) * 650, 700, SHOOTER_WIDTH - 700);
     addEnemyHazard(state, "black_wall", x, enemy.y - 220, 0, Math.max(12, goDivide(speed, 4)), damage, 135, 1_200, 28);
   } else if (["applause-loop", "carry-the-room"].includes(special)) {
-    for (const origin of [220, SHOOTER_WIDTH - 220]) { const [vx, vy] = aimedVelocity(origin, enemy.y, state.playerX, PLAYER_Y, speed); addEnemyHazard(state, "applause", origin, enemy.y, vx, vy, damage, 58, 0, 0); }
+    for (const origin of [220, SHOOTER_WIDTH - 220]) { const [vx, vy] = aimedVelocity(origin, enemy.y, state.playerX, state.playerY, speed); addEnemyHazard(state, "applause", origin, enemy.y, vx, vy, damage, 58, 0, 0); }
   } else if (["reply-now", "crop-the-miss", "assign-everything", "remove-duplicates"].includes(special)) fireBossFrame(state, enemy, speed, damage, "special_frame", 2);
   else if (["endless-encore", "approved-only", "split-stage", "archive-everyone"].includes(special)) fireRadial(state, enemy, Math.max(18, goDivide(speed * 3, 4)), damage, enemy.volley * 2 % 12, "special_spiral");
   else if (["helpful-rewrite", "erase-the-flowers", "overwrite-drafts"].includes(special)) for (const x of [900, 2_700]) addEnemyHazard(state, "caption_block", x, enemy.y - 180, 0, Math.max(14, goDivide(speed, 3)), damage, 155, 580, 0);
-  else if (special === "first-take" || special === "copy-position") { const x = SHOOTER_WIDTH - state.playerX, [vx, vy] = aimedVelocity(x, enemy.y, state.playerX, PLAYER_Y, speed); addEnemyHazard(state, "mirror_aim", x, enemy.y, vx, vy, damage, 60, 0, 0); }
+  else if (special === "first-take" || special === "copy-position") { const x = SHOOTER_WIDTH - state.playerX, [vx, vy] = aimedVelocity(x, enemy.y, state.playerX, state.playerY, speed); addEnemyHazard(state, "mirror_aim", x, enemy.y, vx, vy, damage, 60, 0, 0); }
   else if (special === "second-original") fireRadial(state, enemy, speed, damage, 6, "double_exposure");
   else if (special === "both-live") { addEnemyHazard(state, "boss_beam", 760, enemy.y, 0, Math.max(18, goDivide(speed, 2)), damage, 100, 280, 0); addEnemyHazard(state, "boss_beam", SHOOTER_WIDTH - 760, enemy.y, 0, Math.max(18, goDivide(speed, 2)), damage, 100, 280, 0); }
 };
@@ -107,11 +107,11 @@ const fireBossRemix = (state: ShooterMutableState, enemy: ShooterEnemyEntity, bo
 
 const fireBossPattern = (state: ShooterMutableState, enemy: ShooterEnemyEntity, bossID: string, stage: ShooterBossStage): void => {
   const pattern = stage.shot_pattern || bossDefaultPattern(bossID, enemy.phase), speed = stage.projectile_speed, damage = stage.damage;
-  if (pattern === "aimed") { const [vx, vy] = aimedVelocity(enemy.x, enemy.y, state.playerX, PLAYER_Y, speed); addEnemyBullet(state, enemy.x, enemy.y, vx, vy, damage); }
-  else if (pattern === "delayed") { const slow = Math.max(1, goDivide(speed, 2)), [vx, vy] = aimedVelocity(enemy.x, enemy.y, state.playerX, PLAYER_Y, slow); addEnemyHazard(state, "delayed_echo", enemy.x, enemy.y, vx, vy, damage, 72, 0, 0); }
-  else if (pattern === "echo") { const [vx, vy] = aimedVelocity(enemy.x, enemy.y, state.playerX, PLAYER_Y, speed); addEnemyBullet(state, enemy.x, enemy.y, vx, vy, damage); addEnemyHazard(state, "echo_shot", SHOOTER_WIDTH - enemy.x, enemy.y + 180, -vx, vy, damage, 55, 0, 0); }
+  if (pattern === "aimed") { const [vx, vy] = aimedVelocity(enemy.x, enemy.y, state.playerX, state.playerY, speed); addEnemyBullet(state, enemy.x, enemy.y, vx, vy, damage); }
+  else if (pattern === "delayed") { const slow = Math.max(1, goDivide(speed, 2)), [vx, vy] = aimedVelocity(enemy.x, enemy.y, state.playerX, state.playerY, slow); addEnemyHazard(state, "delayed_echo", enemy.x, enemy.y, vx, vy, damage, 72, 0, 0); }
+  else if (pattern === "echo") { const [vx, vy] = aimedVelocity(enemy.x, enemy.y, state.playerX, state.playerY, speed); addEnemyBullet(state, enemy.x, enemy.y, vx, vy, damage); addEnemyHazard(state, "echo_shot", SHOOTER_WIDTH - enemy.x, enemy.y + 180, -vx, vy, damage, 55, 0, 0); }
   else if (pattern === "fan") for (const vx of [-speed, goDivide(-speed, 2), 0, goDivide(speed, 2), speed]) addEnemyBullet(state, enemy.x, enemy.y, vx, speed, damage);
-  else if (pattern === "applause") for (const origin of [260, SHOOTER_WIDTH - 260]) { const [vx, vy] = aimedVelocity(origin, enemy.y, state.playerX, PLAYER_Y, speed); addEnemyHazard(state, "applause", origin, enemy.y, vx, vy, damage, 58, 0, 0); }
+  else if (pattern === "applause") for (const origin of [260, SHOOTER_WIDTH - 260]) { const [vx, vy] = aimedVelocity(origin, enemy.y, state.playerX, state.playerY, speed); addEnemyHazard(state, "applause", origin, enemy.y, vx, vy, damage, 58, 0, 0); }
   else if (pattern === "translation") { const direction = enemy.volley & 1 ? -1 : 1; for (const vx of [goDivide(-speed, 2), 0, goDivide(speed, 2)]) addEnemyHazard(state, "translation_zigzag", enemy.x, enemy.y, vx + direction * goDivide(speed, 3), speed, damage, 55, 0, 0); }
   else if (pattern === "beam") addEnemyHazard(state, "boss_beam", clamp(state.playerX, 260, SHOOTER_WIDTH - 260), enemy.y, 0, Math.max(18, goDivide(speed, 2)), damage, 100, 300, 0);
   else if (pattern === "lane" || pattern === "lanes") fireBossFrame(state, enemy, speed, damage, "boss_lane", 0);

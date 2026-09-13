@@ -1,6 +1,10 @@
 import {
   ENEMY_RADIUS,
   PLAYER_RADIUS,
+  PLAYER_Y,
+  PLAYER_MIN_Y,
+  PLAYER_MAX_Y,
+  squaredDistance,
   SHOOTER_WIDTH,
   clamp,
 } from "@/features/shooter/constants";
@@ -50,6 +54,7 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   random: new ShooterRandom(runtime.config.seed),
   tick: 0,
   playerX: SHOOTER_WIDTH / 2,
+  playerY: PLAYER_Y,
   health: clamp(runtime.config.player_health, 0, runtime.resolved.maxHealth),
   shield: runtime.resolved.startingShield,
   invulnerableTicks: 0,
@@ -92,6 +97,7 @@ const updateEnemies = (state: ShooterMutableState): void => {
     if (updateReversalEnemy(state, enemy)) continue;
     if (enemy.boss) {
       updateBoss(state, enemy);
+      if (squaredDistance(enemy.x, enemy.y, state.playerX, state.playerY) < (PLAYER_RADIUS + 280) ** 2) damagePlayer(state, 1);
       continue;
     }
     const spec = state.config.enemies[enemy.specIndex]!;
@@ -110,7 +116,7 @@ const updateEnemies = (state: ShooterMutableState): void => {
       }
       enemy.volley += 1;
     }
-    if (enemy.y >= 5_200 - ENEMY_RADIUS && Math.abs(enemy.x - state.playerX) < PLAYER_RADIUS + ENEMY_RADIUS) {
+    if (squaredDistance(enemy.x, enemy.y, state.playerX, state.playerY) < (PLAYER_RADIUS + ENEMY_RADIUS) ** 2) {
       damagePlayer(state, Math.max(1, spec.contact_damage));
       if (hasTrait(spec, "steal_pickup")) state.rescueCharge = Math.max(0, state.rescueCharge - 20);
       enemy.health = 0;
@@ -122,6 +128,7 @@ const updateEnemies = (state: ShooterMutableState): void => {
 const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
   tick: state.tick,
   player_x: state.playerX,
+  player_y: state.playerY,
   health: state.health,
   max_health: 3,
   shield: state.shield,
@@ -240,6 +247,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     if (moveLimit <= 0 || moveLimit > SHOOTER_WIDTH / 2 - PLAYER_RADIUS) moveLimit = SHOOTER_WIDTH / 2 - PLAYER_RADIUS;
     state.playerX = SHOOTER_WIDTH / 2 - moveLimit + input.x * (moveLimit * 2) / 127;
     state.playerX = Math.trunc(state.playerX);
+    state.playerY = clamp(input.y ?? PLAYER_Y, PLAYER_MIN_Y, PLAYER_MAX_Y);
     const rescueActivated = input.rescue && !state.rescueHeld ? activateRescue(state) : false;
     state.rescueHeld = input.rescue;
     spawnWave(state);
