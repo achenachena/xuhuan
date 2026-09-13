@@ -1,6 +1,5 @@
 import {
   PLAYER_RADIUS,
-  PLAYER_Y,
   SHOOTER_WIDTH,
   clamp,
   goDivide,
@@ -49,7 +48,7 @@ export const createShooterRuntime = (
         resolved.pierce += effect.amount;
         break;
       case "spread_shot":
-        resolved.spread += effect.amount;
+        resolved.spread += effect.amount * 15;
         resolved.multishot += 2;
         break;
       case "graze_charge":
@@ -172,8 +171,8 @@ export const resolvePickupWeapon = (
     5,
   ),
   pierce: runtime.pierce + (power === "pierce" ? 2 : 0),
-  spread: power === "spread" ? 14 : runtime.spread > 0 ? 5 + runtime.spread * 2 : 0,
-  projectileKind: power ?? "",
+  spread: Math.max(power === "spread" ? 28 : 0, runtime.spread > 0 ? 5 + runtime.spread * 2 : 0),
+  projectileKind: power ?? (runtime.pierce > 0 ? "pierce" : runtime.spread > 0 ? "spread" : ""),
 });
 
 export const updateWeapons = (state: ShooterMutableState): void => {
@@ -204,7 +203,7 @@ export const updateWeapons = (state: ShooterMutableState): void => {
           PLAYER_RADIUS,
           SHOOTER_WIDTH - PLAYER_RADIUS,
         ),
-        y: PLAYER_Y,
+        y: state.playerY,
         vx:
           pickupWeapon.spread > 0 ? lane * pickupWeapon.spread : 0,
         vy: -390,
@@ -220,26 +219,23 @@ export const updateWeapons = (state: ShooterMutableState): void => {
     for (const vx of [-75, 75]) {
       if (!addPlayerProjectile(state, {
         x: state.playerX,
-        y: PLAYER_Y,
+        y: state.playerY,
         vx,
         vy: -175,
         damage: Math.max(1, goDivide(damage * 3, 4)),
         pierce: state.runtime.pierce,
       })) break;
     }
-    addShooterEffect(state, "cadence_volley", state.playerX, PLAYER_Y, 12, state.attackSequence);
+    addShooterEffect(state, "cadence_volley", state.playerX, state.playerY, 12, state.attackSequence);
   }
-  if (
-    state.runtime.echoVolley > 0 &&
-    state.tick % Math.max(1, state.runtime.fireInterval * Math.max(2, 6 - state.runtime.echoVolley)) === 0
-  ) {
-    addPlayerProjectile(state, {
-      x: state.playerX,
-      y: PLAYER_Y + 220,
-      vy: -155,
-      damage: Math.max(1, goDivide(damage, 2)),
-      pierce: state.runtime.pierce,
-    });
+  if (state.runtime.echoVolley > 0 && state.attackSequence % 3 === 0) {
+    for (let index = 0; index < count; index++) {
+      const lane = index * 2 - count + 1;
+      addPlayerProjectile(state, { x: state.playerX + lane * 34, y: state.playerY + 220,
+        vx: pickupWeapon.spread > 0 ? lane * pickupWeapon.spread : 0, vy: -330,
+        damage: Math.max(1, goDivide(damage * 3, 4)), pierce: pickupWeapon.pierce });
+    }
+    addShooterEffect(state, "afterimage_replay", state.playerX, state.playerY + 180, 15, count);
   }
   if (
     state.config.kit.id === "xiangwan" &&
@@ -248,7 +244,7 @@ export const updateWeapons = (state: ShooterMutableState): void => {
   ) {
     addPlayerProjectile(state, {
       x: state.playerX,
-      y: PLAYER_Y + 180,
+      y: state.playerY + 180,
       vy: -150,
       damage: Math.max(1, goDivide(damage, 2)),
       pierce: state.runtime.pierce,
@@ -317,7 +313,7 @@ const activateCompanion = (
   let fired = false;
   for (let shot = 0; shot < count; shot += 1) {
     const x = clamp(state.playerX + offset, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS);
-    const y = PLAYER_Y + 80 + shot * 80;
+    const y = state.playerY + 80 + shot * 80;
     const dx = target.x - x, dy = target.y - y;
     const distance = Math.max(1, integerSqrt(dx * dx + dy * dy));
     if (!addPlayerProjectile(state, {
@@ -361,7 +357,7 @@ export const updateCompanions = (state: ShooterMutableState): void => {
         state,
         "choice_assist",
         state.playerX,
-        PLAYER_Y,
+        state.playerY,
         18,
         mode,
       );

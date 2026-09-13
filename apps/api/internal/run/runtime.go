@@ -61,16 +61,10 @@ func buildShooterConfig(state State, catalog *gamecontent.V4Catalog, seed string
 		config.Companions = append(config.Companions, shooter.Companion{ID: shooter.CompanionID(companion.ID), Trigger: companion.Assist.Trigger, Behavior: companion.Assist.Behavior, Amount: companion.Assist.Amount, CooldownTicks: companion.Assist.CooldownTicks})
 	}
 	for _, item := range catalog.Enemies {
-		fireInterval := item.ShotInterval
-		if tutorial && item.ID == "clip-cutter" {
-			// The embedded movement tutorial introduces cutters late, with enough
-			// space for an untrained left/right sweep to survive and see Rescue.
-			fireInterval *= 2
-		}
 		config.Enemies = append(config.Enemies, shooter.EnemySpec{
 			ID: item.ID, Chassis: shooter.Chassis(item.ID), Health: item.MaxHealth,
 			Speed: item.Speed, ContactDamage: item.ContactDamage, MovePattern: item.MovePattern,
-			ShotPattern: item.ShotPattern, FireInterval: fireInterval,
+			ShotPattern: item.ShotPattern, FireInterval: item.ShotInterval,
 			ProjectileSpeed: item.ProjectileSpeed, Damage: item.ProjectileDamage,
 			TelegraphTicks: item.TelegraphTicks, Score: max(50, item.MaxHealth*4), Traits: append([]string{}, item.Traits...),
 		})
@@ -78,6 +72,41 @@ func buildShooterConfig(state State, catalog *gamecontent.V4Catalog, seed string
 	for _, spawn := range wave.Spawns {
 		config.Wave.Spawns = append(config.Wave.Spawns, shooter.Spawn{AtTick: spawn.AtTick, EnemyID: spawn.EnemyID, Count: spawn.Count, Formation: spawn.Formation, IntervalTicks: spawn.IntervalTicks})
 	}
+	if boss == nil && !tutorial {
+		// Randomize complete authored groups, keeping counts and time slots: the
+		// chapter's threat budget stays bounded. A seed reproduces the same wave.
+		stream := randomStream{seed: seed + ":encounters"}
+		groups := append([]shooter.Spawn(nil), config.Wave.Spawns...)
+		for i := len(groups) - 1; i > 0; i-- {
+			j := stream.Intn(i + 1)
+			groups[i], groups[j] = groups[j], groups[i]
+		}
+		formations := []string{"line", "fan", "staggered", "pincer", "sweep"}
+		for i := range config.Wave.Spawns {
+			slot := &config.Wave.Spawns[i]
+			slot.EnemyID, slot.Count, slot.IntervalTicks = groups[i].EnemyID, groups[i].Count, groups[i].IntervalTicks
+			slot.Formation = formations[stream.Intn(len(formations))]
+			end := duration - 90
+			if i+1 < len(config.Wave.Spawns) {
+				end = min(end, config.Wave.Spawns[i+1].AtTick-30)
+			}
+			slot.IntervalTicks = min(slot.IntervalTicks, max(1, (end-slot.AtTick)/max(1, slot.Count-1)))
+		}
+		// Replace one attacker, rather than adding pressure. The relay arrives
+		// beside a group so players can see and break its protective links.
+		if stream.Intn(2) == 0 {
+			for i := range config.Wave.Spawns {
+				slot := &config.Wave.Spawns[i]
+				if slot.Count < 2 {
+					continue
+				}
+				slot.Count--
+				config.Wave.Spawns = append(config.Wave.Spawns, shooter.Spawn{AtTick: slot.AtTick, EnemyID: "shield-relay", Count: 1, Formation: "center", IntervalTicks: 0})
+				break
+			}
+		}
+	}
+
 	if boss != nil {
 		// Boss segments do not spawn an authored wave. Keep the runtime wire
 		// shape explicit and valid by identifying the empty wave with the Boss
@@ -115,7 +144,7 @@ func buildShooterConfig(state State, catalog *gamecontent.V4Catalog, seed string
 		}
 	}
 	config.SpecialChargePenaltyPercent = min(75, chargePenaltyPercent)
-	if config.Kit.ID == "" || len(config.Enemies) != 6 {
+	if config.Kit.ID == "" || len(config.Enemies) != len(shooter.SupportedChassis) {
 		return shooter.Config{}, fmt.Errorf("run: incomplete shooter runtime")
 	}
 	return config, nil

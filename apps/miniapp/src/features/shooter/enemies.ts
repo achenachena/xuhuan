@@ -3,7 +3,6 @@ import {
   ENEMY_RADIUS,
   PLAYER_GRAZE_RADIUS,
   PLAYER_RADIUS,
-  PLAYER_Y,
   SHOOTER_HEIGHT,
   SHOOTER_WIDTH,
   clamp,
@@ -142,13 +141,9 @@ export const moveEnemy = (
     return;
   }
   if (spec.chassis === "clip-cutter") {
-    if (enemy.y < 1_250) enemy.y += Math.max(5, goDivide(spec.speed, 3));
-    const direction = (goDivide(enemy.age, 45) + enemy.id) & 1 ? -1 : 1;
-    enemy.x = clamp(
-      enemy.x + direction * Math.max(5, spec.speed),
-      ENEMY_RADIUS,
-      SHOOTER_WIDTH - ENEMY_RADIUS,
-    );
+    if (enemy.age < 35) { enemy.y += 16; enemy.x += clamp(state.playerX-enemy.x,-25,25); }
+    else if (enemy.age < 62) { enemy.warning = 62-enemy.age; }
+    else { enemy.warning=0; enemy.y += Math.max(65,spec.speed); }
     return;
   }
   if (spec.chassis === "caption-blob") {
@@ -183,6 +178,10 @@ export const moveEnemy = (
     } else enemy.y -= Math.max(14, goDivide(spec.speed, 2));
     return;
   }
+  if (spec.chassis === "shield-relay") {
+    if (enemy.y < 1_350) enemy.y += 12;
+    return;
+  }
   if (spec.chassis === "censor-frame") {
     if (enemy.y < 1_150) enemy.y += Math.max(2, goDivide(spec.speed, 4));
     return;
@@ -197,13 +196,11 @@ export const fireEnemy = (
   if (state.enemyProjectiles.length >= state.config.limits.enemy_projectiles) return;
   const speed = spec.projectile_speed;
   if (spec.chassis === "spam-bot") {
-    addEnemyHazard(state, "spam_stream", enemy.x, enemy.y, 0, speed, spec.damage, ENEMY_PROJECTILE_RADIUS, 0, 0);
+    const dx=state.playerX-enemy.x, dy=state.playerY-enemy.y, distance=Math.max(1,Math.hypot(dx,dy));
+    addEnemyHazard(state, "spam_stream", enemy.x, enemy.y, Math.round(dx/distance*speed), Math.round(dy/distance*speed), spec.damage, ENEMY_PROJECTILE_RADIUS, 0, 0);
     return;
   }
-  if (spec.chassis === "clip-cutter") {
-    addEnemyHazard(state, "horizontal_cut", enemy.x, enemy.y, 0, Math.max(20, goDivide(speed, 2)), spec.damage, 65, 1_700, 0);
-    return;
-  }
+  if (spec.chassis === "clip-cutter" || spec.chassis === "shield-relay") return;
   if (spec.chassis === "caption-blob") {
     const x = clamp(state.playerX + (enemy.id % 3 - 1) * 520, 420, SHOOTER_WIDTH - 420);
     addEnemyHazard(state, "caption_block", x, enemy.y, 0, Math.max(45, goDivide(speed, 2)), spec.damage, 150, 600, 0);
@@ -361,10 +358,11 @@ export const updatePickups = (state: ShooterMutableState): void => {
   for (const pickup of state.pickups) {
     pickup.y += 70;
     const magnetRange = (state.config.reversal ? 380 : 220) + state.runtime.pickupMagnet;
-    if (pickup.y >= PLAYER_Y - 900 && Math.abs(pickup.x - state.playerX) <= magnetRange) {
+    if (Math.abs(pickup.y - state.playerY) <= 900 && Math.abs(pickup.x - state.playerX) <= magnetRange) {
       pickup.x += clamp(state.playerX - pickup.x, -90, 90);
+      pickup.y += clamp(state.playerY - pickup.y, -120, 50);
     }
-    if (squaredDistance(pickup.x, pickup.y, state.playerX, PLAYER_Y) <= (PLAYER_RADIUS + 70) ** 2) {
+    if (squaredDistance(pickup.x, pickup.y, state.playerX, state.playerY) <= (PLAYER_RADIUS + 70) ** 2) {
       state.pickupsCollected += 1;
       earnRescue(state, pickup.value);
       state.score += 40 * Math.max(1, state.combo);
@@ -377,7 +375,7 @@ export const updatePickups = (state: ShooterMutableState): void => {
         state,
         `support_powerup_${pickup.kind}`,
         state.playerX,
-        PLAYER_Y,
+        state.playerY,
         24,
         pickup.value,
       );
@@ -457,6 +455,8 @@ const updateCampaignPlayerProjectiles = (state: ShooterMutableState): void => {
       let damage = shot.damage;
       if (enemy.boss) damage += state.runtime.bossBreak;
       else if (hasTrait(state.config.enemies[enemy.specIndex]!, "armor")) damage = Math.max(1, goDivide(damage * 2, 3));
+      const protector = state.enemies.find(other => other.id !== enemy.id && other.health > 0 && state.config.enemies[other.specIndex]?.traits.includes("shield_link") && squaredDistance(other.x, other.y, enemy.x, enemy.y) < 1_500 ** 2);
+      if (!enemy.boss && protector) { damage = Math.max(1, Math.trunc(damage / 2)); addShooterEffect(state, "cheer_guard", enemy.x, enemy.y, 8, 1); }
       enemy.health -= damage;
       applyKitOnHit(state, index, shot.damage);
       (shot.hitEnemyIDs ??= []).push(enemy.id);
@@ -482,8 +482,8 @@ export const updateProjectiles = (state: ShooterMutableState): void => {
     bullet.y += bullet.vy;
     const radius = Math.max(ENEMY_PROJECTILE_RADIUS, bullet.radius);
     const hitsPlayer = bullet.width > 0
-      ? sweptShooterHit(oldX, oldY, bullet.x, bullet.y, state.playerX, PLAYER_Y, bullet.width / 2 + PLAYER_RADIUS, radius + PLAYER_RADIUS) !== null
-      : sweptShooterCircleHit(oldX, oldY, bullet.x, bullet.y, state.playerX, PLAYER_Y, radius + PLAYER_RADIUS);
+      ? sweptShooterHit(oldX, oldY, bullet.x, bullet.y, state.playerX, state.playerY, bullet.width / 2 + PLAYER_RADIUS, radius + PLAYER_RADIUS) !== null
+      : sweptShooterCircleHit(oldX, oldY, bullet.x, bullet.y, state.playerX, state.playerY, radius + PLAYER_RADIUS);
     if (hitsPlayer) {
       damagePlayer(state, bullet.damage);
       continue;
@@ -494,7 +494,7 @@ export const updateProjectiles = (state: ShooterMutableState): void => {
       bullet.x < -radius - goDivide(bullet.width, 2) ||
       bullet.x > SHOOTER_WIDTH + radius + goDivide(bullet.width, 2)
     ) continue;
-    const distance = squaredDistance(bullet.x, bullet.y, state.playerX, PLAYER_Y);
+    const distance = squaredDistance(bullet.x, bullet.y, state.playerX, state.playerY);
     if (!bullet.grazed && bullet.width === 0 && distance <= PLAYER_GRAZE_RADIUS ** 2) {
       bullet.grazed = true;
       state.grazeCount += 1;
@@ -514,7 +514,7 @@ export const updateKitPassives = (state: ShooterMutableState): void => {
     let bestIndex = -1;
     let bestDistance = 520 ** 2 + 1;
     state.enemyProjectiles.forEach((bullet, index) => {
-      const distance = squaredDistance(bullet.x, bullet.y, state.playerX, PLAYER_Y);
+      const distance = squaredDistance(bullet.x, bullet.y, state.playerX, state.playerY);
       if (distance < bestDistance) {
         bestIndex = index;
         bestDistance = distance;
@@ -557,6 +557,7 @@ export const enemyIntent = (
   encoreLevel: number,
 ): "fire" | "charge" | "" => {
   if (enemy.warning > 0) return "charge";
+  if (spec.chassis === "shield-relay" || spec.chassis === "clip-cutter" || spec.chassis === "gift-thief") return "";
   return encoreInterval(spec.fire_interval, encoreLevel, 12) - enemy.fireClock <= 15
     ? "fire"
     : "";
@@ -588,7 +589,7 @@ const storyChoiceThreat = (
     kind: "aimed_line",
     ticks_remaining: remaining,
     origin: { x: enemy.x, y: enemy.y },
-    target: { x: state.playerX, y: PLAYER_Y },
+    target: { x: state.playerX, y: state.playerY },
   };
   const mode = storyChoiceMode(state.config.story_choice_id);
   if (mode === 1) return { ...warning, width: 150 };
@@ -605,7 +606,7 @@ const storyChoiceThreat = (
             4) %
             5) *
             720,
-        y: PLAYER_Y,
+        y: state.playerY,
       },
     };
   }
@@ -623,7 +624,7 @@ const bossRemixThreat = (
     kind: "aimed_line",
     ticks_remaining: remaining,
     origin: { x: enemy.x, y: enemy.y },
-    target: { x: state.playerX, y: PLAYER_Y },
+    target: { x: state.playerX, y: state.playerY },
   };
   if (bossID === "optimal-nana" || bossID === "perfect-highlight") {
     return {
@@ -635,7 +636,7 @@ const bossRemixThreat = (
           360 +
           ((enemy.volley + (shooterSeedFromString(bossID) % 5) + 3) % 5) *
             720,
-        y: PLAYER_Y,
+        y: state.playerY,
       },
     };
   }
@@ -644,7 +645,7 @@ const bossRemixThreat = (
       ...warning,
       kind: "horizontal_cut",
       width: 1_450,
-      target: { x: SHOOTER_WIDTH - enemy.x, y: PLAYER_Y },
+      target: { x: SHOOTER_WIDTH - enemy.x, y: state.playerY },
     };
   }
   if (bossID === "perfect-captain" || bossID === "reality-auditor") {
@@ -657,7 +658,7 @@ const bossRemixThreat = (
     radius: 125,
     target: {
       x: clamp(SHOOTER_WIDTH - state.playerX, 650, SHOOTER_WIDTH - 650),
-      y: PLAYER_Y,
+      y: state.playerY,
     },
   };
 };
@@ -673,7 +674,7 @@ const bossSpecialThreat = (
     kind: "aimed_line",
     ticks_remaining: remaining,
     origin: { x: enemy.x, y: enemy.y },
-    target: { x: state.playerX, y: PLAYER_Y },
+    target: { x: state.playerX, y: state.playerY },
   };
   if (["tidy-intro", "word-by-word", "prove-the-address", "helpful-rewrite", "erase-the-flowers", "overwrite-drafts"].includes(special)) {
     return { ...warning, kind: "caption_block", width: 720, radius: 170 };
@@ -686,7 +687,7 @@ const bossSpecialThreat = (
       ...warning,
       kind: "censor_gap",
       width: 260,
-      target: { x: 360 + ((enemy.volley + 2) % 5) * 720, y: PLAYER_Y },
+      target: { x: 360 + ((enemy.volley + 2) % 5) * 720, y: state.playerY },
     };
   }
   if (["endless-encore", "approved-only", "split-stage", "archive-everyone"].includes(special)) {
@@ -704,7 +705,7 @@ export const threatSnapshots = (state: ShooterMutableState): ShooterThreatSnapsh
   for (const enemy of state.enemies) {
     if (enemy.health <= 0) continue;
     if (enemy.warning > 0) {
-      result.push({ source_id: enemy.id, kind: "charge_lane", ticks_remaining: enemy.warning, origin: { x: enemy.x, y: enemy.y }, target: { x: enemy.x, y: PLAYER_Y }, width: ENEMY_RADIUS * 2 });
+      result.push({ source_id: enemy.id, kind: "charge_lane", ticks_remaining: enemy.warning, origin: { x: enemy.x, y: enemy.y }, target: { x: enemy.x, y: state.playerY }, width: ENEMY_RADIUS * 2 });
       continue;
     }
     let pattern = "";
@@ -736,23 +737,20 @@ export const threatSnapshots = (state: ShooterMutableState): ShooterThreatSnapsh
     }
     if (!enemy.boss) {
       const spec = state.config.enemies[enemy.specIndex]!;
-      if (spec.chassis === "clip-cutter") {
-        result.push({ source_id: enemy.id, kind: "horizontal_cut", ticks_remaining: remaining, origin: { x: enemy.x, y: enemy.y }, target: { x: enemy.x, y: PLAYER_Y }, width: 1_700 });
-        continue;
-      }
+      if (spec.chassis === "clip-cutter" || spec.chassis === "shield-relay") continue;
       if (spec.chassis === "caption-blob") {
         const x = clamp(state.playerX + (enemy.id % 3 - 1) * 520, 420, SHOOTER_WIDTH - 420);
-        result.push({ source_id: enemy.id, kind: "caption_block", ticks_remaining: remaining, origin: { x: enemy.x, y: enemy.y }, target: { x, y: PLAYER_Y }, width: 600, radius: 150 });
+        result.push({ source_id: enemy.id, kind: "caption_block", ticks_remaining: remaining, origin: { x: enemy.x, y: enemy.y }, target: { x, y: state.playerY }, width: 600, radius: 150 });
         continue;
       }
       if (spec.chassis === "black-screen-ghost") {
-        result.push({ source_id: enemy.id, kind: "black_wall", ticks_remaining: remaining, origin: { x: enemy.x, y: enemy.y }, target: { x: enemy.x, y: PLAYER_Y }, width: 900, radius: 125 });
+        result.push({ source_id: enemy.id, kind: "black_wall", ticks_remaining: remaining, origin: { x: enemy.x, y: enemy.y }, target: { x: enemy.x, y: state.playerY }, width: 900, radius: 125 });
         continue;
       }
       if (spec.chassis === "gift-thief") continue;
       if (spec.chassis === "censor-frame") {
         const gap = goDivide(state.tick + remaining, 150) % 5;
-        result.push({ source_id: enemy.id, kind: "censor_gap", ticks_remaining: remaining, origin: { x: enemy.x, y: enemy.y }, target: { x: 360 + gap * 720, y: PLAYER_Y }, width: 260 });
+        result.push({ source_id: enemy.id, kind: "censor_gap", ticks_remaining: remaining, origin: { x: enemy.x, y: enemy.y }, target: { x: 360 + gap * 720, y: state.playerY }, width: 260 });
         continue;
       }
     }
@@ -763,7 +761,7 @@ export const threatSnapshots = (state: ShooterMutableState): ShooterThreatSnapsh
     else if (["fan", "applause", "translation"].includes(pattern)) { kind = "fan_cone"; width = 900; }
     else if (["ring", "spiral", "finale"].includes(pattern)) { kind = "radial_burst"; radius = 520; width = 0; }
     else if (["delayed", "echo"].includes(pattern)) { kind = "delayed_echo"; radius = 180; width = 0; }
-    result.push({ source_id: enemy.id, kind, ticks_remaining: remaining, origin: { x: enemy.x, y: enemy.y }, target: { x: state.playerX, y: PLAYER_Y }, ...(radius ? { radius } : {}), ...(width ? { width } : {}) });
+    result.push({ source_id: enemy.id, kind, ticks_remaining: remaining, origin: { x: enemy.x, y: enemy.y }, target: { x: state.playerX, y: state.playerY }, ...(radius ? { radius } : {}), ...(width ? { width } : {}) });
   }
   return result;
 };

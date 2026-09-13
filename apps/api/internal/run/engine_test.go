@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
-	"github.com/achenachena/xuhuan/apps/api/internal/shooter"
 )
 
 func TestCampaignFlowUsesThreeGatesIntermissionAndExplicitBossClear(t *testing.T) {
@@ -201,15 +200,6 @@ func TestSeventhDockTutorialBoostOnlyAppliesBeforeFirstIntermissionChoice(t *tes
 	if firstPlay.StartingRescueCharge != 20 || firstPlay.Kit.StartingShield != 1 {
 		t.Fatalf("first play tutorial boost=%#v", firstPlay)
 	}
-	authoredCutter, ok := catalog.Enemy("clip-cutter")
-	if !ok {
-		t.Fatal("missing authored Clip Cutter")
-	}
-	firstCutter := slices.IndexFunc(firstPlay.Enemies, func(enemy shooter.EnemySpec) bool { return enemy.ID == "clip-cutter" })
-	if firstCutter < 0 || firstPlay.Enemies[firstCutter].FireInterval != authoredCutter.ShotInterval*2 {
-		t.Fatalf("first play Clip Cutter cadence=%#v, want %d", firstPlay.Enemies, authoredCutter.ShotInterval*2)
-	}
-
 	replay := base
 	replay.SelectedChoiceIDs = []string{chapter.Story.Intermission.Choices[0].ID}
 	replayConfig, err := buildShooterConfig(replay, catalog, "tutorial-replay", chapter.Segments[0].DurationTicks, chapter.Waves[0], nil, false)
@@ -218,10 +208,6 @@ func TestSeventhDockTutorialBoostOnlyAppliesBeforeFirstIntermissionChoice(t *tes
 	}
 	if replayConfig.StoryChoiceID == "" || replayConfig.StartingRescueCharge != 0 || replayConfig.Kit.StartingShield != 0 {
 		t.Fatalf("chapter replay kept tutorial boost=%#v", replayConfig)
-	}
-	replayCutter := slices.IndexFunc(replayConfig.Enemies, func(enemy shooter.EnemySpec) bool { return enemy.ID == "clip-cutter" })
-	if replayCutter < 0 || replayConfig.Enemies[replayCutter].FireInterval != authoredCutter.ShotInterval {
-		t.Fatalf("chapter replay kept tutorial Clip Cutter cadence=%#v, want %d", replayConfig.Enemies, authoredCutter.ShotInterval)
 	}
 }
 

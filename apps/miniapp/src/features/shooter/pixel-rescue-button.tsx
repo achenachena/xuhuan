@@ -9,11 +9,10 @@ type Props = {
   readonly onRescue: () => void;
 };
 
-const penlight = (
+const blastIcon = (
   <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true" focusable="false" shapeRendering="crispEdges">
-    <path fill="currentColor" d="M12 2h8v2h2v14h-2v2h-2v9h-4v-9h-2v-2h-2V4h2z" />
-    <path fill="#0d2030" d="M14 5h4v2h-4zm0 5h4v2h-4zm0 5h4v2h-4zm0 7h4v2h-4z" />
-    <path fill="currentColor" d="M26 5h2v3h3v2h-3v3h-2v-3h-3V8h3zM4 18h2v2h2v2H6v2H4v-2H2v-2h2z" />
+    <path fill="currentColor" d="m16 1 4 9 9-5-5 10 7 4-10 2-2 10-5-8-10 5 5-11-8-4 11-2z" />
+    <path fill="#102433" d="m17 9-7 9h5l-1 6 8-10h-6z" />
   </svg>
 );
 
@@ -30,15 +29,15 @@ export const PixelRescueButton = ({ charge, busy = false, onRescue }: Props) => 
       disabled={!ready}
       aria-disabled={!ready}
       aria-label={ready ? gameText(language, "rescueReady") : `${gameText(language, "rescueCharging")} (${Math.round(progress)}%)`}
-      title={`${gameText(language, "hype")}: ${Math.round(progress)}%`}
+      title={ready ? gameText(language, "rescueReady") : `${gameText(language, "hype")}: ${Math.round(progress)}%`}
       onClick={onRescue}
       className={styles.button}
     >
       <span className={styles.face} aria-hidden="true">
         <span className={styles.icon}>
-          {penlight}
+          {blastIcon}
           <span className={styles.charge} style={{ clipPath: `inset(${100 - progress}% 0 0)` }}>
-            {penlight}
+            {blastIcon}
           </span>
         </span>
         <span className={styles.label}>{busy ? "…" : gameText(language, "rescue")}</span>

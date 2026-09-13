@@ -21,13 +21,13 @@ func TestCampaignWeaponChoicesAlwaysChangeTheFiringShape(t *testing.T) {
 		}
 		for _, id := range options {
 			effect, ok := catalog.ShowEffect(id)
-			if !ok || !slices.Contains([]string{"twin_shot", "piercing_shot", "spread_shot"}, effect.Behavior) {
+			if !ok || !slices.Contains([]string{"twin_shot", "piercing_shot", "spread_shot", "echo_volley"}, effect.Behavior) {
 				t.Fatalf("first gate offered an invisible damage bonus: %#v", effect)
 			}
 			seen[id] = true
 		}
 	}
-	if len(seen) != 3 {
+	if len(seen) != 4 {
 		t.Fatalf("weapon pool=%v, want twin, pierce, and spread", seen)
 	}
 }
@@ -166,5 +166,48 @@ func TestDailyRotationCharactersCanFinishEveryAuthoredBoss(t *testing.T) {
 	}
 	if len(seenBosses) != len(catalog.Daily.BossIDs) {
 		t.Fatalf("daily Boss coverage=%v, want every authored Boss", seenBosses)
+	}
+}
+
+func TestEncounterSeedsVaryGroupsWithinTheChapterBudget(t *testing.T) {
+	catalog := gamecontent.MustLoadV4()
+	chapter, _ := catalog.Chapter("seventh-dock")
+	state := State{ChapterSlug: chapter.ID, CharacterSlug: chapter.FeaturedCharacter, Hearts: 3, MaxHearts: 3, SegmentIndex: 1}
+	wave := chapter.Waves[1]
+	budget := 0
+	for _, group := range wave.Spawns {
+		budget += group.Count
+	}
+	seen := map[string]bool{}
+	sawRelay := false
+	for i := 0; i < 40; i++ {
+		seed := fmt.Sprintf("encounter-%d", i)
+		config, err := buildShooterConfig(state, catalog, seed, 1080, wave, nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		again, err := buildShooterConfig(state, catalog, seed, 1080, wave, nil, false)
+		if err != nil || !reflect.DeepEqual(config, again) {
+			t.Fatal("seed did not reproduce encounters")
+		}
+		count := 0
+		for _, group := range config.Wave.Spawns {
+			count += group.Count
+			if group.AtTick+(group.Count-1)*group.IntervalTicks >= config.DurationTicks {
+				t.Fatal("group outlives the wave")
+			}
+			if group.EnemyID == "shield-relay" {
+				sawRelay = true
+			} else if !slices.ContainsFunc(wave.Spawns, func(authored gamecontent.V4Spawn) bool { return authored.EnemyID == group.EnemyID }) {
+				t.Fatal("enemy escaped chapter pool")
+			}
+		}
+		if count > budget {
+			t.Fatal("random wave increased threat budget")
+		}
+		seen[fmt.Sprint(config.Wave.Spawns)] = true
+	}
+	if len(seen) < 8 || !sawRelay {
+		t.Fatalf("insufficient variety: %d waves, relay=%v", len(seen), sawRelay)
 	}
 }

@@ -1,5 +1,9 @@
 import {
   PLAYER_MAX_X,
+  PLAYER_MIN_Y,
+  PLAYER_MAX_Y,
+  PLAYER_Y,
+  SHOOTER_HEIGHT,
   PLAYER_MIN_X,
   SHOOTER_WIDTH,
   clamp,
@@ -15,17 +19,20 @@ export type SurfaceBounds = {
 export type ShooterPointerState = {
   readonly pointerId: number;
   readonly xOffset: number;
+  readonly yOffset: number;
 };
 
 export type ShooterControl = {
   readonly pointer: ShooterPointerState | null;
   readonly playerX: number;
+  readonly playerY: number;
   readonly minimumX: number;
   readonly maximumX: number;
 };
 
 export type ShooterInput = {
   readonly x: number;
+  readonly y?: number;
   readonly rescue: boolean;
 };
 
@@ -35,6 +42,7 @@ export const initialShooterControl = (
   maximumX = PLAYER_MAX_X,
 ): ShooterControl => ({
   pointer: null,
+  playerY: PLAYER_Y,
   playerX: clamp(playerX, minimumX, maximumX),
   minimumX,
   maximumX,
@@ -56,7 +64,7 @@ export const beginShooterPointer = (
 ): ShooterControl => {
   if (
     control.pointer !== null ||
-    clientY < bounds.top + bounds.height / 2 ||
+    clientY < bounds.top ||
     clientY > bounds.top + bounds.height
   ) {
     return control;
@@ -67,6 +75,7 @@ export const beginShooterPointer = (
     pointer: {
       pointerId,
       xOffset: control.playerX - pointerX,
+      yOffset: control.playerY - (clientY - bounds.top) / bounds.height * SHOOTER_HEIGHT,
     },
   };
 };
@@ -75,7 +84,7 @@ export const moveShooterPointer = (
   control: ShooterControl,
   pointerId: number,
   clientX: number,
-  _clientY: number,
+  clientY: number,
   bounds: SurfaceBounds,
 ): ShooterControl => {
   if (control.pointer?.pointerId !== pointerId) return control;
@@ -87,6 +96,7 @@ export const moveShooterPointer = (
   return {
     ...control,
     playerX: targetX,
+    playerY: clamp((clientY - bounds.top) / bounds.height * SHOOTER_HEIGHT + control.pointer.yOffset, PLAYER_MIN_Y, PLAYER_MAX_Y),
   };
 };
 
@@ -107,5 +117,6 @@ export const sampleShooterInput = (
       Math.max(1, control.maximumX - control.minimumX)) *
       127,
   ),
+  y: Math.round(control.playerY),
   rescue,
 });

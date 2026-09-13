@@ -267,7 +267,7 @@ export interface components {
         };
         LocalizedEnemy: {
             /** @enum {string} */
-            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
+            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay";
             name: string;
             description: string;
             sprite_url: components["schemas"]["AssetPath"];
@@ -295,7 +295,7 @@ export interface components {
         Spawn: {
             at_tick: number;
             /** @enum {string} */
-            enemy_id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
+            enemy_id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay";
             count: number;
             /** @enum {string} */
             formation: "line" | "fan" | "staggered" | "pincer" | "center" | "sweep";
@@ -481,9 +481,9 @@ export interface components {
         };
         RuntimeEnemy: {
             /** @enum {string} */
-            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
+            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay";
             /** @enum {string} */
-            chassis: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame";
+            chassis: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay";
             health: number;
             speed: number;
             contact_damage: number;

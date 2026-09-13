@@ -41,7 +41,7 @@ JSON decoding rejects unknown fields. All IDs use lowercase ASCII words separate
 - `daily.json`; and
 - the fixed mobile simulation rules.
 
-The current runtime contract is 30 Hz, a `3600 x 6400` logical arena, player Y `5200`, 128 horizontal input columns, and three starting hearts. Entity caps are 14 enemies, 120 hostile projectiles, 48 player projectiles, 12 pickups, and 24 effects.
+The current runtime contract is 30 Hz, a `3600 x 6400` logical arena, player starting Y `5200` with movement between `1700` and `5850`, 128 horizontal input columns and a local vertical coordinate, and three starting hearts. Entity caps are 14 enemies, 120 hostile projectiles, 48 player projectiles, 12 pickups, and 24 effects.
 
 Changing the wire shape of a runtime rule requires a protocol or content-version review. Do not edit a released manifest in place when that would make active Runs ambiguous.
 

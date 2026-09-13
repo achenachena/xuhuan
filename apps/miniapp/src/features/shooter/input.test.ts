@@ -20,7 +20,7 @@ describe("one-finger shooter input", () => {
     expect(control.playerX).toBe(2_310);
   });
 
-  it("ignores vertical movement entirely", () => {
+  it("follows both axes and clamps at the bottom edge", () => {
     const control = beginShooterPointer(
       initialShooterControl(1_800),
       9,
@@ -31,9 +31,9 @@ describe("one-finger shooter input", () => {
     const first = moveShooterPointer(control, 9, 240, 340, bounds);
     const second = moveShooterPointer(control, 9, 240, 639, bounds);
     expect(second.playerX).toBe(first.playerX);
-    expect(sampleShooterInput(second, false)).toEqual(
-      sampleShooterInput(first, false),
-    );
+    expect(first.playerY).toBe(3600);
+    expect(second.playerY).toBe(5850);
+    expect(sampleShooterInput(second, false).y).toBe(5850);
   });
 
   it("stops changing position immediately on release", () => {
@@ -67,7 +67,7 @@ describe("one-finger shooter input", () => {
     expect(control.pointer?.pointerId).toBe(13);
   });
 
-  it("does not start movement from the upper half", () => {
+  it("accepts a grab anywhere without teleporting", () => {
     const control = beginShooterPointer(
       initialShooterControl(1_800),
       15,
@@ -75,6 +75,8 @@ describe("one-finger shooter input", () => {
       100,
       bounds,
     );
-    expect(control.pointer).toBeNull();
+    expect(control.pointer?.pointerId).toBe(15);
+    expect(control.playerY).toBe(5200);
+    expect(moveShooterPointer(control, 15, 180, -600, bounds).playerY).toBe(1700);
   });
 });

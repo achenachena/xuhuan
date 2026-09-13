@@ -2,6 +2,9 @@ export const SHOOTER_WIDTH = 3_600;
 export const SHOOTER_HEIGHT = 6_400;
 export const SHOOTER_TPS = 30;
 export const PLAYER_Y = 5_200;
+// Keep clear of the enemy entrance and leave room for the player sprite.
+export const PLAYER_MIN_Y = 1_700;
+export const PLAYER_MAX_Y = 5_850;
 export const PLAYER_RADIUS = 95;
 export const PLAYER_MIN_X = PLAYER_RADIUS;
 export const PLAYER_MAX_X = SHOOTER_WIDTH - PLAYER_MIN_X;

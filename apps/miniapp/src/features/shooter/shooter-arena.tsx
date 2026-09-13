@@ -14,6 +14,8 @@ import useLocale from "@/components/providers/use-locale";
 import { gameText, type GameCopyKey } from "@/features/game/game-copy";
 import {
   PLAYER_MAX_X,
+  PLAYER_MIN_Y,
+  PLAYER_MAX_Y,
   PLAYER_MIN_X,
   SHOOTER_TPS,
 } from "@/features/shooter/constants";
@@ -158,10 +160,9 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
   }, [musicProgress, setDemoMusicProgress, setMusicActive, sources.reversal]);
 
   useEffect(() => {
-    if (!embedded) return;
     const activeKeys = keysRef.current;
     const keyDown = (event: KeyboardEvent) => {
-      if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD", "Space"].includes(event.code)) {
+      if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD", "ArrowUp", "ArrowDown", "KeyW", "KeyS", "Space"].includes(event.code)) {
         event.preventDefault();
         activeKeys.add(event.code);
         if (event.code === "Space") rescueQueuedRef.current = true;
@@ -175,7 +176,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
       window.removeEventListener("keyup", keyUp);
       activeKeys.clear();
     };
-  }, [embedded]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -279,20 +280,27 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
 
     const update = () => {
       if (finished) return;
-      if (embedded && controlRef.current.pointer === null) {
+      if (controlRef.current.pointer === null) {
         const keys = keysRef.current;
         const direction =
           (keys.has("ArrowRight") || keys.has("KeyD") ? 1 : 0) -
           (keys.has("ArrowLeft") || keys.has("KeyA") ? 1 : 0);
-        if (direction !== 0) {
+        const vertical = (keys.has("ArrowDown") || keys.has("KeyS") ? 1 : 0) - (keys.has("ArrowUp") || keys.has("KeyW") ? 1 : 0);
+        const speed = direction && vertical ? 67 : 95;
+        if (direction !== 0 || vertical !== 0) {
           controlRef.current = {
             ...controlRef.current,
+            playerY: Math.max(PLAYER_MIN_Y, Math.min(PLAYER_MAX_Y, controlRef.current.playerY + vertical * speed)),
             playerX: Math.max(
               controlRef.current.minimumX,
-              Math.min(controlRef.current.maximumX, controlRef.current.playerX + direction * 95),
+              Math.min(controlRef.current.maximumX, controlRef.current.playerX + direction * speed),
             ),
           };
         }
+      }
+      if (surfaceRef.current) {
+        surfaceRef.current.dataset.controlX = String(controlRef.current.playerX);
+        surfaceRef.current.dataset.controlY = String(controlRef.current.playerY);
       }
       const input = sampleShooterInput(
         controlRef.current,
@@ -386,6 +394,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
         tutorial,
         controlRef.current.playerX,
         enemyImpactsRef.current,
+        controlRef.current.playerY,
       );
     };
 
@@ -440,6 +449,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
     }
     controlRef.current = next;
     event.currentTarget.dataset.controlX = String(next.playerX);
+    event.currentTarget.dataset.controlY = String(next.playerY);
     event.currentTarget.dataset.pointerActive = String(next.pointer !== null);
   };
   const move = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -447,6 +457,7 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
     const rect = bounds();
     if (!rect) return;
     const before = controlRef.current.playerX;
+    const beforeY = controlRef.current.playerY;
     controlRef.current = moveShooterPointer(
       controlRef.current,
       event.pointerId,
@@ -454,8 +465,9 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
       event.clientY,
       rect,
     );
-    movementDistanceRef.current += Math.abs(controlRef.current.playerX - before);
+    movementDistanceRef.current += Math.hypot(controlRef.current.playerX - before, controlRef.current.playerY - beforeY);
     event.currentTarget.dataset.controlX = String(controlRef.current.playerX);
+    event.currentTarget.dataset.controlY = String(controlRef.current.playerY);
   };
   const end = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();

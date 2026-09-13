@@ -21,7 +21,7 @@ const state = (overrides: Partial<ShooterRuntimeConfig> = {}): ShooterMutableSta
   const runtime = createShooterRuntime(config(overrides));
   return {
     config: runtime.config, runtime: runtime.resolved, random: { integer: () => 0 },
-    tick: 241, playerX: 1_800, health: 3, shield: 0, invulnerableTicks: 0,
+    tick: 241, playerX: 1_800, playerY: 5_200, health: 3, shield: 0, invulnerableTicks: 0,
     rescueCharge: 0, rescueHeld: false, rescuesUsed: 0, grazeCount: 0, combo: 0, comboClock: 0,
     kills: 0, score: 0, attackClock: 0, attackSequence: 0, alignmentTicks: 0,
     companionClocks: [], companionSignals: [], companionPending: [], nextEnemyID: 0, nextProjectileID: 0, nextPickupID: 0,

@@ -251,7 +251,7 @@ test("pixel rescue is keyboard-operable and never steals a held drag @small-scre
   await installAPI(page, { game: createV4Game({ campaign_run: run }) });
   await page.goto("/");
   const surface = page.getByTestId("shooter-control-surface");
-  const rescue = page.getByRole("button", { name: "Rescue ready", exact: true });
+  const rescue = page.getByRole("button", { name: "Blast ready — clear bullets and become briefly invincible", exact: true });
   await expect(surface).toBeVisible();
   await expect(page.locator('[data-game-surface="true"] [role="status"]')).toHaveCount(0);
   await expect(rescue).toBeEnabled();
@@ -282,7 +282,7 @@ test("pixel rescue is keyboard-operable and never steals a held drag @small-scre
   await expect(charging).toBeDisabled();
   await expect(charging).toHaveAttribute("aria-disabled", "true");
   await expect(charging).toHaveAttribute("data-state", "charging");
-  await expect(charging).toHaveAttribute("title", "HYPE: 0%");
+  await expect(charging).toHaveAttribute("title", "ENERGY: 0%");
   await expect(surface).toHaveAttribute("data-control-x", heldX!);
   expect(await charging.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe("none");
 

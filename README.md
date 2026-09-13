@@ -6,7 +6,7 @@
 
 <a href="https://xuhuan-miniapp.vercel.app/engineering"><img src="apps/miniapp/public/engineering/gameplay-poster.webp" width="260" alt="A core reversal in an earlier gameplay prototype" /></a>
 
-Clear waves, pick upgrades, defeat each Boss, and continue with the next character. Drag horizontally on phone or use drag/A/D/arrow keys on desktop; firing is automatic.
+Clear waves, pick upgrades, defeat each Boss, and continue with the next character. Drag freely in two dimensions on phone or use drag/WASD/arrow keys on desktop; firing is automatic.
 
 [Play all eight chapters in your browser](https://xuhuan-miniapp.vercel.app/play) without an account. Each visit starts a fresh campaign; progress lasts for the current session. [Telegram](https://t.me/xuhuangamebot) keeps server-backed saves.
 
@@ -18,12 +18,12 @@ The browser campaign runs the same Go progression rules as the server, compiled 
 - **Measured hot-path optimization:** deterministic collision comparison, warmup and seven timed trials. [Benchmark](scripts/benchmark-collision.mjs) · [Measurements and limits](docs/evidence/collision-benchmark.txt).
 - **Production ownership:** Go, PostgreSQL, Canvas, OpenAPI contracts, CI, AWS Lambda, Vercel and Terraform. The [engineering page](https://xuhuan-miniapp.vercel.app/engineering) explains the boundaries and trade-offs.
 
-The V4 campaign is deliberately easy to enter: move only left and right, fire straight upward automatically, collect friendly support notes, and tap one special when it is ready. Each chapter contains three short waves, a concrete two-choice aftershow intermission, and a three-stage boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
+The V4 campaign is deliberately easy to enter: move freely in four directions, fire straight upward automatically, collect friendly support notes, and tap BLAST (or press Space) to clear bullets and become briefly invincible. Each chapter contains three short waves, a concrete two-choice aftershow intermission, and a three-stage boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
 
 ## Why it fits Telegram
 
 - Portrait play with one finger and no virtual joystick.
-- The character stays on a fixed vertical line and follows the finger horizontally without inertia.
+- Relative dragging preserves the grab offset in both dimensions; the enemy entrance stays outside the movement area.
 - Automatic fire keeps attention on dodging, support-note routes, and special timing.
 - Three hearts, strong attack telegraphs, short waves, and one obvious special keep the first session readable.
 - A room submits one bounded completion result when it ends; normal play sends no frame-by-frame requests.

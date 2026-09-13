@@ -216,7 +216,7 @@ components:
       additionalProperties: false
       required: [id, name, description, sprite_url, max_health, speed, contact_damage, move_pattern, shot_pattern, shot_interval, projectile_speed, projectile_damage, telegraph_ticks, traits]
       properties:
-        id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame] }
+        id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay] }
         name: { type: string }
         description: { type: string }
         sprite_url: { $ref: "#/components/schemas/AssetPath" }
@@ -246,7 +246,7 @@ components:
       required: [at_tick, enemy_id, count, formation, interval_ticks]
       properties:
         at_tick: { type: integer, minimum: 0 }
-        enemy_id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame] }
+        enemy_id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay] }
         count: { type: integer, minimum: 1 }
         formation: { type: string, enum: [line, fan, staggered, pincer, center, sweep] }
         interval_ticks: { type: integer, minimum: 0 }
@@ -387,7 +387,7 @@ components:
         show_effects: { type: array, minItems: 12, maxItems: 12, items: { $ref: "#/components/schemas/LocalizedShowEffect" } }
         characters: { type: array, minItems: 7, maxItems: 7, items: { $ref: "#/components/schemas/LocalizedCharacter" } }
         companions: { type: array, minItems: 7, maxItems: 7, items: { $ref: "#/components/schemas/LocalizedCompanion" } }
-        enemies: { type: array, minItems: 6, maxItems: 6, items: { $ref: "#/components/schemas/LocalizedEnemy" } }
+        enemies: { type: array, minItems: 6, maxItems: 7, items: { $ref: "#/components/schemas/LocalizedEnemy" } }
         chapters: { type: array, minItems: 8, maxItems: 8, items: { $ref: "#/components/schemas/LocalizedChapter" } }
         daily: { $ref: "#/components/schemas/LocalizedDaily" }
     Unlock:
@@ -467,8 +467,8 @@ components:
       additionalProperties: false
       required: [id, chassis, health, speed, contact_damage, move_pattern, shot_pattern, fire_interval, projectile_speed, damage, score, telegraph_ticks, traits]
       properties:
-        id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame] }
-        chassis: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame] }
+        id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay] }
+        chassis: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay] }
         health: { type: integer, minimum: 1 }
         speed: { type: integer, minimum: 0 }
         contact_damage: { type: integer, minimum: 1 }
@@ -547,7 +547,7 @@ components:
         kit: { $ref: "#/components/schemas/RuntimeKit" }
         companions: { type: array, maxItems: 7, items: { $ref: "#/components/schemas/RuntimeCompanion" } }
         show_effects: { type: array, maxItems: 12, items: { $ref: "#/components/schemas/RuntimeEffect" } }
-        enemies: { type: array, minItems: 6, maxItems: 6, items: { $ref: "#/components/schemas/RuntimeEnemy" } }
+        enemies: { type: array, minItems: 6, maxItems: 7, items: { $ref: "#/components/schemas/RuntimeEnemy" } }
         wave: { $ref: "#/components/schemas/Wave" }
         boss: { $ref: "#/components/schemas/RuntimeBoss" }
         reversal: { $ref: "#/components/schemas/RuntimeReversal" }

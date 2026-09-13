@@ -243,7 +243,7 @@ func stagedOptions(state State, seed string, catalog *gamecontent.V4Catalog) []s
 		for _, item := range catalog.ShowEffects {
 			// The first choice must visibly change the next volley. Conditional
 			// damage bonuses remain available as story rewards and later effects.
-			visibleWeapon := item.Behavior == "twin_shot" || item.Behavior == "piercing_shot" || item.Behavior == "spread_shot"
+			visibleWeapon := item.Behavior == "twin_shot" || item.Behavior == "piercing_shot" || item.Behavior == "spread_shot" || item.Behavior == "echo_volley"
 			if visibleWeapon && !slices.Contains(state.ShowEffects, item.ID) {
 				candidates = append(candidates, item.ID)
 			}
@@ -256,7 +256,7 @@ func stagedOptions(state State, seed string, catalog *gamecontent.V4Catalog) []s
 		}
 	case "rescue":
 		for _, item := range catalog.ShowEffects {
-			if item.Archetype == "guard" && !slices.Contains(state.ShowEffects, item.ID) {
+			if (item.Archetype == "guard" || item.Behavior == "twin_shot" || item.Behavior == "spread_shot" || item.Behavior == "piercing_shot" || item.Behavior == "echo_volley") && !slices.Contains(state.ShowEffects, item.ID) {
 				candidates = append(candidates, item.ID)
 			}
 		}

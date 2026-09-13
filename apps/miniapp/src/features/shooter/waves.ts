@@ -42,6 +42,8 @@ const spawnEnemy = (
   if (state.enemies.length >= state.config.limits.enemies) return;
   const specIndex = state.config.enemies.findIndex((spec) => spec.id === specID);
   if (specIndex < 0) return;
+  const cap = specID === "clip-cutter" ? 2 : specID === "censor-frame" || specID === "shield-relay" ? 1 : state.config.limits.enemies;
+  if (state.enemies.filter(enemy => enemy.health > 0 && enemy.specIndex === specIndex).length >= cap) return;
   let x = authoredX;
   if (x <= 0 || x >= SHOOTER_WIDTH) x = 320 + state.random.integer(SHOOTER_WIDTH - 640);
   x = clamp(x, ENEMY_RADIUS, SHOOTER_WIDTH - ENEMY_RADIUS);

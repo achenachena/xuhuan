@@ -70,6 +70,7 @@ export type ShooterEffectSnapshot = {
 export type ShooterSnapshot = {
   readonly tick: number;
   readonly player_x: number;
+  readonly player_y: number;
   readonly health: number;
   readonly max_health: number;
   readonly shield: number;
@@ -204,6 +205,7 @@ export type ShooterMutableState = {
   readonly random: { integer: (limit: number) => number };
   tick: number;
   playerX: number;
+  playerY: number;
   health: number;
   shield: number;
   invulnerableTicks: number;

@@ -40,7 +40,7 @@ const createState = (config = characterConfig("nana7mi")): ShooterMutableState =
   const runtime = createShooterRuntime(config);
   return {
     config, runtime: runtime.resolved, random: { integer: () => 0 },
-    tick: 1, playerX: 1_800, health: config.player_health, shield: runtime.resolved.startingShield,
+    tick: 1, playerX: 1_800, playerY: 5_200, health: config.player_health, shield: runtime.resolved.startingShield,
     invulnerableTicks: 0, rescueCharge: 0, rescueHeld: false, rescuesUsed: 0, grazeCount: 0,
     combo: 0, comboClock: 0, kills: 0, score: 0, attackClock: 0, attackSequence: 0, alignmentTicks: 0,
     companionClocks: config.companions.map((companion) => companion.cooldown_ticks),
@@ -344,7 +344,7 @@ describe("seven useful companions", () => {
   });
 });
 
-describe("six chassis retain their distinct hazards", () => {
+describe("enemy roles retain distinct attacks", () => {
   it.each(shared.enemies)("$id keeps its authored telegraph and chassis behavior", (spec) => {
     const runtimeSpec = { ...v4Runtime.enemies[0]!, id: spec.id as ShooterRuntimeConfig["enemies"][number]["id"], chassis: spec.id as ShooterRuntimeConfig["enemies"][number]["chassis"],
       speed: spec.speed, health: spec.max_health, fire_interval: spec.shot_interval, projectile_speed: spec.projectile_speed,
@@ -355,7 +355,7 @@ describe("six chassis retain their distinct hazards", () => {
     state.enemies = [target];
     moveEnemy(state, target, runtimeSpec);
     fireEnemy(state, target, runtimeSpec);
-    if (spec.id === "gift-thief") expect(state.enemyProjectiles).toHaveLength(0);
+    if (["gift-thief", "clip-cutter", "shield-relay"].includes(spec.id)) expect(state.enemyProjectiles).toHaveLength(0);
     else {
       expect(state.enemyProjectiles.length).toBeGreaterThan(0);
       expect(threatSnapshots(state).length).toBeGreaterThan(0);
@@ -382,5 +382,49 @@ describe("sustained pickup weapons", () => {
     collect("spread");
     expect(state.pickupPower).toBe("spread");
     expect(state.pickupPowerTicks).toBe(450);
+  });
+});
+
+describe("free movement and readable builds", () => {
+  it("uses current height for firing, collecting, collision, and Blast", () => {
+    const state = createState(); state.playerY = 2800;
+    state.attackClock = 100; updateWeapons(state);
+    expect(state.playerProjectiles[0]!.y).toBe(2800);
+    state.pickups = [{ id: 1, x: state.playerX, y: 2730, value: 12, kind: "rapid" }];
+    updatePickups(state); expect(state.pickupsCollected).toBe(1);
+    state.shield = 0;
+    addEnemyHazard(state, "enemy_shot", state.playerX, 2760, 0, 40, 1, 42, 0, 0);
+    updateProjectiles(state); expect(state.health).toBe(2);
+    state.rescueCharge = 100; activateRescue(state);
+    expect(state.effects.find(e => e.kind === "blast_wave")?.y).toBe(2800);
+    expect(state.enemyProjectiles).toHaveLength(0);
+  });
+
+  it("echo repeats the spread and piercing build every third volley", () => {
+    const state = createState({ ...characterConfig("nana7mi"), show_effects: [
+      { kind: "spread_shot", amount: 2 }, { kind: "piercing_shot", amount: 1 }, { kind: "echo_volley", amount: 35 },
+    ] });
+    for (let volley=0; volley<3; volley++) { state.attackClock=100; updateWeapons(state); }
+    const echoes=state.playerProjectiles.filter(p => p.y === state.playerY+220);
+    expect(echoes).toHaveLength(3);
+    expect(echoes.every(p => p.pierce === 1)).toBe(true);
+    expect(echoes.map(p => p.vx)).toEqual([-130,0,130]);
+  });
+
+  it("a relay protects neighbors only while it is alive", () => {
+    const config=characterConfig("nana7mi");
+    const state=createState({ ...config, enemies: [config.enemies[0]!, { ...config.enemies[0]!, id:"shield-relay", chassis:"shield-relay", traits:["shield_link"] }] });
+    const target=enemy(1); const relay=enemy(2,{specIndex:1,x:2300}); state.enemies=[target,relay];
+    const hit=()=>{ addPlayerProjectile(state,{x:1800,y:1300,vy:-390,damage:20});updateProjectiles(state); };
+    hit(); expect(target.health).toBe(990);
+    relay.health=0; hit(); expect(target.health).toBe(970);
+  });
+
+  it("the charger telegraphs a lane before committing to a dive", () => {
+    const state=createState(); const spec={...state.config.enemies[0]!,chassis:"clip-cutter" as const,speed:130};
+    const target=enemy(1,{age:40});moveEnemy(state,target,spec);
+    expect(target.warning).toBeGreaterThan(0);const y=target.y;
+    target.age=62;moveEnemy(state,target,spec);
+    expect(target.warning).toBe(0);expect(target.y).toBeGreaterThan(y);
   });
 });
