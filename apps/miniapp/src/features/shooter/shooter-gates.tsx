@@ -12,7 +12,7 @@ import {
   resolveShooterVisualSources,
   type ShooterVisuals,
 } from "@/features/shooter/renderer";
-import { ShooterHUD } from "@/features/shooter/shooter-hud";
+import { BuildStrip, ShooterHUD } from "@/features/shooter/shooter-hud";
 import { resolveShooterGateOptions } from "@/features/shooter/types";
 import { playTelegramHaptic } from "@/lib/telegram-haptics";
 import type { ShooterContent, ShooterGameRun } from "@/lib/api/types";
@@ -94,9 +94,10 @@ export const ShooterGates = ({ content, run, busy, onChoose }: Props) => {
     <main data-game-surface="true" className="fixed inset-0 shooter-stage overflow-hidden bg-[#02050e]">
       <div data-testid="shooter-gate-battlefield" className="shooter-battlefield overflow-hidden">
         <canvas ref={canvasRef} aria-hidden="true" data-testid="shooter-gate-canvas" className="absolute inset-0 h-full w-full" />
-        <p className="absolute left-3 right-3 top-[3%] text-center font-mono text-xs font-bold text-cyan-100">
+        <div className="absolute left-3 right-3 top-[3%] text-center font-mono text-xs font-bold text-cyan-100">
           {gameText(language, "gateInstruction")}
-        </p>
+          {run.state.pickup_levels ? <BuildStrip levels={run.state.pickup_levels} language={language} /> : null}
+        </div>
         <div data-testid="shooter-gate-copy-layer" className="absolute inset-0">
           {options.map((option, index) => (
             <button key={option.id} type="button" data-testid={`gate-option-${option.id}`}
@@ -104,7 +105,7 @@ export const ShooterGates = ({ content, run, busy, onChoose }: Props) => {
               aria-label={`${option.title}. ${option.description}`}
               className={`absolute top-[14%] flex h-[59%] w-[38%] flex-col justify-end border-2 border-transparent px-1 pb-[16%] text-center text-white outline-none focus-visible:border-amber-200 active:bg-cyan-200/10 disabled:cursor-wait ${index === 0 ? "left-[8.5%]" : "right-[8.5%]"}`}>
               <span className="text-[clamp(12px,3.6vw,16px)] font-black leading-tight">{option.evolution ? (option.evolution === "prism" ? (language === "en" ? "Prism Volley" : "棱镜齐射") : (language === "en" ? "Twin Afterimages" : "双重残影")) : option.title}</span>
-              <span className="mt-2 text-[clamp(10px,2.8vw,12px)] leading-snug text-slate-200">{option.evolution ? (language === "en" ? "AUTO EVOLVE" : "自动进化") : option.description}</span>
+              <span className="mt-2 text-[clamp(10px,2.8vw,12px)] leading-snug text-slate-200">{option.evolution ? (language === "en" ? "AUTO EVOLVE" : "自动进化") : shortEffect(option.behavior, language, option.description)}</span>
             </button>
           ))}
         </div>
@@ -112,8 +113,17 @@ export const ShooterGates = ({ content, run, busy, onChoose }: Props) => {
           {selected !== null ? gameText(language, "syncing") : failed ? gameText(language, "choiceRetry") : ""}
         </p>
       </div>
-      <ShooterHUD snapshot={null} segmentIndex={run.state.segment_index} boss={false}
+      <ShooterHUD snapshot={null} segmentIndex={run.state.segment_index} segmentTotal={content.chapters.find(c=>c.id===run.state.chapter_slug)?.segments.length ?? 3} boss={false}
         busy={busy || selected !== null} fallbackHealth={run.state.hearts} showMeter={false} />
     </main>
   );
 };
+
+const shortEffects: Record<string, [string,string]> = {
+  twin_shot: ["双路开火", "Double fire"], spread_shot: ["扇形齐射", "Wide volley"],
+  piercing_shot: ["穿透敌群", "Pierce enemies"], echo_volley: ["追加齐射", "Replay volleys"],
+  rapid_fire: ["射速 +25%", "25% faster"], orbit_support: ["两枚应援卫星", "Two satellites"],
+  chain_burst: ["击杀连锁爆破", "Kills chain-explode"], guard_on_special: ["爆发时护盾", "Blast → shield"],
+  recovery_drop: ["恢复生命", "Recover hearts"], low_health_power: ["残血火力提升", "Last-heart power"],
+};
+const shortEffect = (behavior: string, language: string, fallback: string) => shortEffects[behavior]?.[language === "en" ? 1 : 0] ?? fallback;

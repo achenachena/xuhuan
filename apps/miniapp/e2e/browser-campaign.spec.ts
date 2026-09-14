@@ -91,7 +91,7 @@ test("visual story choice keeps its ID and retries only next-character start", a
         let response = JSON.parse(engine(raw));
         if (!prepared && request.action === "start" && response.game?.campaign_run) {
           prepared = true;
-          for (let i = 0; i < 7; i++) {
+          while (response.game.campaign_run.state.phase !== "story") {
             const run = response.game.campaign_run;
             const command = run.state.phase === "show_choice" ? { type: "choose_show_option", option_id: run.state.pending_show_options[0] }
               : { type: "complete_segment", segment_outcome: { won: true, health: 3, score: 100 } };

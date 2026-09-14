@@ -67,22 +67,23 @@ type StoryState struct {
 }
 
 type State struct {
-	Phase              Phase         `json:"phase"`
-	ChapterSlug        string        `json:"chapter_slug"`
-	CharacterSlug      string        `json:"character_slug"`
-	CompanionSlugs     []string      `json:"companion_slugs"`
-	EncoreLevel        int           `json:"encore_level"`
-	Hearts             int           `json:"hearts"`
-	MaxHearts          int           `json:"max_hearts"`
-	SegmentIndex       int           `json:"segment_index"`
-	Segment            *SegmentState `json:"segment,omitempty"`
-	PendingShowOptions []string      `json:"pending_show_options"`
-	ShowEffects        []string      `json:"show_effects"`
-	Story              *StoryState   `json:"story,omitempty"`
-	SelectedChoiceIDs  []string      `json:"selected_choice_ids"`
-	Score              int           `json:"score"`
-	EndingID           string        `json:"ending_id,omitempty"`
-	DailyVariant       string        `json:"daily_variant,omitempty"`
+	PickupLevels       shooter.PickupLevels `json:"pickup_levels"`
+	Phase              Phase                `json:"phase"`
+	ChapterSlug        string               `json:"chapter_slug"`
+	CharacterSlug      string               `json:"character_slug"`
+	CompanionSlugs     []string             `json:"companion_slugs"`
+	EncoreLevel        int                  `json:"encore_level"`
+	Hearts             int                  `json:"hearts"`
+	MaxHearts          int                  `json:"max_hearts"`
+	SegmentIndex       int                  `json:"segment_index"`
+	Segment            *SegmentState        `json:"segment,omitempty"`
+	PendingShowOptions []string             `json:"pending_show_options"`
+	ShowEffects        []string             `json:"show_effects"`
+	Story              *StoryState          `json:"story,omitempty"`
+	SelectedChoiceIDs  []string             `json:"selected_choice_ids"`
+	Score              int                  `json:"score"`
+	EndingID           string               `json:"ending_id,omitempty"`
+	DailyVariant       string               `json:"daily_variant,omitempty"`
 }
 
 type GameRun struct {
@@ -121,9 +122,10 @@ type Command struct {
 // Moment-to-moment combat stays on the device; the API remains authoritative
 // over phases, rewards, unlocks, and atomic persistence.
 type SegmentOutcome struct {
-	Won    bool `json:"won"`
-	Health int  `json:"health"`
-	Score  int  `json:"score"`
+	PickupLevels *shooter.PickupLevels `json:"pickup_levels,omitempty"`
+	Won          bool                  `json:"won"`
+	Health       int                   `json:"health"`
+	Score        int                   `json:"score"`
 }
 
 type Event struct {

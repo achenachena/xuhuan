@@ -72,3 +72,13 @@ seconds and reached her story choice at 155.7 seconds. Both characters finished
 with three hearts. This used normal combat and actual WASM progression, with no
 health edits or clock acceleration. It verifies the six gates and character
 handoff; automated inputs are not evidence of human usability or difficulty.
+
+## Full stacked build, 2026-09-14
+
+Same device, Chrome, seed, viewport and 45-second real-time fixture, with all four pickup levels at three plus Overclock, Fan Satellites, Gift Chain and twin fire alongside spread/pierce/echo. Frame p95/p99: **16.8/16.8 ms**; simulation p95/p99: **0.2/0.2 ms**; Canvas submission p95/p99: **0.2/0.2 ms**; no long tasks. The 64 GC events totalled 22.73 ms and the JS heap delta was +3,268,405 bytes. All three phases ran for 1,350 normal simulation ticks. This stress fixture pins health and is not a human playtest or a guarantee for other devices.
+
+```sh
+PROFILE_FULL_BUILD=1 node scripts/profile-jiaran.mjs /tmp/jiaran-full-build
+```
+
+A separate normal-clock run of the expanded campaign used automated aiming and dodging, actual input events and WASM progression, without health edits. Nana reached her story choice at 89.6 seconds after five upgrade gates; Jiaran started at 90.4 seconds with all four pickup levels reset to zero and reached her story choice at 140.4 seconds. Both finished with three hearts. Card choices were immediate, so these timings exclude human reading/decision time and do not establish player difficulty or engagement.

@@ -27,7 +27,7 @@ const state = (overrides: Partial<ShooterRuntimeConfig> = {}): ShooterMutableSta
     companionClocks: [], companionSignals: [], companionPending: [], nextEnemyID: 0, nextProjectileID: 0, nextPickupID: 0,
     nextEffectID: 0, spawnedBoss: false,
     dailyVariant: "", enemies: [], enemyProjectiles: [], playerProjectiles: [], pickups: [],
-    pickupsCollected: 0, pickupPower: null, pickupPowerTicks: 0, overdriveTicks: 0,
+    pickupsCollected: 0, pickupLevels: { rapid: 0, spread: 0, pierce: 0, support: 0 }, pickupPower: null, pickupPowerTicks: 0, overdriveTicks: 0,
     waveQuietTicks: 0, waveTick: -1, effects: [], reversal: { breaks: 0, chain: [], fans: [] },
   };
 };

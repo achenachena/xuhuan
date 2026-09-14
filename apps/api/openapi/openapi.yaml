@@ -175,7 +175,7 @@ components:
         name: { type: string }
         description: { type: string }
         archetype: { type: string, enum: [power, guard, style] }
-        behavior: { type: string, enum: [twin_shot, piercing_shot, spread_shot, graze_charge, guard_on_special, pickup_magnet, echo_volley, boss_break, low_health_power, combo_extend, companion_charge, recovery_drop] }
+        behavior: { type: string, enum: [twin_shot, piercing_shot, spread_shot, graze_charge, guard_on_special, pickup_magnet, echo_volley, boss_break, low_health_power, combo_extend, companion_charge, recovery_drop, rapid_fire, orbit_support, chain_burst] }
         amount: { type: integer, minimum: 1 }
     LocalizedCharacter:
       type: object
@@ -216,7 +216,7 @@ components:
       additionalProperties: false
       required: [id, name, description, sprite_url, max_health, speed, contact_damage, move_pattern, shot_pattern, shot_interval, projectile_speed, projectile_damage, telegraph_ticks, traits]
       properties:
-        id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay] }
+        id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay, chat-printer, remix-deck, encore-fan, chat-conductor, remix-director, encore-twins] }
         name: { type: string }
         description: { type: string }
         sprite_url: { $ref: "#/components/schemas/AssetPath" }
@@ -229,7 +229,7 @@ components:
         projectile_speed: { type: integer, minimum: 1 }
         projectile_damage: { type: integer, minimum: 1 }
         telegraph_ticks: { type: integer, minimum: 0 }
-        traits: { type: array, items: { type: string, enum: [shield_link, split, steal_pickup, armor, echo, jammer] } }
+        traits: { type: array, items: { type: string, enum: [shield_link, split, steal_pickup, armor, echo, jammer, elite] } }
     ContentSegment:
       type: object
       additionalProperties: false
@@ -246,7 +246,7 @@ components:
       required: [at_tick, enemy_id, count, formation, interval_ticks]
       properties:
         at_tick: { type: integer, minimum: 0 }
-        enemy_id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay] }
+        enemy_id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay, chat-printer, remix-deck, encore-fan, chat-conductor, remix-director, encore-twins] }
         count: { type: integer, minimum: 1 }
         formation: { type: string, enum: [line, fan, staggered, pincer, center, sweep] }
         interval_ticks: { type: integer, minimum: 0 }
@@ -308,7 +308,7 @@ components:
       additionalProperties: false
       required: [after_segment, prompt, messages, choices]
       properties:
-        after_segment: { type: integer, minimum: 1, maximum: 4 }
+        after_segment: { type: integer, minimum: 1, maximum: 6 }
         prompt: { type: string }
         messages: { type: array, maxItems: 3, items: { $ref: "#/components/schemas/LocalizedBubble" } }
         choices: { type: array, minItems: 2, maxItems: 2, items: { $ref: "#/components/schemas/LocalizedStoryChoice" } }
@@ -353,7 +353,7 @@ components:
         featured_character: { $ref: "#/components/schemas/Slug" }
         unlock_companion: { type: string }
         background_url: { $ref: "#/components/schemas/AssetPath" }
-        segments: { type: array, minItems: 3, maxItems: 3, items: { $ref: "#/components/schemas/ContentSegment" } }
+        segments: { type: array, minItems: 3, maxItems: 5, items: { $ref: "#/components/schemas/ContentSegment" } }
         waves: { type: array, minItems: 3, items: { $ref: "#/components/schemas/Wave" } }
         boss: { $ref: "#/components/schemas/LocalizedBoss" }
         story: { $ref: "#/components/schemas/LocalizedStory" }
@@ -384,10 +384,10 @@ components:
         protocol: { type: string, const: shooter-v1 }
         locale: { type: string, enum: [en, zh-CN] }
         rules: { $ref: "#/components/schemas/Rules" }
-        show_effects: { type: array, minItems: 12, maxItems: 12, items: { $ref: "#/components/schemas/LocalizedShowEffect" } }
+        show_effects: { type: array, minItems: 15, maxItems: 15, items: { $ref: "#/components/schemas/LocalizedShowEffect" } }
         characters: { type: array, minItems: 7, maxItems: 7, items: { $ref: "#/components/schemas/LocalizedCharacter" } }
         companions: { type: array, minItems: 7, maxItems: 7, items: { $ref: "#/components/schemas/LocalizedCompanion" } }
-        enemies: { type: array, minItems: 6, maxItems: 7, items: { $ref: "#/components/schemas/LocalizedEnemy" } }
+        enemies: { type: array, minItems: 6, maxItems: 13, items: { $ref: "#/components/schemas/LocalizedEnemy" } }
         chapters: { type: array, minItems: 8, maxItems: 8, items: { $ref: "#/components/schemas/LocalizedChapter" } }
         daily: { $ref: "#/components/schemas/LocalizedDaily" }
     Unlock:
@@ -436,7 +436,7 @@ components:
       additionalProperties: false
       required: [kind, amount]
       properties:
-        kind: { type: string, enum: [twin_shot, piercing_shot, spread_shot, graze_charge, guard_on_special, pickup_magnet, echo_volley, boss_break, low_health_power, combo_extend, companion_charge, recovery_drop] }
+        kind: { type: string, enum: [twin_shot, piercing_shot, spread_shot, graze_charge, guard_on_special, pickup_magnet, echo_volley, boss_break, low_health_power, combo_extend, companion_charge, recovery_drop, rapid_fire, orbit_support, chain_burst] }
         amount: { type: integer, minimum: 1 }
     RuntimeKit:
       type: object
@@ -467,8 +467,8 @@ components:
       additionalProperties: false
       required: [id, chassis, health, speed, contact_damage, move_pattern, shot_pattern, fire_interval, projectile_speed, damage, score, telegraph_ticks, traits]
       properties:
-        id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay] }
-        chassis: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay] }
+        id: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay, chat-printer, remix-deck, encore-fan, chat-conductor, remix-director, encore-twins] }
+        chassis: { type: string, enum: [spam-bot, clip-cutter, caption-blob, black-screen-ghost, gift-thief, censor-frame, shield-relay, chat-printer, remix-deck, encore-fan, chat-conductor, remix-director, encore-twins] }
         health: { type: integer, minimum: 1 }
         speed: { type: integer, minimum: 0 }
         contact_damage: { type: integer, minimum: 1 }
@@ -479,7 +479,7 @@ components:
         damage: { type: integer, minimum: 1 }
         score: { type: integer, minimum: 0 }
         telegraph_ticks: { type: integer, minimum: 0 }
-        traits: { type: array, items: { type: string, enum: [shield_link, split, steal_pickup, armor, echo, jammer] } }
+        traits: { type: array, items: { type: string, enum: [shield_link, split, steal_pickup, armor, echo, jammer, elite] } }
     RuntimeBossStage:
       type: object
       additionalProperties: false
@@ -530,11 +530,21 @@ components:
       properties:
         weapon: { type: string, enum: [single, twin, pierce] }
         groups: { type: array, maxItems: 8, items: { $ref: "#/components/schemas/RuntimeReversalGroup" } }
+    PickupLevels:
+      type: object
+      additionalProperties: false
+      required: [rapid, spread, pierce, support]
+      properties:
+        rapid: { type: integer, minimum: 0, maximum: 3 }
+        spread: { type: integer, minimum: 0, maximum: 3 }
+        pierce: { type: integer, minimum: 0, maximum: 3 }
+        support: { type: integer, minimum: 0, maximum: 3 }
     RuntimeConfig:
       type: object
       additionalProperties: false
       required: [seed, duration_ticks, player_health, starting_rescue_charge, encore_level, daily, special_charge_penalty_percent, kit, companions, show_effects, enemies, wave, limits]
       properties:
+        pickup_levels: { $ref: "#/components/schemas/PickupLevels" }
         seed: { type: string, minLength: 1 }
         duration_ticks: { type: integer, minimum: 1, maximum: 2700 }
         player_health: { type: integer, minimum: 1, maximum: 3 }
@@ -546,8 +556,8 @@ components:
         special_charge_penalty_percent: { type: integer, minimum: 0, maximum: 75 }
         kit: { $ref: "#/components/schemas/RuntimeKit" }
         companions: { type: array, maxItems: 7, items: { $ref: "#/components/schemas/RuntimeCompanion" } }
-        show_effects: { type: array, maxItems: 12, items: { $ref: "#/components/schemas/RuntimeEffect" } }
-        enemies: { type: array, minItems: 6, maxItems: 7, items: { $ref: "#/components/schemas/RuntimeEnemy" } }
+        show_effects: { type: array, maxItems: 15, items: { $ref: "#/components/schemas/RuntimeEffect" } }
+        enemies: { type: array, minItems: 6, maxItems: 13, items: { $ref: "#/components/schemas/RuntimeEnemy" } }
         wave: { $ref: "#/components/schemas/Wave" }
         boss: { $ref: "#/components/schemas/RuntimeBoss" }
         reversal: { $ref: "#/components/schemas/RuntimeReversal" }
@@ -558,7 +568,7 @@ components:
       required: [segment_slug, segment_index, seed, duration_ticks, background_url, runtime_config]
       properties:
         segment_slug: { $ref: "#/components/schemas/Slug" }
-        segment_index: { type: integer, minimum: 0, maximum: 3 }
+        segment_index: { type: integer, minimum: 0, maximum: 5 }
         seed: { type: string }
         duration_ticks: { type: integer, minimum: 1, maximum: 2700 }
         wave_id: { $ref: "#/components/schemas/Slug" }
@@ -578,6 +588,7 @@ components:
       additionalProperties: false
       required: [phase, chapter_slug, character_slug, companion_slugs, encore_level, hearts, max_hearts, segment_index, pending_show_options, show_effects, selected_choice_ids, score]
       properties:
+        pickup_levels: { $ref: "#/components/schemas/PickupLevels" }
         phase: { type: string, enum: [segment, show_choice, story, completed] }
         chapter_slug: { $ref: "#/components/schemas/Slug" }
         character_slug: { $ref: "#/components/schemas/Slug" }
@@ -585,10 +596,10 @@ components:
         encore_level: { type: integer, minimum: 0, maximum: 3 }
         hearts: { type: integer, minimum: 0, maximum: 3 }
         max_hearts: { type: integer, const: 3 }
-        segment_index: { type: integer, minimum: 0, maximum: 3 }
+        segment_index: { type: integer, minimum: 0, maximum: 5 }
         segment: { $ref: "#/components/schemas/SegmentState" }
         pending_show_options: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slug" } }
-        show_effects: { type: array, maxItems: 3, items: { $ref: "#/components/schemas/Slug" } }
+        show_effects: { type: array, maxItems: 15, items: { $ref: "#/components/schemas/Slug" } }
         story: { $ref: "#/components/schemas/RunStory" }
         selected_choice_ids: { type: array, items: { $ref: "#/components/schemas/Slug" } }
         score: { type: integer, minimum: 0 }
@@ -599,6 +610,7 @@ components:
       additionalProperties: false
       required: [won, health, score]
       properties:
+        pickup_levels: { $ref: "#/components/schemas/PickupLevels" }
         won: { type: boolean }
         health: { type: integer, minimum: 0, maximum: 3 }
         score: { type: integer, minimum: 0, maximum: 1000000 }

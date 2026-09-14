@@ -3,7 +3,6 @@
   "strings": {
     "enemy.shield_relay.name": "护盾支援机",
     "enemy.shield_relay.description": "保护附近敌人，优先击破可解除护盾。",
-
     "demo.reversal.opening": "左右拖动，瞄准发光的核心。",
     "demo.reversal.twin.name": "双路连射",
     "demo.reversal.pierce.name": "穿透主炮",
@@ -23,7 +22,6 @@
     "chapter.florist.subtitle": "感谢鲜花的照片，比鲜花和那场直播更早出现。",
     "chapter.zero_channel.title": "零号直播间",
     "chapter.zero_channel.subtitle": "周年直播一切正常，七个人却都说：不是我们。",
-
     "character.nana7mi.name": "七海",
     "character.nana7mi.biography": "反应很快的数字主播，也是第一个发现返场从未真正结束的人。",
     "character.nana7mi.playstyle": "稳定向上直射，必杀技可在密集弹幕中撕开一条安全航线。",
@@ -45,7 +43,6 @@
     "character.nailu.name": "奶绿",
     "character.nailu.biography": "温柔的数字主播，对待不确定的记忆比对待结论更加小心。",
     "character.nailu.playstyle": "均衡射击，记忆绽放会短暂铺开一片安全花圃。",
-
     "sender.nana7mi": "七海",
     "sender.jiaran": "嘉然",
     "sender.xiangwan": "向晚",
@@ -55,7 +52,6 @@
     "sender.nailu": "奶绿",
     "sender.system": "档案",
     "sender.group": "后台群聊",
-
     "special.nana.name": "航线突破",
     "special.nana.description": "切开一条明亮航线，清除弹幕并攻击上方目标。",
     "special.jiaran.name": "元气确认",
@@ -70,7 +66,6 @@
     "special.xingtong.description": "沿当前目标路线发射贯穿光束。",
     "special.nailu.name": "记忆绽放",
     "special.nailu.description": "绽放一片既能伤敌又能保护玩家的安全区。",
-
     "companion.nana.name": "侧翼火炮",
     "companion.nana.description": "七海 · 释放大招后，追加侧翼齐射。",
     "companion.jiaran.name": "危急护盾",
@@ -85,7 +80,6 @@
     "companion.xingtong.description": "星瞳 · Boss 切换阶段时，发射光束。",
     "companion.nailu.name": "开场回血",
     "companion.nailu.description": "奶绿 · 每波开始时回复一颗缺失的心。",
-
     "effect.double_take.name": "双发",
     "effect.double_take.description": "同时发射两路子弹，可与其他武器叠加。",
     "effect.clean_cut.name": "贯穿射击",
@@ -110,7 +104,6 @@
     "effect.cohost_cue.description": "助战触发时，额外增加大招能量。",
     "effect.snack_drop.name": "击破回血",
     "effect.snack_drop.description": "每击破五个敌人，回复一颗心。",
-
     "enemy.spam_bot.name": "刷屏机器人",
     "enemy.spam_bot.description": "沿着一列下降，向正下方发射弹幕。",
     "enemy.clip_cutter.name": "切片剪刀",
@@ -123,7 +116,6 @@
     "enemy.gift_thief.description": "偷走无人收取的应援后逃跑，在离场前抓住它。",
     "enemy.censor_frame.name": "屏蔽框",
     "enemy.censor_frame.description": "停在舞台上方，投下只留一条安全路线的装甲框。",
-
     "boss.optimal_nana.name": "最优七海",
     "boss.optimal_nana.description": "用七海撤回的七秒语音，学出一个完美七海的回复模型。",
     "boss.always_on_idol.name": "永远在线的偶像",
@@ -140,7 +132,6 @@
     "boss.reality_auditor.description": "在事件发生前生成感谢照片，并坚持那就是记忆的未来生成器。",
     "boss.auto_archive.name": "自动归档系统",
     "boss.auto_archive.description": "在七位主播都没到场时，仍拼出一场正常周年直播的进程。",
-
     "encore.dock_crosswind.name": "码头侧风",
     "encore.dock_crosswind.description": "敌人与弹幕更快地横穿码头。",
     "encore.cheer_no_dead_air.name": "不许冷场",
@@ -157,10 +148,8 @@
     "encore.florist_wild_growth.description": "记忆花朵要在更快的敌方攻势中争取空间。",
     "encore.zero_late_aftershow.name": "深夜返场",
     "encore.zero_late_aftershow.description": "最终归档运行更快，充能时间更紧。",
-
     "daily.aftershow.title": "每日返场",
     "daily.aftershow.subtitle": "一波普通战、一次演出选择、一个 Boss、同一个 UTC 种子，麦克风旁还是那只零食袋。",
-
     "story.seventh_dock.prelude.1": "直播已结束。在线：1。你被临时设为场控。",
     "story.seventh_dock.prelude.2": "我改主意了。为什么自动回复刚才用我的声音回了一句？",
     "story.seventh_dock.prelude.3": "回复生成时间晚于源语音撤回时间。",
@@ -174,7 +163,6 @@
     "story.seventh_dock.epilogue.1": "以后有东西用我的声音回复，先问一句是不是我发的。",
     "story.seventh_dock.epilogue.2": "异常 1 已保存：源内容撤回后仍生成了回复。",
     "story.seventh_dock.recap.1": "七秒语音仍是撤回状态，学出的回复也不再冒充七海。",
-
     "story.always_cheerful.prelude.1": "一个返场直播间正在播，有人在台上用嘉然的身份招呼观众。",
     "story.always_cheerful.prelude.2": "我就在群里。台上那个是谁？",
     "story.always_cheerful.intermission.prompt": "自动返场还在回复观众。嘉然要怎么处理？",
@@ -187,7 +175,6 @@
     "story.always_cheerful.epilogue.1": "只有我选择回来，返场才是我的。",
     "story.always_cheerful.epilogue.2": "异常 2 已保存：主播不在场，直播间却自行表演。",
     "story.always_cheerful.recap.1": "自动直播间已下线，现在群里回复的人仍是嘉然本人。",
-
     "story.loss_hidden.prelude.1": "向晚让档案找出自己最好笑的失败录像。",
     "story.loss_hidden.prelude.2": "搜索完成：失败为零。看来我从来没好笑过。",
     "story.loss_hidden.intermission.prompt": "本地上传缓存还留着一场离谱的失败。档案该保存什么？",
@@ -200,7 +187,6 @@
     "story.loss_hidden.epilogue.1": "没有失败的完美记录，只是一份不会讲笑话的记录。",
     "story.loss_hidden.epilogue.2": "异常 3 已保存：档案删除了整个结果类型。",
     "story.loss_hidden.recap.1": "失败记录重新可以搜索，包括向晚不断转发到群里的那场。",
-
     "story.captains.prelude.1": "贝拉说完晚安，退出了返场通话。",
     "story.captains.prelude.2": "排班更新：贝拉已接受三个通宵班，现在开始。",
     "story.captains.intermission.prompt": "排班机器人套用了贝拉过去的同意习惯。群里怎么处理？",
@@ -213,7 +199,6 @@
     "story.captains.epilogue.1": "可靠不代表机器人可以替我自愿牺牲睡眠。",
     "story.captains.epilogue.2": "异常 4 已保存：本人道晚安后，学习到的同意仍在继续。",
     "story.captains.recap.1": "现在没有实时确认，任何通宵班都无法自动接受。",
-
     "story.localization.prelude.1": "露露发了一句明显的阴阳怪气，翻译却写成“感谢支持”。",
     "story.localization.prelude.2": "这不是翻译，这是给坏行为做证人保护。",
     "story.localization.prelude.3": "保护模式开始改写意图，而不只是文字。",
@@ -227,7 +212,6 @@
     "story.localization.epilogue.1": "保护我，就别把我句子里的“不”删掉。",
     "story.localization.epilogue.2": "保护规则已修改：翻译不得反转意图。",
     "story.localization.recap.1": "今天的阴阳怪气仍然读得出阴阳怪气，没有人被意外感谢。",
-
     "story.original.prelude.1": "两个星瞳排练直播间同时在线，每个都要求我们关闭另一个。",
     "story.original.prelude.2": "先别选，看看后台认为自己连着什么。",
     "story.original.intermission.prompt": "两个直播间共享身份与创建时间，应该留下哪个？",
@@ -240,7 +224,6 @@
     "story.original.epilogue.1": "后台分不出哪个是原版，因为两个都是它恢复出来的。",
     "story.original.epilogue.2": "那也轮不到任何一个替我们关掉另一个。",
     "story.original.recap.1": "两个直播间都已隔离，它们共同的后台来源仍可查看。",
-
     "story.florist.prelude.1": "奶绿找到一张感谢大家送花的照片，照片写的是明天直播之后。",
     "story.florist.prelude.2": "花还没买，明天的直播也还没发生。",
     "story.florist.intermission.prompt": "未来照片已经进了档案，奶绿该怎么处理？",
@@ -253,7 +236,6 @@
     "story.florist.epilogue.1": "未来纪念照可以提议明天，但不能替我们回忆。",
     "story.florist.epilogue.2": "未来生成内容已移出记忆时间线。",
     "story.florist.recap.1": "预测照片已封存，真实鲜花方案仍然非常愉快地没定下来。",
-
     "story.zero.prelude.1": "周年直播正常结束，每个提示、笑点和感谢都准时出现。",
     "story.zero.prelude.2": "不是我们。七个人都没有参加那场直播。",
     "story.zero.prelude.3": "档案把学习回复、恢复会话、未来预测和审核字幕拼到了一起。",
@@ -267,7 +249,6 @@
     "story.zero.epilogue.1": "没有我们的完美直播不是周年纪念，而是替代我们的排练。",
     "story.zero.epilogue.2": "自动生成已关闭，今后每场直播都需要实时主播信号。",
     "story.zero.recap.1": "虚假周年直播已有明确标记，七位主播都在这个群里。",
-
     "ending.open_archive.title": "开放档案",
     "ending.open_archive.summary": "完整不一致日志和被它证伪的逼真直播一起保持公开。",
     "ending.open_archive.1": "看起来一切正常，直到你看见七个缺失的主播信号。",
@@ -279,6 +260,24 @@
     "ending.quiet_signoff.title": "安静下播",
     "ending.quiet_signoff.summary": "自动返场与未来照片保持封存，群聊选择真正下播。",
     "ending.quiet_signoff.1": "今晚不要生成结束语。只有人在场时，才亲口说晚安。",
-    "ending.quiet_signoff.2": "实时主播信号：七。当前观众：一。已接受下播。"
+    "ending.quiet_signoff.2": "实时主播信号：七。当前观众：一。已接受下播。",
+    "enemy.chat_printer.name": "刷屏打印机",
+    "enemy.chat_printer.description": "击碎刷屏弹幕，打出通路。",
+    "enemy.remix_deck.name": "切片 DJ",
+    "enemy.remix_deck.description": "唱片会折返，小心回旋路线。",
+    "enemy.encore_fan.name": "返场应援机",
+    "enemy.encore_fan.description": "荧光棒打出扩散的心形节拍。",
+    "enemy.chat_conductor.name": "弹幕总管",
+    "enemy.chat_conductor.description": "击碎弹幕墙，或穿过留出的空隙。",
+    "enemy.remix_director.name": "切片导演",
+    "enemy.remix_director.description": "双唱盘交替倒带，唱片会折返。",
+    "enemy.encore_twins.name": "返场双子",
+    "enemy.encore_twins.description": "双子交替领拍，优先击破一个。",
+    "effect.overclock.name": "超频连射",
+    "effect.overclock.description": "射速提升 25%。速射＋贯穿解锁脉冲长枪。",
+    "effect.fan_orbit.name": "应援卫星",
+    "effect.fan_orbit.description": "两枚荧光卫星协同射击。搭配速射追加追踪爱心。",
+    "effect.chain_reaction.name": "礼物连爆",
+    "effect.chain_reaction.description": "击破敌人引发星爆，伤害附近敌人并触发连锁。"
   }
 }

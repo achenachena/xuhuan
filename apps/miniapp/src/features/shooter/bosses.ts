@@ -1,3 +1,4 @@
+import { fireBroadcast } from "./broadcast-attacks";
 import { ENEMY_RADIUS, SHOOTER_WIDTH, clamp, goDivide, integerSqrt } from "@/features/shooter/constants";
 import { addEnemyBullet, addEnemyHazard, encoreInterval } from "@/features/shooter/enemies";
 import { shooterSeedFromString } from "@/features/shooter/random";
@@ -106,6 +107,14 @@ const fireBossRemix = (state: ShooterMutableState, enemy: ShooterEnemyEntity, bo
 };
 
 const fireBossPattern = (state: ShooterMutableState, enemy: ShooterEnemyEntity, bossID: string, stage: ShooterBossStage): void => {
+  if (bossID === "optimal-nana") {
+    // The finale remixes the three broadcasts taught by the chapter's elites.
+    fireBroadcast(state, enemy, ["chat", "remix", "encore"][enemy.phase-1]!, true);
+    if (enemy.phase===3 && enemy.volley%3===0) fireBroadcast(state,enemy,"chat",true);
+    fireStoryChoiceBeat(state, enemy, stage.projectile_speed, stage.damage);
+    if (state.config.encore_level >= 3) fireBossRemix(state, enemy, bossID, stage.projectile_speed, stage.damage);
+    return;
+  }
   const pattern = stage.shot_pattern || bossDefaultPattern(bossID, enemy.phase), speed = stage.projectile_speed, damage = stage.damage;
   if (pattern === "aimed") { const [vx, vy] = aimedVelocity(enemy.x, enemy.y, state.playerX, state.playerY, speed); addEnemyBullet(state, enemy.x, enemy.y, vx, vy, damage); }
   else if (pattern === "delayed") { const slow = Math.max(1, goDivide(speed, 2)), [vx, vy] = aimedVelocity(enemy.x, enemy.y, state.playerX, state.playerY, slow); addEnemyHazard(state, "delayed_echo", enemy.x, enemy.y, vx, vy, damage, 72, 0, 0); }

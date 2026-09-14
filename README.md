@@ -6,7 +6,7 @@
 
 <a href="https://xuhuan-miniapp.vercel.app/engineering"><img src="apps/miniapp/public/engineering/gameplay-poster.webp" width="260" alt="A core reversal in an earlier gameplay prototype" /></a>
 
-Clear waves, pick upgrades, defeat each Boss, and continue with the next character. Drag freely in two dimensions on phone or use drag/WASD/arrow keys on desktop; firing is automatic.
+Stack pickups, combine upgrade cards, defeat each Boss, and continue with the next character. Rapid + pierce fires pulse lances; spread + pierce makes prism volleys; rapid + fan satellites adds seeking hearts. Drag freely in two dimensions on phone or use drag/WASD/arrow keys on desktop; firing is automatic.
 
 [Play all eight chapters in your browser](https://xuhuan-miniapp.vercel.app/play) without an account. Each visit starts a fresh campaign; progress lasts for the current session. [Telegram](https://t.me/xuhuangamebot) keeps server-backed saves.
 
@@ -18,7 +18,7 @@ The browser campaign runs the same Go progression rules as the server, compiled 
 - **Measured hot-path optimization:** deterministic collision comparison, warmup and seven timed trials. [Benchmark](scripts/benchmark-collision.mjs) · [Measurements and limits](docs/evidence/collision-benchmark.txt).
 - **Production ownership:** Go, PostgreSQL, Canvas, OpenAPI contracts, CI, AWS Lambda, Vercel and Terraform. The [engineering page](https://xuhuan-miniapp.vercel.app/engineering) explains the boundaries and trade-offs.
 
-The V4 campaign is deliberately easy to enter: move freely in four directions, fire straight upward automatically, collect friendly support notes, and tap BLAST (or press Space) to clear bullets and become briefly invincible. Each chapter contains three short waves, a concrete two-choice aftershow intermission, and a three-stage boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
+The V4 campaign is deliberately easy to enter: move freely in four directions, fire straight upward automatically, collect friendly support notes, and tap BLAST (or press Space) to clear bullets and become briefly invincible. Nana opens with mobs → Chat Conductor → Replay Director → Encore Twins → supply wave → a three-stage final Boss, with five upgrade choices. Later chapters have three waves, three upgrade choices and a Boss. Pickups stack throughout each character’s battle and reset for the next character; story choices appear after the Boss. Seven character chapters unlock the ensemble finale, **Zero Channel**. The post-campaign **Daily Aftershow** offers one deterministic wave, one show choice, and one boss with a rotating character and UTC seed.
 
 ## Why it fits Telegram
 
@@ -37,14 +37,14 @@ V4 uses content version `v4` and simulation protocol `shooter-v1`.
 | --- | ---: |
 | Character chapters | 7 |
 | Ensemble finales | 1 |
-| Normal combat waves | 24 |
+| Pre-finale encounters (including minibosses) | 26 |
 | Boss rooms | 8 |
-| Total combat rooms | 32 |
+| Total combat rooms | 34 |
 | Boss stages | 24 |
-| Shared show effects | 12 |
+| Shared show effects | 15 |
 | Playable character specials | 7 |
 | Unlockable companions | 7 |
-| Composable enemy chassis | 6 |
+| Enemy chassis (including three elite variants) | 13 |
 | Finale endings | 3 |
 | Locales | English and Simplified Chinese |
 
@@ -63,7 +63,7 @@ Telegram Mini App
               -> Upstash Redis: disposable rate-limit counters only
 ```
 
-The browser runs a fixed 30 Hz simulation for immediate input and rendering. At the end of a room it sends a bounded result containing win state, remaining hearts, and score. This is an intentional single-player trade-off: the game has no economy or global leaderboard, so frame-by-frame server replay would add more parity risk than useful protection. Go still owns legal phase transitions, reward selection, story choices, unlocks, and durable progression. A command uses an idempotency key and expected Run version so retries cannot apply a completed room twice.
+The browser runs a fixed 30 Hz simulation for immediate input and rendering. At the end of a room it sends a bounded result containing win state, remaining hearts, score, and four bounded pickup levels. This is an intentional single-player trade-off: the game has no economy or global leaderboard, so frame-by-frame server replay would add more parity risk than useful protection. Go still owns legal phase transitions, reward selection, story choices, unlocks, and durable progression. A command uses an idempotency key and expected Run version so retries cannot apply a completed room twice.
 
 Production identity is exclusively Telegram Mini App `initData`. The repository intentionally contains no paid authentication provider, JWT or cookie session system, payment integration, share-token table, or second identity service. See [architecture.md](docs/architecture.md) for trust boundaries and ownership.
 

@@ -1,3 +1,4 @@
+import { broadcastFamily, broadcastThreat, fireBroadcast } from "./broadcast-attacks";
 import {
   ENEMY_PROJECTILE_RADIUS,
   ENEMY_RADIUS,
@@ -13,6 +14,7 @@ import type {
   ShooterEnemyEntity,
   ShooterMutableState,
   ShooterPickupPower,
+  ShooterPickupEntity,
   ShooterThreatSnapshot,
 } from "@/features/shooter/types";
 import type { ShooterEnemySpec } from "@/lib/api/types";
@@ -53,6 +55,9 @@ const structuredHazardFamily = (kind: string): string => {
 
 const structuredHazardLimit = (kind: string): number => {
   const family = structuredHazardFamily(kind);
+  if (kind === "comment_ribbon") return 8;
+  if (kind === "vinyl_disc") return 12;
+  if (kind === "encore_heart") return 32;
   if (family === "caption") return 3;
   if (family === "wall" || family === "cut") return 2;
   if (family === "frame") return 4;
@@ -136,6 +141,14 @@ export const moveEnemy = (
   enemy: ShooterEnemyEntity,
   spec: ShooterEnemySpec,
 ): void => {
+  if (broadcastFamily(spec.chassis)) {
+    const elite=spec.traits.includes("elite");
+    enemy.anchorX ??= enemy.x;
+    enemy.y = Math.min(elite ? 1150 : 1500, enemy.y+16);
+    enemy.x = clamp(enemy.anchorX + Math.round(Math.sin(enemy.age/(elite?55:35))* (elite?220:360)), elite?420:220, SHOOTER_WIDTH-(elite?420:220));
+    enemy.phase = enemy.health*2<enemy.maxHealth ? 2 : 1;
+    return;
+  }
   if (spec.chassis === "spam-bot") {
     enemy.y += Math.max(4, goDivide(spec.speed, 3));
     return;
@@ -194,6 +207,8 @@ export const fireEnemy = (
   spec: ShooterEnemySpec,
 ): void => {
   if (state.enemyProjectiles.length >= state.config.limits.enemy_projectiles) return;
+  const family=broadcastFamily(spec.chassis);
+  if (family) { fireBroadcast(state,enemy,family,spec.traits.includes("elite")); return; }
   const speed = spec.projectile_speed;
   if (spec.chassis === "spam-bot") {
     const dx=state.playerX-enemy.x, dy=state.playerY-enemy.y, distance=Math.max(1,Math.hypot(dx,dy));
@@ -279,7 +294,7 @@ export const damagePlayer = (state: ShooterMutableState, amount: number): void =
 const dropSupportNote = (state: ShooterMutableState, x: number, y: number, value: number): void => {
   if (state.pickups.length >= state.config.limits.pickups) return;
   state.nextPickupID += 1;
-  const kinds: readonly ShooterPickupPower[] = ["rapid", "spread", "pierce"];
+  const kinds: readonly ShooterPickupPower[] = ["rapid", "support", "spread", "pierce"];
   state.pickups.push({
     id: state.nextPickupID,
     x,
@@ -290,19 +305,28 @@ const dropSupportNote = (state: ShooterMutableState, x: number, y: number, value
 };
 
 export const removeDefeatedEnemies = (state: ShooterMutableState): void => {
-  // Resolve links before rewards/cleanup, so enemies earlier in the array
-  // can also die in the pulse. A core leaves the array in this same call.
-  for (const core of state.enemies) {
-    if (core.boss || core.health > 0 || state.config.enemies[core.specIndex]?.chassis !== "shield-relay") continue;
-    for (const target of state.enemies) {
-      if (target === core || target.boss || target.health <= 0 || state.config.enemies[target.specIndex]?.chassis === "shield-relay") continue;
-      if (squaredDistance(core.x, core.y, target.x, target.y) < 1500 ** 2) target.health -= Math.ceil(target.maxHealth / 2);
+  // Resolve each defeat once, including cores killed by a gift-chain burst.
+  // Rewards/cleanup follow only after the local chain has settled.
+  const resolved = new Set<number>();
+  for (let pass = 0; pass < state.config.limits.enemies; pass++) {
+    const source = state.enemies.find(enemy => enemy.health <= 0 && !resolved.has(enemy.id));
+    if (!source) break;
+    resolved.add(source.id);
+    if (!source.boss && state.config.enemies[source.specIndex]?.chassis === "shield-relay") {
+      for (const target of state.enemies) {
+        if (target === source || target.boss || state.config.enemies[target.specIndex]?.traits.includes("elite") || target.health <= 0 || state.config.enemies[target.specIndex]?.chassis === "shield-relay") continue;
+        if (squaredDistance(source.x, source.y, target.x, target.y) < 1500 ** 2) target.health -= Math.ceil(target.maxHealth / 2);
+      }
+      state.enemyProjectiles = state.enemyProjectiles.filter(shot => squaredDistance(source.x, source.y, clamp(source.x, shot.x - shot.width / 2, shot.x + shot.width / 2), shot.y) > (1100 + shot.radius) ** 2);
+      addShooterEffect(state, "core_pulse", source.x, source.y, 24, 1100);
+      if (state.pickups.length < state.config.limits.pickups) {
+        state.nextPickupID++;
+        state.pickups.push({ id: state.nextPickupID, x: clamp(source.x, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS), y: source.y, kind: "energy", value: 0 });
+      }
     }
-    state.enemyProjectiles = state.enemyProjectiles.filter(shot => squaredDistance(core.x, core.y, clamp(core.x, shot.x - shot.width / 2, shot.x + shot.width / 2), shot.y) > (1100 + shot.radius) ** 2);
-    addShooterEffect(state, "core_pulse", core.x, core.y, 24, 1100);
-    if (state.pickups.length < state.config.limits.pickups) {
-      state.nextPickupID++;
-      state.pickups.push({ id: state.nextPickupID, x: clamp(core.x, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS), y: core.y, kind: "energy", value: 0 });
+    if (state.runtime.chainBurst > 0) {
+      for (const target of state.enemies) if (target.health > 0 && squaredDistance(source.x, source.y, target.x, target.y) < 900 ** 2) target.health -= state.runtime.chainBurst;
+      addShooterEffect(state, "gift_nova", source.x, source.y, 24, 900);
     }
   }
   const alive: ShooterEnemyEntity[] = [];
@@ -360,7 +384,12 @@ export const removeDefeatedEnemies = (state: ShooterMutableState): void => {
       noteValue = 30;
       state.score += 200;
     }
-    if ((!state.config.reversal && (enemy.boss || state.config.enemies[enemy.specIndex]?.chassis !== "shield-relay")) || enemy.role === "escort") dropSupportNote(state, enemy.x, enemy.y, noteValue);
+    if ((!state.config.reversal && (enemy.boss || (state.kills % 2 === 0 && state.config.enemies[enemy.specIndex]?.chassis !== "shield-relay"))) || enemy.role === "escort") dropSupportNote(state, enemy.x, enemy.y, noteValue);
+    if (state.config.enemies[enemy.specIndex]?.traits.includes("elite") && !enemy.boss) {
+      state.health = Math.min(state.runtime.maxHealth, state.health + 1);
+      for (let i=0; i<3; i++) dropSupportNote(state, clamp(enemy.x+(i-1)*260, 200, SHOOTER_WIDTH-200), enemy.y, 20);
+      addShooterEffect(state, "gift_nova", enemy.x, enemy.y, 24, 900);
+    }
     if (state.runtime.recoveryDrop > 0 && state.kills % Math.max(2, 6 - state.runtime.recoveryDrop) === 0) {
       state.health = Math.min(state.runtime.maxHealth, state.health + 1);
     }
@@ -368,29 +397,23 @@ export const removeDefeatedEnemies = (state: ShooterMutableState): void => {
   state.enemies = alive;
 };
 
-export const updatePickups = (state: ShooterMutableState): void => {
-  const kept = [];
-  for (const pickup of state.pickups) {
-    pickup.y += 70;
-    const magnetRange = (state.config.reversal ? 380 : 220) + state.runtime.pickupMagnet;
-    if (Math.abs(pickup.y - state.playerY) <= 900 && Math.abs(pickup.x - state.playerX) <= magnetRange) {
-      pickup.x += clamp(state.playerX - pickup.x, -90, 90);
-      pickup.y += clamp(state.playerY - pickup.y, -120, 50);
-    }
-    if (squaredDistance(pickup.x, pickup.y, state.playerX, state.playerY) <= (PLAYER_RADIUS + 70) ** 2) {
+export const collectPickup = (state: ShooterMutableState, pickup: ShooterPickupEntity): void => {
       state.pickupsCollected += 1;
       earnRescue(state, pickup.value);
       state.score += 40 * Math.max(1, state.combo);
       if (pickup.kind === "energy") {
         state.overdriveTicks = 180;
         addShooterEffect(state, "support_powerup_energy", state.playerX, state.playerY, 24, 0);
-        continue;
+        return;
       }
-      // Ordinary support notes extend a weapon rather than replacing it.
-      const samePower = state.pickupPower === pickup.kind || pickup.kind === "support";
-      const duration = state.config.reversal ? 360 : 450;
-      state.pickupPowerTicks = samePower ? Math.min(900, state.pickupPowerTicks + duration) : duration;
-      if (pickup.kind !== "support" || !state.pickupPower) state.pickupPower = pickup.kind;
+      if (state.config.reversal) {
+        state.pickupPower = "support";
+        state.pickupPowerTicks = Math.min(900, state.pickupPowerTicks + 360);
+      } else {
+        state.pickupLevels[pickup.kind] = Math.min(3, state.pickupLevels[pickup.kind] + 1);
+        // Maxed pickups still matter: fill the burst meter and reward collection.
+        if (state.pickupLevels[pickup.kind] === 3) earnRescue(state, 10);
+      }
       addShooterEffect(
         state,
         `support_powerup_${pickup.kind}`,
@@ -399,6 +422,19 @@ export const updatePickups = (state: ShooterMutableState): void => {
         24,
         pickup.value,
       );
+};
+
+export const updatePickups = (state: ShooterMutableState): void => {
+  const kept = [];
+  for (const pickup of state.pickups) {
+    pickup.y += 70;
+    const magnetRange = (state.config.reversal ? 380 : 520) + state.runtime.pickupMagnet;
+    if (Math.abs(pickup.y - state.playerY) <= 900 && Math.abs(pickup.x - state.playerX) <= magnetRange) {
+      pickup.x += clamp(state.playerX - pickup.x, -90, 90);
+      pickup.y += clamp(state.playerY - pickup.y, -120, 50);
+    }
+    if (squaredDistance(pickup.x, pickup.y, state.playerX, state.playerY) <= (PLAYER_RADIUS + 70) ** 2) {
+      collectPickup(state, pickup);
     } else if (pickup.y <= SHOOTER_HEIGHT + 70) {
       kept.push(pickup);
     }
@@ -411,7 +447,8 @@ const applyKitOnHit = (state: ShooterMutableState, enemyIndex: number, baseDamag
   if (!enemy) return;
   if (state.config.kit.id === "nana7mi") {
     enemy.marks = Math.min(3, enemy.marks + 1);
-    addShooterEffect(state, "route_mark", enemy.x, enemy.y, 45, enemy.marks);
+    // The three persistent diamonds already show marks; per-hit rings would
+    // obscure the sprite and crowd combination effects out of the effect cap.
   } else if (state.config.kit.id === "nailu") {
     if (state.effects.some((effect) => effect.kind === "memory_plant" && squaredDistance(effect.x, effect.y, enemy.x, enemy.y) <= 180 ** 2)) return;
     addShooterEffect(state, "memory_plant", enemy.x, enemy.y, 450, Math.max(1, baseDamage));
@@ -436,6 +473,7 @@ const damageBreakableHazard = (
 // The 90px Boss has a much larger body than a 46px ordinary machine.
 export const campaignEnemyHitbox = (enemy: ShooterEnemyEntity, spec: ShooterEnemySpec) => {
   if (enemy.boss) return { halfWidth: 260, halfHeight: 370 };
+  if (spec.traits.includes("elite")) return { halfWidth: 280, halfHeight: 300 };
   if (spec.chassis === "clip-cutter") return { halfWidth: 160, halfHeight: 80 };
   return { halfWidth: 150, halfHeight: 170 };
 };
@@ -444,6 +482,18 @@ const updateCampaignPlayerProjectiles = (state: ShooterMutableState): void => {
   const playerShots = [];
   for (const shot of state.playerProjectiles) {
     const oldX = shot.x, oldY = shot.y;
+    if (shot.kind === "fan_heart") {
+      shot.age = (shot.age ?? 0) + 1;
+      if (shot.age > 90) continue;
+      let target: ShooterEnemyEntity | undefined;
+      let nearest = Infinity;
+      for (const candidate of state.enemies) {
+        if (candidate.health <= 0 || shot.hitEnemyIDs?.includes(candidate.id)) continue;
+        const distance = squaredDistance(candidate.x,candidate.y,shot.x,shot.y);
+        if (distance < nearest) { target = candidate; nearest = distance; }
+      }
+      if (target) { const dx=target.x-shot.x,dy=target.y-shot.y,d=Math.max(1,Math.hypot(dx,dy)); shot.vx=Math.round(dx/d*260); shot.vy=Math.round(dy/d*260); }
+    }
     shot.x += shot.vx;
     shot.y += shot.vy;
     const radius = Math.max(ENEMY_PROJECTILE_RADIUS, shot.radius);
@@ -455,7 +505,7 @@ const updateCampaignPlayerProjectiles = (state: ShooterMutableState): void => {
       if (time !== null) hits.push({ time, enemyIndex });
     });
     for (const hazard of state.enemyProjectiles) {
-      if (hazard.kind !== "black_wall" || hazard.health <= 0) continue;
+      if (!["black_wall", "comment_ribbon"].includes(hazard.kind) || hazard.health <= 0) continue;
       const time = sweptShooterHit(oldX, oldY, shot.x, shot.y, hazard.x, hazard.y,
         hazard.width / 2 + radius, Math.max(hazard.radius, 120) + radius);
       if (time !== null) hits.push({ time, hazard });
@@ -466,6 +516,7 @@ const updateCampaignPlayerProjectiles = (state: ShooterMutableState): void => {
       if (hit.hazard) {
         if (hit.hazard.health <= 0) continue;
         damageBreakableHazard(state, shot, hit.hazard);
+        if (hit.hazard.kind === "comment_ribbon" && hit.hazard.health <= 0 && shot.pierce > 0) { shot.pierce--; continue; }
         consumed = true;
         break;
       }
@@ -483,7 +534,7 @@ const updateCampaignPlayerProjectiles = (state: ShooterMutableState): void => {
       if (shot.pierce <= 0) { consumed = true; break; }
       shot.pierce -= 1;
     }
-    if (!consumed && shot.y >= -radius && shot.x >= -radius && shot.x <= SHOOTER_WIDTH + radius) playerShots.push(shot);
+    if (!consumed && shot.y <= SHOOTER_HEIGHT+radius && shot.y >= -radius && shot.x >= -radius && shot.x <= SHOOTER_WIDTH + radius) playerShots.push(shot);
   }
   state.playerProjectiles = playerShots;
 };
@@ -496,10 +547,19 @@ export const updateProjectiles = (state: ShooterMutableState): void => {
   }
   const hostile = [];
   for (const bullet of state.enemyProjectiles) {
-    if (bullet.kind === "black_wall" && bullet.health <= 0) continue;
+    if (["black_wall", "comment_ribbon"].includes(bullet.kind) && bullet.health <= 0) continue;
+    bullet.age=(bullet.age??0)+1;
+    if (bullet.kind==="vinyl_disc") {
+      if (bullet.age===42) bullet.vx=-bullet.vx;
+      if (bullet.age===72) { bullet.vy=-bullet.vy; bullet.vx=-bullet.vx; }
+      if (bullet.age>160) continue;
+    }
     const oldX = bullet.x, oldY = bullet.y;
     bullet.x += bullet.vx;
     bullet.y += bullet.vy;
+    if (bullet.kind === "vinyl_disc" && (bullet.x < 120 || bullet.x > SHOOTER_WIDTH - 120)) {
+      bullet.x = clamp(bullet.x,120,SHOOTER_WIDTH-120); bullet.vx = -bullet.vx;
+    }
     const radius = Math.max(ENEMY_PROJECTILE_RADIUS, bullet.radius);
     const hitsPlayer = bullet.width > 0
       ? sweptShooterHit(oldX, oldY, bullet.x, bullet.y, state.playerX, state.playerY, bullet.width / 2 + PLAYER_RADIUS, radius + PLAYER_RADIUS) !== null
@@ -746,6 +806,21 @@ export const threatSnapshots = (state: ShooterMutableState): ShooterThreatSnapsh
     }
     const remaining = interval - enemy.fireClock;
     if (telegraph <= 0 || remaining <= 0 || remaining > telegraph) continue;
+    const broadcast=enemy.boss && state.config.boss?.id==="optimal-nana" ? ["chat","remix","encore"][enemy.phase-1] : broadcastFamily(state.config.enemies[enemy.specIndex]?.chassis??"");
+    if (broadcast) {
+      const warning = broadcastThreat(enemy,broadcast,remaining);
+      const elite = enemy.boss || state.config.enemies[enemy.specIndex]?.traits.includes("elite");
+      if (broadcast === "chat" && !elite) {
+        result.push({...warning, kind:"caption_block", target:{x:clamp(state.playerX,400,SHOOTER_WIDTH-400),y:state.playerY},width:480});
+      } else if (!(broadcast === "encore" && state.config.enemies[enemy.specIndex]?.chassis === "encore-twins" && state.enemies.filter(e=>e.health>0 && state.config.enemies[e.specIndex]?.chassis==="encore-twins").length>1 && enemy.volley%2!==enemy.id%2)) result.push(warning);
+      if(enemy.boss && enemy.phase===3 && enemy.volley%3===0) result.push(broadcastThreat(enemy,"chat",remaining));
+      if (enemy.boss) {
+        const choiceWarning = storyChoiceThreat(state,enemy,remaining);
+        if (choiceWarning) result.push(choiceWarning);
+        if (state.config.encore_level >= 3) result.push(bossRemixThreat(state,enemy,remaining));
+      }
+      continue;
+    }
     if (enemy.boss) {
       const specialWarning = bossSpecialThreat(state, enemy, special, remaining);
       if (specialWarning) result.push(specialWarning);

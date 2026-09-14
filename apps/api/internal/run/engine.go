@@ -8,8 +8,6 @@ import (
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 )
 
-const bossSegmentIndex = 3
-
 // NewState creates the complete authoritative state for one campaign or daily
 // run. Future segment configs are derived from its seed and immutable content.
 func NewState(input StartInput, catalog *gamecontent.V4Catalog) (State, error) {
@@ -80,6 +78,12 @@ func completeSegment(state *State, seed string, mode Mode, segmentOutcome *Segme
 	}
 	if segmentOutcome.Won && segmentOutcome.Health == 0 {
 		return ErrInvalidCommand
+	}
+	if levels := segmentOutcome.PickupLevels; levels != nil {
+		if levels.Rapid < state.PickupLevels.Rapid || levels.Spread < state.PickupLevels.Spread || levels.Pierce < state.PickupLevels.Pierce || levels.Support < state.PickupLevels.Support || levels.Rapid > 3 || levels.Spread > 3 || levels.Pierce > 3 || levels.Support > 3 {
+			return ErrInvalidCommand
+		}
+		state.PickupLevels = *levels
 	}
 	state.Hearts = segmentOutcome.Health
 	state.Score += segmentOutcome.Score
@@ -174,7 +178,8 @@ func chooseIntermissionReply(state *State, seed string, mode Mode, sceneID, opti
 	}
 	*events = append(*events, Event{Kind: "intermission_replied", SceneID: sceneID, ChoiceID: selected.ID, ChoiceTag: selected.Tag, ShowEffectID: selected.ShowEffectID})
 	state.Story = nil
-	if state.SegmentIndex == bossSegmentIndex {
+	// Former saves already reached their Boss at index 3; new Nana runs use 5.
+	if state.SegmentIndex >= 3 {
 		return finishRun(state, catalog, events, outcome)
 	}
 	// Existing saves paused at the former mid-chapter scene still resume safely.
@@ -218,7 +223,7 @@ func startSegment(state *State, seed string, mode Mode, catalog *gamecontent.V4C
 			return ErrContentLocked
 		}
 		segmentSlug, duration, waveID, rewardStage, background, wave = item.ID, item.DurationTicks, item.WaveID, item.RewardStage, item.BackgroundURL, resolved
-	} else if state.SegmentIndex == bossSegmentIndex {
+	} else if state.SegmentIndex == len(chapter.Segments) {
 		resolved := chapter.Boss
 		boss, segmentSlug, duration, background = &resolved, chapter.Boss.ID, chapter.Boss.DurationTicks, chapter.BackgroundURL
 	} else {
@@ -238,12 +243,16 @@ func startSegment(state *State, seed string, mode Mode, catalog *gamecontent.V4C
 
 func stagedOptions(state State, seed string, catalog *gamecontent.V4Catalog) []string {
 	candidates := make([]string, 0)
-	switch rewardStageForIndex(state.SegmentIndex) {
+	stage := rewardStageForIndex(state.SegmentIndex)
+	if chapter, ok := catalog.Chapter(state.ChapterSlug); ok && state.SegmentIndex >= 0 && state.SegmentIndex < len(chapter.Segments) {
+		stage = chapter.Segments[state.SegmentIndex].RewardStage
+	}
+	switch stage {
 	case "weapon":
 		for _, item := range catalog.ShowEffects {
 			// The first choice must visibly change the next volley. Conditional
 			// damage bonuses remain available as story rewards and later effects.
-			visibleWeapon := item.Behavior == "twin_shot" || item.Behavior == "piercing_shot" || item.Behavior == "spread_shot" || item.Behavior == "echo_volley"
+			visibleWeapon := item.Behavior == "twin_shot" || item.Behavior == "piercing_shot" || item.Behavior == "spread_shot" || item.Behavior == "echo_volley" || item.Behavior == "rapid_fire" || item.Behavior == "orbit_support" || item.Behavior == "chain_burst"
 			if visibleWeapon && !slices.Contains(state.ShowEffects, item.ID) {
 				candidates = append(candidates, item.ID)
 			}
@@ -274,7 +283,7 @@ func stagedOptions(state State, seed string, catalog *gamecontent.V4Catalog) []s
 
 	// Existing saves can already own both guard rewards from the former flow.
 	// Keep that pending gate playable without duplicating an owned effect.
-	if rewardStageForIndex(state.SegmentIndex) == "rescue" && len(candidates) < 2 {
+	if stage == "rescue" && len(candidates) < 2 {
 		for _, item := range catalog.ShowEffects {
 			if !slices.Contains(state.ShowEffects, item.ID) && !slices.Contains(candidates, item.ID) {
 				candidates = append(candidates, item.ID)
@@ -328,7 +337,7 @@ func isFinalSegment(state State, mode Mode) bool {
 	if mode == DailyMode {
 		return state.SegmentIndex == 1
 	}
-	return state.SegmentIndex == bossSegmentIndex
+	return state.Segment != nil && state.Segment.BossID != ""
 }
 
 func chooseEnding(state *State, endingID string, catalog *gamecontent.V4Catalog, events *[]Event, outcome **Outcome) error {

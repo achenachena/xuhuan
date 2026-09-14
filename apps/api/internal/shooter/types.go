@@ -52,6 +52,7 @@ var SupportedShowEffects = [...]EffectKind{
 	EffectTwinShot, EffectPiercingShot, EffectSpreadShot, EffectGrazeCharge,
 	EffectGuardOnSpecial, EffectPickupMagnet, EffectEchoVolley, EffectBossBreak,
 	EffectLowHealthPower, EffectComboExtend, EffectCompanionCharge, EffectRecoveryDrop,
+	EffectKind("rapid_fire"), EffectKind("orbit_support"), EffectKind("chain_burst"),
 }
 
 type Effect struct {
@@ -126,6 +127,8 @@ const ChassisShieldRelay Chassis = "shield-relay"
 var SupportedChassis = [...]Chassis{
 	ChassisSpamBot, ChassisClipCutter, ChassisCaptionBlob,
 	ChassisBlackScreenGhost, ChassisGiftThief, ChassisCensorFrame, ChassisShieldRelay,
+	Chassis("chat-printer"), Chassis("remix-deck"), Chassis("encore-fan"),
+	Chassis("chat-conductor"), Chassis("remix-director"), Chassis("encore-twins"),
 }
 
 type EnemySpec struct {
@@ -208,15 +211,24 @@ type ReversalGroup struct {
 	Escorts int `json:"escorts"`
 }
 
+// PickupLevels is the four-slot, per-character build carried between rooms.
+type PickupLevels struct {
+	Rapid   int `json:"rapid"`
+	Spread  int `json:"spread"`
+	Pierce  int `json:"pierce"`
+	Support int `json:"support"`
+}
+
 type Config struct {
-	Seed                 string `json:"seed"`
-	DurationTicks        int    `json:"duration_ticks"`
-	PlayerHealth         int    `json:"player_health"`
-	StartingRescueCharge int    `json:"starting_rescue_charge"`
-	StoryChoiceID        string `json:"story_choice_id,omitempty"`
-	EncoreLevel          int    `json:"encore_level"`
-	Daily                bool   `json:"daily"`
-	DailyModifierID      string `json:"daily_modifier_id,omitempty"`
+	PickupLevels         PickupLevels `json:"pickup_levels"`
+	Seed                 string       `json:"seed"`
+	DurationTicks        int          `json:"duration_ticks"`
+	PlayerHealth         int          `json:"player_health"`
+	StartingRescueCharge int          `json:"starting_rescue_charge"`
+	StoryChoiceID        string       `json:"story_choice_id,omitempty"`
+	EncoreLevel          int          `json:"encore_level"`
+	Daily                bool         `json:"daily"`
+	DailyModifierID      string       `json:"daily_modifier_id,omitempty"`
 	// SpecialChargePenaltyPercent reduces earned Rescue charge by this percentage.
 	// A positive value always makes Rescue slower; zero preserves the base rate.
 	SpecialChargePenaltyPercent int         `json:"special_charge_penalty_percent"`

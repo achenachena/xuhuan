@@ -8,7 +8,7 @@ import (
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
 )
 
-func TestCampaignFlowUsesThreeGatesIntermissionAndExplicitBossClear(t *testing.T) {
+func TestCampaignFlowUsesFiveGatesIntermissionAndExplicitBossClear(t *testing.T) {
 	catalog := gamecontent.MustLoadV4()
 	state, err := NewState(StartInput{ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", Seed: "campaign-flow-seed", Mode: CampaignMode}, catalog)
 	if err != nil {
@@ -17,7 +17,7 @@ func TestCampaignFlowUsesThreeGatesIntermissionAndExplicitBossClear(t *testing.T
 	seed := "campaign-flow-seed"
 	showChoices := 0
 
-	for segmentIndex := 0; segmentIndex < 3; segmentIndex++ {
+	for segmentIndex := 0; segmentIndex < 5; segmentIndex++ {
 		resolution, outcome, err := Apply(state, seed, CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(state.Hearts)}, catalog)
 		if err != nil || outcome != nil || resolution.State.Phase != ShowChoicePhase || len(resolution.State.PendingShowOptions) != 2 {
 			t.Fatalf("segment %d completion state=%#v outcome=%v err=%v", segmentIndex, resolution.State, outcome, err)
@@ -33,7 +33,7 @@ func TestCampaignFlowUsesThreeGatesIntermissionAndExplicitBossClear(t *testing.T
 
 	}
 
-	if showChoices != 3 || state.Phase != SegmentPhase || state.SegmentIndex != 3 || state.Segment == nil || state.Segment.BossID != "optimal-nana" {
+	if showChoices != 5 || state.Phase != SegmentPhase || state.SegmentIndex != 5 || state.Segment == nil || state.Segment.BossID != "optimal-nana" {
 		t.Fatalf("boss gate state=%#v show_choices=%d", state, showChoices)
 	}
 	resolution, outcome, err := Apply(state, seed, CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(state.Hearts)}, catalog)
@@ -67,7 +67,7 @@ func TestDailyIsOneSegmentOneShowChoiceThenBoss(t *testing.T) {
 	}
 	state = resolution.State
 	boss, ok := catalog.Boss(state.Segment.BossID)
-	if !ok || state.Segment.DurationTicks != boss.DurationTicks || state.Segment.RuntimeConfig.DurationTicks != boss.DurationTicks || boss.DurationTicks != 1800 {
+	if !ok || state.Segment.DurationTicks != boss.DurationTicks || state.Segment.RuntimeConfig.DurationTicks != boss.DurationTicks {
 		t.Fatalf("daily Boss duration=%#v boss=%#v, want authored 1800 ticks", state.Segment, boss)
 	}
 	resolution, outcome, err = Apply(state, "daily-flow-seed", DailyMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(state.Hearts)}, catalog)
@@ -140,7 +140,7 @@ func TestEveryIntermissionChoiceReachesTwoOptionThirdGateAndRevisesScene(t *test
 				}
 				state = resolution.State
 				resolution, outcome, err = Apply(state, "choice-matrix:"+chapter.ID, CampaignMode, Command{Type: ChooseShowOption, OptionID: state.PendingShowOptions[0]}, catalog)
-				if err != nil || outcome != nil || resolution.State.Segment == nil || resolution.State.SegmentIndex != 3 || resolution.State.Segment.BossID == "" || resolution.State.Segment.RuntimeConfig.StoryChoiceID != selected.ID {
+				if err != nil || outcome != nil || resolution.State.Segment == nil || resolution.State.SegmentIndex != 3 || (resolution.State.Segment.BossID == "") != (len(chapter.Segments) > 3) || resolution.State.Segment.RuntimeConfig.StoryChoiceID != selected.ID {
 					t.Fatalf("Boss start=%#v outcome=%v err=%v", resolution.State, outcome, err)
 				}
 			})

@@ -1,3 +1,4 @@
+import { satellitePositions } from "./weapons";
 import { PLAYER_Y, SHOOTER_HEIGHT, SHOOTER_WIDTH, clamp } from "@/features/shooter/constants";
 import type {
   ShooterEffectSnapshot,
@@ -14,15 +15,6 @@ import { drawReversalArena, preloadReversalFrames } from "@/features/shooter/rev
 import { indexShooterPositions, interpolateShooterPosition as entityPosition, type PositionIndex } from "@/features/shooter/render-positions";
 export { indexShooterPositions } from "@/features/shooter/render-positions";
 
-const chassisAssets = {
-  "spam-bot": "/game/v4/enemies/spam-bot.webp",
-  "clip-cutter": "/game/v4/enemies/clip-cutter.webp",
-  "caption-blob": "/game/v4/enemies/caption-blob.webp",
-  "black-screen-ghost": "/game/v4/enemies/black-screen-ghost.webp",
-  "gift-thief": "/game/v4/enemies/gift-thief.webp",
-  "shield-relay": "/game/v4/enemies/shield-relay.webp",
-  "censor-frame": "/game/v4/enemies/censor-frame.webp",
-} as const;
 const pickupAssets = [
   "/game/v4/pickups/support-cyan.webp",
   "/game/v4/pickups/support-pink.webp",
@@ -96,7 +88,7 @@ export const resolveShooterVisualSources = (
   return {
     background: run.state.segment?.background_url ?? chapter?.background_url ?? `/game/v4/backgrounds/${run.state.chapter_slug}-stage.webp`,
     player: character?.sprite_url ?? `/game/v4/players/${run.state.character_slug}.webp`,
-    enemies: chassisAssets,
+    enemies: Object.fromEntries(content.enemies.map(enemy => [enemy.id, enemy.sprite_url])),
     ...(bossID ? { boss: `/game/v4/bosses/${bossID}.webp` } : {}),
     pickups: pickupAssets,
     portraits: content.companions.filter(c => run.state.pending_show_options.includes(c.id)).map(c => c.portrait_url),
@@ -173,7 +165,26 @@ const drawThreat = (context: CanvasRenderingContext2D, threat: ShooterThreatSnap
   context.strokeStyle = "#fb7185";
   context.fillStyle = "rgba(251,113,133,.12)";
   context.setLineDash([70, 45]);
-  if (threat.kind === "censor_gap") {
+  if (threat.kind === "comment_gap") {
+    context.lineWidth = 12;
+    for (let lane = 0; lane < 4; lane++) {
+      const x = 450 + lane * 900;
+      context.fillStyle = Math.abs(x - threat.target.x) < 50 ? "rgba(110,231,183,.22)" : "rgba(251,113,133,.1)";
+      context.fillRect(x - 300, threat.origin.y, 600, SHOOTER_HEIGHT - threat.origin.y);
+    }
+    context.strokeStyle = "#6ee7b7";
+    context.strokeRect(threat.target.x - 300, threat.origin.y, 600, SHOOTER_HEIGHT - threat.origin.y);
+  } else if (threat.kind === "vinyl_return") {
+    context.strokeStyle = "#e9a8ff"; context.lineWidth = 24;
+    for (const side of [-1,1]) {
+      context.beginPath(); context.moveTo(threat.origin.x + side * 240, threat.origin.y);
+      context.quadraticCurveTo(threat.origin.x + side * 1100, threat.origin.y + 2200, threat.origin.x, threat.origin.y + 3100);
+      context.stroke();
+    }
+  } else if (threat.kind === "heart_beat") {
+    context.setLineDash([]); context.globalAlpha = .25 + urgency * .3;
+    drawPixelHeart(context, threat.origin.x, threat.origin.y + 220, 580 + urgency * 180, "#fb7185");
+  } else if (threat.kind === "censor_gap") {
     const gapWidth = Math.max(260, threat.width ?? 260);
     context.fillRect(0, threat.target.y - 320, Math.max(0, threat.target.x - gapWidth / 2), 640);
     context.fillRect(
@@ -246,7 +257,7 @@ const drawWideHostileProjectile = (
   const top = Math.round(y - radius);
   const bottom = Math.round(y + radius);
   const blackWall = projectile.kind === "black_wall";
-  const caption = projectile.kind === "caption_block";
+  const caption = projectile.kind === "caption_block" || projectile.kind === "comment_ribbon";
   const cut = /horizontal_cut|highlight_cut/.test(projectile.kind ?? "");
   const frame = !blackWall && !caption && !cut;
   const notch = Math.min(42, Math.max(18, Math.round(radius / 3)));
@@ -397,7 +408,7 @@ const drawHostileShard = (
   const pixel = Math.max(8, Math.round(size / 6));
   const kind = projectile.kind ?? "enemy_shot";
   const echo = /echo|translation|mirror|exposure/.test(kind);
-  const heart = /applause/.test(kind);
+  const heart = /applause|encore_heart/.test(kind);
   const spiral = /ring|spiral/.test(kind);
   const outline = echo ? "#a855f7" : heart ? "#f43f8f" : "#e11d68";
   const bright = echo ? "#67e8f9" : heart ? "#fde68a" : "#fecdd3";
@@ -410,7 +421,16 @@ const drawHostileShard = (
   context.strokeStyle = outline;
   context.lineWidth = pixel;
 
-  if (heart) {
+  if (kind === "vinyl_disc") {
+    context.shadowBlur = 0;
+    context.fillStyle = "#241338"; context.strokeStyle = "#e9a8ff"; context.lineWidth = pixel;
+    context.beginPath(); context.arc(0,0,size,0,Math.PI*2);context.fill();context.stroke();
+    context.strokeStyle = "#7653a6";context.lineWidth = pixel / 2;
+    for (const factor of [.5,.72]) {context.beginPath();context.arc(0,0,size*factor,0,Math.PI*2);context.stroke();}
+    context.fillStyle = "#f9a8d4";context.fillRect(-pixel*2,-pixel*2,pixel*4,pixel*4);
+    context.fillStyle = "#fff7d6";context.fillRect(-pixel/2,-pixel/2,pixel,pixel);
+    context.fillRect(pixel*2,-pixel*3,pixel*2,pixel);
+  } else if (heart) {
     for (const [column, row] of [[-2, -1], [-1, -2], [0, -1], [1, -2], [2, -1], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [-1, 1], [0, 1], [1, 1], [0, 2]] as const) {
       context.fillStyle = Math.abs(column) + Math.abs(row) < 2 ? bright : outline;
       context.fillRect(column * pixel, row * pixel, pixel, pixel);
@@ -554,7 +574,7 @@ const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapsho
   const impactOffset = wasHit ? (tick % 2 === 0 ? -24 : 24) : 0;
   const impactDrop = wasHit ? 30 : 0;
   const source = enemy.boss ? sources.boss : sources.enemies[enemy.chassis];
-  const baseSize = enemy.boss ? 900 : 460;
+  const baseSize = enemy.boss ? 900 : enemy.elite ? 780 : 460;
   const renderedSize = wasHit ? Math.round(baseSize * 1.13) : baseSize;
   drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y + impactDrop, renderedSize, enemy.boss ? "#f472b6" : "#fb7185");
   if (wasHit && enemy.boss) {
@@ -578,8 +598,18 @@ const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapsho
   if (enemy.boss) {
     drawBossHealth(context, point.x, point.y + 500, enemy.health, enemy.max_health);
   } else {
-    drawEnemyHealth(context, point.x, point.y + 260, enemy.health, enemy.max_health);
+    drawEnemyHealth(context, point.x, point.y + (enemy.elite ? 420 : 260), enemy.health, enemy.max_health);
   }
+};
+
+const drawPrismBolt = (context: CanvasRenderingContext2D, x: number, y: number, scale = 1): void => {
+  context.save(); context.translate(x,y); context.scale(scale,scale); context.shadowBlur = 0;
+  context.fillStyle = "#67e8f9";
+  context.beginPath();context.moveTo(0,-210);context.lineTo(40,-150);context.lineTo(40,-110);context.lineTo(80,-70);context.lineTo(80,100);context.lineTo(40,100);context.lineTo(40,150);context.lineTo(0,110);context.lineTo(-40,150);context.lineTo(-40,100);context.lineTo(-80,100);context.lineTo(-80,-70);context.lineTo(-40,-110);context.lineTo(-40,-150);context.closePath();context.fill();
+  context.fillStyle="#a78bfa";context.beginPath();context.moveTo(0,-170);context.lineTo(48,-60);context.lineTo(48,110);context.lineTo(0,70);context.closePath();context.fill();
+  context.fillStyle="#f0fdfa";context.fillRect(-12,-120,24,210);context.fillRect(-35,-55,70,24);
+  context.fillStyle="#99f6e4";context.fillRect(-55,160,20,55);context.fillRect(35,160,20,55);
+  context.restore();
 };
 
 const paintProjectile = (context: CanvasRenderingContext2D, projectile: ShooterProjectileSnapshot, previous: PositionIndex, alpha: number, dense: boolean): void => {
@@ -591,7 +621,18 @@ const paintProjectile = (context: CanvasRenderingContext2D, projectile: ShooterP
   context.shadowBlur = 42;
   const radius = Math.max(42, projectile.radius ?? 0);
   const width = projectile.width ?? 0;
-  if (projectile.hostile && width > 0) {
+  if (projectile.kind === "fan_heart") {
+    context.shadowBlur = 0; drawPixelHeart(context,point.x,point.y,160,"#99f6e4");
+  } else if (projectile.kind === "support_note") {
+    context.shadowBlur = 0; context.fillStyle="#99f6e4";
+    context.fillRect(point.x-18,point.y-100,36,170);context.fillRect(point.x+18,point.y-100,60,30);
+    context.fillRect(point.x-65,point.y+30,70,45);
+  } else if (projectile.kind === "pulse_lance") {
+    context.shadowBlur = 0;context.fillStyle="#fbbf24";
+    context.beginPath();context.moveTo(point.x,point.y-270);context.lineTo(point.x+100,point.y-90);context.lineTo(point.x+45,point.y+200);context.lineTo(point.x-45,point.y+200);context.lineTo(point.x-100,point.y-90);context.closePath();context.fill();
+    context.fillStyle="#fff7ce";context.fillRect(point.x-20,point.y-150,40,340);
+    context.fillStyle="#67e8f9";context.fillRect(point.x-110,point.y+130,40,100);context.fillRect(point.x+70,point.y+130,40,100);
+  } else if (projectile.hostile && width > 0) {
     drawWideHostileProjectile(context, projectile, point.x, point.y, width, radius, dense);
   } else if (projectile.hostile) {
     drawHostileShard(context, projectile, point.x, point.y, radius, dense);
@@ -611,9 +652,7 @@ const paintProjectile = (context: CanvasRenderingContext2D, projectile: ShooterP
     context.fillStyle = "#ffffff";
     context.fillRect(-14, -46, 28, 92);
   } else if (projectile.kind === "prism") {
-    context.fillStyle = "#67e8f9"; context.fillRect(point.x-80,point.y-150,160,240);
-    context.fillStyle = "#c4b5fd"; context.fillRect(point.x-48,point.y-190,96,320);
-    context.fillStyle = "#fff"; context.fillRect(point.x-18,point.y-170,36,290);
+    drawPrismBolt(context,point.x,point.y,radius/85);
   } else if (projectile.kind === "echo") {
     context.fillStyle = "#c4b5fd"; context.fillRect(point.x-32,point.y-110,64,200);
     context.fillStyle = "#fff"; context.fillRect(point.x-12,point.y-90,24,100);
@@ -674,6 +713,14 @@ const drawPickup = (context: CanvasRenderingContext2D, pickup: ShooterPickupSnap
     context.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, r = i % 2 ? 65 : 170; const x = Math.round(Math.cos(a) * r / 12) * 12, y = Math.round(Math.sin(a) * r / 12) * 12; if (i === 0) context.moveTo(x,y); else context.lineTo(x,y); } context.closePath(); context.fill();
     context.fillStyle = "#fff2a6"; context.fillRect(-36,-72,72,144); context.fillRect(-72,-36,144,72); context.restore();
   } else drawSprite(context, visuals.get(source), point.x, point.y, 300, "#fde68a");
+  if (pickup.kind !== "energy") {
+  context.save();context.translate(point.x,point.y);context.fillStyle="#071225";context.fillRect(-85,-75,170,150);context.fillStyle=pickupVisual.color;
+  if(pickup.kind === "rapid") {context.beginPath();context.moveTo(20,-70);context.lineTo(-65,15);context.lineTo(-5,15);context.lineTo(-20,75);context.lineTo(65,-15);context.lineTo(5,-15);context.closePath();context.fill();}
+  else if(pickup.kind === "spread") {for(const lane of [-1,0,1]) {context.save();context.rotate(lane*.5);context.fillRect(-12,-65,24,110);context.restore();}}
+  else if(pickup.kind === "pierce") {context.beginPath();context.moveTo(0,-75);context.lineTo(40,0);context.lineTo(0,75);context.lineTo(-40,0);context.closePath();context.fill();context.fillStyle="#fff";context.fillRect(-7,-45,14,90);}
+  else if(pickup.kind === "support") {context.fillRect(-18,-65,36,105);context.fillRect(18,-65,45,22);context.fillRect(-50,20,55,30);}
+  context.restore();
+  }
   context.strokeStyle = pickupVisual.color;
   context.globalAlpha = 0.55;
   context.lineWidth = 14;
@@ -685,6 +732,17 @@ const drawPickup = (context: CanvasRenderingContext2D, pickup: ShooterPickupSnap
 
 const drawEffect = (context: CanvasRenderingContext2D, effect: ShooterEffectSnapshot): void => {
   context.save();
+  if (effect.kind === "gift_nova") {
+    context.translate(effect.position.x,effect.position.y);context.globalAlpha=effect.ticks/20;
+    const r=(1-effect.ticks/20)*(effect.power??900);
+    for(let i=0;i<8;i++) {const a=i*Math.PI/4;const x=Math.round(Math.cos(a)*r/15)*15,y=Math.round(Math.sin(a)*r/15)*15;
+      context.fillStyle=i%2?"#fde68a":"#f9a8d4";context.fillRect(x-50,y-15,100,30);context.fillRect(x-15,y-50,30,100);}
+    context.restore();return;
+  }
+  if (effect.kind === "lance_flash") {
+    context.fillStyle="#fff7ce";context.globalAlpha=effect.ticks/14;
+    context.fillRect(effect.position.x-160,effect.position.y-45,320,24);context.restore();return;
+  }
   if (effect.kind === "core_pulse") {
     context.strokeStyle = "#fde68a"; context.lineWidth = 26; context.globalAlpha = effect.ticks / 24;
     context.beginPath(); context.arc(effect.position.x,effect.position.y,(effect.power ?? 1100)*(1-effect.ticks/24),0,Math.PI*2);context.stroke();context.restore();return;
@@ -829,6 +887,13 @@ export const drawShooterArena = (
     drawEffect(context, effect);
   }
   const playerX = presentationX || current.player_x;
+  const orbitCount = current.satellite_count ?? 0;
+  for (const point of satellitePositions(playerX,presentationY,current.tick,orbitCount)) {
+    context.fillStyle="#164e63";context.fillRect(point.x-44,point.y-120,88,200);
+    context.fillStyle="#99f6e4";context.fillRect(point.x-26,point.y-100,52,140);
+    context.fillStyle="#f8fafc";context.fillRect(point.x-10,point.y-80,20,100);
+    context.fillStyle="#fde68a";context.fillRect(point.x-24,point.y+65,48,35);
+  }
   context.globalAlpha = current.invulnerable_ticks > 0 && current.tick % 4 < 2 ? 0.35 : 1;
   drawSprite(context, visuals.get(sources.player), playerX, presentationY, 540, "#67e8f9");
   context.globalAlpha = 1;
@@ -891,18 +956,21 @@ const drawPixelHeart = (
   }
 };
 
+type GatePreviewSprites = { player?: HTMLImageElement; enemy?: HTMLImageElement };
+
 const drawWeaponPreview = (
   context: CanvasRenderingContext2D,
   option: ShooterGateOption,
   x: number,
   y: number,
   tick: number,
+  sprites: GatePreviewSprites,
 ): void => {
   if (option.evolution) {
     // Before + material → evolved volley; all three states loop in one card.
     const part = Math.floor(tick / 36) % 3;
     if (part < 2) {
-      drawWeaponPreview(context, { ...option, evolution: undefined, behavior: part === 0 ? (option.currentBehavior ?? option.behavior) : option.behavior }, x, y, tick);
+      drawWeaponPreview(context, { ...option, evolution: undefined, behavior: part === 0 ? (option.currentBehavior ?? option.behavior) : option.behavior }, x, y, tick, sprites);
     } else {
       const travel = (tick % 36) / 36 * 700;
       context.save();
@@ -912,7 +980,8 @@ const drawWeaponPreview = (
         for (const lane of option.evolution === "prism" ? [-1,0,1] : [-1,1]) {
           const sx = x + origin + lane * (option.evolution === "prism" ? travel * .36 : 50);
           context.fillStyle = option.evolution === "prism" ? "#67e8f9" : "#c4b5fd";
-          context.fillRect(sx-45,y+280-travel,90,230); context.fillStyle="#fff";context.fillRect(sx-15,y+290-travel,30,190);
+          if (option.evolution === "prism") drawPrismBolt(context,sx,y+280-travel,.85);
+          else { context.fillRect(sx-45,y+280-travel,90,230); context.fillStyle="#fff";context.fillRect(sx-15,y+290-travel,30,190); }
         }
       }
       context.restore();
@@ -929,6 +998,26 @@ const drawWeaponPreview = (
   context.shadowBlur = 45;
   context.lineWidth = 28;
 
+  if (option.behavior === "orbit_support") {
+    for(const point of satellitePositions(x,y,tick,2)) {
+      context.fillStyle="#99f6e4";context.fillRect(point.x-30,point.y-90,60,180);
+      drawPixelHeart(context,point.x,point.y-travel,120,"#99f6e4");
+    }
+    drawSprite(context,sprites.player,x,y,320,"#67e8f9");context.restore();return;
+  }
+  if (option.behavior === "chain_burst") {
+    for(let i=0;i<3;i++) {
+      const cx=x+(i-1)*300,cy=y+(i%2)*220;const burst=Math.max(0,phase-i*.2)*350;
+      context.fillStyle="#f9a8d4";
+      if(burst<70) drawSprite(context,sprites.enemy,cx,cy,250,"#f9a8d4");
+      else for(let star=0;star<6;star++) {const a=star*Math.PI/3;const sx=cx+Math.cos(a)*burst,sy=cy+Math.sin(a)*burst;context.fillStyle="#fde68a";context.fillRect(sx-35,sy-10,70,20);context.fillRect(sx-10,sy-35,20,70);}
+    }
+    context.restore();return;
+  }
+  if (option.behavior === "rapid_fire") {
+    for(let i=0;i<5;i++) {const sy=y+350-(travel+i*160)%800;context.fillRect(x-25,sy,50,100);}
+    drawSprite(context,sprites.player,x,y+380,290,"#67e8f9");context.restore();return;
+  }
   if (option.behavior === "pickup_magnet") {
     for (let index = 0; index < 3; index += 1) {
       const angle = phase * Math.PI * 2 + (index * Math.PI * 2) / 3;
@@ -1000,10 +1089,7 @@ const drawWeaponPreview = (
     context.lineTo(x - 55, y - 120);
     context.stroke();
   }
-  context.fillStyle = "#f8fafc";
-  context.fillRect(x - 115, y + 360, 230, 95);
-  context.fillStyle = "#67e8f9";
-  context.fillRect(x - 52, y + 285, 104, 110);
+  drawSprite(context,sprites.player,x,y+380,290,"#67e8f9");
   context.restore();
 };
 
@@ -1051,6 +1137,7 @@ const drawGatePortal = (
   active: boolean,
   tick: number,
   visuals: ShooterVisuals,
+  sprites: GatePreviewSprites,
 ): void => {
   const x = index === 0 ? 990 : 2_610;
   const left = x - 650;
@@ -1086,7 +1173,7 @@ const drawGatePortal = (
   if (option.kind === "companion") {
     drawCompanionPreview(context, portrait, x, 2_020, tick, option.behavior);
   } else {
-    drawWeaponPreview(context, option, x, 2_170, tick);
+    drawWeaponPreview(context, option, x, 2_170, tick, sprites);
   }
 
   context.shadowBlur = 0;
@@ -1116,6 +1203,7 @@ export const drawShooterGates = (
         selectedIndex === index,
         animationTick,
         visuals,
+        {player: visuals.get(sources.player), enemy: visuals.get(sources.enemies["chat-printer"] ?? "")},
       ),
     );
 

@@ -2,23 +2,27 @@
   "chapter": {
     "id":"seventh-dock","order":1,"title_key":"chapter.seventh_dock.title","subtitle_key":"chapter.seventh_dock.subtitle","featured_character":"nana7mi","unlock_companion":"nana7mi-assist","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp",
     "segments":[
-      {"id":"dock-aftershow","duration_ticks":900,"wave_id":"dock-wave-1","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"weapon"},
-      {"id":"dock-lost-chat","duration_ticks":1080,"wave_id":"dock-wave-2","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"companion"},
-      {"id":"dock-false-tide","duration_ticks":1200,"wave_id":"dock-wave-3","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"rescue"}
+      {"id":"dock-aftershow","duration_ticks":1050,"wave_id":"dock-wave-1","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"weapon"},
+      {"id":"dock-chat-conductor","duration_ticks":1350,"wave_id":"dock-wave-2","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"weapon"},
+      {"id":"dock-remix-director","duration_ticks":1350,"wave_id":"dock-wave-3","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"rescue"},
+      {"id":"dock-encore-twins","duration_ticks":1350,"wave_id":"dock-wave-4","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"weapon"},
+      {"id":"dock-last-supply","duration_ticks":1200,"wave_id":"dock-wave-5","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"weapon"}
     ],
     "waves":[
-      {"id":"dock-wave-1","spawns":[{"at_tick":30,"enemy_id":"spam-bot","count":4,"formation":"line","interval_ticks":18},{"at_tick":300,"enemy_id":"clip-cutter","count":2,"formation":"pincer","interval_ticks":24}]},
-      {"id":"dock-wave-2","spawns":[{"at_tick":20,"enemy_id":"gift-thief","count":2,"formation":"fan","interval_ticks":36},{"at_tick":240,"enemy_id":"spam-bot","count":4,"formation":"staggered","interval_ticks":16},{"at_tick":500,"enemy_id":"caption-blob","count":2,"formation":"sweep","interval_ticks":32}]},
-      {"id":"dock-wave-3","spawns":[{"at_tick":20,"enemy_id":"black-screen-ghost","count":2,"formation":"center","interval_ticks":45},{"at_tick":260,"enemy_id":"clip-cutter","count":4,"formation":"pincer","interval_ticks":18},{"at_tick":560,"enemy_id":"censor-frame","count":1,"formation":"center","interval_ticks":0}]}
+      {"id":"dock-wave-1","spawns":[{"at_tick":30,"enemy_id":"spam-bot","count":6,"formation":"line","interval_ticks":18},{"at_tick":240,"enemy_id":"chat-printer","count":2,"formation":"pincer","interval_ticks":45},{"at_tick":420,"enemy_id":"encore-fan","count":2,"formation":"center","interval_ticks":0}]},
+      {"id":"dock-wave-2","spawns":[{"at_tick":20,"enemy_id":"chat-conductor","count":1,"formation":"center","interval_ticks":0},{"at_tick":210,"enemy_id":"spam-bot","count":2,"formation":"pincer","interval_ticks":30},{"at_tick":330,"enemy_id":"shield-relay","count":1,"formation":"center","interval_ticks":0}]},
+      {"id":"dock-wave-3","spawns":[{"at_tick":20,"enemy_id":"remix-director","count":1,"formation":"center","interval_ticks":0},{"at_tick":450,"enemy_id":"remix-deck","count":1,"formation":"center","interval_ticks":0}]},
+      {"id":"dock-wave-4","spawns":[{"at_tick":20,"enemy_id":"encore-twins","count":2,"formation":"pincer","interval_ticks":0}]},
+      {"id":"dock-wave-5","spawns":[{"at_tick":20,"enemy_id":"gift-thief","count":3,"formation":"fan","interval_ticks":30},{"at_tick":180,"enemy_id":"shield-relay","count":1,"formation":"center","interval_ticks":0},{"at_tick":180,"enemy_id":"chat-printer","count":2,"formation":"pincer","interval_ticks":30},{"at_tick":380,"enemy_id":"remix-deck","count":1,"formation":"center","interval_ticks":0},{"at_tick":440,"enemy_id":"encore-fan","count":2,"formation":"fan","interval_ticks":30}]}
     ],
-    "boss":{"id":"optimal-nana","name_key":"boss.optimal_nana.name","description_key":"boss.optimal_nana.description","sprite_url":"/game/v4/bosses/optimal-nana.webp","max_health":900,"duration_ticks":1800,"stages":[
+    "boss":{"id":"optimal-nana","name_key":"boss.optimal_nana.name","description_key":"boss.optimal_nana.description","sprite_url":"/game/v4/bosses/optimal-nana.webp","max_health":12000,"duration_ticks":2700,"stages":[
       {"id":"polite-opening","health_threshold":100,"move_pattern":"sweep","shot_pattern":"fan","shot_interval":48,"projectile_speed":92,"projectile_damage":1,"telegraph_ticks":18,"special":"tidy-intro"},
       {"id":"perfect-reaction","health_threshold":66,"move_pattern":"mirror","shot_pattern":"delayed","shot_interval":42,"projectile_speed":102,"projectile_damage":1,"telegraph_ticks":21,"special":"copied-laugh"},
       {"id":"no-sea","health_threshold":33,"move_pattern":"dive","shot_pattern":"ring","shot_interval":36,"projectile_speed":112,"projectile_damage":1,"telegraph_ticks":24,"special":"empty-horizon"}
     ]},
     "story":{
       "prelude":[{"sender":"system","text_key":"story.seventh_dock.prelude.1"},{"sender":"nana7mi","text_key":"story.seventh_dock.prelude.2"},{"sender":"nana7mi","text_key":"story.seventh_dock.prelude.3"}],
-      "intermission":{"after_segment":4,"prompt_key":"story.seventh_dock.intermission.prompt","messages":[{"sender":"nana7mi","text_key":"story.seventh_dock.intermission.1"},{"sender":"system","text_key":"story.seventh_dock.intermission.2"}],"choices":[
+      "intermission":{"after_segment":6,"prompt_key":"story.seventh_dock.intermission.prompt","messages":[{"sender":"nana7mi","text_key":"story.seventh_dock.intermission.1"},{"sender":"system","text_key":"story.seventh_dock.intermission.2"}],"choices":[
         {"id":"keep-seven-second-voice","label_key":"story.seventh_dock.choice.voice.label","result_key":"story.seventh_dock.choice.voice.result","tag":"kept-withdrawn-voice","show_effect_id":"instant-replay"},
         {"id":"delete-learned-reply","label_key":"story.seventh_dock.choice.model.label","result_key":"story.seventh_dock.choice.model.result","tag":"deleted-learned-reply","show_effect_id":"clean-cut"}
       ]},

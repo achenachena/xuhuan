@@ -515,14 +515,15 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
       </div>
       <ShooterHUD
         snapshot={hudSnapshot}
+        encounterName={content.enemies.find(spec=>hudSnapshot?.enemies.some(enemy=>enemy.elite && enemy.chassis===spec.id))?.name}
         segmentIndex={run.state.segment_index}
-        segmentTotal={runtime.config.reversal ? 1 : 3}
+        segmentTotal={runtime.config.reversal ? 1 : content.chapters.find(chapter => chapter.id === run.state.chapter_slug)?.segments.length ?? 3}
         durationTicks={runtime.config.duration_ticks}
         boss={Boolean(segment.boss_id)}
         busy={busy || submitting || settling}
         onRescue={queueRescue}
       />
-      {run.state.segment_index === 3 && (hudSnapshot?.tick ?? 0) < 45 && weaponEvolution(runtime.config.show_effects) && assetState === "ready" && <div role="status" className="pointer-events-none absolute left-0 right-0 top-1/3 z-20 text-center font-black text-cyan-100 motion-safe:animate-pulse">
+      {Boolean(segment.boss_id) && (hudSnapshot?.tick ?? 0) < 45 && weaponEvolution(runtime.config.show_effects) && assetState === "ready" && <div role="status" className="pointer-events-none absolute left-0 right-0 top-1/3 z-20 text-center font-black text-cyan-100 motion-safe:animate-pulse">
         <p className="text-xs tracking-widest">{language === "en" ? "EVOLVED!" : "武器进化！"}</p>
         <p className="mt-2 text-2xl">{weaponEvolution(runtime.config.show_effects) === "prism" ? (language === "en" ? "Prism Volley" : "棱镜齐射") : (language === "en" ? "Twin Afterimages" : "双重残影")}</p>
       </div>}

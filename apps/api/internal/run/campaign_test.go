@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	gamecontent "github.com/achenachena/xuhuan/apps/api/internal/content"
+	"github.com/achenachena/xuhuan/apps/api/internal/shooter"
 )
 
 func TestCampaignWeaponChoicesAlwaysChangeTheFiringShape(t *testing.T) {
@@ -21,13 +22,13 @@ func TestCampaignWeaponChoicesAlwaysChangeTheFiringShape(t *testing.T) {
 		}
 		for _, id := range options {
 			effect, ok := catalog.ShowEffect(id)
-			if !ok || !slices.Contains([]string{"twin_shot", "piercing_shot", "spread_shot", "echo_volley"}, effect.Behavior) {
+			if !ok || !slices.Contains([]string{"twin_shot", "piercing_shot", "spread_shot", "echo_volley", "rapid_fire", "orbit_support", "chain_burst"}, effect.Behavior) {
 				t.Fatalf("first gate offered an invisible damage bonus: %#v", effect)
 			}
 			seen[id] = true
 		}
 	}
-	if len(seen) != 4 {
+	if len(seen) != 7 {
 		t.Fatalf("weapon pool=%v, want twin, pierce, and spread", seen)
 	}
 }
@@ -65,7 +66,7 @@ func TestEveryCampaignChapterChoiceAndEncoreCompletes(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					for segment := 0; segment < 4; segment++ {
+					for segment := 0; segment <= len(chapter.Segments); segment++ {
 						if state.Phase != SegmentPhase || state.Segment == nil || state.SegmentIndex != segment || state.Hearts != 2 && segment > 0 {
 							t.Fatalf("segment %d state=%#v", segment, state)
 						}
@@ -73,7 +74,7 @@ func TestEveryCampaignChapterChoiceAndEncoreCompletes(t *testing.T) {
 						if config.Reversal != nil || config.Kit.MaxHealth != 3 || config.Kit.StartingShield > 1 || string(config.Kit.ID) != character || config.EncoreLevel != encore {
 							t.Fatalf("campaign config unexpectedly replaced: %#v", config)
 						}
-						if segment == 3 && (config.Boss == nil || string(config.Boss.ID) != chapter.Boss.ID || len(config.Boss.Stages) != 3) {
+						if segment == len(chapter.Segments) && (config.Boss == nil || string(config.Boss.ID) != chapter.Boss.ID || len(config.Boss.Stages) != 3) {
 							t.Fatalf("wrong chapter boss: %#v", config.Boss)
 						}
 						before := cloneState(state)
@@ -82,7 +83,7 @@ func TestEveryCampaignChapterChoiceAndEncoreCompletes(t *testing.T) {
 							t.Fatalf("segment %d error=%v or input state mutated", segment, err)
 						}
 						state = resolution.State
-						if segment == 3 {
+						if segment == len(chapter.Segments) {
 							if outcome != nil || state.Phase != StoryPhase || len(state.Story.ChoiceIDs) != 2 {
 								t.Fatalf("missing post-boss choice: %#v", state)
 							}
@@ -171,7 +172,7 @@ func TestDailyRotationCharactersCanFinishEveryAuthoredBoss(t *testing.T) {
 
 func TestEncounterSeedsVaryGroupsWithinTheChapterBudget(t *testing.T) {
 	catalog := gamecontent.MustLoadV4()
-	chapter, _ := catalog.Chapter("seventh-dock")
+	chapter, _ := catalog.Chapter("always-cheerful")
 	state := State{ChapterSlug: chapter.ID, CharacterSlug: chapter.FeaturedCharacter, Hearts: 3, MaxHearts: 3, SegmentIndex: 1}
 	wave := chapter.Waves[1]
 	budget := 0
@@ -230,5 +231,31 @@ func TestFinalGateCompletesFirstWeaponOrOffersDefense(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestPickupBuildSurvivesGatesAndResetsForNextCharacter(t *testing.T) {
+	catalog := gamecontent.MustLoadV4()
+	state, err := NewState(StartInput{ChapterSlug: "seventh-dock", CharacterSlug: "nana7mi", Seed: "build", Mode: CampaignMode}, catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	levels := shooter.PickupLevels{Rapid: 2, Spread: 1, Pierce: 1, Support: 1}
+	result, _, err := Apply(state, "build", CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: &SegmentOutcome{Won: true, Health: 3, Score: 100, PickupLevels: &levels}}, catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, _, err = Apply(result.State, "build", CampaignMode, Command{Type: ChooseShowOption, OptionID: result.State.PendingShowOptions[0]}, catalog)
+	if err != nil || result.State.PickupLevels != levels || result.State.Segment.RuntimeConfig.PickupLevels != levels {
+		t.Fatalf("build lost after gate: %v", err)
+	}
+	// A client from before pickup builds omits the optional field; preserve it.
+	legacy, _, err := Apply(result.State, "build", CampaignMode, Command{Type: CompleteSegment, SegmentOutcome: successfulSegmentOutcome(3)}, catalog)
+	if err != nil || legacy.State.PickupLevels != levels {
+		t.Fatalf("legacy command reset build: %v", err)
+	}
+	next, err := NewState(StartInput{ChapterSlug: "always-cheerful", CharacterSlug: "jiaran", Seed: "next", Mode: CampaignMode}, catalog)
+	if err != nil || next.PickupLevels != (shooter.PickupLevels{}) || next.Segment.RuntimeConfig.PickupLevels != (shooter.PickupLevels{}) {
+		t.Fatal("build leaked to next character")
 	}
 }

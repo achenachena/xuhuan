@@ -48,7 +48,7 @@ const createState = (config = characterConfig("nana7mi")): ShooterMutableState =
     companionSignals: config.companions.map(() => 0), companionPending: config.companions.map(() => false),
     nextEnemyID: 0, nextProjectileID: 0, nextPickupID: 0, nextEffectID: 0, spawnedBoss: false,
     dailyVariant: "", enemies: [], enemyProjectiles: [], playerProjectiles: [],
-    pickups: [], pickupsCollected: 0, pickupPower: null, pickupPowerTicks: 0, overdriveTicks: 0,
+    pickups: [], pickupsCollected: 0, pickupLevels: { rapid: 0, spread: 0, pierce: 0, support: 0 }, pickupPower: null, pickupPowerTicks: 0, overdriveTicks: 0,
     waveQuietTicks: 0, waveTick: -1, effects: [],
   };
 };
@@ -60,10 +60,10 @@ const enemy = (id = 1, overrides: Partial<ShooterEnemyEntity> = {}): ShooterEnem
 
 describe("campaign collision and completion", () => {
   it.each([nanaChapter, dianaChapter, avaChapter, bellaChapter, luluChapter, xingtongChapter, nailuChapter, finaleChapter])(
-    "$chapter.id's actual three-stage Boss can be beaten without Rescue at Encore 0", ({ chapter }) => {
+    "$chapter.id's actual three-stage Boss can be beaten with collected weapons at Encore 0", ({ chapter }) => {
       const kit = characterConfig(chapter.featured_character === "player-choice" ? "nana7mi" : chapter.featured_character);
       const config: ShooterRuntimeConfig = {
-        ...kit, duration_ticks: chapter.boss.duration_ticks,
+        ...kit, duration_ticks: chapter.boss.duration_ticks, pickup_levels: {rapid:2,spread:2,pierce:2,support:2}, show_effects: [{kind:"twin_shot",amount:1},{kind:"echo_volley",amount:35}],
         boss: { id: chapter.boss.id as NonNullable<ShooterRuntimeConfig["boss"]>["id"],
           health: chapter.boss.max_health, score: chapter.boss.max_health * 5,
           stages: chapter.boss.stages.map((stage) => ({
@@ -383,24 +383,25 @@ describe("enemy roles retain distinct attacks", () => {
 });
 
 
-describe("sustained pickup weapons", () => {
-  it("gives fifteen seconds, lets support extend the weapon, and caps accumulated time", () => {
-    const state = createState();
-    const collect = (kind: "rapid" | "support" | "spread") => {
-      state.pickups = [{ id: 1, x: state.playerX, y: PLAYER_Y - 70, value: 12, kind }];
-      updatePickups(state);
-    };
-    collect("rapid");
-    expect(state.pickupPowerTicks).toBe(450);
-    state.pickupPowerTicks = 420;
-    collect("support");
-    expect(state.pickupPower).toBe("rapid");
-    expect(state.pickupPowerTicks).toBe(870);
-    collect("rapid");
-    expect(state.pickupPowerTicks).toBe(900);
-    collect("spread");
-    expect(state.pickupPower).toBe("spread");
-    expect(state.pickupPowerTicks).toBe(450);
+describe("persistent pickup builds", () => {
+  it("combines four types, upgrades duplicates to three, and never replaces another type", () => {
+    const state=createState();
+    for(const kind of ["rapid","support","spread","pierce","rapid","rapid","rapid"] as const) {
+      state.pickups=[{id:1,x:state.playerX,y:state.playerY-70,value:12,kind}];updatePickups(state);
+    }
+    expect(state.pickupLevels).toEqual({rapid:3,support:1,spread:1,pierce:1});
+    const next=createShooterSimulationFromConfig({...characterConfig("nana7mi"),pickup_levels:state.pickupLevels});
+    expect(next.snapshot().pickup_levels).toEqual(state.pickupLevels);
+    const fresh=createShooterSimulationFromConfig(characterConfig("jiaran"));
+    expect(fresh.snapshot().pickup_levels).toEqual({rapid:0,support:0,spread:0,pierce:0});
+  });
+  it("fires prism, pulse lance, seeking satellites and afterimages together",()=>{
+    const state=createState({...characterConfig("nana7mi"),show_effects:[{kind:"twin_shot",amount:1},{kind:"echo_volley",amount:1}]});
+    state.pickupLevels={rapid:1,spread:1,pierce:1,support:1};
+    const kinds=new Set<string>();
+    for(let volley=0;volley<12;volley++) {state.attackClock=100;updateWeapons(state);for(const p of state.playerProjectiles) kinds.add(p.kind);state.playerProjectiles=[];}
+    for(const kind of ["prism","pulse_lance","fan_heart","echo"]) expect(kinds.has(kind),kind).toBe(true);
+    expect(state.effects.some(e=>e.kind==="afterimage_replay")).toBe(true);
   });
 });
 
@@ -462,9 +463,9 @@ describe("energy core and evolutions", () => {
     const score=state.score;removeDefeatedEnemies(state);expect(state.score).toBe(score);
   });
   it("refreshes six-second overdrive without replacing a pickup weapon or stacking its multiplier", () => {
-    const state=createState();state.pickupPower="pierce";state.pickupPowerTicks=300;
+    const state=createState();state.pickupLevels.pierce=1;
     state.pickups=[{id:1,x:1800,y:state.playerY-70,kind:"energy",value:0}];updatePickups(state);
-    expect(state.overdriveTicks).toBe(180);expect(state.pickupPower).toBe("pierce");
+    expect(state.overdriveTicks).toBe(180);expect(state.pickupLevels.pierce).toBe(1);
     state.overdriveTicks=70;state.pickups=[{id:2,x:1800,y:state.playerY-70,kind:"energy",value:0}];updatePickups(state);expect(state.overdriveTicks).toBe(180);
     const interval=Math.max(3,Math.ceil(state.runtime.fireInterval*.75));for(let i=0;i<interval-1;i++)updateWeapons(state);
     expect(state.playerProjectiles).toHaveLength(0);updateWeapons(state);expect(state.playerProjectiles.length).toBeGreaterThan(0);
@@ -473,10 +474,62 @@ describe("energy core and evolutions", () => {
   it("fires three wide piercing prism lanes and two offset echo volleys", () => {
     const config=characterConfig("nana7mi");
     const prism=createState({...config,show_effects:[{kind:"spread_shot",amount:2},{kind:"piercing_shot",amount:1}]});
-    prism.attackClock=100;updateWeapons(prism);expect(prism.playerProjectiles.map(p=>[p.kind,p.vx,p.pierce,p.radius])).toEqual([["prism",-76,4,85],["prism",0,4,85],["prism",76,4,85]]);
+    prism.attackClock=100;updateWeapons(prism);expect(prism.playerProjectiles.map(p=>[p.kind,p.vx,p.pierce,p.radius])).toEqual([["prism",-76,4,110],["prism",0,4,110],["prism",76,4,110]]);
     const twin=createState({...config,show_effects:[{kind:"twin_shot",amount:1},{kind:"echo_volley",amount:35}]});
     for(let i=0;i<3;i++){twin.attackClock=100;updateWeapons(twin)}
     const echoes=twin.playerProjectiles.filter(p=>p.kind==="echo");expect(echoes).toHaveLength(4);expect(echoes.map(p=>p.x)).toEqual([1466,1534,2066,2134]);
     expect(twin.effects.filter(e=>e.kind==="afterimage_replay")).toHaveLength(2);
+  });
+});
+
+describe("broadcast enemies and rewards",()=>{
+  const themedState = () => createState({...characterConfig("nana7mi"),enemies: shared.enemies.map(spec=>({...spec,chassis:spec.id,health:spec.max_health,fire_interval:spec.shot_interval,damage:spec.projectile_damage,score:100})) as ShooterRuntimeConfig["enemies"]});
+  const themedEnemy = (state:ShooterMutableState,chassis:string,id=1) => {
+    const specIndex=state.config.enemies.findIndex(spec=>spec.chassis===chassis);
+    return enemy(id,{specIndex,health:state.config.enemies[specIndex]!.health,maxHealth:state.config.enemies[specIndex]!.health});
+  };
+  it("warns the same chat gap it leaves open and lets the player destroy ribbons",()=>{
+    const state=themedState(), boss=themedEnemy(state,"chat-conductor");state.enemies=[boss];
+    boss.fireClock=state.config.enemies[boss.specIndex]!.fire_interval-1;
+    const warning=threatSnapshots(state).find(t=>t.kind==="comment_gap")!;
+    fireEnemy(state,boss,state.config.enemies[boss.specIndex]!);
+    expect(state.enemyProjectiles).toHaveLength(3);
+    expect(state.enemyProjectiles.every(p=>p.x!==warning.target.x && p.health>0)).toBe(true);
+    const ribbon=state.enemyProjectiles[0]!;
+    addPlayerProjectile(state,{x:ribbon.x,y:ribbon.y+300,vy:-400,damage:100});
+    updateProjectiles(state);
+    expect(state.enemyProjectiles.some(p=>p.id===ribbon.id)).toBe(false);
+  });
+  it("rewinds vinyl records and expires them within the projectile budget",()=>{
+    const state=themedState(), dj=themedEnemy(state,"remix-director");
+    state.playerX=100; state.playerY=6200;
+    fireEnemy(state,dj,state.config.enemies[dj.specIndex]!);
+    const record=state.enemyProjectiles[0]!,initialVX=record.vx;
+    for(let tick=0;tick<42;tick++) updateProjectiles(state);
+    expect(record.vx).toBe(-initialVX);
+    for(let tick=42;tick<72;tick++) updateProjectiles(state);
+    expect(record.vy).toBeLessThan(0);
+    for(let tick=72;tick<162;tick++) updateProjectiles(state);
+    expect(state.enemyProjectiles).toHaveLength(0);
+  });
+  it("makes the twins trade volleys instead of firing both at once",()=>{
+    const state=themedState();state.enemies=[themedEnemy(state,"encore-twins",1),themedEnemy(state,"encore-twins",2)];
+    for(const twin of state.enemies) fireEnemy(state,twin,state.config.enemies[twin.specIndex]!);
+    expect(state.enemyProjectiles).toHaveLength(16);
+    expect(new Set(state.enemyProjectiles.map(p=>p.vy)).size).toBeGreaterThan(5);
+  });
+  it("chains kills once and collects the elite reward before the next gate",()=>{
+    const state=themedState();state.runtime.chainBurst=55;
+    state.enemies=[enemy(1,{health:0,x:1000}),enemy(2,{health:50,x:1400}),enemy(3,{health:50,x:2200})];
+    removeDefeatedEnemies(state);expect(state.kills).toBe(3);
+    removeDefeatedEnemies(state);expect(state.kills).toBe(3);
+    const core=themedEnemy(state,"shield-relay",4);core.health=30;core.x=1400;
+    state.enemies=[enemy(5,{health:0,x:1000}),core];removeDefeatedEnemies(state);
+    expect(state.pickups.filter(p=>p.kind==="energy")).toHaveLength(1);
+    const spec=state.config.enemies.find(e=>e.chassis==="chat-conductor")!;
+    const sim=createShooterSimulationFromConfig({...state.config,duration_ticks:600,enemies:[{...spec,health:1}],wave:{id:"elite-reward",spawns:[{enemy_id:spec.id,at_tick:0,count:1,formation:"center",interval_ticks:0}]}});
+    for(let t=0;t<600&&!sim.result();t++) sim.step({x:64,rescue:false});
+    expect(sim.result()?.won).toBe(true);
+    expect(Object.values(sim.result()!.final.pickup_levels!).reduce((a,b)=>a+b,0)).toBeGreaterThanOrEqual(3);
   });
 });

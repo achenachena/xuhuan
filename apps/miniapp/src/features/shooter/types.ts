@@ -6,6 +6,8 @@ import type {
 } from "@/lib/api/types";
 
 export type ShooterPosition = { readonly x: number; readonly y: number };
+export type ShooterPickupLevels = NonNullable<ShooterRuntimeConfig["pickup_levels"]>;
+export const emptyPickupLevels = (): ShooterPickupLevels => ({ rapid: 0, spread: 0, pierce: 0, support: 0 });
 export type ShooterPickupPower = "rapid" | "spread" | "pierce" | "support";
 export type ReversalRole = "controller" | "escort" | "arm" | "boss";
 export type ReversalFanSnapshot = {
@@ -24,6 +26,7 @@ export type ShooterEnemySnapshot = {
   readonly health: number;
   readonly max_health: number;
   readonly boss: boolean;
+  readonly elite?: boolean;
   readonly stage?: number;
   readonly intent?: string;
   readonly marks?: number;
@@ -81,6 +84,8 @@ export type ShooterSnapshot = {
   readonly combo: number;
   readonly score: number;
   readonly reversal?: { breaks: number; weapon: "single" | "twin" | "pierce"; fans: readonly ReversalFanSnapshot[] };
+  readonly pickup_levels?: ShooterPickupLevels;
+  readonly satellite_count?: number;
   readonly pickup_power?: ShooterPickupPower;
   readonly pickup_power_ticks?: number;
   readonly overdrive_ticks?: number;
@@ -123,6 +128,9 @@ export type ShooterResolvedRuntime = {
   comboExtend: number;
   companionCharge: number;
   recoveryDrop: number;
+  rapidFire: number;
+  orbitSupport: number;
+  chainBurst: number;
 };
 
 export type ShooterRuntime = {
@@ -171,6 +179,7 @@ export type ShooterProjectileEntity = {
   grazed: boolean;
   groupID?: number;
   hitEnemyIDs?: number[];
+  age?: number;
 };
 
 export type ShooterPickupEntity = {
@@ -235,6 +244,7 @@ export type ShooterMutableState = {
   playerProjectiles: ShooterProjectileEntity[];
   pickups: ShooterPickupEntity[];
   pickupsCollected: number;
+  pickupLevels: ShooterPickupLevels;
   pickupPower: ShooterPickupPower | null;
   pickupPowerTicks: number;
   overdriveTicks: number;
@@ -260,9 +270,9 @@ export type ShooterStepEvents = {
 };
 
 export type WeaponEvolution = "prism" | "afterimages";
-export const weaponEvolution = (effects: readonly { kind: string }[]): WeaponEvolution | null => {
+export const weaponEvolution = (effects: readonly { kind: string }[], levels?: ShooterPickupLevels): WeaponEvolution | null => {
   const has = (kind: string) => effects.some(effect => effect.kind === kind);
-  if (has("spread_shot") && has("piercing_shot")) return "prism";
+  if ((has("spread_shot") || (levels?.spread ?? 0) > 0) && (has("piercing_shot") || (levels?.pierce ?? 0) > 0)) return "prism";
   if (has("twin_shot") && has("echo_volley")) return "afterimages";
   return null;
 };
@@ -290,11 +300,11 @@ export const resolveShooterGateOptions = (
 ): readonly ShooterGateOption[] => {
   const options: ShooterGateOption[] = [];
   const owned = content.show_effects.filter(effect => run.state.show_effects.includes(effect.id));
-  const existingEvolution = weaponEvolution(owned.map(effect => ({ kind: effect.behavior })));
+  const existingEvolution = weaponEvolution(owned.map(effect => ({ kind: effect.behavior })), run.state.pickup_levels);
   for (const id of run.state.pending_show_options.slice(0, 2)) {
     const effect = content.show_effects.find((candidate) => candidate.id === id);
     if (effect) {
-      const evolution = weaponEvolution([...owned.map(item => ({ kind: item.behavior })), { kind: effect.behavior }]);
+      const evolution = weaponEvolution([...owned.map(item => ({ kind: item.behavior })), { kind: effect.behavior }], run.state.pickup_levels);
       options.push({
         id,
         title: effect.name,
