@@ -77,7 +77,7 @@ func TestCompleteBrowserCampaignSurvivesEverySaveAndUnlocksDaily(t *testing.T) {
 		t.Fatal("finale did not unlock daily")
 	}
 	for _, chapter := range saved.Progress.Chapters {
-		if chapter.Clears != 1 || chapter.HighestEncore != 1 || chapter.BestScore != 400 {
+		if chapter.Clears != 1 || chapter.HighestEncore != 1 || chapter.BestScore != map[bool]int{true: 600, false: 400}[chapter.ChapterSlug == "seventh-dock"] {
 			t.Fatalf("wrong chapter progress: %+v", chapter)
 		}
 	}

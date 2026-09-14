@@ -17,7 +17,7 @@ func buildShooterConfig(state State, catalog *gamecontent.V4Catalog, seed string
 		return shooter.Config{}, ErrContentLocked
 	}
 	config := shooter.Config{
-		Seed: seed, DurationTicks: duration, PlayerHealth: state.Hearts,
+		PickupLevels: state.PickupLevels, Seed: seed, DurationTicks: duration, PlayerHealth: state.Hearts,
 		EncoreLevel: state.EncoreLevel, Daily: daily,
 		StoryChoiceID: currentStoryChoiceID(state.SelectedChoiceIDs, chapter),
 		Kit: shooter.Kit{
@@ -38,9 +38,8 @@ func buildShooterConfig(state State, catalog *gamecontent.V4Catalog, seed string
 	}
 	tutorial := !daily && state.ChapterSlug == "seventh-dock" && state.SegmentIndex == 0 && config.StoryChoiceID == ""
 	if tutorial {
-		// Four ordinary kills plus their collected support notes fill Rescue
-		// (20 + 4*(10+12) > 100). This keeps the meter visibly earned while making
-		// the embedded tutorial independent of grazing or perfect pickup routing.
+		// The opening gives a small head start; kills and stacked pickups
+		// visibly earn the first Blast before the chapter builds up.
 		config.StartingRescueCharge = 20
 		// One training guard forgives a first mistake without hiding extra
 		// lives behind the three ON AIR hearts.
@@ -72,7 +71,7 @@ func buildShooterConfig(state State, catalog *gamecontent.V4Catalog, seed string
 	for _, spawn := range wave.Spawns {
 		config.Wave.Spawns = append(config.Wave.Spawns, shooter.Spawn{AtTick: spawn.AtTick, EnemyID: spawn.EnemyID, Count: spawn.Count, Formation: spawn.Formation, IntervalTicks: spawn.IntervalTicks})
 	}
-	if boss == nil && !tutorial {
+	if boss == nil && !tutorial && state.ChapterSlug != "seventh-dock" {
 		// Randomize complete authored groups, keeping counts and time slots: the
 		// chapter's threat budget stays bounded. A seed reproduces the same wave.
 		stream := randomStream{seed: seed + ":encounters"}
@@ -112,7 +111,7 @@ func buildShooterConfig(state State, catalog *gamecontent.V4Catalog, seed string
 		// shape explicit and valid by identifying the empty wave with the Boss
 		// slug instead of serializing an invalid empty slug.
 		config.Wave.ID = string(boss.ID)
-		resolved := &shooter.Boss{ID: shooter.BossID(boss.ID), Health: boss.MaxHealth, Score: max(1000, boss.MaxHealth*5), Stages: make([]shooter.BossStage, 0, len(boss.Stages))}
+		resolved := &shooter.Boss{ID: shooter.BossID(boss.ID), Health: boss.MaxHealth, Score: min(6000, max(1000, boss.MaxHealth*5)), Stages: make([]shooter.BossStage, 0, len(boss.Stages))}
 		for _, stage := range boss.Stages {
 			resolved.Stages = append(resolved.Stages, shooter.BossStage{ID: stage.ID, HealthThreshold: stage.HealthThreshold, MovePattern: stage.MovePattern, ShotPattern: stage.ShotPattern, FireInterval: stage.ShotInterval, ProjectileSpeed: stage.ProjectileSpeed, Damage: stage.ProjectileDamage, TelegraphTicks: stage.TelegraphTicks, Special: stage.Special})
 		}

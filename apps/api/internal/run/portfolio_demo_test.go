@@ -86,7 +86,7 @@ func TestPortfolioDemoIsDeterministicAndLocaleIndependent(t *testing.T) {
 		}
 	}
 	chapter, _ := catalog.Chapter("seventh-dock")
-	if chapter.BackgroundURL == portfolioDemoBackground || chapter.Boss.MaxHealth != 900 {
+	if chapter.BackgroundURL == portfolioDemoBackground || chapter.Boss.MaxHealth != 12000 {
 		t.Fatal("preview builder mutated the persistent campaign")
 	}
 }

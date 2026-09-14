@@ -22,8 +22,8 @@ func TestV4CatalogIsCompleteAndBilingual(t *testing.T) {
 	if catalog.ContentVersion != V4Version || catalog.Protocol != V4Protocol {
 		t.Fatalf("unexpected V4 metadata: %s/%s", catalog.ContentVersion, catalog.Protocol)
 	}
-	if got := len(catalog.ShowEffects); got != 12 {
-		t.Fatalf("show effects = %d, want 12", got)
+	if got := len(catalog.ShowEffects); got != 15 {
+		t.Fatalf("show effects = %d, want 15", got)
 	}
 	if got := len(catalog.Characters); got != 7 {
 		t.Fatalf("characters = %d, want 7", got)
@@ -31,18 +31,21 @@ func TestV4CatalogIsCompleteAndBilingual(t *testing.T) {
 	if got := len(catalog.Companions); got != 7 {
 		t.Fatalf("companions = %d, want 7", got)
 	}
-	if got := len(catalog.Enemies); got != 7 {
-		t.Fatalf("enemy chassis = %d, want 6", got)
+	if got := len(catalog.Enemies); got != 13 {
+		t.Fatalf("enemy chassis = %d, want 13", got)
 	}
 	if got := len(catalog.Chapters); got != 8 {
 		t.Fatalf("chapters = %d, want 8", got)
 	}
 	normalSegments, bosses, bossStages := 0, 0, 0
 	for _, chapter := range catalog.Chapters {
-		if len(chapter.Segments) != 3 || len(chapter.Boss.Stages) != 3 || len(chapter.Story.Intermission.Choices) != 2 {
+		if len(chapter.Segments) != map[bool]int{true: 5, false: 3}[chapter.ID == "seventh-dock"] || len(chapter.Boss.Stages) != 3 || len(chapter.Story.Intermission.Choices) != 2 {
 			t.Fatalf("chapter %q is incomplete", chapter.ID)
 		}
-		wantRewardStages := []string{"weapon", "companion", "rescue"}
+		wantRewardStages := []string{"weapon", "companion", "rescue", "weapon", "weapon"}
+		if chapter.ID == "seventh-dock" {
+			wantRewardStages[1] = "weapon"
+		}
 		for index, segment := range chapter.Segments {
 			if segment.RewardStage != wantRewardStages[index] {
 				t.Fatalf("chapter %q segment %d reward = %q", chapter.ID, index+1, segment.RewardStage)
@@ -51,7 +54,7 @@ func TestV4CatalogIsCompleteAndBilingual(t *testing.T) {
 				t.Fatalf("chapter %q segment %d is too short: %d", chapter.ID, index+1, segment.DurationTicks)
 			}
 		}
-		if chapter.Boss.DurationTicks != 1800 {
+		if chapter.Boss.DurationTicks != map[bool]int{true: 2700, false: 1800}[chapter.ID == "seventh-dock"] {
 			t.Fatalf("chapter %q boss duration = %d", chapter.ID, chapter.Boss.DurationTicks)
 		}
 		normalSegments += len(chapter.Segments)
@@ -68,14 +71,14 @@ func TestV4CatalogIsCompleteAndBilingual(t *testing.T) {
 			t.Fatalf("chapter %q choices = %v", chapter.ID, choiceIDs)
 		}
 	}
-	if normalSegments != 24 || bosses != 8 || normalSegments+bosses != 32 || bossStages != 24 {
+	if normalSegments != 26 || bosses != 8 || normalSegments+bosses != 34 || bossStages != 24 {
 		t.Fatalf("combat catalog normal=%d bosses=%d total=%d stages=%d", normalSegments, bosses, normalSegments+bosses, bossStages)
 	}
-	if got := len(catalog.Manifest.Assets); got != 33 {
-		t.Fatalf("assets = %d, want 33", got)
+	if got := len(catalog.Manifest.Assets); got != 39 {
+		t.Fatalf("assets = %d, want 39", got)
 	}
 	if !slices.Equal(catalog.Manifest.Assets, requiredV4Assets()) {
-		t.Fatal("manifest assets do not match the exact 33-file V4 runtime set")
+		t.Fatal("manifest assets do not match the exact 39-file V4 runtime set")
 	}
 	finale, ok := catalog.Chapter("zero-channel")
 	if !ok || len(finale.Endings) != 3 || finale.Boss.ID != "auto-archive-system" {

@@ -412,7 +412,7 @@ func (catalog *V4Catalog) validate() error {
 	if len(catalog.Manifest.ChapterFiles) != 8 || len(catalog.Chapters) != 8 {
 		return fmt.Errorf("content: V4 needs eight chapters, got %d", len(catalog.Chapters))
 	}
-	if len(catalog.ShowEffects) != 12 || len(catalog.Characters) != 7 || len(catalog.Companions) != 7 || len(catalog.Enemies) != 7 {
+	if len(catalog.ShowEffects) != 15 || len(catalog.Characters) != 7 || len(catalog.Companions) != 7 || len(catalog.Enemies) != 13 {
 		return fmt.Errorf("content: incomplete V4 shared content effects=%d characters=%d companions=%d enemies=%d", len(catalog.ShowEffects), len(catalog.Characters), len(catalog.Companions), len(catalog.Enemies))
 	}
 	if err := catalog.indexShared(); err != nil {
@@ -455,8 +455,8 @@ func (catalog *V4Catalog) indexShared() error {
 	catalog.showEffects, catalog.characters = map[string]V4ShowEffect{}, map[string]V4Character{}
 	catalog.companions, catalog.enemies = map[string]V4Companion{}, map[string]V4Enemy{}
 	validArchetype := stringSet("power", "guard", "style")
-	validEffectBehavior := stringSet("twin_shot", "piercing_shot", "spread_shot", "graze_charge", "guard_on_special", "pickup_magnet", "echo_volley", "boss_break", "low_health_power", "combo_extend", "companion_charge", "recovery_drop")
-	requiredEffectID := stringSet("double-take", "clean-cut", "wide-angle", "close-call", "safety-chat", "sticky-comment", "instant-replay", "headline-break", "still-live", "no-dead-air", "cohost-cue", "snack-drop")
+	validEffectBehavior := stringSet("twin_shot", "piercing_shot", "spread_shot", "graze_charge", "guard_on_special", "pickup_magnet", "echo_volley", "boss_break", "low_health_power", "combo_extend", "companion_charge", "recovery_drop", "rapid_fire", "orbit_support", "chain_burst")
+	requiredEffectID := stringSet("double-take", "clean-cut", "wide-angle", "close-call", "safety-chat", "sticky-comment", "instant-replay", "headline-break", "still-live", "no-dead-air", "cohost-cue", "snack-drop", "overclock", "fan-orbit", "chain-reaction")
 	seenEffectBehavior := map[string]bool{}
 	for _, item := range catalog.ShowEffects {
 		if !requiredEffectID[item.ID] || !validArchetype[item.Archetype] || !validEffectBehavior[item.Behavior] || seenEffectBehavior[item.Behavior] || item.Amount <= 0 || !catalog.keysExist(item.NameKey, item.DescriptionKey) || catalog.showEffects[item.ID].ID != "" {
@@ -486,8 +486,8 @@ func (catalog *V4Catalog) indexShared() error {
 	}
 	validMove := stringSet("drift", "sweep", "dive", "orbit", "anchor", "mirror")
 	validShot := stringSet("aimed", "fan", "lane", "ring", "delayed", "beam")
-	validTrait := stringSet("shield_link", "split", "steal_pickup", "armor", "echo", "jammer")
-	requiredEnemyID := stringSet("spam-bot", "clip-cutter", "caption-blob", "black-screen-ghost", "gift-thief", "censor-frame", "shield-relay")
+	validTrait := stringSet("shield_link", "split", "steal_pickup", "armor", "echo", "jammer", "elite")
+	requiredEnemyID := stringSet("spam-bot", "clip-cutter", "caption-blob", "black-screen-ghost", "gift-thief", "censor-frame", "shield-relay", "chat-printer", "remix-deck", "encore-fan", "chat-conductor", "remix-director", "encore-twins")
 	for _, item := range catalog.Enemies {
 		if !requiredEnemyID[item.ID] || !catalog.assets[item.SpriteURL] || item.MaxHealth <= 0 || item.Speed < 0 || item.ContactDamage < 0 || !validMove[item.MovePattern] || !validShot[item.ShotPattern] || item.ShotInterval < 20 || item.ProjectileSpeed <= 0 || item.ProjectileDamage <= 0 || item.TelegraphTicks < 6 || !catalog.keysExist(item.NameKey, item.DescriptionKey) || catalog.enemies[item.ID].ID != "" {
 			return fmt.Errorf("content: invalid V4 enemy %q", item.ID)
@@ -514,7 +514,7 @@ func (catalog *V4Catalog) indexChapters() error {
 			allChoices[choice.ID] = true
 		}
 	}
-	rewardStages := []string{"weapon", "companion", "rescue"}
+	rewardStages := []string{"weapon", "companion", "rescue", "weapon", "weapon"}
 	validFormation := stringSet("line", "fan", "staggered", "pincer", "center", "sweep")
 	validMove := stringSet("drift", "sweep", "dive", "orbit", "anchor", "mirror")
 	validShot := stringSet("aimed", "fan", "lane", "ring", "delayed", "beam")
@@ -522,7 +522,7 @@ func (catalog *V4Catalog) indexChapters() error {
 	expectedBossIDs := []string{"optimal-nana", "always-on-idol", "perfect-highlight", "perfect-captain", "approved-translation", "physical-original", "reality-auditor", "auto-archive-system"}
 	expectedCharacters := []string{"nana7mi", "jiaran", "xiangwan", "bella", "lulu", "xingtong", "nailu"}
 	for _, chapter := range catalog.Chapters {
-		if chapter.ID == "" || chapter.Order < 1 || chapter.Order > 8 || chapter.ID != expectedChapterIDs[chapter.Order-1] || chapter.Boss.ID != expectedBossIDs[chapter.Order-1] || orders[chapter.Order] || catalog.chapters[chapter.ID].ID != "" || !catalog.assets[chapter.BackgroundURL] || !catalog.keysExist(chapter.TitleKey, chapter.SubtitleKey) || len(chapter.Segments) != catalog.Rules.WavesPerChapter || len(chapter.Waves) != catalog.Rules.WavesPerChapter || len(chapter.Boss.Stages) != catalog.Rules.BossStages || len(chapter.Encore) == 0 {
+		if chapter.ID == "" || chapter.Order < 1 || chapter.Order > 8 || chapter.ID != expectedChapterIDs[chapter.Order-1] || chapter.Boss.ID != expectedBossIDs[chapter.Order-1] || orders[chapter.Order] || catalog.chapters[chapter.ID].ID != "" || !catalog.assets[chapter.BackgroundURL] || !catalog.keysExist(chapter.TitleKey, chapter.SubtitleKey) || len(chapter.Segments) < 3 || len(chapter.Segments) > 5 || len(chapter.Waves) != len(chapter.Segments) || len(chapter.Boss.Stages) != catalog.Rules.BossStages || len(chapter.Encore) == 0 {
 			return fmt.Errorf("content: invalid V4 chapter %q", chapter.ID)
 		}
 		orders[chapter.Order] = true
@@ -561,7 +561,11 @@ func (catalog *V4Catalog) indexChapters() error {
 			if chapter.Order == 1 && index == 0 {
 				minimumTicks = 900
 			}
-			if segment.ID == "" || segmentIDs[segment.ID] || segment.DurationTicks < minimumTicks || segment.DurationTicks > 1350 || !chapterWaveIDs[segment.WaveID] || referencedWaves[segment.WaveID] || !catalog.assets[segment.BackgroundURL] || segment.RewardStage != rewardStages[index] {
+			expectedReward := rewardStages[index]
+			if chapter.ID == "seventh-dock" && index == 1 {
+				expectedReward = "weapon"
+			}
+			if segment.ID == "" || segmentIDs[segment.ID] || segment.DurationTicks < minimumTicks || segment.DurationTicks > 1350 || !chapterWaveIDs[segment.WaveID] || referencedWaves[segment.WaveID] || !catalog.assets[segment.BackgroundURL] || segment.RewardStage != expectedReward {
 				return fmt.Errorf("content: V4 chapter %q has invalid segment %q", chapter.ID, segment.ID)
 			}
 			segmentIDs[segment.ID] = true
@@ -578,7 +582,7 @@ func (catalog *V4Catalog) indexChapters() error {
 			return fmt.Errorf("content: V4 chapter %q has an unused wave", chapter.ID)
 		}
 		boss := chapter.Boss
-		if boss.ID == "" || catalog.bosses[boss.ID].ID != "" || !catalog.assets[boss.SpriteURL] || boss.MaxHealth <= 0 || boss.DurationTicks != 1800 || !catalog.keysExist(boss.NameKey, boss.DescriptionKey) {
+		if boss.ID == "" || catalog.bosses[boss.ID].ID != "" || !catalog.assets[boss.SpriteURL] || boss.MaxHealth <= 0 || (boss.DurationTicks != 1800 && !(chapter.ID == "seventh-dock" && boss.DurationTicks == 2700)) || !catalog.keysExist(boss.NameKey, boss.DescriptionKey) {
 			return fmt.Errorf("content: V4 chapter %q has invalid boss", chapter.ID)
 		}
 		thresholds := []int{100, 66, 33}
@@ -619,7 +623,7 @@ func (catalog *V4Catalog) validateStory(chapter V4Chapter) error {
 	if len(story.ReplayRecap) != 1 {
 		return fmt.Errorf("content: V4 chapter %q replay recap must be one bubble", chapter.ID)
 	}
-	if story.Intermission.AfterSegment != 4 || len(story.Intermission.Choices) != 2 || !catalog.keysExist(story.Intermission.PromptKey) {
+	if (story.Intermission.AfterSegment != 4 && story.Intermission.AfterSegment != 6) || len(story.Intermission.Choices) != 2 || !catalog.keysExist(story.Intermission.PromptKey) {
 		return fmt.Errorf("content: V4 chapter %q needs one concrete two-choice intermission after segment 2", chapter.ID)
 	}
 	seen := map[string]bool{}
@@ -731,6 +735,12 @@ func requiredV4Assets() []string {
 		"/game/v4/enemies/gift-thief.webp",
 		"/game/v4/enemies/censor-frame.webp",
 		"/game/v4/enemies/shield-relay.webp",
+		"/game/v4/enemies/chat-printer.webp",
+		"/game/v4/enemies/remix-deck.webp",
+		"/game/v4/enemies/encore-fan.webp",
+		"/game/v4/enemies/chat-conductor.webp",
+		"/game/v4/enemies/remix-director.webp",
+		"/game/v4/enemies/encore-twins.webp",
 		"/game/v4/bosses/optimal-nana.webp",
 		"/game/v4/bosses/always-on-idol.webp",
 		"/game/v4/bosses/perfect-highlight.webp",

@@ -29,7 +29,7 @@ Pointer Capture and `touch-action: none` apply only to the arena. The Telegram h
 
 ## Short waves with automatic progression
 
-Normal segments have a 35-to-45-second time cap (30 seconds for Nana's first tutorial). Clearing the final scheduled formation ends the segment early; a temporary gap before a later formation does not. Surviving until the cap also wins. Killing enemies creates room and score without leaving the player waiting in an empty arena.
+Normal segments have a 35-to-45-second time cap (including Nana's opening). Clearing the final scheduled formation ends the segment early; a temporary gap before a later formation does not. Surviving until the cap wins ordinary waves; elite encounters require defeating every elite. Killing enemies creates room and score without leaving the player waiting in an empty arena.
 
 During a wave, the player balances three readable goals:
 
@@ -45,7 +45,7 @@ After a win, combat stops for a harmless 450 ms beat and advances automatically.
 
 ## Staged build decisions
 
-Every chapter contains three normal segments followed by a boss. The reward after each segment has a different purpose:
+Nana has five encounters followed by a final Boss: ordinary mobs, Chat Conductor, Replay Director, Encore Twins, then a supply wave. These offer weapon / weapon / rescue / weapon / weapon cards. Other chapters contain three normal segments followed by a Boss. The reward after each segment has a different purpose:
 
 | Segment | Reward stage | Decision |
 | ---: | --- | --- |
@@ -53,15 +53,15 @@ Every chapter contains three normal segments followed by a boss. The reward afte
 | 2 | `companion` | Choose one guest performer to provide a triggered assist for this attempt. |
 | 3 | `rescue` | Choose a guard or recovery effect before the boss. |
 
-The first pair is drawn only from twin shot, piercing shot, and angled spread: the next volley must visibly change. Conditional damage bonuses remain available through story rewards and later effects, but cannot replace this first firing-shape choice. Choices already saved in an active Run remain valid.
+The first pair is drawn from twin shot, piercing shot, angled spread, echo volley, Overclock, Fan Satellites, and Gift Chain: the next volley must visibly change. Conditional damage bonuses remain available through story rewards and later effects, but cannot replace this first firing-shape choice. Choices already saved in an active Run remain valid.
 
 Each pair uses a short animation preview and a direct tap or click. It does not require dragging into a target or holding a position. The selected companion's name and short description explain when that support acts.
 
-Temporary weapon pickups last 15 seconds. Matching pickups and ordinary support add time, capped at 30 seconds; ordinary support never replaces the current weapon. A different weapon starts a fresh 15 seconds.
+Rapid, spread, pierce and support pickups are four independent levels (0–3). They stack for the entire character attempt, carry across rooms, and reset on the next character. Duplicate pickups upgrade their type; maxed pickups still charge Blast. Cleared rooms collect remaining on-screen drops before submitting their result.
 
-V4 has 12 shared, one-level show effects: twin shot, pierce, spread, stronger graze charge, special guard, pickup magnet, echo volley, boss damage, last-heart power, longer combo, Rescue charge from companion assists, and recovery drops.
+V4 has 15 shared, one-level show effects: twin shot, pierce, spread, stronger graze charge, special guard, pickup magnet, echo volley, boss damage, last-heart power, longer combo, Rescue charge from companion assists, recovery drops, faster fire, orbiting fan satellites, and chained gift explosions.
 
-There is no upgrade level, duplicate stacking, reroll currency, shop, or six-slot inventory. A chapter attempt is short enough that three meaningful choices are sufficient.
+Cards are unique per character. There is no reroll currency, shop, account upgrade system or inventory management. Pickups combine directly with cards: spread + pierce gives prism volleys, rapid + pierce adds a pulse lance every fourth volley, and rapid + support gives seeking hearts. Twin + echo adds two afterimages every third volley, even when prism fire is also active. Satellite cards add two additional satellites, up to five total.
 
 ## Characters and companions
 
@@ -94,7 +94,7 @@ Waves compose these roles rather than introducing a new rule every ten seconds. 
 
 ## Boss structure
 
-Each boss lasts at most 60 seconds and has three health stages at 100, 66, and 33 percent. A stage changes movement, shot pattern, cadence, and one chapter-specific special. It does not merely add health.
+Each final Boss lasts at most 60 seconds (90 for Nana) and has three health stages at 100, 66, and 33 percent. A stage changes movement, shot pattern, cadence, and one chapter-specific special. It does not merely add health.
 
 The final stage raises pattern density but retains telegraphs. A boss is defeated by reducing health before the fixed room cap while at least one heart remains. If time expires first, the attempt ends without advancing campaign progress; only an interrupted or unsent room is resumed from the same deterministic seed.
 
@@ -114,7 +114,7 @@ The final stage raises pattern density but retains telegraphs. A boss is defeate
 Chapters unlock linearly and may be replayed. Every chapter contains:
 
 - a prelude of at most three short messages, available in chapter selection;
-- three capped waves, early formation clears, and staged build choices;
+- capped encounters, early formation clears, and staged build choices;
 - one concrete two-option intermission after defeating the boss;
 - a three-stage boss;
 - a short epilogue; and
@@ -166,3 +166,9 @@ next character starts. If starting fails, retrying does not resubmit the choice.
 Ordinary encounters advance to the next scheduled spawn after 24 enemy-free ticks (0.8 seconds). The first entrance and active formations retain their timing; only the spawn clock advances, leaving combat, pickups and buff timers at 30 Hz. Simultaneous support and attacker entries stay together, and the room only clears after its final scheduled enemy. The former filler-enemy pressure pulses are removed. Boss and legacy reversal encounters retain their own timing.
 
 Each chapter now uses its own [livestream-stage pixel background](stage-art.md), with quiet combat space and character-specific studio details around the edges.
+
+## Broadcast formations
+
+Chat Printers fire breakable speech ribbons. The Chat Conductor prints three lanes and telegraphs one safe lane; shooting can also open a route. Clip DJs send vinyl records that bend sideways and rewind upward after 72 ticks. The Replay Director adds a second pair below half health. Encore Fans emit expanding heart contours; Encore Twins alternate volleys while both survive. Their sprites are distinct, not recolored existing chassis.
+
+Elite defeats restore one heart and drop three build pickups. Energy-core proportional damage excludes elites and final Bosses. Gift Chain deals fixed nearby damage and resolves each defeated enemy once. Nana's final Boss remixes the three learned attack families across its existing health stages; the last stage overlays periodic comment walls. Later chapter finales are balanced for collected weapons rather than the starting gun. All effects remain within the existing entity limits; projectile art uses the bounded canvas atlas.

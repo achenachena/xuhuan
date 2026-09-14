@@ -187,6 +187,7 @@ export const GameView = ({ locale, controller, browserSession = false }: { reado
                   won: result.won,
                   health: result.health,
                   score: result.score,
+                  pickup_levels: result.final.pickup_levels,
                 },
               })) !== null
             }

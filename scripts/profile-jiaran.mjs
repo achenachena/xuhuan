@@ -14,10 +14,21 @@ if (!output)
     "Usage: node scripts/profile-jiaran.mjs /tmp/profile-output [baseline-git-revision]",
   );
 mkdirSync(output, { recursive: true });
-const config = execFileSync("go", ["run", "./cmd/profile-jiaran"], {
+const authoredConfig = execFileSync("go", ["run", "./cmd/profile-jiaran"], {
   cwd: path.join(root, "apps/api"),
   encoding: "utf8",
 });
+const scenario = JSON.parse(authoredConfig);
+if (process.env.PROFILE_FULL_BUILD === "1") {
+  scenario.pickup_levels = { rapid: 3, spread: 3, pierce: 3, support: 3 };
+  scenario.show_effects.push(
+    { kind: "rapid_fire", amount: 25 },
+    { kind: "orbit_support", amount: 2 },
+    { kind: "chain_burst", amount: 55 },
+    { kind: "twin_shot", amount: 1 },
+  );
+}
+const config = JSON.stringify(scenario);
 writeFileSync(path.join(output, "config.json"), config);
 await build({
   entryPoints: [path.join(root, "scripts/profiling/jiaran.ts")],

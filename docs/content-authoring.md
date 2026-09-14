@@ -49,7 +49,7 @@ Changing the wire shape of a runtime rule requires a protocol or content-version
 
 ### Show effects
 
-V4 contains exactly 12 shared, one-level show effects. Each definition has an ID, localized name and description, archetype (`power`, `guard`, or `style`), behavior, and positive amount.
+V4 contains exactly 15 shared, one-level show effects. Each definition has an ID, localized name and description, archetype (`power`, `guard`, or `style`), behavior, and positive amount.
 
 Supported behavior IDs are:
 
@@ -58,9 +58,10 @@ twin_shot            piercing_shot       spread_shot
 graze_charge         guard_on_special     pickup_magnet
 echo_volley          boss_break           low_health_power
 combo_extend         companion_charge     recovery_drop
+rapid_fire           orbit_support        chain_burst
 ```
 
-Do not recreate three-level numerical upgrades or add a generic expression interpreter. The first `weapon` gate selects only `twin_shot`, `piercing_shot`, or `spread_shot`; numerical damage bonuses must not displace a visible firing-shape choice. Existing pending choices remain valid when loading a saved Run.
+Pickup levels are four fixed counters (rapid, spread, pierce, support), each capped at three; cards remain unique. Do not add a generic expression interpreter. Weapon gates select visible firing or kill effects (`twin_shot`, `piercing_shot`, `spread_shot`, `echo_volley`, `rapid_fire`, `orbit_support`, `chain_burst`). Existing pending choices remain valid when loading a saved Run.
 
 ### Characters and specials
 
@@ -96,11 +97,13 @@ Companions are automatic. An authored change must not introduce another combat b
 
 ### Enemy chassis
 
-The six chassis IDs are fixed:
+The thirteen chassis IDs are fixed:
 
 ```text
 spam-bot  clip-cutter  caption-blob
-black-screen-ghost  gift-thief  censor-frame
+black-screen-ghost  gift-thief  censor-frame  shield-relay
+chat-printer  remix-deck  encore-fan
+chat-conductor  remix-director  encore-twins
 ```
 
 Normal enemies use the chassis-specific behaviors in `features/shooter/enemies.ts`: straight streams, cutting strips, subtitle blocks, breakable walls, fleeing thieves, and gapped frames. Their wire definitions retain movement and shot-pattern fields, but these do not override the built-in chassis behavior. Do not promise a new attack by changing an unused metadata value or copy alone. Boss stages use their authored movement and shot patterns separately.
@@ -115,17 +118,17 @@ Each file wraps one `chapter` object. A chapter requires:
 - localized title and subtitle;
 - one featured character and unlocked companion, except the player-choice finale;
 - a registered background;
-- exactly three segments and exactly three unique waves;
+- three segments/waves, or five in Nana's extended opening;
 - one boss with positive health and exactly three stages;
-- one prelude, one concrete two-choice intermission after segment two, one epilogue, and one replay recap;
+- one prelude, one concrete two-choice intermission after the final Boss, one epilogue, and one replay recap;
 - at least one encore modifier; and
 - endings only for Zero Channel.
 
 ### Segments and rewards
 
-Every normal segment has a survival time cap. There is no authored objective field. The configured cap is `1050..1350` Ticks (35–45 seconds); Nana's first tutorial segment may be exactly 900 Ticks. The client also wins when the last scheduled formation has entered and no living enemies remain. Future scheduled spawns prevent an early clear, so ordinary gaps between formations never skip content.
+Every normal segment has a survival time cap. There is no authored objective field. The configured cap is `1050..1350` Ticks (35–45 seconds); Nana's first tutorial segment may be exactly 900 Ticks. Elites carry the `elite` trait and must be defeated before the cap. The client also wins when the last scheduled formation has entered and no living enemies remain. Future scheduled spawns prevent an early clear, so ordinary gaps between formations never skip content.
 
-The three segments must use these reward stages in order:
+Ordinary chapters use these reward stages in order (Nana uses `weapon, weapon, rescue, weapon, weapon`):
 
 ```text
 1  weapon
@@ -141,7 +144,7 @@ Successful combat automatically submits its bounded result after a 450 ms non-in
 
 ### Bosses
 
-A boss has a local sprite, positive `max_health`, a configured time cap of 1800 Ticks, and exactly three stages. Defeating it ends the segment immediately rather than waiting for the cap. Stage health thresholds are exactly 100, 66, and 33. Each stage selects supported movement/shot patterns and names one script behavior implemented by the TypeScript simulation; Go resolves and validates its configuration.
+A boss has a local sprite, positive `max_health`, a configured time cap of 1800 Ticks (2700 for Nana), and exactly three stages. Defeating it ends the segment immediately rather than waiting for the cap. Stage health thresholds are exactly 100, 66, and 33. Each stage selects supported movement/shot patterns and names one script behavior implemented by the TypeScript simulation; Go resolves and validates its configuration.
 
 ### Story
 
@@ -204,3 +207,5 @@ curl 'http://localhost:8080/v2/content/v4?locale=zh-CN'
 ```
 
 Both responses must report `v4` and `shooter-v1`. Only localized display copy should differ.
+
+Pickup levels travel in optional `segment_outcome.pickup_levels` and the existing Run JSON, then enter the next runtime config. Old clients may omit them without clearing the build. A new character creates a fresh Run with all four counters zero. No database migration or separate build service is needed. Three-tier pickups and unique skill cards combine in `weapons.ts`; theme-specific attacks live in `broadcast-attacks.ts`. New enemy sprite prompts and provenance are in [broadcast-enemy-art.md](broadcast-enemy-art.md).

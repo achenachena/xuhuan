@@ -10,7 +10,7 @@ import { storyChoiceMode } from "@/features/shooter/story";
 import type {
   ShooterEffectEntity,
   ShooterMutableState,
-  ShooterPickupPower,
+  ShooterPickupLevels,
   ShooterResolvedRuntime,
   ShooterRuntime,
 } from "@/features/shooter/types";
@@ -38,10 +38,13 @@ export const createShooterRuntime = (
     lowHealthPower: 0,
     comboExtend: 0,
     companionCharge: 0,
-    recoveryDrop: 0,
+    recoveryDrop: 0, rapidFire: 0, orbitSupport: 0, chainBurst: 0,
   };
   for (const effect of config.show_effects) {
     switch (effect.kind) {
+      case "rapid_fire": resolved.rapidFire += effect.amount; break;
+      case "orbit_support": resolved.orbitSupport += effect.amount; break;
+      case "chain_burst": resolved.chainBurst += effect.amount; break;
       case "twin_shot":
         resolved.multishot += effect.amount;
         break;
@@ -148,40 +151,31 @@ export const addShooterEffect = (
 };
 
 export const resolvePickupWeapon = (
-  power: ShooterPickupPower | null,
-  runtime: Pick<
-    ShooterResolvedRuntime,
-    "damage" | "fireInterval" | "multishot" | "pierce" | "spread"
-  >,
+  levels: ShooterPickupLevels,
+  runtime: Pick<ShooterResolvedRuntime, "damage" | "fireInterval" | "multishot" | "pierce" | "spread">,
 ) => ({
-  fireInterval:
-    power === "rapid"
-      ? Math.max(3, goDivide(runtime.fireInterval * 2, 3))
-      : runtime.fireInterval,
-  damage:
-    power === "pierce"
-      ? runtime.damage + Math.max(1, goDivide(runtime.damage, 2))
-      : runtime.damage,
-  shotCount: clamp(
-    power === "rapid"
-      ? Math.max(2, runtime.multishot)
-      : power === "spread"
-        ? Math.max(3, runtime.multishot)
-        : runtime.multishot,
-    1,
-    5,
-  ),
-  pierce: runtime.pierce + (power === "pierce" ? 2 : 0),
-  spread: Math.max(power === "spread" ? 28 : 0, runtime.spread > 0 ? 5 + runtime.spread * 2 : 0),
-  projectileKind: power ?? (runtime.pierce > 0 ? "pierce" : runtime.spread > 0 ? "spread" : ""),
+  fireInterval: Math.max(3, Math.round(runtime.fireInterval * (1 - levels.rapid * .13))),
+  damage: runtime.damage + runtime.pierce * 4 + levels.pierce * 3 + levels.rapid + levels.spread * 2,
+  shotCount: clamp(runtime.multishot + (levels.spread > 0 ? 2 : 0), 1, 5),
+  pierce: runtime.pierce + levels.pierce * 2,
+  spread: Math.max(levels.spread > 0 ? 30 + levels.spread * 6 : 0, runtime.spread > 0 ? 5 + runtime.spread * 2 : 0),
+  projectileKind: levels.pierce ? "pierce" : levels.spread ? "spread" : levels.rapid ? "rapid" : runtime.pierce ? "pierce" : runtime.spread ? "spread" : "",
 });
+
+export const satellitePositions = (x: number, y: number, tick: number, count: number) =>
+  Array.from({ length: count }, (_, index) => {
+    const angle = tick * .035 + index * Math.PI * 2 / count;
+    return { x: clamp(x + Math.round(Math.cos(angle) * 420), PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS), y: y + Math.round(Math.sin(angle) * 240) };
+  });
 
 export const updateWeapons = (state: ShooterMutableState): void => {
   if (state.config.reversal) { updateReversalWeapons(state); return; }
   state.attackClock += 1;
-  const pickupPower = state.pickupPowerTicks > 0 ? state.pickupPower : null;
-  const pickupWeapon = resolvePickupWeapon(pickupPower, state.runtime);
-  const evolution = weaponEvolution(state.config.show_effects);
+  const levels = state.pickupLevels;
+  const pickupWeapon = resolvePickupWeapon(levels, state.runtime);
+  if (state.runtime.rapidFire) pickupWeapon.fireInterval = Math.max(3, Math.round(pickupWeapon.fireInterval / (1 + state.runtime.rapidFire / 100)));
+  const afterimages = state.config.show_effects.some(effect=>effect.kind === "twin_shot") && state.runtime.echoVolley > 0;
+  const evolution = (levels.spread > 0 || state.runtime.spread > 0) && pickupWeapon.pierce > 0 ? "prism" : weaponEvolution(state.config.show_effects);
   const interval = state.overdriveTicks > 0 ? Math.max(3, Math.ceil(pickupWeapon.fireInterval * .75)) : pickupWeapon.fireInterval;
   if (
     state.attackClock < interval ||
@@ -196,7 +190,7 @@ export const updateWeapons = (state: ShooterMutableState): void => {
   if (state.config.kit.id === "jiaran" && state.combo >= 6) {
     damage += Math.max(1, goDivide(damage, 4));
   }
-  const count = evolution === "prism" ? 3 : pickupWeapon.shotCount;
+  const count = evolution === "prism" ? Math.min(5, Math.max(3, pickupWeapon.shotCount + (pickupWeapon.shotCount % 2 === 0 ? 1 : 0))) : pickupWeapon.shotCount;
   for (let index = 0; index < count; index += 1) {
     const lane = index * 2 - (count - 1);
     if (
@@ -212,12 +206,23 @@ export const updateWeapons = (state: ShooterMutableState): void => {
         vy: -390,
         damage,
         pierce: evolution === "prism" ? Math.max(4, pickupWeapon.pierce) : pickupWeapon.pierce,
-        radius: evolution === "prism" ? 85 : undefined,
+        radius: evolution === "prism" ? 85 + Math.min(2,state.runtime.pierce) * 25 : undefined,
         ...(pickupWeapon.projectileKind
           ? { kind: evolution === "prism" ? "prism" : pickupWeapon.projectileKind }
           : {}),
       })
     ) break;
+  }
+  const satellites = Math.min(5, levels.support + state.runtime.orbitSupport);
+  if (satellites && state.attackSequence % 2 === 0) {
+    const seeking = levels.rapid > 0 || state.runtime.rapidFire > 0;
+    for (const origin of satellitePositions(state.playerX, state.playerY, state.tick, satellites)) {
+      addPlayerProjectile(state, { ...origin, vy: -260, damage: Math.max(5, Math.round(damage * .6)), pierce: levels.pierce, kind: seeking ? "fan_heart" : "support_note", radius: 65 });
+    }
+  }
+  if ((levels.rapid > 0 || state.runtime.rapidFire > 0) && pickupWeapon.pierce > 0 && state.attackSequence % 4 === 0) {
+    addPlayerProjectile(state, { x: state.playerX, y: state.playerY - 160, vy: -520, damage: damage * 3, pierce: 8, kind: "pulse_lance", radius: 125 });
+    addShooterEffect(state, "lance_flash", state.playerX, state.playerY, 10, 0);
   }
   if (state.config.kit.id === "bella" && state.attackSequence % 3 === 0) {
     for (const vx of [-75, 75]) {
@@ -233,13 +238,13 @@ export const updateWeapons = (state: ShooterMutableState): void => {
     addShooterEffect(state, "cadence_volley", state.playerX, state.playerY, 12, state.attackSequence);
   }
   if (state.runtime.echoVolley > 0 && state.attackSequence % 3 === 0) {
-    for (const offset of evolution === "afterimages" ? [-300, 300] : [0]) {
+    for (const offset of afterimages ? [-300, 300] : [0]) {
       const origin = clamp(state.playerX + offset, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS);
       for (let index = 0; index < count; index++) {
         const lane = index * 2 - count + 1;
         addPlayerProjectile(state, { x: clamp(origin + lane * 34, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS), y: state.playerY + 180,
           vx: evolution === "prism" ? lane * 38 : pickupWeapon.spread > 0 ? lane * pickupWeapon.spread : 0, vy: -330,
-          damage: Math.max(1, goDivide(damage * 3, 4)), pierce: pickupWeapon.pierce, kind: evolution === "afterimages" ? "echo" : "" });
+          damage: Math.max(1, goDivide(damage * 3, 4)), pierce: pickupWeapon.pierce, kind: afterimages ? "echo" : "" });
       }
       addShooterEffect(state, "afterimage_replay", origin, state.playerY + 180, 15, count);
     }

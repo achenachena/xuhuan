@@ -235,7 +235,7 @@ export interface components {
             /** @enum {string} */
             archetype: "power" | "guard" | "style";
             /** @enum {string} */
-            behavior: "twin_shot" | "piercing_shot" | "spread_shot" | "graze_charge" | "guard_on_special" | "pickup_magnet" | "echo_volley" | "boss_break" | "low_health_power" | "combo_extend" | "companion_charge" | "recovery_drop";
+            behavior: "twin_shot" | "piercing_shot" | "spread_shot" | "graze_charge" | "guard_on_special" | "pickup_magnet" | "echo_volley" | "boss_break" | "low_health_power" | "combo_extend" | "companion_charge" | "recovery_drop" | "rapid_fire" | "orbit_support" | "chain_burst";
             amount: number;
         };
         LocalizedCharacter: {
@@ -267,7 +267,7 @@ export interface components {
         };
         LocalizedEnemy: {
             /** @enum {string} */
-            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay";
+            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay" | "chat-printer" | "remix-deck" | "encore-fan" | "chat-conductor" | "remix-director" | "encore-twins";
             name: string;
             description: string;
             sprite_url: components["schemas"]["AssetPath"];
@@ -282,7 +282,7 @@ export interface components {
             projectile_speed: number;
             projectile_damage: number;
             telegraph_ticks: number;
-            traits: ("shield_link" | "split" | "steal_pickup" | "armor" | "echo" | "jammer")[];
+            traits: ("shield_link" | "split" | "steal_pickup" | "armor" | "echo" | "jammer" | "elite")[];
         };
         ContentSegment: {
             id: components["schemas"]["Slug"];
@@ -295,7 +295,7 @@ export interface components {
         Spawn: {
             at_tick: number;
             /** @enum {string} */
-            enemy_id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay";
+            enemy_id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay" | "chat-printer" | "remix-deck" | "encore-fan" | "chat-conductor" | "remix-director" | "encore-twins";
             count: number;
             /** @enum {string} */
             formation: "line" | "fan" | "staggered" | "pincer" | "center" | "sweep";
@@ -452,7 +452,7 @@ export interface components {
         };
         RuntimeEffect: {
             /** @enum {string} */
-            kind: "twin_shot" | "piercing_shot" | "spread_shot" | "graze_charge" | "guard_on_special" | "pickup_magnet" | "echo_volley" | "boss_break" | "low_health_power" | "combo_extend" | "companion_charge" | "recovery_drop";
+            kind: "twin_shot" | "piercing_shot" | "spread_shot" | "graze_charge" | "guard_on_special" | "pickup_magnet" | "echo_volley" | "boss_break" | "low_health_power" | "combo_extend" | "companion_charge" | "recovery_drop" | "rapid_fire" | "orbit_support" | "chain_burst";
             amount: number;
         };
         RuntimeKit: {
@@ -481,9 +481,9 @@ export interface components {
         };
         RuntimeEnemy: {
             /** @enum {string} */
-            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay";
+            id: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay" | "chat-printer" | "remix-deck" | "encore-fan" | "chat-conductor" | "remix-director" | "encore-twins";
             /** @enum {string} */
-            chassis: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay";
+            chassis: "spam-bot" | "clip-cutter" | "caption-blob" | "black-screen-ghost" | "gift-thief" | "censor-frame" | "shield-relay" | "chat-printer" | "remix-deck" | "encore-fan" | "chat-conductor" | "remix-director" | "encore-twins";
             health: number;
             speed: number;
             contact_damage: number;
@@ -496,7 +496,7 @@ export interface components {
             damage: number;
             score: number;
             telegraph_ticks: number;
-            traits: ("shield_link" | "split" | "steal_pickup" | "armor" | "echo" | "jammer")[];
+            traits: ("shield_link" | "split" | "steal_pickup" | "armor" | "echo" | "jammer" | "elite")[];
         };
         RuntimeBossStage: {
             id: components["schemas"]["Slug"];
@@ -535,7 +535,14 @@ export interface components {
             weapon: "single" | "twin" | "pierce";
             groups: components["schemas"]["RuntimeReversalGroup"][];
         };
+        PickupLevels: {
+            rapid: number;
+            spread: number;
+            pierce: number;
+            support: number;
+        };
         RuntimeConfig: {
+            pickup_levels?: components["schemas"]["PickupLevels"];
             seed: string;
             duration_ticks: number;
             player_health: number;
@@ -571,6 +578,7 @@ export interface components {
             choice_ids: components["schemas"]["Slug"][];
         };
         RunState: {
+            pickup_levels?: components["schemas"]["PickupLevels"];
             /** @enum {string} */
             phase: "segment" | "show_choice" | "story" | "completed";
             chapter_slug: components["schemas"]["Slug"];
@@ -592,6 +600,7 @@ export interface components {
             daily_variant?: string;
         };
         SegmentOutcome: {
+            pickup_levels?: components["schemas"]["PickupLevels"];
             won: boolean;
             health: number;
             score: number;

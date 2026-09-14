@@ -95,7 +95,7 @@ describe("reversal visual opt-in boundary", () => {
     expect(sources.background).toBe("/game/v4/backgrounds/seventh-dock-stage.webp");
     expect(sources.player).toBe("/game/v4/players/nana7mi.webp");
     expect(sources.boss).toBe("/game/v4/bosses/optimal-nana.webp");
-    expect(sources.enemies["clip-cutter"]).toBe("/game/v4/enemies/clip-cutter.webp");
+    expect(sources.enemies["spam-bot"]).toBe(v4Content.enemies[0]!.sprite_url);
     expect(sources.pickups).not.toHaveLength(0);
     expect(sources.enemies).not.toHaveProperty("equipment");
   });

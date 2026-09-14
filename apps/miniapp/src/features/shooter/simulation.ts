@@ -11,6 +11,7 @@ import {
 import { spawnBoss, updateBoss } from "@/features/shooter/bosses";
 import {
   damagePlayer,
+  collectPickup,
   encoreInterval,
   enemyIntent,
   fireEnemy,
@@ -34,7 +35,7 @@ import type {
   ShooterSnapshot,
   ShooterStepEvents,
 } from "@/features/shooter/types";
-import { emptyStepEvents } from "@/features/shooter/types";
+import { emptyPickupLevels, emptyStepEvents } from "@/features/shooter/types";
 import { createShooterRuntime, updateCompanions, updateWeapons } from "@/features/shooter/weapons";
 import { hasClearedAuthoredWave, spawnWave } from "@/features/shooter/waves";
 import type { ShooterRuntimeConfig } from "@/lib/api/types";
@@ -83,6 +84,7 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   playerProjectiles: [],
   pickups: [],
   pickupsCollected: 0,
+  pickupLevels: { ...(runtime.config.pickup_levels ?? emptyPickupLevels()) },
   pickupPower: null,
   pickupPowerTicks: 0,
   overdriveTicks: 0,
@@ -120,7 +122,7 @@ const updateEnemies = (state: ShooterMutableState): void => {
     if (squaredDistance(enemy.x, enemy.y, state.playerX, state.playerY) < (PLAYER_RADIUS + ENEMY_RADIUS) ** 2) {
       damagePlayer(state, Math.max(1, spec.contact_damage));
       if (hasTrait(spec, "steal_pickup")) state.rescueCharge = Math.max(0, state.rescueCharge - 20);
-      enemy.health = 0;
+      if (!spec.traits.includes("elite")) enemy.health = 0;
     }
   }
   removeDefeatedEnemies(state);
@@ -148,6 +150,8 @@ const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
       side: fan.side, age: fan.age, phase: reversalFanPhase(fan.age), attack_ticks: fan.attackTicks,
     })),
   } } : {}),
+  pickup_levels: { ...state.pickupLevels },
+  satellite_count: Math.min(5,state.pickupLevels.support + state.runtime.orbitSupport),
   ...(state.pickupPower && state.pickupPowerTicks > 0
     ? {
         pickup_power: state.pickupPower,
@@ -172,6 +176,7 @@ const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
       health: Math.max(0, enemy.health),
       max_health: enemy.maxHealth,
       boss: enemy.boss,
+      elite: spec?.traits.includes("elite"),
       ...(enemy.phase ? { stage: enemy.phase } : {}),
       ...(intent ? { intent } : {}),
       ...(enemy.marks ? { marks: enemy.marks } : {}),
@@ -267,7 +272,6 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     if (state.overdriveTicks > 0) state.overdriveTicks--;
     updatePickups(state);
     updateEffects(state);
-    if (!state.config.reversal && state.pickupPowerTicks > 0) state.pickupPowerTicks -= 1;
     if (state.pickupPowerTicks === 0) state.pickupPower = null;
     if (state.comboClock > 0) state.comboClock -= 1;
     else state.combo = 0;
@@ -315,7 +319,8 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     if (cachedResult) return cachedResult;
     // The final shot lands after normal cleanup; include that kill exactly once.
     removeDefeatedEnemies(state);
-    const won = state.health > 0 && (!state.config.boss || !aliveBoss);
+    const won = state.health > 0 && (!state.config.boss || !aliveBoss) && !state.enemies.some(enemy => state.config.enemies[enemy.specIndex]?.traits.includes("elite"));
+    if (won) { for (const pickup of state.pickups) collectPickup(state, pickup); state.pickups = []; }
     if (won) state.score += state.health * 10 + state.rescueCharge * 2;
     cachedResult = {
       won,

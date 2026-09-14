@@ -12,6 +12,7 @@ type Props = {
   readonly segmentTotal?: number;
   readonly durationTicks?: number;
   readonly boss: boolean;
+  readonly encounterName?: string;
   readonly busy?: boolean;
   readonly onRescue?: () => void;
   readonly fallbackHealth?: number;
@@ -24,6 +25,7 @@ export const ShooterHUD = ({
   segmentTotal = 3,
   durationTicks,
   boss,
+  encounterName,
   busy = false,
   onRescue,
   fallbackHealth,
@@ -34,12 +36,12 @@ export const ShooterHUD = ({
   const health = Math.max(0, snapshot?.health ?? fallbackHealth ?? 0);
   const hype = Math.max(0, Math.min(100, snapshot?.rescue_charge ?? 0));
   const rescueReady = hype >= 100 && !busy;
-  const segmentName = boss
+  const segmentName = encounterName ?? (boss
     ? gameText(language, "bossLabel")
     : formatGameText(language, "segmentLabel", {
         current: Math.min(segmentTotal, segmentIndex + 1),
         total: segmentTotal,
-      });
+      }));
   const remaining =
     durationTicks === undefined
       ? null
@@ -94,6 +96,7 @@ export const ShooterHUD = ({
           </div> : null}
         </div>
         </div>
+      {snapshot?.pickup_levels ? <BuildStrip levels={snapshot.pickup_levels} language={language} /> : null}
       </header>
       <button type="button" onClick={toggleMuted} aria-label={gameText(language, muted ? "unmuteAudio" : "muteAudio")}
         className="absolute z-[60] grid h-8 w-8 place-items-center border border-cyan-200/35 bg-[#071225] text-cyan-100"
@@ -104,3 +107,21 @@ export const ShooterHUD = ({
     </>
   );
 };
+
+const pickupLabels = {
+  rapid: ["连射", "Rapid", "ϟ", "#67e8f9"],
+  spread: ["散射", "Spread", "⋔", "#f9a8d4"],
+  pierce: ["贯穿", "Pierce", "◆", "#fde68a"],
+  support: ["应援", "Fans", "♪", "#99f6e4"],
+} as const;
+export const BuildStrip = ({levels, language}: {levels: NonNullable<ShooterSnapshot["pickup_levels"]>; language: string}) => (
+  <div className="mx-auto mt-1 flex w-fit gap-3 border border-cyan-200/20 bg-[#020713]/85 px-2 py-1" aria-label={language === "en" ? "Current build" : "当前构筑"}>
+    {(Object.keys(pickupLabels) as (keyof typeof pickupLabels)[]).map(kind => {
+      const [zh,en,icon,color] = pickupLabels[kind];
+      return <span key={kind} title={`${language === "en" ? en : zh} ${levels[kind]}/3`} aria-label={`${language === "en" ? en : zh} ${levels[kind]}/3`} className="flex items-center gap-1" style={{color}}>
+        <span className="text-sm font-black" aria-hidden="true">{icon}</span>
+        <span className="flex gap-px" aria-hidden="true">{[1,2,3].map(level=><span key={level} className="h-1.5 w-1.5" style={{background: level<=levels[kind]?color:"#334155"}} />)}</span>
+      </span>;
+    })}
+  </div>
+);

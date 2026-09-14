@@ -85,8 +85,8 @@
           "name": "最优七海",
           "description": "用七海撤回的七秒语音，学出一个完美七海的回复模型。",
           "sprite_url": "/game/v4/bosses/optimal-nana.webp",
-          "max_health": 900,
-          "duration_ticks": 1800,
+          "max_health": 12000,
+          "duration_ticks": 2700,
           "stages": [
             {
               "id": "polite-opening",
@@ -156,7 +156,7 @@
         "nailu"
       ],
       "wave_ids": [
-        "dock-wave-2",
+        "dock-wave-1",
         "cheer-wave-1",
         "loss-wave-1",
         "captain-wave-2",
@@ -195,6 +195,12 @@
     "wave_id": "reversal-opening",
     "background_url": "/game/v4/reversal/stage.webp",
     "runtime_config": {
+      "pickup_levels": {
+        "rapid": 0,
+        "spread": 0,
+        "pierce": 0,
+        "support": 0
+      },
       "seed": "portfolio-demo-wave-v2",
       "duration_ticks": 1200,
       "player_health": 3,
@@ -326,6 +332,102 @@
           "traits": [
             "shield_link"
           ]
+        },
+        {
+          "id": "chat-printer",
+          "chassis": "chat-printer",
+          "health": 70,
+          "speed": 40,
+          "contact_damage": 1,
+          "move_pattern": "sweep",
+          "shot_pattern": "fan",
+          "fire_interval": 75,
+          "projectile_speed": 65,
+          "damage": 1,
+          "score": 280,
+          "telegraph_ticks": 30,
+          "traits": []
+        },
+        {
+          "id": "remix-deck",
+          "chassis": "remix-deck",
+          "health": 90,
+          "speed": 40,
+          "contact_damage": 1,
+          "move_pattern": "sweep",
+          "shot_pattern": "delayed",
+          "fire_interval": 95,
+          "projectile_speed": 65,
+          "damage": 1,
+          "score": 360,
+          "telegraph_ticks": 30,
+          "traits": []
+        },
+        {
+          "id": "encore-fan",
+          "chassis": "encore-fan",
+          "health": 80,
+          "speed": 40,
+          "contact_damage": 1,
+          "move_pattern": "sweep",
+          "shot_pattern": "ring",
+          "fire_interval": 95,
+          "projectile_speed": 65,
+          "damage": 1,
+          "score": 320,
+          "telegraph_ticks": 30,
+          "traits": []
+        },
+        {
+          "id": "chat-conductor",
+          "chassis": "chat-conductor",
+          "health": 900,
+          "speed": 40,
+          "contact_damage": 1,
+          "move_pattern": "sweep",
+          "shot_pattern": "fan",
+          "fire_interval": 80,
+          "projectile_speed": 65,
+          "damage": 1,
+          "score": 3600,
+          "telegraph_ticks": 30,
+          "traits": [
+            "elite"
+          ]
+        },
+        {
+          "id": "remix-director",
+          "chassis": "remix-director",
+          "health": 3000,
+          "speed": 40,
+          "contact_damage": 1,
+          "move_pattern": "sweep",
+          "shot_pattern": "delayed",
+          "fire_interval": 90,
+          "projectile_speed": 65,
+          "damage": 1,
+          "score": 12000,
+          "telegraph_ticks": 30,
+          "traits": [
+            "elite"
+          ]
+        },
+        {
+          "id": "encore-twins",
+          "chassis": "encore-twins",
+          "health": 3400,
+          "speed": 40,
+          "contact_damage": 1,
+          "move_pattern": "sweep",
+          "shot_pattern": "ring",
+          "fire_interval": 105,
+          "projectile_speed": 65,
+          "damage": 1,
+          "score": 13600,
+          "telegraph_ticks": 30,
+          "traits": [
+            "elite"
+          ]
         }
       ],
       "wave": {
@@ -406,6 +508,12 @@
         "boss_id": "optimal-nana",
         "background_url": "/game/v4/reversal/stage.webp",
         "runtime_config": {
+          "pickup_levels": {
+            "rapid": 0,
+            "spread": 0,
+            "pierce": 0,
+            "support": 0
+          },
           "seed": "portfolio-demo-boss-v2:double-take",
           "duration_ticks": 1350,
           "player_health": 3,
@@ -542,6 +650,102 @@
               "traits": [
                 "shield_link"
               ]
+            },
+            {
+              "id": "chat-printer",
+              "chassis": "chat-printer",
+              "health": 70,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "fan",
+              "fire_interval": 75,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 280,
+              "telegraph_ticks": 30,
+              "traits": []
+            },
+            {
+              "id": "remix-deck",
+              "chassis": "remix-deck",
+              "health": 90,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "delayed",
+              "fire_interval": 95,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 360,
+              "telegraph_ticks": 30,
+              "traits": []
+            },
+            {
+              "id": "encore-fan",
+              "chassis": "encore-fan",
+              "health": 80,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "ring",
+              "fire_interval": 95,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 320,
+              "telegraph_ticks": 30,
+              "traits": []
+            },
+            {
+              "id": "chat-conductor",
+              "chassis": "chat-conductor",
+              "health": 900,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "fan",
+              "fire_interval": 80,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 3600,
+              "telegraph_ticks": 30,
+              "traits": [
+                "elite"
+              ]
+            },
+            {
+              "id": "remix-director",
+              "chassis": "remix-director",
+              "health": 3000,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "delayed",
+              "fire_interval": 90,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 12000,
+              "telegraph_ticks": 30,
+              "traits": [
+                "elite"
+              ]
+            },
+            {
+              "id": "encore-twins",
+              "chassis": "encore-twins",
+              "health": 3400,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "ring",
+              "fire_interval": 105,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 13600,
+              "telegraph_ticks": 30,
+              "traits": [
+                "elite"
+              ]
             }
           ],
           "wave": {
@@ -551,7 +755,7 @@
           "boss": {
             "id": "optimal-nana",
             "health": 1050,
-            "score": 4500,
+            "score": 6000,
             "stages": [
               {
                 "id": "polite-opening",
@@ -613,6 +817,12 @@
         "boss_id": "optimal-nana",
         "background_url": "/game/v4/reversal/stage.webp",
         "runtime_config": {
+          "pickup_levels": {
+            "rapid": 0,
+            "spread": 0,
+            "pierce": 0,
+            "support": 0
+          },
           "seed": "portfolio-demo-boss-v2:clean-cut",
           "duration_ticks": 1350,
           "player_health": 3,
@@ -749,6 +959,102 @@
               "traits": [
                 "shield_link"
               ]
+            },
+            {
+              "id": "chat-printer",
+              "chassis": "chat-printer",
+              "health": 70,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "fan",
+              "fire_interval": 75,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 280,
+              "telegraph_ticks": 30,
+              "traits": []
+            },
+            {
+              "id": "remix-deck",
+              "chassis": "remix-deck",
+              "health": 90,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "delayed",
+              "fire_interval": 95,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 360,
+              "telegraph_ticks": 30,
+              "traits": []
+            },
+            {
+              "id": "encore-fan",
+              "chassis": "encore-fan",
+              "health": 80,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "ring",
+              "fire_interval": 95,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 320,
+              "telegraph_ticks": 30,
+              "traits": []
+            },
+            {
+              "id": "chat-conductor",
+              "chassis": "chat-conductor",
+              "health": 900,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "fan",
+              "fire_interval": 80,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 3600,
+              "telegraph_ticks": 30,
+              "traits": [
+                "elite"
+              ]
+            },
+            {
+              "id": "remix-director",
+              "chassis": "remix-director",
+              "health": 3000,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "delayed",
+              "fire_interval": 90,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 12000,
+              "telegraph_ticks": 30,
+              "traits": [
+                "elite"
+              ]
+            },
+            {
+              "id": "encore-twins",
+              "chassis": "encore-twins",
+              "health": 3400,
+              "speed": 40,
+              "contact_damage": 1,
+              "move_pattern": "sweep",
+              "shot_pattern": "ring",
+              "fire_interval": 105,
+              "projectile_speed": 65,
+              "damage": 1,
+              "score": 13600,
+              "telegraph_ticks": 30,
+              "traits": [
+                "elite"
+              ]
             }
           ],
           "wave": {
@@ -758,7 +1064,7 @@
           "boss": {
             "id": "optimal-nana",
             "health": 1050,
-            "score": 4500,
+            "score": 6000,
             "stages": [
               {
                 "id": "polite-opening",

@@ -2,7 +2,10 @@
   "content_version": "v4",
   "protocol": "shooter-v1",
   "default_locale": "en",
-  "locales": ["en", "zh-CN"],
+  "locales": [
+    "en",
+    "zh-CN"
+  ],
   "assets": [
     "/game/v4/backgrounds/seventh-dock-stage.webp",
     "/game/v4/backgrounds/always-cheerful-stage.webp",
@@ -26,6 +29,12 @@
     "/game/v4/enemies/gift-thief.webp",
     "/game/v4/enemies/censor-frame.webp",
     "/game/v4/enemies/shield-relay.webp",
+    "/game/v4/enemies/chat-printer.webp",
+    "/game/v4/enemies/remix-deck.webp",
+    "/game/v4/enemies/encore-fan.webp",
+    "/game/v4/enemies/chat-conductor.webp",
+    "/game/v4/enemies/remix-director.webp",
+    "/game/v4/enemies/encore-twins.webp",
     "/game/v4/bosses/optimal-nana.webp",
     "/game/v4/bosses/always-on-idol.webp",
     "/game/v4/bosses/perfect-highlight.webp",

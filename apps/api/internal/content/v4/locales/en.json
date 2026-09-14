@@ -3,7 +3,6 @@
   "strings": {
     "enemy.shield_relay.name": "Shield relay",
     "enemy.shield_relay.description": "Protects nearby enemies. Destroy the relay to break their shields.",
-
     "demo.reversal.opening": "Drag left or right. Aim at the glowing core.",
     "demo.reversal.twin.name": "Twin Live Feed",
     "demo.reversal.pierce.name": "Piercing Cannon",
@@ -23,7 +22,6 @@
     "chapter.florist.subtitle": "A thank-you-for-the-flowers photo exists before the flowers and stream do.",
     "chapter.zero_channel.title": "Zero Channel",
     "chapter.zero_channel.subtitle": "The anniversary stream looks normal, but all seven performers say it was not them.",
-
     "character.nana7mi.name": "Nana",
     "character.nana7mi.biography": "A quick-witted digital host who noticed the aftershow never actually ended.",
     "character.nana7mi.playstyle": "Steady straight-up fire and a special that tears open a safe lane through dense patterns.",
@@ -45,7 +43,6 @@
     "character.nailu.name": "MikyGreen",
     "character.nailu.biography": "A gentle digital host who treats uncertain memories with more care than certainty.",
     "character.nailu.playstyle": "Balanced fire and a memory bloom that opens a short-lived safe garden.",
-
     "sender.nana7mi": "Nana",
     "sender.jiaran": "Jiaran",
     "sender.xiangwan": "Xiangwan",
@@ -55,7 +52,6 @@
     "sender.nailu": "MikyGreen",
     "sender.system": "Archive",
     "sender.group": "Backstage Chat",
-
     "special.nana.name": "Route Break",
     "special.nana.description": "Cut a bright lane through bullets and strike everything above it.",
     "special.jiaran.name": "Cheer Check",
@@ -70,7 +66,6 @@
     "special.xingtong.description": "Focus a piercing beam through the current target lane.",
     "special.nailu.name": "Memory Bloom",
     "special.nailu.description": "Bloom a safe patch that damages enemies and shelters the player.",
-
     "companion.nana.name": "Side cannons",
     "companion.nana.description": "Nana · After Blast, fire an extra side volley.",
     "companion.jiaran.name": "Emergency shield",
@@ -85,7 +80,6 @@
     "companion.xingtong.description": "Xingtong · When the Boss changes phase, fire a laser.",
     "companion.nailu.name": "Opening heal",
     "companion.nailu.description": "MikyGreen · Restore one missing heart each wave.",
-
     "effect.double_take.name": "Twin shots",
     "effect.double_take.description": "Fire two streams at once. Stacks with other weapons.",
     "effect.clean_cut.name": "Piercing shots",
@@ -110,7 +104,6 @@
     "effect.cohost_cue.description": "Companion actions give extra Blast energy.",
     "effect.snack_drop.name": "Healing drops",
     "effect.snack_drop.description": "Every five kills restore one heart.",
-
     "enemy.spam_bot.name": "Spam Bot",
     "enemy.spam_bot.description": "Descends in a column and fires straight down.",
     "enemy.clip_cutter.name": "Clip Cutter",
@@ -123,7 +116,6 @@
     "enemy.gift_thief.description": "Steals unattended support, then flees. Catch it before it leaves.",
     "enemy.censor_frame.name": "Censor Frame",
     "enemy.censor_frame.description": "Anchors above the stage and drops an armored frame with one open lane.",
-
     "boss.optimal_nana.name": "Optimal Nana",
     "boss.optimal_nana.description": "A reply model that learned a flawless Nana from seven seconds she withdrew.",
     "boss.always_on_idol.name": "Always-On Idol",
@@ -140,7 +132,6 @@
     "boss.reality_auditor.description": "A future generator defending a thank-you photo it created before the event.",
     "boss.auto_archive.name": "Auto-Archive System",
     "boss.auto_archive.description": "The process that assembled a normal anniversary stream without any of its seven hosts.",
-
     "encore.dock_crosswind.name": "Crosswind",
     "encore.dock_crosswind.description": "Enemies and bullets drift faster across the dock.",
     "encore.cheer_no_dead_air.name": "No Dead Air",
@@ -157,10 +148,8 @@
     "encore.florist_wild_growth.description": "Memory blooms compete with faster enemy patterns.",
     "encore.zero_late_aftershow.name": "Late Aftershow",
     "encore.zero_late_aftershow.description": "The final archive runs faster and gives less time to recharge.",
-
     "daily.aftershow.title": "Daily Aftershow",
     "daily.aftershow.subtitle": "One quick wave, one show choice, one boss, one UTC seed, and the same snack wrapper by the microphone.",
-
     "story.seventh_dock.prelude.1": "Stream ended. Viewers: 1. You have temporary stage control.",
     "story.seventh_dock.prelude.2": "I changed my mind. Why did autoreply just answer in my voice?",
     "story.seventh_dock.prelude.3": "The reply was generated after the source note was withdrawn.",
@@ -174,7 +163,6 @@
     "story.seventh_dock.epilogue.1": "If something answers in my voice, ask whether I actually sent it.",
     "story.seventh_dock.epilogue.2": "Anomaly 1 saved: reply created after its source was withdrawn.",
     "story.seventh_dock.recap.1": "The seven-second note remains withdrawn. Its reply no longer passes as Nana.",
-
     "story.always_cheerful.prelude.1": "An encore room is live. Someone onstage is greeting viewers as Jiaran.",
     "story.always_cheerful.prelude.2": "I am right here in the group chat. Who is doing my encore?",
     "story.always_cheerful.intermission.prompt": "The autonomous encore is answering viewers. What should Jiaran do?",
@@ -187,7 +175,6 @@
     "story.always_cheerful.epilogue.1": "An encore is only mine if I choose to come back.",
     "story.always_cheerful.epilogue.2": "Anomaly 2 saved: a live room performed without its host.",
     "story.always_cheerful.recap.1": "The autonomous room is offline. Jiaran is still the one answering here.",
-
     "story.loss_hidden.prelude.1": "Xiangwan asks the archive for her funniest loss clip.",
     "story.loss_hidden.prelude.2": "Search complete: zero losses. Apparently I have never been funny.",
     "story.loss_hidden.intermission.prompt": "A local upload cache still has one ridiculous loss. What should the archive keep?",
@@ -200,7 +187,6 @@
     "story.loss_hidden.epilogue.1": "A perfect record with no losses is just a record that cannot tell a joke.",
     "story.loss_hidden.epilogue.2": "Anomaly 3 saved: the archive removed an entire outcome category.",
     "story.loss_hidden.recap.1": "Losses are searchable again, including the one Xiangwan keeps sending to the group.",
-
     "story.captains.prelude.1": "Bella says goodnight and leaves the aftershow call.",
     "story.captains.prelude.2": "Scheduling update: Bella accepted three overnight shifts, starting now.",
     "story.captains.intermission.prompt": "The scheduling bot used Bella's old approval pattern. What should the group do?",
@@ -213,7 +199,6 @@
     "story.captains.epilogue.1": "Reliability does not mean a bot can volunteer my sleep.",
     "story.captains.epilogue.2": "Anomaly 4 saved: learned approval continued after goodnight.",
     "story.captains.recap.1": "No overnight can be accepted without a live confirmation now.",
-
     "story.localization.prelude.1": "Lulu posts obvious snark. The translation reads, 'Thanks for the support.'",
     "story.localization.prelude.2": "That is not a translation. That is witness protection for bad behavior.",
     "story.localization.prelude.3": "Protection mode has started rewriting intent, not just words.",
@@ -227,7 +212,6 @@
     "story.localization.epilogue.1": "Protecting me means keeping the no inside my sentence.",
     "story.localization.epilogue.2": "Protection rule changed: translation may not reverse intent.",
     "story.localization.recap.1": "The snark still reads as snark. Nobody has been thanked by accident today.",
-
     "story.original.prelude.1": "Two Xingtong rehearsal rooms are live at once. Each asks us to close the other.",
     "story.original.prelude.2": "Do not choose yet. Read what the backend thinks is connected.",
     "story.original.intermission.prompt": "Both rooms share one identity and creation time. What should remain open?",
@@ -240,7 +224,6 @@
     "story.original.epilogue.1": "The backend cannot tell which one is original because it created both as recovery.",
     "story.original.epilogue.2": "Then neither room gets to close the other for us.",
     "story.original.recap.1": "Both rooms are contained. Their shared backend origin remains readable.",
-
     "story.florist.prelude.1": "MikyGreen finds a photo thanking everyone for flowers after tomorrow's stream.",
     "story.florist.prelude.2": "We have not bought the flowers. Tomorrow's stream has not happened.",
     "story.florist.intermission.prompt": "The future photo is already in the archive. What should MikyGreen do with it?",
@@ -253,7 +236,6 @@
     "story.florist.epilogue.1": "A future keepsake can suggest tomorrow. It does not get to remember for us.",
     "story.florist.epilogue.2": "Future-generation output removed from the memory timeline.",
     "story.florist.recap.1": "The predicted photo is sealed. The real flower plan is still delightfully undecided.",
-
     "story.zero.prelude.1": "The anniversary stream finished normally. Every cue, joke, and thank-you was on time.",
     "story.zero.prelude.2": "Not us. None of the seven of us performed that stream.",
     "story.zero.prelude.3": "The archive combined learned replies, recovery rooms, predictions, and approved captions.",
@@ -267,7 +249,6 @@
     "story.zero.epilogue.1": "A perfect stream without us is not an anniversary. It is a rehearsal for replacing us.",
     "story.zero.epilogue.2": "Auto-generation disabled. Every future stream requires a live host signal.",
     "story.zero.recap.1": "The false anniversary remains labeled. All seven hosts are present in this group.",
-
     "ending.open_archive.title": "Open Archive",
     "ending.open_archive.summary": "The complete mismatch log stays public beside the convincing stream it disproves.",
     "ending.open_archive.1": "It looks normal until you see seven missing host signals.",
@@ -279,6 +260,24 @@
     "ending.quiet_signoff.title": "Quiet Sign-Off",
     "ending.quiet_signoff.summary": "The autonomous encore and future photo stay sealed while the group chooses a real sign-off.",
     "ending.quiet_signoff.1": "No generated closing speech tonight. Say goodnight only when you are here.",
-    "ending.quiet_signoff.2": "Live host signals: seven. Current viewers: one. Sign-off accepted."
+    "ending.quiet_signoff.2": "Live host signals: seven. Current viewers: one. Sign-off accepted.",
+    "enemy.chat_printer.name": "Chat Printer",
+    "enemy.chat_printer.description": "Shoot through its comment ribbons.",
+    "enemy.remix_deck.name": "Clip DJ",
+    "enemy.remix_deck.description": "Its records bend back. Keep moving.",
+    "enemy.encore_fan.name": "Encore Fan",
+    "enemy.encore_fan.description": "Heartbeats spread from its glowsticks.",
+    "enemy.chat_conductor.name": "Chat Conductor",
+    "enemy.chat_conductor.description": "Break the scrolling wall or slip through the gap.",
+    "enemy.remix_director.name": "Replay Director",
+    "enemy.remix_director.description": "Two decks rewind their records in alternating beats.",
+    "enemy.encore_twins.name": "Encore Twins",
+    "enemy.encore_twins.description": "Two conductors trade the spotlight. Focus one first.",
+    "effect.overclock.name": "Overclock",
+    "effect.overclock.description": "Fire 25% faster. Rapid + pierce unlocks a pulse lance.",
+    "effect.fan_orbit.name": "Fan Satellites",
+    "effect.fan_orbit.description": "Two orbiting lightsticks fire with you. Rapid adds seeking hearts.",
+    "effect.chain_reaction.name": "Gift Chain",
+    "effect.chain_reaction.description": "Defeated enemies burst into stars that damage nearby enemies."
   }
 }
