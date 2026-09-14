@@ -1,10 +1,10 @@
 {
   "chapter": {
-    "id":"loss-hidden","order":3,"title_key":"chapter.loss_hidden.title","subtitle_key":"chapter.loss_hidden.subtitle","featured_character":"xiangwan","unlock_companion":"xiangwan-assist","background_url":"/game/v4/backgrounds/loss-hidden.webp",
+    "id":"loss-hidden","order":3,"title_key":"chapter.loss_hidden.title","subtitle_key":"chapter.loss_hidden.subtitle","featured_character":"xiangwan","unlock_companion":"xiangwan-assist","background_url":"/game/v4/backgrounds/loss-hidden-stage.webp",
     "segments":[
-      {"id":"loss-practice-room","duration_ticks":1080,"wave_id":"loss-wave-1","background_url":"/game/v4/backgrounds/loss-hidden.webp","reward_stage":"weapon"},
-      {"id":"loss-cutting-floor","duration_ticks":1200,"wave_id":"loss-wave-2","background_url":"/game/v4/backgrounds/loss-hidden.webp","reward_stage":"companion"},
-      {"id":"loss-highlight-reel","duration_ticks":1320,"wave_id":"loss-wave-3","background_url":"/game/v4/backgrounds/loss-hidden.webp","reward_stage":"rescue"}
+      {"id":"loss-practice-room","duration_ticks":1080,"wave_id":"loss-wave-1","background_url":"/game/v4/backgrounds/loss-hidden-stage.webp","reward_stage":"weapon"},
+      {"id":"loss-cutting-floor","duration_ticks":1200,"wave_id":"loss-wave-2","background_url":"/game/v4/backgrounds/loss-hidden-stage.webp","reward_stage":"companion"},
+      {"id":"loss-highlight-reel","duration_ticks":1320,"wave_id":"loss-wave-3","background_url":"/game/v4/backgrounds/loss-hidden-stage.webp","reward_stage":"rescue"}
     ],
     "waves":[
       {"id":"loss-wave-1","spawns":[{"at_tick":25,"enemy_id":"clip-cutter","count":4,"formation":"pincer","interval_ticks":18},{"at_tick":320,"enemy_id":"gift-thief","count":2,"formation":"fan","interval_ticks":36}]},

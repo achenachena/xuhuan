@@ -10,7 +10,7 @@ const config = await (await fetch("/config")).json();
 const canvas = document.querySelector("canvas");
 observeShooterCanvas(canvas);
 const sources = {
-  background: "/game/v4/backgrounds/always-cheerful.webp",
+  background: "/game/v4/backgrounds/always-cheerful-stage.webp",
   player: "/game/v4/players/jiaran.webp",
   boss: "/game/v4/bosses/always-on-idol.webp",
   enemies: {},

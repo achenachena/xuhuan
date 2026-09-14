@@ -1,10 +1,10 @@
 {
   "chapter": {
-    "id":"seventh-dock","order":1,"title_key":"chapter.seventh_dock.title","subtitle_key":"chapter.seventh_dock.subtitle","featured_character":"nana7mi","unlock_companion":"nana7mi-assist","background_url":"/game/v4/backgrounds/seventh-dock.webp",
+    "id":"seventh-dock","order":1,"title_key":"chapter.seventh_dock.title","subtitle_key":"chapter.seventh_dock.subtitle","featured_character":"nana7mi","unlock_companion":"nana7mi-assist","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp",
     "segments":[
-      {"id":"dock-aftershow","duration_ticks":900,"wave_id":"dock-wave-1","background_url":"/game/v4/backgrounds/seventh-dock.webp","reward_stage":"weapon"},
-      {"id":"dock-lost-chat","duration_ticks":1080,"wave_id":"dock-wave-2","background_url":"/game/v4/backgrounds/seventh-dock.webp","reward_stage":"companion"},
-      {"id":"dock-false-tide","duration_ticks":1200,"wave_id":"dock-wave-3","background_url":"/game/v4/backgrounds/seventh-dock.webp","reward_stage":"rescue"}
+      {"id":"dock-aftershow","duration_ticks":900,"wave_id":"dock-wave-1","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"weapon"},
+      {"id":"dock-lost-chat","duration_ticks":1080,"wave_id":"dock-wave-2","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"companion"},
+      {"id":"dock-false-tide","duration_ticks":1200,"wave_id":"dock-wave-3","background_url":"/game/v4/backgrounds/seventh-dock-stage.webp","reward_stage":"rescue"}
     ],
     "waves":[
       {"id":"dock-wave-1","spawns":[{"at_tick":30,"enemy_id":"spam-bot","count":4,"formation":"line","interval_ticks":18},{"at_tick":300,"enemy_id":"clip-cutter","count":2,"formation":"pincer","interval_ticks":24}]},

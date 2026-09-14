@@ -238,7 +238,8 @@ export type ShooterMutableState = {
   pickupPower: ShooterPickupPower | null;
   pickupPowerTicks: number;
   overdriveTicks: number;
-  pressureQuietTicks: number;
+  waveQuietTicks: number;
+  waveTick: number;
   effects: ShooterEffectEntity[];
   reversal?: {
     breaks: number;

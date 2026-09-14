@@ -68,7 +68,7 @@ const server = createServer((request, response) => {
   if (
     !new Set([
       "/bundle.js",
-      "/game/v4/backgrounds/always-cheerful.webp",
+      "/game/v4/backgrounds/always-cheerful-stage.webp",
       "/game/v4/players/jiaran.webp",
       "/game/v4/bosses/always-on-idol.webp",
     ]).has(request.url)

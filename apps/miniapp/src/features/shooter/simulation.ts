@@ -86,7 +86,7 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   pickupPower: null,
   pickupPowerTicks: 0,
   overdriveTicks: 0,
-  pressureQuietTicks: 0,
+  waveQuietTicks: 0, waveTick: -1,
   effects: [],
   ...(runtime.config.reversal ? { reversal: { breaks: 0, chain: [], fans: [] } } : {}),
 });

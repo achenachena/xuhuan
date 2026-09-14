@@ -1,10 +1,10 @@
 {
   "chapter": {
-    "id":"captains-do-not-rest","order":4,"title_key":"chapter.captains.title","subtitle_key":"chapter.captains.subtitle","featured_character":"bella","unlock_companion":"bella-assist","background_url":"/game/v4/backgrounds/captains-do-not-rest.webp",
+    "id":"captains-do-not-rest","order":4,"title_key":"chapter.captains.title","subtitle_key":"chapter.captains.subtitle","featured_character":"bella","unlock_companion":"bella-assist","background_url":"/game/v4/backgrounds/captains-do-not-rest-stage.webp",
     "segments":[
-      {"id":"captain-last-task","duration_ticks":1080,"wave_id":"captain-wave-1","background_url":"/game/v4/backgrounds/captains-do-not-rest.webp","reward_stage":"weapon"},
-      {"id":"captain-empty-call","duration_ticks":1200,"wave_id":"captain-wave-2","background_url":"/game/v4/backgrounds/captains-do-not-rest.webp","reward_stage":"companion"},
-      {"id":"captain-checklist","duration_ticks":1320,"wave_id":"captain-wave-3","background_url":"/game/v4/backgrounds/captains-do-not-rest.webp","reward_stage":"rescue"}
+      {"id":"captain-last-task","duration_ticks":1080,"wave_id":"captain-wave-1","background_url":"/game/v4/backgrounds/captains-do-not-rest-stage.webp","reward_stage":"weapon"},
+      {"id":"captain-empty-call","duration_ticks":1200,"wave_id":"captain-wave-2","background_url":"/game/v4/backgrounds/captains-do-not-rest-stage.webp","reward_stage":"companion"},
+      {"id":"captain-checklist","duration_ticks":1320,"wave_id":"captain-wave-3","background_url":"/game/v4/backgrounds/captains-do-not-rest-stage.webp","reward_stage":"rescue"}
     ],
     "waves":[
       {"id":"captain-wave-1","spawns":[{"at_tick":20,"enemy_id":"spam-bot","count":4,"formation":"line","interval_ticks":15},{"at_tick":300,"enemy_id":"censor-frame","count":1,"formation":"center","interval_ticks":0},{"at_tick":430,"enemy_id":"clip-cutter","count":2,"formation":"pincer","interval_ticks":22}]},

@@ -94,7 +94,7 @@ export const resolveShooterVisualSources = (
   const character = content.characters.find((entry) => entry.id === run.state.character_slug);
   const bossID = run.state.segment?.boss_id ?? chapter?.boss.id;
   return {
-    background: run.state.segment?.background_url ?? chapter?.background_url ?? `/game/v4/backgrounds/${run.state.chapter_slug}.webp`,
+    background: run.state.segment?.background_url ?? chapter?.background_url ?? `/game/v4/backgrounds/${run.state.chapter_slug}-stage.webp`,
     player: character?.sprite_url ?? `/game/v4/players/${run.state.character_slug}.webp`,
     enemies: chassisAssets,
     ...(bossID ? { boss: `/game/v4/bosses/${bossID}.webp` } : {}),

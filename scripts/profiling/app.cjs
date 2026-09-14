@@ -66,7 +66,7 @@ const req = createRequire(
               ...run.state.segment,
               segment_index: 3,
               boss_id: "always-on-idol",
-              background_url: "/game/v4/backgrounds/always-cheerful.webp",
+              background_url: "/game/v4/backgrounds/always-cheerful-stage.webp",
               duration_ticks: 1800,
               runtime_config: config,
             };

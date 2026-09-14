@@ -28,7 +28,7 @@ const state = (overrides: Partial<ShooterRuntimeConfig> = {}): ShooterMutableSta
     nextEffectID: 0, spawnedBoss: false,
     dailyVariant: "", enemies: [], enemyProjectiles: [], playerProjectiles: [], pickups: [],
     pickupsCollected: 0, pickupPower: null, pickupPowerTicks: 0, overdriveTicks: 0,
-    pressureQuietTicks: 0, effects: [], reversal: { breaks: 0, chain: [], fans: [] },
+    waveQuietTicks: 0, waveTick: -1, effects: [], reversal: { breaks: 0, chain: [], fans: [] },
   };
 };
 
