@@ -50,3 +50,5 @@ pixel icon (cyan stabilizers, pink core, gold energy cross), separate from the
 censor-frame enemy. Story action previews and energy-star/evolution effects are
 code-drawn shapes; they reuse the existing character sprites. This does not
 change the repository's existing fan-art provenance or licensing status.
+
+The eight replacement livestream-stage backgrounds were generated with the built-in imagegen tool. [Art direction and prompts](stage-art.md) record their intended scenes and final asset paths. They do not use third-party photographs or copied background artwork as input.

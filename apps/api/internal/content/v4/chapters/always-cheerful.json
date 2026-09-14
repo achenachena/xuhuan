@@ -1,10 +1,10 @@
 {
   "chapter": {
-    "id":"always-cheerful","order":2,"title_key":"chapter.always_cheerful.title","subtitle_key":"chapter.always_cheerful.subtitle","featured_character":"jiaran","unlock_companion":"jiaran-assist","background_url":"/game/v4/backgrounds/always-cheerful.webp",
+    "id":"always-cheerful","order":2,"title_key":"chapter.always_cheerful.title","subtitle_key":"chapter.always_cheerful.subtitle","featured_character":"jiaran","unlock_companion":"jiaran-assist","background_url":"/game/v4/backgrounds/always-cheerful-stage.webp",
     "segments":[
-      {"id":"cheerful-greenroom","duration_ticks":1080,"wave_id":"cheer-wave-1","background_url":"/game/v4/backgrounds/always-cheerful.webp","reward_stage":"weapon"},
-      {"id":"cheerful-muted-minute","duration_ticks":1200,"wave_id":"cheer-wave-2","background_url":"/game/v4/backgrounds/always-cheerful.webp","reward_stage":"companion"},
-      {"id":"cheerful-reply-storm","duration_ticks":1320,"wave_id":"cheer-wave-3","background_url":"/game/v4/backgrounds/always-cheerful.webp","reward_stage":"rescue"}
+      {"id":"cheerful-greenroom","duration_ticks":1080,"wave_id":"cheer-wave-1","background_url":"/game/v4/backgrounds/always-cheerful-stage.webp","reward_stage":"weapon"},
+      {"id":"cheerful-muted-minute","duration_ticks":1200,"wave_id":"cheer-wave-2","background_url":"/game/v4/backgrounds/always-cheerful-stage.webp","reward_stage":"companion"},
+      {"id":"cheerful-reply-storm","duration_ticks":1320,"wave_id":"cheer-wave-3","background_url":"/game/v4/backgrounds/always-cheerful-stage.webp","reward_stage":"rescue"}
     ],
     "waves":[
       {"id":"cheer-wave-1","spawns":[{"at_tick":20,"enemy_id":"caption-blob","count":3,"formation":"fan","interval_ticks":24},{"at_tick":330,"enemy_id":"spam-bot","count":4,"formation":"line","interval_ticks":15}]},

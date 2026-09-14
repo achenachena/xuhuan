@@ -1,10 +1,10 @@
 {
   "chapter": {
-    "id":"which-is-original","order":6,"title_key":"chapter.original.title","subtitle_key":"chapter.original.subtitle","featured_character":"xingtong","unlock_companion":"xingtong-assist","background_url":"/game/v4/backgrounds/which-is-original.webp",
+    "id":"which-is-original","order":6,"title_key":"chapter.original.title","subtitle_key":"chapter.original.subtitle","featured_character":"xingtong","unlock_companion":"xingtong-assist","background_url":"/game/v4/backgrounds/which-is-original-stage.webp",
     "segments":[
-      {"id":"original-rehearsal-a","duration_ticks":1080,"wave_id":"original-wave-1","background_url":"/game/v4/backgrounds/which-is-original.webp","reward_stage":"weapon"},
-      {"id":"original-rehearsal-b","duration_ticks":1200,"wave_id":"original-wave-2","background_url":"/game/v4/backgrounds/which-is-original.webp","reward_stage":"companion"},
-      {"id":"original-split-screen","duration_ticks":1320,"wave_id":"original-wave-3","background_url":"/game/v4/backgrounds/which-is-original.webp","reward_stage":"rescue"}
+      {"id":"original-rehearsal-a","duration_ticks":1080,"wave_id":"original-wave-1","background_url":"/game/v4/backgrounds/which-is-original-stage.webp","reward_stage":"weapon"},
+      {"id":"original-rehearsal-b","duration_ticks":1200,"wave_id":"original-wave-2","background_url":"/game/v4/backgrounds/which-is-original-stage.webp","reward_stage":"companion"},
+      {"id":"original-split-screen","duration_ticks":1320,"wave_id":"original-wave-3","background_url":"/game/v4/backgrounds/which-is-original-stage.webp","reward_stage":"rescue"}
     ],
     "waves":[
       {"id":"original-wave-1","spawns":[{"at_tick":20,"enemy_id":"black-screen-ghost","count":3,"formation":"center","interval_ticks":36},{"at_tick":320,"enemy_id":"spam-bot","count":4,"formation":"staggered","interval_ticks":15}]},

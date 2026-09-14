@@ -15,6 +15,7 @@ import { activateRescue } from "@/features/shooter/specials";
 import { addPlayerProjectile, createShooterRuntime, grantShooterShield, updateCompanions, updateWeapons } from "@/features/shooter/weapons";
 import type { ShooterEnemyEntity, ShooterMutableState } from "@/features/shooter/types";
 import type { ShooterRuntimeConfig } from "@/lib/api/types";
+import { hasClearedAuthoredWave, spawnWave } from "@/features/shooter/waves";
 import { v4Runtime } from "@/test/v4-fixtures";
 
 const characterConfig = (id: string): ShooterRuntimeConfig => {
@@ -48,7 +49,7 @@ const createState = (config = characterConfig("nana7mi")): ShooterMutableState =
     nextEnemyID: 0, nextProjectileID: 0, nextPickupID: 0, nextEffectID: 0, spawnedBoss: false,
     dailyVariant: "", enemies: [], enemyProjectiles: [], playerProjectiles: [],
     pickups: [], pickupsCollected: 0, pickupPower: null, pickupPowerTicks: 0, overdriveTicks: 0,
-    pressureQuietTicks: 0, effects: [],
+    waveQuietTicks: 0, waveTick: -1, effects: [],
   };
 };
 
@@ -113,15 +114,32 @@ describe("campaign collision and completion", () => {
         { at_tick: 90, enemy_id: "spam-bot", count: 2, formation: "center", interval_ticks: 30 },
       ] },
     });
-    for (let tick = 0; tick < 90; tick += 1) {
-      game.step({ x: 64, rescue: false });
-      expect(game.result()).toBeNull();
-    }
-    for (let tick = 90; tick < 400 && !game.result(); tick += 1) game.step({ x: 64, rescue: false });
-    expect(game.result()).toMatchObject({ won: true, rescues_used: 0 });
-    expect(game.result()!.ticks).toBeGreaterThan(120);
+    for (let tick = 0; tick < 400 && !game.result(); tick += 1) game.step({ x: 64, rescue: false });
+    expect(game.result()).toMatchObject({ won: true, rescues_used: 0, kills: 3 });
     expect(game.result()!.ticks).toBeLessThan(900);
     expect(game.result()!.final.enemy_projectiles).toHaveLength(0);
+  });
+
+  it("brings the next formation forward after a short clear, preserving every scheduled member", () => {
+    const state = createState({ ...v4Runtime, wave: { ...v4Runtime.wave, spawns: [
+      { at_tick: 0, enemy_id: "spam-bot", count: 1, formation: "center", interval_ticks: 0 },
+      { at_tick: 300, enemy_id: "spam-bot", count: 2, formation: "line", interval_ticks: 30 },
+      { at_tick: 300, enemy_id: "spam-bot", count: 1, formation: "center", interval_ticks: 0 },
+    ] } });
+    spawnWave(state);
+    expect(state.enemies).toHaveLength(1);
+    state.enemies = [];
+    for (let tick = 0; tick < 23; tick += 1) { state.tick += 1; spawnWave(state); }
+    expect(state.enemies).toHaveLength(0);
+    expect(hasClearedAuthoredWave(state)).toBe(false);
+    state.tick += 1; spawnWave(state);
+    expect(state.enemies).toHaveLength(2);
+    expect(state.tick).toBe(25); // Advancing the encounter never advances combat time.
+    for (let tick = 0; tick < 30; tick += 1) { state.tick += 1; spawnWave(state); }
+    expect(state.enemies).toHaveLength(3);
+    expect(state.nextEnemyID).toBe(4);
+    state.enemies = [];
+    expect(hasClearedAuthoredWave(state)).toBe(true);
   });
 
   it("does not instantly end an empty fixture or discard the survival timeout", () => {
@@ -139,6 +157,7 @@ describe("campaign collision and completion", () => {
 
   it("clears dangerous bullets on the final ordinary-shot kill before they can hit", () => {
     const state = createState({ ...v4Runtime, duration_ticks: 900 });
+    state.waveTick = 900;
     state.enemies = [enemy(1, { health: 1 })];
     addPlayerProjectile(state, { x: 1_800, y: 1_300, vy: -400, damage: 10 });
     addEnemyHazard(state, "enemy_shot", 1_800, PLAYER_Y - 100, 0, 100, 1, 42, 0, 0);

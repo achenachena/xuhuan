@@ -1,10 +1,10 @@
 {
   "chapter": {
-    "id":"zero-channel","order":8,"title_key":"chapter.zero_channel.title","subtitle_key":"chapter.zero_channel.subtitle","featured_character":"player-choice","unlock_companion":"","background_url":"/game/v4/backgrounds/zero-channel.webp",
+    "id":"zero-channel","order":8,"title_key":"chapter.zero_channel.title","subtitle_key":"chapter.zero_channel.subtitle","featured_character":"player-choice","unlock_companion":"","background_url":"/game/v4/backgrounds/zero-channel-stage.webp",
     "segments":[
-      {"id":"zero-roll-call","duration_ticks":1080,"wave_id":"zero-wave-1","background_url":"/game/v4/backgrounds/zero-channel.webp","reward_stage":"weapon"},
-      {"id":"zero-unsent-drafts","duration_ticks":1200,"wave_id":"zero-wave-2","background_url":"/game/v4/backgrounds/zero-channel.webp","reward_stage":"companion"},
-      {"id":"zero-last-minute","duration_ticks":1320,"wave_id":"zero-wave-3","background_url":"/game/v4/backgrounds/zero-channel.webp","reward_stage":"rescue"}
+      {"id":"zero-roll-call","duration_ticks":1080,"wave_id":"zero-wave-1","background_url":"/game/v4/backgrounds/zero-channel-stage.webp","reward_stage":"weapon"},
+      {"id":"zero-unsent-drafts","duration_ticks":1200,"wave_id":"zero-wave-2","background_url":"/game/v4/backgrounds/zero-channel-stage.webp","reward_stage":"companion"},
+      {"id":"zero-last-minute","duration_ticks":1320,"wave_id":"zero-wave-3","background_url":"/game/v4/backgrounds/zero-channel-stage.webp","reward_stage":"rescue"}
     ],
     "waves":[
       {"id":"zero-wave-1","spawns":[{"at_tick":15,"enemy_id":"spam-bot","count":4,"formation":"line","interval_ticks":14},{"at_tick":250,"enemy_id":"caption-blob","count":3,"formation":"fan","interval_ticks":22},{"at_tick":540,"enemy_id":"gift-thief","count":3,"formation":"pincer","interval_ticks":28}]},

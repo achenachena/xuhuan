@@ -92,7 +92,7 @@ describe("reversal visual opt-in boundary", () => {
       ...run.state, segment: { ...run.state.segment!, boss_id: "optimal-nana" },
     } });
     expect(sources.reversal).toBeUndefined();
-    expect(sources.background).toBe("/game/v4/backgrounds/seventh-dock.webp");
+    expect(sources.background).toBe("/game/v4/backgrounds/seventh-dock-stage.webp");
     expect(sources.player).toBe("/game/v4/players/nana7mi.webp");
     expect(sources.boss).toBe("/game/v4/bosses/optimal-nana.webp");
     expect(sources.enemies["clip-cutter"]).toBe("/game/v4/enemies/clip-cutter.webp");

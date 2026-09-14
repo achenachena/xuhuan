@@ -1,10 +1,10 @@
 {
   "chapter": {
-    "id":"laplace-florist","order":7,"title_key":"chapter.florist.title","subtitle_key":"chapter.florist.subtitle","featured_character":"nailu","unlock_companion":"nailu-assist","background_url":"/game/v4/backgrounds/laplace-florist.webp",
+    "id":"laplace-florist","order":7,"title_key":"chapter.florist.title","subtitle_key":"chapter.florist.subtitle","featured_character":"nailu","unlock_companion":"nailu-assist","background_url":"/game/v4/backgrounds/laplace-florist-stage.webp",
     "segments":[
-      {"id":"florist-photo","duration_ticks":1080,"wave_id":"florist-wave-1","background_url":"/game/v4/backgrounds/laplace-florist.webp","reward_stage":"weapon"},
-      {"id":"florist-unlisted-door","duration_ticks":1200,"wave_id":"florist-wave-2","background_url":"/game/v4/backgrounds/laplace-florist.webp","reward_stage":"companion"},
-      {"id":"florist-memory-bed","duration_ticks":1320,"wave_id":"florist-wave-3","background_url":"/game/v4/backgrounds/laplace-florist.webp","reward_stage":"rescue"}
+      {"id":"florist-photo","duration_ticks":1080,"wave_id":"florist-wave-1","background_url":"/game/v4/backgrounds/laplace-florist-stage.webp","reward_stage":"weapon"},
+      {"id":"florist-unlisted-door","duration_ticks":1200,"wave_id":"florist-wave-2","background_url":"/game/v4/backgrounds/laplace-florist-stage.webp","reward_stage":"companion"},
+      {"id":"florist-memory-bed","duration_ticks":1320,"wave_id":"florist-wave-3","background_url":"/game/v4/backgrounds/laplace-florist-stage.webp","reward_stage":"rescue"}
     ],
     "waves":[
       {"id":"florist-wave-1","spawns":[{"at_tick":20,"enemy_id":"gift-thief","count":3,"formation":"fan","interval_ticks":30},{"at_tick":330,"enemy_id":"caption-blob","count":3,"formation":"sweep","interval_ticks":24}]},

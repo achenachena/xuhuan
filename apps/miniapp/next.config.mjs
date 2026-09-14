@@ -66,6 +66,17 @@ const config = {
   // Telegram owns the viewport corners. The development toolbar would cover
   // the language control and make local touch testing differ from production.
   devIndicators: false,
+  redirects() {
+    // Persisted Telegram segments contain the previous background URLs.
+    // Keep those saves playable without retaining duplicate image files.
+    return ["seventh-dock", "always-cheerful", "loss-hidden", "captains-do-not-rest",
+      "localization-failed", "which-is-original", "laplace-florist", "zero-channel"]
+      .map(chapter => ({
+        source: `/game/v4/backgrounds/${chapter}.webp`,
+        destination: `/game/v4/backgrounds/${chapter}-stage.webp`,
+        permanent: true,
+      }));
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

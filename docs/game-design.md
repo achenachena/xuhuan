@@ -160,3 +160,9 @@ Chapter choices use explicit durable IDs in `story-actions.tsx`, with short acti
 previews and optional story details. All three original finale endings remain
 available. After a successful story write, the chosen action plays before the
 next character starts. If starting fails, retrying does not resubmit the choice.
+
+### Encounter pacing and stage art
+
+Ordinary encounters advance to the next scheduled spawn after 24 enemy-free ticks (0.8 seconds). The first entrance and active formations retain their timing; only the spawn clock advances, leaving combat, pickups and buff timers at 30 Hz. Simultaneous support and attacker entries stay together, and the room only clears after its final scheduled enemy. The former filler-enemy pressure pulses are removed. Boss and legacy reversal encounters retain their own timing.
+
+Each chapter now uses its own [livestream-stage pixel background](stage-art.md), with quiet combat space and character-specific studio details around the edges.

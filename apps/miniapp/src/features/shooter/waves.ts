@@ -2,9 +2,7 @@ import {
   ENEMY_RADIUS,
   SHOOTER_WIDTH,
   clamp,
-  goDivide,
 } from "@/features/shooter/constants";
-import { shooterSeedFromString } from "@/features/shooter/random";
 import type { ShooterMutableState } from "@/features/shooter/types";
 import { spawnReversalGroups } from "@/features/shooter/reversal";
 
@@ -15,7 +13,7 @@ export const hasClearedAuthoredWave = (state: ShooterMutableState): boolean => {
   const lastTick = Math.max(...spawns.map((spawn) => spawn.at_tick + ("count" in spawn
     ? (Math.max(1, spawn.count) - 1) * Math.max(1, spawn.interval_ticks)
     : 0)));
-  return state.tick > lastTick;
+  return state.config.reversal ? state.tick > lastTick : state.waveTick >= lastTick;
 };
 
 const formationX = (
@@ -67,77 +65,32 @@ const spawnEnemy = (
   });
 };
 
-const spawnLatePressure = (state: ShooterMutableState): void => {
-  if (
-    state.config.boss ||
-    state.config.wave.spawns.length === 0 ||
-    state.enemies.length >= state.config.limits.enemies
-  ) {
-    return;
-  }
-  if (state.enemies.length === 0 && state.enemyProjectiles.length === 0) {
-    state.pressureQuietTicks += 1;
-  } else {
-    state.pressureQuietTicks = 0;
-  }
-  let lastAuthoredTick = 0;
-  const pool: string[] = [];
-  for (const spawn of state.config.wave.spawns) {
-    lastAuthoredTick = Math.max(
-      lastAuthoredTick,
-      spawn.at_tick +
-        (Math.max(1, spawn.count) - 1) * Math.max(1, spawn.interval_ticks),
-    );
-    if (!pool.includes(spawn.enemy_id)) pool.push(spawn.enemy_id);
-  }
-  const start = lastAuthoredTick + 90;
-  const interval = state.config.encore_level >= 1 ? 105 : 120;
-  const elapsed = state.tick - 1 - start;
-  const finalTick = state.config.duration_ticks - 90;
-  const regularPulse =
-    elapsed >= 0 &&
-    elapsed % interval === 0 &&
-    state.tick - 1 <= state.config.duration_ticks - 60;
-  let lastRegular = start;
-  if (finalTick > start) {
-    lastRegular = start + goDivide(finalTick - start, interval) * interval;
-  }
-  const finalPulse = state.tick - 1 === finalTick && finalTick !== lastRegular;
-  const emergencyPulse = state.tick - 1 > 30 && state.pressureQuietTicks >= 90;
-  if (!regularPulse && !finalPulse && !emergencyPulse) return;
-
-  const cycle = Math.max(0, goDivide(elapsed, interval));
-  const seedOffset =
-    shooterSeedFromString(`${state.config.seed}:late-pressure`) % pool.length;
-  const enemyID = pool[(seedOffset + cycle) % pool.length]!;
-  const formations = ["pincer", "sweep", "staggered", "fan"] as const;
-  const formation = formations[(seedOffset + cycle) % formations.length]!;
-  const count =
-    state.config.encore_level >= 1 && (cycle & 1) !== 0 ? 2 : 1;
-  for (
-    let index = 0;
-    index < count && state.enemies.length < state.config.limits.enemies;
-    index += 1
-  ) {
-    spawnEnemy(
-      state,
-      enemyID,
-      formationX(formation, index, count, state.tick),
-    );
-  }
-  state.pressureQuietTicks = 0;
-};
-
 export const spawnWave = (state: ShooterMutableState): void => {
   if (state.config.reversal) { spawnReversalGroups(state); return; }
+  if (state.config.boss) return;
+  state.waveTick += 1;
+  state.waveQuietTicks = state.nextEnemyID > 0 && !state.enemies.some(enemy => enemy.health > 0)
+    ? state.waveQuietTicks + 1 : 0;
+  // Advance only the spawn schedule after a 0.8-second breather. Combat, buffs,
+  // projectiles and the survival timer keep their real 30 Hz clock.
+  if (state.waveQuietTicks >= 24) {
+    let nextTick = Infinity;
+    for (const spawn of state.config.wave.spawns) {
+      for (let index = 0; index < Math.max(1, spawn.count); index += 1) {
+        const at = spawn.at_tick + index * Math.max(1, spawn.interval_ticks);
+        if (at >= state.waveTick) nextTick = Math.min(nextTick, at);
+      }
+    }
+    if (Number.isFinite(nextTick)) state.waveTick = nextTick;
+    state.waveQuietTicks = 0;
+  }
   for (const spawn of state.config.wave.spawns) {
     const count = Math.max(1, spawn.count);
     const every = Math.max(1, spawn.interval_ticks);
     for (let occurrence = 0; occurrence < count; occurrence += 1) {
-      if (state.tick - 1 === spawn.at_tick + occurrence * every) {
+      if (state.waveTick === spawn.at_tick + occurrence * every) {
         spawnEnemy(state, spawn.enemy_id, formationX(spawn.formation, occurrence, count, state.tick));
       }
     }
   }
-  spawnLatePressure(state);
 };

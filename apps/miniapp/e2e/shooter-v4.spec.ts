@@ -77,6 +77,7 @@ const segmentState = (
     reward_stage: (["weapon", "companion", "rescue"] as const)[
       Math.min(2, segmentIndex)
     ],
+    // A pre-art-update Telegram save must still load through the asset redirect.
     background_url: `/game/v4/backgrounds/${chapterSlug}.webp`,
     runtime_config: {
       ...v4Runtime,

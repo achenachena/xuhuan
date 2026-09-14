@@ -1,10 +1,10 @@
 {
   "chapter": {
-    "id":"localization-failed","order":5,"title_key":"chapter.localization.title","subtitle_key":"chapter.localization.subtitle","featured_character":"lulu","unlock_companion":"lulu-assist","background_url":"/game/v4/backgrounds/localization-failed.webp",
+    "id":"localization-failed","order":5,"title_key":"chapter.localization.title","subtitle_key":"chapter.localization.subtitle","featured_character":"lulu","unlock_companion":"lulu-assist","background_url":"/game/v4/backgrounds/localization-failed-stage.webp",
     "segments":[
-      {"id":"localization-caption-check","duration_ticks":1080,"wave_id":"localization-wave-1","background_url":"/game/v4/backgrounds/localization-failed.webp","reward_stage":"weapon"},
-      {"id":"localization-rewrite","duration_ticks":1200,"wave_id":"localization-wave-2","background_url":"/game/v4/backgrounds/localization-failed.webp","reward_stage":"companion"},
-      {"id":"localization-meaning-gap","duration_ticks":1320,"wave_id":"localization-wave-3","background_url":"/game/v4/backgrounds/localization-failed.webp","reward_stage":"rescue"}
+      {"id":"localization-caption-check","duration_ticks":1080,"wave_id":"localization-wave-1","background_url":"/game/v4/backgrounds/localization-failed-stage.webp","reward_stage":"weapon"},
+      {"id":"localization-rewrite","duration_ticks":1200,"wave_id":"localization-wave-2","background_url":"/game/v4/backgrounds/localization-failed-stage.webp","reward_stage":"companion"},
+      {"id":"localization-meaning-gap","duration_ticks":1320,"wave_id":"localization-wave-3","background_url":"/game/v4/backgrounds/localization-failed-stage.webp","reward_stage":"rescue"}
     ],
     "waves":[
       {"id":"localization-wave-1","spawns":[{"at_tick":20,"enemy_id":"caption-blob","count":4,"formation":"fan","interval_ticks":22},{"at_tick":320,"enemy_id":"spam-bot","count":3,"formation":"line","interval_ticks":16}]},
