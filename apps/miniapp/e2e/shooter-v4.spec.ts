@@ -360,51 +360,8 @@ test("Telegram campaign restores and reaches all three gates @small-screen", asy
   expect(canvasBox!.width / canvasBox!.height).toBeCloseTo(9 / 16, 3);
   expect(canvasBox!.height).toBeGreaterThan(viewport!.height * 0.78);
 
-  const movePointer = async (
-    type: string,
-    x: number,
-    y: number,
-    pointerId = 7,
-  ) =>
-    surface.dispatchEvent(type, {
-      pointerId,
-      pointerType: "touch",
-      isPrimary: true,
-      clientX: surfaceBox!.x + x,
-      clientY: surfaceBox!.y + y,
-      bubbles: true,
-    });
-  await movePointer("pointerdown", surfaceBox!.width / 2, surfaceBox!.height * 0.8);
-  await movePointer("pointermove", surfaceBox!.width * 0.2, surfaceBox!.height * 0.85);
-  const heldX = await surface.getAttribute("data-control-x");
-  await movePointer("pointermove", surfaceBox!.width * 0.2, 1);
-  expect(await surface.getAttribute("data-control-x")).toBe(heldX);
-  await movePointer("pointerup", surfaceBox!.width * 0.2, 1);
-  await movePointer("pointermove", surfaceBox!.width * 0.8, surfaceBox!.height * 0.8);
-  expect(await surface.getAttribute("data-control-x")).toBe(heldX);
-
-  for (let index = 0; index < 20; index += 1) {
-    await movePointer(
-      "pointerdown",
-      surfaceBox!.width / 2,
-      surfaceBox!.height * 0.7,
-      20 + index,
-    );
-    await movePointer(
-      "pointermove",
-      surfaceBox!.width / 2,
-      surfaceBox!.height + 100,
-      20 + index,
-    );
-    await movePointer(
-      "pointerup",
-      surfaceBox!.width / 2,
-      surfaceBox!.height + 100,
-      20 + index,
-    );
-  }
-  await expect(surface).toBeVisible();
-
+  // Touch gestures have a dedicated real-touch journey. This short fixture
+  // verifies persistence and gates without racing the room completion timer.
   for (let gateIndex = 0; gateIndex < 3; gateIndex += 1) {
     await chooseLeftGate(page);
     await expect(page.getByTestId("shooter-canvas")).toBeVisible({ timeout: 3_000 });
