@@ -47,7 +47,7 @@ export type ShooterProjectileSnapshot = {
 };
 export type ShooterPickupSnapshot = {
   readonly id: number;
-  readonly kind: ShooterPickupPower;
+  readonly kind: ShooterPickupPower | "energy";
   readonly position: ShooterPosition;
   readonly value: number;
 };
@@ -83,6 +83,7 @@ export type ShooterSnapshot = {
   readonly reversal?: { breaks: number; weapon: "single" | "twin" | "pierce"; fans: readonly ReversalFanSnapshot[] };
   readonly pickup_power?: ShooterPickupPower;
   readonly pickup_power_ticks?: number;
+  readonly overdrive_ticks?: number;
   readonly daily_variant?: string;
   readonly enemies: readonly ShooterEnemySnapshot[];
   readonly enemy_projectiles: readonly ShooterProjectileSnapshot[];
@@ -177,7 +178,7 @@ export type ShooterPickupEntity = {
   x: number;
   y: number;
   value: number;
-  kind: ShooterPickupPower;
+  kind: ShooterPickupPower | "energy";
 };
 
 export type ShooterEffectEntity = {
@@ -236,6 +237,7 @@ export type ShooterMutableState = {
   pickupsCollected: number;
   pickupPower: ShooterPickupPower | null;
   pickupPowerTicks: number;
+  overdriveTicks: number;
   pressureQuietTicks: number;
   effects: ShooterEffectEntity[];
   reversal?: {
@@ -256,6 +258,14 @@ export type ShooterStepEvents = {
   readonly bossWarning: boolean;
 };
 
+export type WeaponEvolution = "prism" | "afterimages";
+export const weaponEvolution = (effects: readonly { kind: string }[]): WeaponEvolution | null => {
+  const has = (kind: string) => effects.some(effect => effect.kind === kind);
+  if (has("spread_shot") && has("piercing_shot")) return "prism";
+  if (has("twin_shot") && has("echo_volley")) return "afterimages";
+  return null;
+};
+
 export type ShooterGateOption = {
   readonly id: string;
   readonly title: string;
@@ -263,6 +273,8 @@ export type ShooterGateOption = {
   readonly kind: "weapon" | "companion" | "rescue";
   readonly behavior: string;
   readonly portraitURL?: string;
+  readonly evolution?: WeaponEvolution;
+  readonly currentBehavior?: string;
 };
 
 const rescueBehaviors = new Set([
@@ -276,15 +288,20 @@ export const resolveShooterGateOptions = (
   run: ShooterGameRun,
 ): readonly ShooterGateOption[] => {
   const options: ShooterGateOption[] = [];
+  const owned = content.show_effects.filter(effect => run.state.show_effects.includes(effect.id));
+  const existingEvolution = weaponEvolution(owned.map(effect => ({ kind: effect.behavior })));
   for (const id of run.state.pending_show_options.slice(0, 2)) {
     const effect = content.show_effects.find((candidate) => candidate.id === id);
     if (effect) {
+      const evolution = weaponEvolution([...owned.map(item => ({ kind: item.behavior })), { kind: effect.behavior }]);
       options.push({
         id,
         title: effect.name,
         description: effect.description,
         kind: rescueBehaviors.has(effect.behavior) ? "rescue" : "weapon",
         behavior: effect.behavior,
+        evolution: evolution !== existingEvolution ? evolution ?? undefined : undefined,
+        currentBehavior: content.show_effects.find(e => run.state.show_effects.includes(e.id) && ["spread_shot", "piercing_shot", "twin_shot", "echo_volley"].includes(e.behavior))?.behavior,
       });
       continue;
     }

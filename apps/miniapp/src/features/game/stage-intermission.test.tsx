@@ -29,8 +29,8 @@ describe("StageIntermission", () => {
       <StageIntermission scene={scene} locale="en" busy={false} onChoose={onChoose} />,
     );
 
-    expect(screen.getByText(scene.title!)).toBeVisible();
-    fireEvent.click(screen.getByText("Story so far"));
+    expect(screen.getByText(scene.title!)).not.toBeVisible();
+    fireEvent.click(screen.getByText("Story"));
     for (const message of scene.messages) {
       expect(screen.getByText(message.text)).toBeVisible();
     }

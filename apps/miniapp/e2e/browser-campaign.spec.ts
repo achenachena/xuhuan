@@ -74,3 +74,52 @@ test("a real battle advances this session and reload starts a new run", async ({
   expect((await run(page)).id).not.toBe(first.id);
   expect((await run(page)).state.segment_index).toBe(0);
 });
+
+test("visual story choice keeps its ID and retries only next-character start", async ({ page }) => {
+  // Prepare a genuine cleared Boss via WASM commands; this tests navigation,
+  // not combat timing. There is no production fixture or accelerated FPS claim.
+  await page.addInitScript(() => {
+    let invoke: ((request: string) => string) | undefined;
+    let prepared = false, failedStart = false, choices = 0;
+    Object.defineProperty(window, "xuhuanCampaign", { configurable: true, get: () => invoke,
+      set: (engine: (request: string) => string) => { invoke = raw => {
+        const request = JSON.parse(raw);
+        if (request.action === "start" && request.chapter_slug === "always-cheerful" && !failedStart) {
+          failedStart = true; return JSON.stringify({ error: "Temporary stage-start failure" });
+        }
+        if (request.command?.type === "choose_intermission_reply") { choices++; document.documentElement.dataset.storyWrites = String(choices); }
+        let response = JSON.parse(engine(raw));
+        if (!prepared && request.action === "start" && response.game?.campaign_run) {
+          prepared = true;
+          for (let i = 0; i < 7; i++) {
+            const run = response.game.campaign_run;
+            const command = run.state.phase === "show_choice" ? { type: "choose_show_option", option_id: run.state.pending_show_options[0] }
+              : { type: "complete_segment", segment_outcome: { won: true, health: 3, score: 100 } };
+            response = JSON.parse(engine(JSON.stringify({ action: "command", save: response.save, mode: "campaign", id: run.id, expected_version: run.version, command })));
+          }
+        }
+        if (response.game?.campaign_run) document.documentElement.dataset.observedRun = JSON.stringify(response.game.campaign_run);
+        return JSON.stringify(response);
+      }; },
+    });
+  });
+  await page.goto("/play");
+  const choice = page.getByTestId("story-option-keep-seven-second-voice");
+  await expect(choice).toBeVisible();
+  await expect(choice.locator('[data-story-action="seal"]')).toBeVisible();
+  await expect(page.getByTestId("story-option-delete-learned-reply").locator('[data-story-action="erase"]')).toBeVisible();
+  await expect(page.locator("details")).not.toHaveAttribute("open");
+  await page.getByRole("button", { name: "Switch language to Chinese" }).click();
+  await expect(choice).toContainText("封存录音");
+  await page.locator("[data-language-toggle]").click();
+  await choice.focus(); await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Retry next stage →" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-story-writes", "1");
+  await page.getByRole("button", { name: "Retry next stage →" }).tap();
+  await expect(page.getByTestId("shooter-canvas")).toBeVisible();
+  const next = await run(page);
+  expect(next.state.chapter_slug).toBe("always-cheerful");
+  expect(next.state.show_effects).toEqual([]);
+  expect(next.state.selected_choice_ids).toContain("keep-seven-second-voice");
+  await expect(page.locator("html")).toHaveAttribute("data-story-writes", "1");
+});

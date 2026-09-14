@@ -5,6 +5,7 @@ import {
   goDivide,
   integerSqrt,
 } from "@/features/shooter/constants";
+import { weaponEvolution } from "./types";
 import { storyChoiceMode } from "@/features/shooter/story";
 import type {
   ShooterEffectEntity,
@@ -180,8 +181,10 @@ export const updateWeapons = (state: ShooterMutableState): void => {
   state.attackClock += 1;
   const pickupPower = state.pickupPowerTicks > 0 ? state.pickupPower : null;
   const pickupWeapon = resolvePickupWeapon(pickupPower, state.runtime);
+  const evolution = weaponEvolution(state.config.show_effects);
+  const interval = state.overdriveTicks > 0 ? Math.max(3, Math.ceil(pickupWeapon.fireInterval * .75)) : pickupWeapon.fireInterval;
   if (
-    state.attackClock < pickupWeapon.fireInterval ||
+    state.attackClock < interval ||
     state.playerProjectiles.length >= state.config.limits.player_projectiles
   ) {
     return;
@@ -193,7 +196,7 @@ export const updateWeapons = (state: ShooterMutableState): void => {
   if (state.config.kit.id === "jiaran" && state.combo >= 6) {
     damage += Math.max(1, goDivide(damage, 4));
   }
-  const count = pickupWeapon.shotCount;
+  const count = evolution === "prism" ? 3 : pickupWeapon.shotCount;
   for (let index = 0; index < count; index += 1) {
     const lane = index * 2 - (count - 1);
     if (
@@ -205,12 +208,13 @@ export const updateWeapons = (state: ShooterMutableState): void => {
         ),
         y: state.playerY,
         vx:
-          pickupWeapon.spread > 0 ? lane * pickupWeapon.spread : 0,
+          evolution === "prism" ? lane * 38 : pickupWeapon.spread > 0 ? lane * pickupWeapon.spread : 0,
         vy: -390,
         damage,
-        pierce: pickupWeapon.pierce,
+        pierce: evolution === "prism" ? Math.max(4, pickupWeapon.pierce) : pickupWeapon.pierce,
+        radius: evolution === "prism" ? 85 : undefined,
         ...(pickupWeapon.projectileKind
-          ? { kind: pickupWeapon.projectileKind }
+          ? { kind: evolution === "prism" ? "prism" : pickupWeapon.projectileKind }
           : {}),
       })
     ) break;
@@ -229,13 +233,16 @@ export const updateWeapons = (state: ShooterMutableState): void => {
     addShooterEffect(state, "cadence_volley", state.playerX, state.playerY, 12, state.attackSequence);
   }
   if (state.runtime.echoVolley > 0 && state.attackSequence % 3 === 0) {
-    for (let index = 0; index < count; index++) {
-      const lane = index * 2 - count + 1;
-      addPlayerProjectile(state, { x: state.playerX + lane * 34, y: state.playerY + 220,
-        vx: pickupWeapon.spread > 0 ? lane * pickupWeapon.spread : 0, vy: -330,
-        damage: Math.max(1, goDivide(damage * 3, 4)), pierce: pickupWeapon.pierce });
+    for (const offset of evolution === "afterimages" ? [-300, 300] : [0]) {
+      const origin = clamp(state.playerX + offset, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS);
+      for (let index = 0; index < count; index++) {
+        const lane = index * 2 - count + 1;
+        addPlayerProjectile(state, { x: clamp(origin + lane * 34, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS), y: state.playerY + 180,
+          vx: evolution === "prism" ? lane * 38 : pickupWeapon.spread > 0 ? lane * pickupWeapon.spread : 0, vy: -330,
+          damage: Math.max(1, goDivide(damage * 3, 4)), pierce: pickupWeapon.pierce, kind: evolution === "afterimages" ? "echo" : "" });
+      }
+      addShooterEffect(state, "afterimage_replay", origin, state.playerY + 180, 15, count);
     }
-    addShooterEffect(state, "afterimage_replay", state.playerX, state.playerY + 180, 15, count);
   }
   if (
     state.config.kit.id === "xiangwan" &&

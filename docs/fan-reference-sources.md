@@ -44,3 +44,9 @@ The links below are public profile anchors used only to identify the intended pu
 7. Remove a disputed reference promptly while preserving the original gameplay behavior with neutral fictional copy.
 
 If a safe primary source cannot be verified, record that the chapter uses no external reference. Never invent a citation to make a joke appear sourced.
+
+The small shield-relay energy core added in September 2026 is a hand-authored
+pixel icon (cyan stabilizers, pink core, gold energy cross), separate from the
+censor-frame enemy. Story action previews and energy-star/evolution effects are
+code-drawn shapes; they reuse the existing character sprites. This does not
+change the repository's existing fan-art provenance or licensing status.

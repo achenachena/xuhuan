@@ -411,6 +411,8 @@ test("Telegram campaign restores and reaches all three gates @small-screen", asy
   await expect(hud).toContainText("BOSS");
   await expect(page.getByTestId("intermission-story")).toBeVisible({ timeout: 10_000 });
   await page.getByTestId("story-option-keep-voice").click();
+  await expect(page.getByTestId("run-conclusion")).toBeAttached();
+  await page.getByText("Story", { exact: true }).click();
   await expect(page.getByTestId("run-conclusion")).toBeVisible();
 });
 
@@ -426,7 +428,8 @@ test("daily runs through a normal segment, gate, boss, and persisted result", as
   await expect(page.getByTestId("shooter-canvas")).toBeVisible();
   await chooseLeftGate(page);
   await expect(page.getByTestId("shooter-hud")).toContainText("BOSS");
-  await expect(page.getByTestId("run-conclusion")).toBeVisible({ timeout: 10_000 });
+  await page.getByText("Story", { exact: true }).click({ timeout: 10_000 });
+  await expect(page.getByTestId("run-conclusion")).toBeVisible();
   await expect(page.getByText("3,200")).toBeVisible();
   await page.reload();
   await expect(page.getByText("3,200")).toBeVisible();
@@ -443,6 +446,8 @@ test("renders the saved finale ending", async ({ page }) => {
   } });
   await installAPI(page, { content, game: createV4Game({ campaign_run: completed }) });
   await page.goto("/");
+  await expect(page.locator('[data-story-action="archive"]')).toBeVisible();
+  await page.getByText("Story", { exact: true }).click();
   await expect(page.getByText(ending.title)).toBeVisible();
   await expect(page.getByText(ending.summary).first()).toBeVisible();
 });

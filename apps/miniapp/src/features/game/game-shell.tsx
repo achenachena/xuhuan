@@ -84,6 +84,7 @@ const GameShell = () => {
 
 export const GameView = ({ locale, controller, browserSession = false }: { readonly locale: GameLocale; readonly controller: ReturnType<typeof useGameController>; readonly browserSession?: boolean }) => {
   const { content, game, loading, busy, error } = controller;
+  const [transition, setTransition] = useState<{ runID: string; scene: ShooterStoryScene; optionID: string; retry: boolean } | null>(null);
   const [selectingChapter, setSelectingChapter] = useState(false);
   const [requestedMode, setRequestedMode] = useState<RunMode>("campaign");
 
@@ -136,6 +137,18 @@ export const GameView = ({ locale, controller, browserSession = false }: { reado
         }}
       />
     );
+  } else if (transition?.runID === run.id) {
+    const next = content.chapters[content.chapters.findIndex(chapter => chapter.id === run.state.chapter_slug) + 1];
+    const transitionScene = resolveStoryScene(content, { ...run, state: { ...run.state, story: { scene_id: transition.scene.id, choice_ids: transition.scene.options.map(option => option.id) } } }) ?? transition.scene;
+    screen = <StageIntermission scene={transitionScene} locale={locale} busy={busy}
+      selectedID={transition.optionID} portraitURL={content.characters.find(c => c.id === run.state.character_slug)?.sprite_url}
+      backgroundURL={content.chapters.find(c => c.id === run.state.chapter_slug)?.background_url}
+      onChoose={() => {}}
+      retryStart={transition.retry && next ? () => {
+        setTransition({ ...transition, retry: false });
+        void controller.startCampaign(next.id, next.featured_character === "player-choice" ? "nana7mi" : next.featured_character, 0)
+          .then(() => setTransition(current => current ? { ...current, retry: true } : null));
+      } : undefined}/>;
   } else if (run.status !== "active" || run.state.phase === "completed") {
     screen = (
       <RunResultScreen
@@ -209,18 +222,27 @@ export const GameView = ({ locale, controller, browserSession = false }: { reado
         }
         screen = (
           <StageIntermission
-            stageCleared={run.state.segment_index >= 3}
+            portraitURL={content.characters.find(c => c.id === run.state.character_slug)?.sprite_url}
             backgroundURL={content.chapters.find(chapter => chapter.id === run.state.chapter_slug)?.background_url}
             scene={scene}
             locale={locale}
             busy={busy}
-            onChoose={(sceneID, optionID) =>
-              void command({
-                type: "choose_intermission_reply",
-                scene_id: sceneID,
-                option_id: optionID,
-              })
-            }
+            onChoose={(sceneID, optionID) => {
+              setTransition({ runID: run.id, scene, optionID, retry: false });
+              void (async () => {
+                const response = await command({ type: "choose_intermission_reply", scene_id: sceneID, option_id: optionID });
+                if (!response) { setTransition(null); return; }
+                // Keep the selected action visible after the durable write.
+                await new Promise(resolve => setTimeout(resolve, 750));
+                const next = content.chapters[content.chapters.findIndex(chapter => chapter.id === run.state.chapter_slug) + 1];
+                if (response.run.state.phase === "completed" && mode === "campaign" && next) {
+                  await controller.startCampaign(next.id, next.featured_character === "player-choice" ? "nana7mi" : next.featured_character, 0);
+                  // A successful start changes run ID and hides this transition.
+                  // If it failed, retry ONLY start, never the accepted choice.
+                  setTransition(current => current ? { ...current, retry: true } : null);
+                } else setTransition(null);
+              })();
+            }}
           />
         );
         break;

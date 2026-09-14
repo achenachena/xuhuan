@@ -57,7 +57,7 @@ export const ShooterHUD = ({
           right: "var(--xuhuan-host-safe-right)",
         }}
       >
-        <div className="grid h-12 grid-cols-[auto_1fr] items-center gap-2 border border-cyan-200/25 bg-[#020713]/90 px-2 pr-20 shadow-[0_3px_0_rgba(34,211,238,.12)] backdrop-blur-sm">
+        <div className="grid h-12 grid-cols-[auto_1fr] items-center gap-2 border border-cyan-200/25 bg-[#020713]/90 px-2 pr-20 shadow-[0_3px_0_rgba(34,211,238,.12)]">
         <div className="min-w-[82px]" aria-label={`${gameText(language, "onAir")}: ${health}/3`}>
           <p className="flex justify-between font-mono text-[9px] font-black tracking-[.08em] text-rose-200">
             <span className="flex items-center gap-1">

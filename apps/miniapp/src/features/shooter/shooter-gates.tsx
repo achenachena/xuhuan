@@ -103,8 +103,8 @@ export const ShooterGates = ({ content, run, busy, onChoose }: Props) => {
               disabled={busy || selected !== null} onClick={() => void choose(index)}
               aria-label={`${option.title}. ${option.description}`}
               className={`absolute top-[14%] flex h-[59%] w-[38%] flex-col justify-end border-2 border-transparent px-1 pb-[16%] text-center text-white outline-none focus-visible:border-amber-200 active:bg-cyan-200/10 disabled:cursor-wait ${index === 0 ? "left-[8.5%]" : "right-[8.5%]"}`}>
-              <span className="text-[clamp(12px,3.6vw,16px)] font-black leading-tight">{option.title}</span>
-              <span className="mt-2 text-[clamp(10px,2.8vw,12px)] leading-snug text-slate-200">{option.description}</span>
+              <span className="text-[clamp(12px,3.6vw,16px)] font-black leading-tight">{option.evolution ? (option.evolution === "prism" ? (language === "en" ? "Prism Volley" : "棱镜齐射") : (language === "en" ? "Twin Afterimages" : "双重残影")) : option.title}</span>
+              <span className="mt-2 text-[clamp(10px,2.8vw,12px)] leading-snug text-slate-200">{option.evolution ? (language === "en" ? "AUTO EVOLVE" : "自动进化") : option.description}</span>
             </button>
           ))}
         </div>
