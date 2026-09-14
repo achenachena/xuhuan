@@ -39,6 +39,7 @@ import {
   createShooterRuntime,
   createShooterSimulation,
 } from "@/features/shooter/simulation";
+import { weaponEvolution } from "./types";
 import { ShooterHUD } from "@/features/shooter/shooter-hud";
 import type { ShooterSnapshot } from "@/features/shooter/types";
 import type { ShooterResult } from "@/features/shooter/types";
@@ -521,6 +522,10 @@ export const ShooterArena = ({ content, run, busy, embedded = false, opening, mu
         busy={busy || submitting || settling}
         onRescue={queueRescue}
       />
+      {run.state.segment_index === 3 && (hudSnapshot?.tick ?? 0) < 45 && weaponEvolution(runtime.config.show_effects) && assetState === "ready" && <div role="status" className="pointer-events-none absolute left-0 right-0 top-1/3 z-20 text-center font-black text-cyan-100 motion-safe:animate-pulse">
+        <p className="text-xs tracking-widest">{language === "en" ? "EVOLVED!" : "武器进化！"}</p>
+        <p className="mt-2 text-2xl">{weaponEvolution(runtime.config.show_effects) === "prism" ? (language === "en" ? "Prism Volley" : "棱镜齐射") : (language === "en" ? "Twin Afterimages" : "双重残影")}</p>
+      </div>}
       {assetState !== "ready" ? (
         <div className="absolute inset-0 z-40 grid place-items-center bg-[#0b1827] p-6 text-center font-mono text-sm text-cyan-100" role="status">
           {assetState === "error" ? (

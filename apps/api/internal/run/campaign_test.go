@@ -211,3 +211,24 @@ func TestEncounterSeedsVaryGroupsWithinTheChapterBudget(t *testing.T) {
 		t.Fatalf("insufficient variety: %d waves, relay=%v", len(seen), sawRelay)
 	}
 }
+
+func TestFinalGateCompletesFirstWeaponOrOffersDefense(t *testing.T) {
+	catalog := gamecontent.MustLoadV4()
+	for first, material := range map[string]string{"double-take": "instant-replay", "instant-replay": "double-take", "wide-angle": "clean-cut", "clean-cut": "wide-angle"} {
+		for _, seed := range []string{"a", "b", "c"} {
+			state := State{SegmentIndex: 2, ShowEffects: []string{first}}
+			options := stagedOptions(state, seed, catalog)
+			if len(options) != 2 || !slices.Contains(options, material) {
+				t.Fatalf("%s: %v", first, options)
+			}
+			for _, id := range options {
+				if id != material {
+					effect, _ := catalog.ShowEffect(id)
+					if effect.Archetype != "guard" {
+						t.Fatalf("expected defense: %s", id)
+					}
+				}
+			}
+		}
+	}
+}

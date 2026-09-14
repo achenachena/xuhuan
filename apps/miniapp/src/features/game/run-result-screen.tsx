@@ -1,5 +1,6 @@
 "use client";
 
+import { StoryAction } from "./story-actions";
 import type { GameLocale } from "@/features/game/game-copy";
 import { gameText } from "@/features/game/game-copy";
 import type { ShooterContent, ShooterGameRun } from "@/lib/api/types";
@@ -58,6 +59,9 @@ export const RunResultScreen = ({
           {character?.name ?? run.state.character_slug}
         </p>
         <h1 className="mt-3 text-3xl font-black leading-tight">{title}</h1>
+        {ending && <StoryAction id={ending.id} portraitURL={character?.sprite_url} selected/>}
+        <p aria-label={locale === "en" ? "Remaining hearts" : "剩余生命"} className="mt-3 text-xl text-pink-300">{"♥".repeat(run.state.hearts)}{"♡".repeat(Math.max(0,3-run.state.hearts))}</p>
+        <details className="mt-3 text-left text-sm"><summary className="cursor-pointer text-cyan-200">{locale === "en" ? "Story" : "剧情"}</summary>
         {ending ? (
           <div className="mt-3 border border-pink-200/20 bg-pink-300/5 p-3 text-left">
             <p className="text-sm font-bold text-pink-100">{ending.title}</p>
@@ -81,6 +85,7 @@ export const RunResultScreen = ({
             ))}
           </div>
         ) : null}
+        </details>
         <div className="mt-4 border-y border-white/10 py-3">
           <p className="font-mono text-[9px] tracking-[.2em] text-slate-500">
             {gameText(locale, "finalScore")}

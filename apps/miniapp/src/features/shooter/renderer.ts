@@ -20,7 +20,7 @@ const chassisAssets = {
   "caption-blob": "/game/v4/enemies/caption-blob.webp",
   "black-screen-ghost": "/game/v4/enemies/black-screen-ghost.webp",
   "gift-thief": "/game/v4/enemies/gift-thief.webp",
-  "shield-relay": "/game/v4/enemies/censor-frame.webp",
+  "shield-relay": "/game/v4/enemies/shield-relay.webp",
   "censor-frame": "/game/v4/enemies/censor-frame.webp",
 } as const;
 const pickupAssets = [
@@ -28,7 +28,8 @@ const pickupAssets = [
   "/game/v4/pickups/support-pink.webp",
   "/game/v4/pickups/support-gold.webp",
 ] as const;
-const pickupVisuals: Record<ShooterPickupPower, { asset: number; color: string }> = {
+const pickupVisuals: Record<ShooterPickupPower | "energy", { asset: number; color: string }> = {
+  energy: { asset: 2, color: "#fff2a6" },
   support: { asset: 2, color: "#fde68a" },
   rapid: { asset: 0, color: "#67e8f9" },
   spread: { asset: 1, color: "#f9a8d4" },
@@ -567,12 +568,6 @@ const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapsho
     context.fillStyle = "#67e8f9";
     context.fillRect(point.x - 92, point.y + 210, 184, 112);
     context.restore();
-  } else if (wasHit) {
-    context.save();
-    context.globalAlpha = tick % 2 === 0 ? 0.88 : 0.55;
-    context.filter = "brightness(4) contrast(1.8) saturate(.15)";
-    drawSprite(context, source ? visuals.get(source) : undefined, point.x + impactOffset, point.y + impactDrop, enemy.boss ? 900 : 460, "#f8fafc");
-    context.restore();
   }
   if (enemy.marks) {
     context.fillStyle = "#67e8f9";
@@ -587,7 +582,7 @@ const drawEnemy = (context: CanvasRenderingContext2D, enemy: ShooterEnemySnapsho
   }
 };
 
-const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterProjectileSnapshot, previous: PositionIndex, alpha: number, dense: boolean): void => {
+const paintProjectile = (context: CanvasRenderingContext2D, projectile: ShooterProjectileSnapshot, previous: PositionIndex, alpha: number, dense: boolean): void => {
   const point = entityPosition(projectile, previous, alpha);
   context.save();
   const color = projectile.hostile ? "#fb7185" : "#67e8f9";
@@ -615,6 +610,13 @@ const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterPr
     context.fillRect(-34, -68, 68, 136);
     context.fillStyle = "#ffffff";
     context.fillRect(-14, -46, 28, 92);
+  } else if (projectile.kind === "prism") {
+    context.fillStyle = "#67e8f9"; context.fillRect(point.x-80,point.y-150,160,240);
+    context.fillStyle = "#c4b5fd"; context.fillRect(point.x-48,point.y-190,96,320);
+    context.fillStyle = "#fff"; context.fillRect(point.x-18,point.y-170,36,290);
+  } else if (projectile.kind === "echo") {
+    context.fillStyle = "#c4b5fd"; context.fillRect(point.x-32,point.y-110,64,200);
+    context.fillStyle = "#fff"; context.fillRect(point.x-12,point.y-90,24,100);
   } else if (projectile.kind === "pierce") {
     context.shadowColor = "#fde68a";
     context.shadowBlur = 34;
@@ -627,11 +629,51 @@ const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterPr
   context.restore();
 };
 
+// Each canvas owns a bounded atlas at its current resolution. Blurs and the
+// pixel silhouettes are rasterized once, not once per bullet per frame.
+const projectileAtlases = new WeakMap<HTMLCanvasElement, { width: number; height: number; sprites: Map<string, { canvas: HTMLCanvasElement; w: number; h: number }> }>();
+const drawProjectile = (context: CanvasRenderingContext2D, projectile: ShooterProjectileSnapshot, previous: PositionIndex, alpha: number, dense: boolean): void => {
+  const target = context.canvas;
+  let atlas = projectileAtlases.get(target);
+  if (!atlas || atlas.width !== target.width || atlas.height !== target.height) {
+    atlas = { width: target.width, height: target.height, sprites: new Map() };
+    projectileAtlases.set(target, atlas);
+  }
+  const radius = Math.max(42, projectile.radius ?? 0);
+  const width = projectile.width ?? 0;
+  const key = `${projectile.hostile}:${projectile.kind}:${radius}:${width}:${(projectile.health ?? 0) > 0}:${dense}`;
+  let sprite = atlas.sprites.get(key);
+  if (!sprite) {
+    const w = (width || radius * 3) + 600, h = Math.max(radius * 3, 320) + 600;
+    const canvas = document.createElement("canvas");
+    const scale = target.width / SHOOTER_WIDTH;
+    canvas.width = Math.max(1, Math.ceil(w * scale));
+    canvas.height = Math.max(1, Math.ceil(h * scale));
+    const paint = canvas.getContext("2d")!;
+    paint.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height / 2);
+    paintProjectile(paint, { ...projectile, position: { x: 0, y: 0 }, velocity: { x: 0, y: projectile.hostile ? 1 : -1 } }, new Map(), 1, dense);
+    sprite = { canvas, w: canvas.width / scale, h: canvas.height / scale };
+    if (atlas.sprites.size >= 96) atlas.sprites.clear();
+    atlas.sprites.set(key, sprite);
+  }
+  const point = entityPosition(projectile, previous, alpha);
+  context.save();
+  context.translate(point.x, point.y);
+  if (projectile.hostile && !width) context.rotate(Math.atan2(projectile.velocity.y, projectile.velocity.x) - Math.PI / 2);
+  else if (projectile.kind === "spread") context.rotate(Math.atan2(projectile.velocity.y, projectile.velocity.x) + Math.PI / 2);
+  context.drawImage(sprite.canvas, -sprite.w / 2, -sprite.h / 2, sprite.w, sprite.h);
+  context.restore();
+};
+
 const drawPickup = (context: CanvasRenderingContext2D, pickup: ShooterPickupSnapshot, previous: PositionIndex, alpha: number, sources: ShooterVisualSources, visuals: ShooterVisuals): void => {
   const point = entityPosition(pickup, previous, alpha);
   const pickupVisual = pickupVisuals[pickup.kind];
   const source = sources.pickups[pickupVisual.asset]!;
-  drawSprite(context, visuals.get(source), point.x, point.y, 300, "#fde68a");
+  if (pickup.kind === "energy") {
+    context.save(); context.translate(point.x, point.y); context.fillStyle = "#f59e0b";
+    context.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, r = i % 2 ? 65 : 170; const x = Math.round(Math.cos(a) * r / 12) * 12, y = Math.round(Math.sin(a) * r / 12) * 12; if (i === 0) context.moveTo(x,y); else context.lineTo(x,y); } context.closePath(); context.fill();
+    context.fillStyle = "#fff2a6"; context.fillRect(-36,-72,72,144); context.fillRect(-72,-36,144,72); context.restore();
+  } else drawSprite(context, visuals.get(source), point.x, point.y, 300, "#fde68a");
   context.strokeStyle = pickupVisual.color;
   context.globalAlpha = 0.55;
   context.lineWidth = 14;
@@ -643,6 +685,10 @@ const drawPickup = (context: CanvasRenderingContext2D, pickup: ShooterPickupSnap
 
 const drawEffect = (context: CanvasRenderingContext2D, effect: ShooterEffectSnapshot): void => {
   context.save();
+  if (effect.kind === "core_pulse") {
+    context.strokeStyle = "#fde68a"; context.lineWidth = 26; context.globalAlpha = effect.ticks / 24;
+    context.beginPath(); context.arc(effect.position.x,effect.position.y,(effect.power ?? 1100)*(1-effect.ticks/24),0,Math.PI*2);context.stroke();context.restore();return;
+  }
   if (effect.kind === "blast_wave") {
     const radius=(30-effect.ticks)*220; context.strokeStyle="#a5f3fc"; context.lineWidth=30; context.globalAlpha=effect.ticks/30;
     context.beginPath();context.arc(effect.position.x,effect.position.y,radius,0,Math.PI*2);context.stroke();context.restore();return;
@@ -684,7 +730,7 @@ const drawEffect = (context: CanvasRenderingContext2D, effect: ShooterEffectSnap
   context.restore();
 };
 
-const drawBackground = (context: CanvasRenderingContext2D, source: string, visuals: ShooterVisuals, tick: number): void => {
+const paintBackground = (context: CanvasRenderingContext2D, source: string, visuals: ShooterVisuals, tick: number): void => {
   const image = visuals.get(source);
   if (image) context.drawImage(image, 0, 0, SHOOTER_WIDTH, SHOOTER_HEIGHT);
   else {
@@ -699,6 +745,23 @@ const drawBackground = (context: CanvasRenderingContext2D, source: string, visua
   const shade = context.createLinearGradient(0, 0, 0, SHOOTER_HEIGHT);
   shade.addColorStop(0, "rgba(2,6,23,.5)"); shade.addColorStop(0.5, "rgba(2,6,23,.05)"); shade.addColorStop(1, "rgba(2,6,23,.45)");
   context.fillStyle = shade; context.fillRect(0, 0, SHOOTER_WIDTH, SHOOTER_HEIGHT);
+};
+
+const backgroundFrames = new WeakMap<HTMLCanvasElement, { source: string; image: HTMLImageElement; canvas: HTMLCanvasElement }>();
+const drawBackground = (context: CanvasRenderingContext2D, source: string, visuals: ShooterVisuals, tick: number): void => {
+  const image = visuals.get(source);
+  if (!image) { paintBackground(context, source, visuals, tick); return; }
+  let frame = backgroundFrames.get(context.canvas);
+  if (!frame || frame.source !== source || frame.image !== image || frame.canvas.width !== context.canvas.width || frame.canvas.height !== context.canvas.height) {
+    const canvas = document.createElement("canvas");
+    canvas.width = context.canvas.width; canvas.height = context.canvas.height;
+    const paint = canvas.getContext("2d")!;
+    paint.imageSmoothingEnabled = false;
+    paint.setTransform(canvas.width / SHOOTER_WIDTH, 0, 0, canvas.height / SHOOTER_HEIGHT, 0, 0);
+    paintBackground(paint, source, visuals, tick);
+    frame = { source, image, canvas }; backgroundFrames.set(context.canvas, frame);
+  }
+  context.drawImage(frame.canvas, 0, 0, SHOOTER_WIDTH, SHOOTER_HEIGHT);
 };
 
 export const drawShooterArena = (
@@ -769,6 +832,13 @@ export const drawShooterArena = (
   context.globalAlpha = current.invulnerable_ticks > 0 && current.tick % 4 < 2 ? 0.35 : 1;
   drawSprite(context, visuals.get(sources.player), playerX, presentationY, 540, "#67e8f9");
   context.globalAlpha = 1;
+  if ((current.overdrive_ticks ?? 0) > 0) {
+    context.fillStyle = "#fde68a";
+    for (const side of [-1,1]) for (let i=0;i<3;i++) {
+      const x = playerX + side * (220 + i*45);
+      context.fillRect(x-12,presentationY+80+i*36+(current.tick%6)*5,24,80-i*14);
+    }
+  }
   const healthWidth = 330;
   const healthLeft = playerX - healthWidth / 2;
   context.fillStyle = "rgba(2,6,23,.9)";
@@ -828,6 +898,28 @@ const drawWeaponPreview = (
   y: number,
   tick: number,
 ): void => {
+  if (option.evolution) {
+    // Before + material → evolved volley; all three states loop in one card.
+    const part = Math.floor(tick / 36) % 3;
+    if (part < 2) {
+      drawWeaponPreview(context, { ...option, evolution: undefined, behavior: part === 0 ? (option.currentBehavior ?? option.behavior) : option.behavior }, x, y, tick);
+    } else {
+      const travel = (tick % 36) / 36 * 700;
+      context.save();
+      for (const origin of option.evolution === "afterimages" ? [-220, 220] : [0]) {
+        context.fillStyle = "#c4b5fd"; context.globalAlpha = .5;
+        context.fillRect(x + origin - 70, y + 320, 140, 100); context.globalAlpha = 1;
+        for (const lane of option.evolution === "prism" ? [-1,0,1] : [-1,1]) {
+          const sx = x + origin + lane * (option.evolution === "prism" ? travel * .36 : 50);
+          context.fillStyle = option.evolution === "prism" ? "#67e8f9" : "#c4b5fd";
+          context.fillRect(sx-45,y+280-travel,90,230); context.fillStyle="#fff";context.fillRect(sx-15,y+290-travel,30,190);
+        }
+      }
+      context.restore();
+    }
+    context.save();context.fillStyle="#fde68a";context.font="bold 105px monospace";context.textAlign="center";
+    context.fillText(part === 0 ? "1" : part === 1 ? "+" : "→", x, y + 610);context.restore();return;
+  }
   const phase = (tick % 42) / 42;
   const travel = phase * 720;
   context.save();

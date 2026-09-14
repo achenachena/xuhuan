@@ -730,6 +730,7 @@ func requiredV4Assets() []string {
 		"/game/v4/enemies/black-screen-ghost.webp",
 		"/game/v4/enemies/gift-thief.webp",
 		"/game/v4/enemies/censor-frame.webp",
+		"/game/v4/enemies/shield-relay.webp",
 		"/game/v4/bosses/optimal-nana.webp",
 		"/game/v4/bosses/always-on-idol.webp",
 		"/game/v4/bosses/perfect-highlight.webp",

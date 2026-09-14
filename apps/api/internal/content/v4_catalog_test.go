@@ -71,11 +71,11 @@ func TestV4CatalogIsCompleteAndBilingual(t *testing.T) {
 	if normalSegments != 24 || bosses != 8 || normalSegments+bosses != 32 || bossStages != 24 {
 		t.Fatalf("combat catalog normal=%d bosses=%d total=%d stages=%d", normalSegments, bosses, normalSegments+bosses, bossStages)
 	}
-	if got := len(catalog.Manifest.Assets); got != 32 {
-		t.Fatalf("assets = %d, want 32", got)
+	if got := len(catalog.Manifest.Assets); got != 33 {
+		t.Fatalf("assets = %d, want 33", got)
 	}
 	if !slices.Equal(catalog.Manifest.Assets, requiredV4Assets()) {
-		t.Fatal("manifest assets do not match the exact 32-file V4 runtime set")
+		t.Fatal("manifest assets do not match the exact 33-file V4 runtime set")
 	}
 	finale, ok := catalog.Chapter("zero-channel")
 	if !ok || len(finale.Endings) != 3 || finale.Boss.ID != "auto-archive-system" {

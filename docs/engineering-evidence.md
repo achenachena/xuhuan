@@ -48,3 +48,10 @@ The script loads the current TypeScript collision function and compares it to th
 ## Gameplay footage
 
 The committed gameplay clips document the earlier short prototype, before the full browser campaign replaced it. They were recorded from real Canvas and Web Audio output without modifying combat state, health or timing. The engineering page labels this historical footage. Play the current campaign at `/play`; the retired prototype recording script has been removed.
+
+## Jiaran Boss browser rendering
+
+[Real-time rendering measurements and reproduction](evidence/jiaran-performance.md)
+cover all three authored phases, a renderer-only comparison and the final weapon
+combinations. They distinguish frame timing, Canvas submission, GC and actual
+page React commit frequency, and document the limits of the local result.

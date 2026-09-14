@@ -85,6 +85,7 @@ const createInitialState = (runtime: ShooterRuntime): ShooterMutableState => ({
   pickupsCollected: 0,
   pickupPower: null,
   pickupPowerTicks: 0,
+  overdriveTicks: 0,
   pressureQuietTicks: 0,
   effects: [],
   ...(runtime.config.reversal ? { reversal: { breaks: 0, chain: [], fans: [] } } : {}),
@@ -127,6 +128,7 @@ const updateEnemies = (state: ShooterMutableState): void => {
 
 const snapshot = (state: ShooterMutableState): ShooterSnapshot => ({
   tick: state.tick,
+  overdrive_ticks: state.overdriveTicks,
   player_x: state.playerX,
   player_y: state.playerY,
   health: state.health,
@@ -262,6 +264,7 @@ export const createShooterSimulation = (runtime: ShooterRuntime): ShooterSimulat
     updateProjectiles(state);
     // Expire the previous support after this tick's shot, before a new pickup refreshes it.
     if (state.config.reversal && state.pickupPowerTicks > 0) state.pickupPowerTicks -= 1;
+    if (state.overdriveTicks > 0) state.overdriveTicks--;
     updatePickups(state);
     updateEffects(state);
     if (!state.config.reversal && state.pickupPowerTicks > 0) state.pickupPowerTicks -= 1;

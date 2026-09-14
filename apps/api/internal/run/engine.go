@@ -255,25 +255,36 @@ func stagedOptions(state State, seed string, catalog *gamecontent.V4Catalog) []s
 			}
 		}
 	case "rescue":
-		for _, item := range catalog.ShowEffects {
-			if (item.Archetype == "guard" || item.Behavior == "twin_shot" || item.Behavior == "spread_shot" || item.Behavior == "piercing_shot" || item.Behavior == "echo_volley") && !slices.Contains(state.ShowEffects, item.ID) {
-				candidates = append(candidates, item.ID)
+		pairs := map[string]string{"double-take": "instant-replay", "instant-replay": "double-take", "wide-angle": "clean-cut", "clean-cut": "wide-angle"}
+		for _, selected := range state.ShowEffects {
+			if material := pairs[selected]; material != "" && !slices.Contains(state.ShowEffects, material) {
+				candidates = append(candidates, material)
+				break
 			}
 		}
-		// A concrete story reply may already grant one of the two guard effects.
-		// Keep the third gate at exactly two understandable, one-level choices by
-		// filling from style first, then power, without offering duplicates.
-		for _, fallbackArchetype := range []string{"style", "power"} {
-			for _, item := range catalog.ShowEffects {
-				if len(candidates) >= 2 {
+		for _, item := range catalog.ShowEffects {
+			if item.Archetype == "guard" && !slices.Contains(state.ShowEffects, item.ID) {
+				candidates = append(candidates, item.ID)
+				if len(candidates) == 2 {
 					break
-				}
-				if item.Archetype == fallbackArchetype && !slices.Contains(state.ShowEffects, item.ID) && !slices.Contains(candidates, item.ID) {
-					candidates = append(candidates, item.ID)
 				}
 			}
 		}
 	}
+
+	// Existing saves can already own both guard rewards from the former flow.
+	// Keep that pending gate playable without duplicating an owned effect.
+	if rewardStageForIndex(state.SegmentIndex) == "rescue" && len(candidates) < 2 {
+		for _, item := range catalog.ShowEffects {
+			if !slices.Contains(state.ShowEffects, item.ID) && !slices.Contains(candidates, item.ID) {
+				candidates = append(candidates, item.ID)
+				if len(candidates) == 2 {
+					break
+				}
+			}
+		}
+	}
+
 	sort.Strings(candidates)
 	stream := randomStream{seed: seed + fmt.Sprintf(":show:%d", state.SegmentIndex)}
 	for index := len(candidates) - 1; index > 0; index-- {

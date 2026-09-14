@@ -142,3 +142,21 @@ The mode tracks only the player's personal best and clear streak. It has no glob
 - Important hits combine a sprite flash, a short procedural sound, and optional Telegram haptic feedback.
 - Color is never the only signal: pickups, bullets, warnings, health, and special readiness also differ by shape and motion.
 - Background pause freezes local time; returning cannot create an input burst.
+
+### Core priority and automatic evolutions
+
+The shield relay now has its own hand-authored pixel sprite. Breaking it deals
+half maximum health to the ordinary enemies within its existing 1,500-unit
+links, clears nearby enemy fire, and drops an energy star. Bosses are excluded.
+The star refreshes six seconds of 25% faster firing (minimum three ticks); this
+transient buff resets per room and never enters a save or API request.
+
+Spread + piercing becomes three wide, penetrating prism lanes. Twin + echo adds
+two offset afterimages every third volley. The last gate offers the missing
+material for the first weapon choice alongside defense. Builds still reset when
+a new character starts. Authored tutorial and Boss attack schedules are unchanged.
+
+Chapter choices use explicit durable IDs in `story-actions.tsx`, with short action
+previews and optional story details. All three original finale endings remain
+available. After a successful story write, the chosen action plays before the
+next character starts. If starting fails, retrying does not resubmit the choice.

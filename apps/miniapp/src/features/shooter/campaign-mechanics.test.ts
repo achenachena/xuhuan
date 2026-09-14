@@ -9,7 +9,7 @@ import xingtongChapter from "../../../../api/internal/content/v4/chapters/which-
 import nailuChapter from "../../../../api/internal/content/v4/chapters/laplace-florist.json";
 import finaleChapter from "../../../../api/internal/content/v4/chapters/zero-channel.json";
 import { PLAYER_Y } from "@/features/shooter/constants";
-import { addEnemyHazard, damagePlayer, fireEnemy, moveEnemy, threatSnapshots, updateKitPassives, updatePickups, updateProjectiles } from "@/features/shooter/enemies";
+import { addEnemyHazard, damagePlayer, removeDefeatedEnemies, fireEnemy, moveEnemy, threatSnapshots, updateKitPassives, updatePickups, updateProjectiles } from "@/features/shooter/enemies";
 import { createShooterSimulationFromConfig } from "@/features/shooter/simulation";
 import { activateRescue } from "@/features/shooter/specials";
 import { addPlayerProjectile, createShooterRuntime, grantShooterShield, updateCompanions, updateWeapons } from "@/features/shooter/weapons";
@@ -47,7 +47,7 @@ const createState = (config = characterConfig("nana7mi")): ShooterMutableState =
     companionSignals: config.companions.map(() => 0), companionPending: config.companions.map(() => false),
     nextEnemyID: 0, nextProjectileID: 0, nextPickupID: 0, nextEffectID: 0, spawnedBoss: false,
     dailyVariant: "", enemies: [], enemyProjectiles: [], playerProjectiles: [],
-    pickups: [], pickupsCollected: 0, pickupPower: null, pickupPowerTicks: 0,
+    pickups: [], pickupsCollected: 0, pickupPower: null, pickupPowerTicks: 0, overdriveTicks: 0,
     pressureQuietTicks: 0, effects: [],
   };
 };
@@ -405,10 +405,10 @@ describe("free movement and readable builds", () => {
       { kind: "spread_shot", amount: 2 }, { kind: "piercing_shot", amount: 1 }, { kind: "echo_volley", amount: 35 },
     ] });
     for (let volley=0; volley<3; volley++) { state.attackClock=100; updateWeapons(state); }
-    const echoes=state.playerProjectiles.filter(p => p.y === state.playerY+220);
+    const echoes=state.playerProjectiles.filter(p => p.y === state.playerY+180);
     expect(echoes).toHaveLength(3);
     expect(echoes.every(p => p.pierce === 1)).toBe(true);
-    expect(echoes.map(p => p.vx)).toEqual([-130,0,130]);
+    expect(echoes.map(p => p.vx)).toEqual([-76,0,76]);
   });
 
   it("a relay protects neighbors only while it is alive", () => {
@@ -426,5 +426,38 @@ describe("free movement and readable builds", () => {
     expect(target.warning).toBeGreaterThan(0);const y=target.y;
     target.age=62;moveEnemy(state,target,spec);
     expect(target.warning).toBe(0);expect(target.y).toBeGreaterThan(y);
+  });
+});
+
+
+describe("energy core and evolutions", () => {
+  it("settles a core once, halves linked ordinary max HP, spares the Boss and clears local fire", () => {
+    const config=characterConfig("nana7mi");
+    const state=createState({ ...config, enemies:[config.enemies[0]!,{ ...config.enemies[0]!, id:"shield-relay", chassis:"shield-relay", traits:["shield_link"] }] });
+    state.enemies=[enemy(1,{x:1800,y:1400,health:20,maxHealth:40}),enemy(2,{specIndex:1,x:1800,y:1400,health:0}),enemy(3,{boss:true,x:1800,y:1400,health:100,maxHealth:100}),enemy(4,{x:3400,y:1400,health:40,maxHealth:40})];
+    addEnemyHazard(state,"enemy_shot",1800,1400,0,20,1,42,0,0);
+    removeDefeatedEnemies(state);
+    expect(state.enemies.map(e=>[e.id,e.health])).toEqual([[3,100],[4,40]]);
+    expect(state.enemyProjectiles).toHaveLength(0);
+    expect(state.pickups.filter(p=>p.kind==="energy")).toHaveLength(1);
+    const score=state.score;removeDefeatedEnemies(state);expect(state.score).toBe(score);
+  });
+  it("refreshes six-second overdrive without replacing a pickup weapon or stacking its multiplier", () => {
+    const state=createState();state.pickupPower="pierce";state.pickupPowerTicks=300;
+    state.pickups=[{id:1,x:1800,y:state.playerY-70,kind:"energy",value:0}];updatePickups(state);
+    expect(state.overdriveTicks).toBe(180);expect(state.pickupPower).toBe("pierce");
+    state.overdriveTicks=70;state.pickups=[{id:2,x:1800,y:state.playerY-70,kind:"energy",value:0}];updatePickups(state);expect(state.overdriveTicks).toBe(180);
+    const interval=Math.max(3,Math.ceil(state.runtime.fireInterval*.75));for(let i=0;i<interval-1;i++)updateWeapons(state);
+    expect(state.playerProjectiles).toHaveLength(0);updateWeapons(state);expect(state.playerProjectiles.length).toBeGreaterThan(0);
+    expect(createShooterSimulationFromConfig(state.config).snapshot().overdrive_ticks).toBe(0);
+  });
+  it("fires three wide piercing prism lanes and two offset echo volleys", () => {
+    const config=characterConfig("nana7mi");
+    const prism=createState({...config,show_effects:[{kind:"spread_shot",amount:2},{kind:"piercing_shot",amount:1}]});
+    prism.attackClock=100;updateWeapons(prism);expect(prism.playerProjectiles.map(p=>[p.kind,p.vx,p.pierce,p.radius])).toEqual([["prism",-76,4,85],["prism",0,4,85],["prism",76,4,85]]);
+    const twin=createState({...config,show_effects:[{kind:"twin_shot",amount:1},{kind:"echo_volley",amount:35}]});
+    for(let i=0;i<3;i++){twin.attackClock=100;updateWeapons(twin)}
+    const echoes=twin.playerProjectiles.filter(p=>p.kind==="echo");expect(echoes).toHaveLength(4);expect(echoes.map(p=>p.x)).toEqual([1466,1534,2066,2134]);
+    expect(twin.effects.filter(e=>e.kind==="afterimage_replay")).toHaveLength(2);
   });
 });

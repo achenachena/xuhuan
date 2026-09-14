@@ -1,0 +1,140 @@
+.scene {
+  width: 100%;
+  aspect-ratio: 5/4;
+  image-rendering: pixelated;
+  overflow: visible;
+}
+.scene g,
+.scene path {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.drop {
+  animation: drop 2.4s infinite;
+}
+.lid {
+  animation: lid 2.4s infinite;
+}
+.dissolve {
+  animation: dissolve 2.4s infinite;
+}
+.wave {
+  animation: wave 1.2s infinite alternate;
+}
+.walk {
+  animation: walk 2.4s infinite;
+}
+.exit {
+  animation: exit 2.4s infinite;
+}
+.spotlight,
+.flash {
+  animation: flash 2.4s infinite;
+}
+.float {
+  animation: float 2.4s infinite alternate;
+}
+.left {
+  animation: left 2.4s infinite alternate;
+}
+.right {
+  animation: right 2.4s infinite alternate;
+}
+.selected {
+  background: radial-gradient(ellipse, #67e8f922, transparent 70%);
+}
+.selected * {
+  animation-duration: 0.75s;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+@keyframes drop {
+  0%,
+  15% {
+    transform: translateY(-14px);
+  }
+  65%,
+  100% {
+    transform: translateY(13px);
+  }
+}
+@keyframes lid {
+  0%,
+  30% {
+    transform: translateY(-15px) rotate(-12deg);
+  }
+  65%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes dissolve {
+  0%,
+  25% {
+    opacity: 1;
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scale(1.2);
+  }
+}
+@keyframes wave {
+  from {
+    transform: scaleY(0.5);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes walk {
+  0%,
+  15% {
+    transform: translateX(-43px);
+  }
+  70%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes exit {
+  0%,
+  15% {
+    transform: none;
+  }
+  70%,
+  100% {
+    transform: translateX(44px);
+    opacity: 0;
+  }
+}
+@keyframes flash {
+  0%,
+  20% {
+    opacity: 0.2;
+  }
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes float {
+  to {
+    transform: translateY(-7px);
+  }
+}
+@keyframes left {
+  to {
+    transform: translateX(-9px);
+  }
+}
+@keyframes right {
+  to {
+    transform: translateX(9px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene * {
+    animation: none !important;
+  }
+}

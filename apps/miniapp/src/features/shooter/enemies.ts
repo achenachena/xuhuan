@@ -290,6 +290,21 @@ const dropSupportNote = (state: ShooterMutableState, x: number, y: number, value
 };
 
 export const removeDefeatedEnemies = (state: ShooterMutableState): void => {
+  // Resolve links before rewards/cleanup, so enemies earlier in the array
+  // can also die in the pulse. A core leaves the array in this same call.
+  for (const core of state.enemies) {
+    if (core.boss || core.health > 0 || state.config.enemies[core.specIndex]?.chassis !== "shield-relay") continue;
+    for (const target of state.enemies) {
+      if (target === core || target.boss || target.health <= 0 || state.config.enemies[target.specIndex]?.chassis === "shield-relay") continue;
+      if (squaredDistance(core.x, core.y, target.x, target.y) < 1500 ** 2) target.health -= Math.ceil(target.maxHealth / 2);
+    }
+    state.enemyProjectiles = state.enemyProjectiles.filter(shot => squaredDistance(core.x, core.y, clamp(core.x, shot.x - shot.width / 2, shot.x + shot.width / 2), shot.y) > (1100 + shot.radius) ** 2);
+    addShooterEffect(state, "core_pulse", core.x, core.y, 24, 1100);
+    if (state.pickups.length < state.config.limits.pickups) {
+      state.nextPickupID++;
+      state.pickups.push({ id: state.nextPickupID, x: clamp(core.x, PLAYER_RADIUS, SHOOTER_WIDTH - PLAYER_RADIUS), y: core.y, kind: "energy", value: 0 });
+    }
+  }
   const alive: ShooterEnemyEntity[] = [];
   for (const enemy of state.enemies) {
     if (
@@ -345,7 +360,7 @@ export const removeDefeatedEnemies = (state: ShooterMutableState): void => {
       noteValue = 30;
       state.score += 200;
     }
-    if (!state.config.reversal || enemy.role === "escort") dropSupportNote(state, enemy.x, enemy.y, noteValue);
+    if ((!state.config.reversal && (enemy.boss || state.config.enemies[enemy.specIndex]?.chassis !== "shield-relay")) || enemy.role === "escort") dropSupportNote(state, enemy.x, enemy.y, noteValue);
     if (state.runtime.recoveryDrop > 0 && state.kills % Math.max(2, 6 - state.runtime.recoveryDrop) === 0) {
       state.health = Math.min(state.runtime.maxHealth, state.health + 1);
     }
@@ -366,6 +381,11 @@ export const updatePickups = (state: ShooterMutableState): void => {
       state.pickupsCollected += 1;
       earnRescue(state, pickup.value);
       state.score += 40 * Math.max(1, state.combo);
+      if (pickup.kind === "energy") {
+        state.overdriveTicks = 180;
+        addShooterEffect(state, "support_powerup_energy", state.playerX, state.playerY, 24, 0);
+        continue;
+      }
       // Ordinary support notes extend a weapon rather than replacing it.
       const samePower = state.pickupPower === pickup.kind || pickup.kind === "support";
       const duration = state.config.reversal ? 360 : 450;
